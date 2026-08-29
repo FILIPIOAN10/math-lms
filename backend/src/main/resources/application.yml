@@ -1,4 +1,7 @@
 spring:
+  config:
+    import: optional:file:./.env[.properties]
+
   application:
     name: math-lms-backend
 
@@ -24,6 +27,18 @@ spring:
       host: localhost
       port: 6379
 
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID}
+            client-secret: ${GOOGLE_CLIENT_SECRET}
+            scope:
+              - openid
+              - profile
+              - email
+
 server:
   port: 8080
 
@@ -35,6 +50,13 @@ management:
   endpoint:
     health:
       show-details: when-authorized
+
+app:
+  auth:
+    admin-emails: ${ADMIN_EMAILS}
+    allowed-emails: ${ALLOWED_EMAILS:}
+    jwt-secret: ${JWT_SECRET}
+    jwt-expiration-minutes: ${JWT_EXPIRATION_MINUTES:60}
 
 logging:
   level:
