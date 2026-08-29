@@ -84,6 +84,13 @@
 			<scope>runtime</scope>
 		</dependency>
 
+		<!-- Lombok: getters / constructors boilerplate (version managed by parent) -->
+		<dependency>
+			<groupId>org.projectlombok</groupId>
+			<artifactId>lombok</artifactId>
+			<optional>true</optional>
+		</dependency>
+
 		<!-- Testing: JUnit 5, Mockito, AssertJ (bundled in starter-test) -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
