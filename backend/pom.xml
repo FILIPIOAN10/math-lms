@@ -91,6 +91,25 @@
 			<optional>true</optional>
 		</dependency>
 
+		<!-- JWT: sign / validate our own tokens stored in the HttpOnly cookie -->
+		<dependency>
+			<groupId>io.jsonwebtoken</groupId>
+			<artifactId>jjwt-api</artifactId>
+			<version>0.13.0</version>
+		</dependency>
+		<dependency>
+			<groupId>io.jsonwebtoken</groupId>
+			<artifactId>jjwt-impl</artifactId>
+			<version>0.13.0</version>
+			<scope>runtime</scope>
+		</dependency>
+		<dependency>
+			<groupId>io.jsonwebtoken</groupId>
+			<artifactId>jjwt-jackson</artifactId>
+			<version>0.13.0</version>
+			<scope>runtime</scope>
+		</dependency>
+
 		<!-- Testing: JUnit 5, Mockito, AssertJ (bundled in starter-test) -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>

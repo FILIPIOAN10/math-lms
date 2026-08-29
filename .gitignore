@@ -23,3 +23,5 @@ dist-ssr/
 # Logs
 *.log
 npm-debug.log*
+# Documentatie locala (nu se comite)
+ROADMAP.md
