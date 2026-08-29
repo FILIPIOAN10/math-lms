@@ -1,0 +1,12 @@
+title = "math-lms gitleaks config"
+
+# Porneste de la regulile implicite Gitleaks si adauga exceptiile noastre.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Valori dummy folosite DOAR pentru CI - nu sunt credentiale reale. Secretele reale stau in .env (gitignored)."
+regexes = [
+  # Valoarea de test pentru JWT din .github/workflows/ci.yml
+  '''ci-test-secret-at-least-32-characters-long''',
+]
