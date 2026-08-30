@@ -19,10 +19,11 @@ public class CustomOidcUserService extends OidcUserService {
     public OidcUser loadUser(OidcUserRequest userRequest) {
         OidcUser oidcUser = super.loadUser(userRequest);
 
+        String googleId = oidcUser.getSubject();
         String email = oidcUser.getEmail();
         String fullName = oidcUser.getFullName();
 
-        User user = provisioningService.provision(email, fullName);
+        User user = provisioningService.provision(googleId, email, fullName);
 
         return new AppOidcUser(oidcUser, user);
     }

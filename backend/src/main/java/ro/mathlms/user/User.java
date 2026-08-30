@@ -77,6 +77,22 @@ public class User {
         return user;
     }
 
+    /**
+     * Creates an account provisioned from a Google login. Google has already
+     * verified the email, and the role comes from the access lists, so the
+     * account is active immediately.
+     */
+    public static User registerGoogle(String googleId, String email, String fullName, Role role) {
+        User user = new User();
+        user.googleId = requireNonBlank(googleId, "googleId");
+        user.email = requireNonBlank(email, "email");
+        user.fullName = requireNonBlank(fullName, "fullName");
+        user.role = Objects.requireNonNull(role, "role");
+        user.emailVerified = true;
+        user.status = AccountStatus.ACTIVE;
+        return user;
+    }
+
     /** Confirms the email and moves the account to approval. */
     public void verifyEmail() {
         if (status != AccountStatus.PENDING_VERIFICATION) {

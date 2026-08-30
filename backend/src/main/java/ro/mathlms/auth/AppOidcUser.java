@@ -27,6 +27,10 @@ public class AppOidcUser implements OidcUser {
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
+        // A linked but not-yet-approved account has no role yet (assigned on approval).
+        if (user.getRole() == null) {
+            return List.of();
+        }
         return List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()));
     }
 
