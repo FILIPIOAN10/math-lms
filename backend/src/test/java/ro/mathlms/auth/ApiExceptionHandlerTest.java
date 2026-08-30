@@ -4,6 +4,7 @@ import io.jsonwebtoken.JwtException;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.BadCredentialsException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -34,5 +35,22 @@ class ApiExceptionHandlerTest {
                 handler.handleIllegalState(new IllegalStateException("verifyEmail requires ..."));
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+    }
+
+    @Test
+    void badCredentialsMapsToUnauthorized() {
+        ResponseEntity<String> response =
+                handler.handleBadCredentials(new BadCredentialsException("nope"));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    @Test
+    void accountNotActiveMapsToForbiddenWithReason() {
+        ResponseEntity<String> response =
+                handler.handleAccountNotActive(AccountNotActiveException.emailNotVerified());
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(response.getBody()).isEqualTo("EMAIL_NOT_VERIFIED");
     }
 }

@@ -11,6 +11,8 @@ import ro.mathlms.user.Role;
 import ro.mathlms.user.User;
 import ro.mathlms.user.UserRepository;
 
+import static org.mockito.ArgumentMatchers.anyString;
+
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -28,8 +30,11 @@ class AuthControllerTest {
     private final RegistrationService registrationService = mock(RegistrationService.class);
     private final EmailService emailService = mock(EmailService.class);
     private final VerificationTokenService verificationTokenService = mock(VerificationTokenService.class);
+    private final LoginService loginService = mock(LoginService.class);
+    private final JwtCookieFactory jwtCookieFactory = mock(JwtCookieFactory.class);
     private final AuthController controller = new AuthController(
-            userRepository, registrationService, emailService, verificationTokenService);
+            userRepository, registrationService, emailService, verificationTokenService,
+            loginService, jwtCookieFactory);
 
     @Test
     void meReturnsUserWhenAuthenticated() {
@@ -128,5 +133,37 @@ class AuthControllerTest {
 
         assertThatThrownBy(() -> controller.verifyEmail("BAD"))
                 .isInstanceOf(JwtException.class);
+    }
+
+    // --- Step 1.6g: local login ---
+
+    @Test
+    void loginIssuesCookieAndReturnsUser() {
+        User user = new User("ana@scoala.ro", "Ana Pop", Role.STUDENT);
+        Cookie authCookie = new Cookie(JwtCookieSuccessHandler.COOKIE_NAME, "JWT");
+        when(loginService.authenticate("ana@scoala.ro", "parola123")).thenReturn(user);
+        when(jwtCookieFactory.create(user)).thenReturn(authCookie);
+        MockHttpServletResponse servletResponse = new MockHttpServletResponse();
+
+        ResponseEntity<UserDto> response = controller.login(
+                new LoginRequest("ana@scoala.ro", "parola123"), servletResponse);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().email()).isEqualTo("ana@scoala.ro");
+        assertThat(servletResponse.getCookie(JwtCookieSuccessHandler.COOKIE_NAME)).isNotNull();
+    }
+
+    @Test
+    void loginPropagatesAuthenticationFailure() {
+        when(loginService.authenticate(anyString(), anyString()))
+                .thenThrow(AccountNotActiveException.emailNotVerified());
+        MockHttpServletResponse servletResponse = new MockHttpServletResponse();
+
+        assertThatThrownBy(() -> controller.login(
+                new LoginRequest("ana@scoala.ro", "parola123"), servletResponse))
+                .isInstanceOf(AccountNotActiveException.class);
+
+        assertThat(servletResponse.getCookie(JwtCookieSuccessHandler.COOKIE_NAME)).isNull();
     }
 }

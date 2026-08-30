@@ -34,7 +34,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers("/oauth2/**", "/login/**").permitAll()
-                        .requestMatchers("/api/auth/register", "/api/auth/verify-email").permitAll()
+                        .requestMatchers("/api/auth/register", "/api/auth/verify-email", "/api/auth/login").permitAll()
                         .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth2 -> oauth2

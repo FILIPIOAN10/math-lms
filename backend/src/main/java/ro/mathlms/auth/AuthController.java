@@ -24,15 +24,21 @@ public class AuthController {
     private final RegistrationService registrationService;
     private final EmailService emailService;
     private final VerificationTokenService verificationTokenService;
+    private final LoginService loginService;
+    private final JwtCookieFactory jwtCookieFactory;
 
     public AuthController(UserRepository userRepository,
                           RegistrationService registrationService,
                           EmailService emailService,
-                          VerificationTokenService verificationTokenService) {
+                          VerificationTokenService verificationTokenService,
+                          LoginService loginService,
+                          JwtCookieFactory jwtCookieFactory) {
         this.userRepository = userRepository;
         this.registrationService = registrationService;
         this.emailService = emailService;
         this.verificationTokenService = verificationTokenService;
+        this.loginService = loginService;
+        this.jwtCookieFactory = jwtCookieFactory;
     }
 
     @GetMapping("/me")
@@ -54,6 +60,15 @@ public class AuthController {
         String token = verificationTokenService.generate(user.getEmail(), TokenPurpose.VERIFY_EMAIL);
         emailService.sendVerificationEmail(user.getEmail(), token);
         return ResponseEntity.status(HttpStatus.CREATED).build();
+    }
+
+    /** Authenticates a local account and issues the JWT cookie. */
+    @PostMapping("/login")
+    public ResponseEntity<UserDto> login(@Valid @RequestBody LoginRequest request,
+                                         HttpServletResponse response) {
+        User user = loginService.authenticate(request.email(), request.password());
+        response.addCookie(jwtCookieFactory.create(user));
+        return ResponseEntity.ok(UserDto.from(user));
     }
 
     /** Confirms the email carried by the token and moves the account to approval. */

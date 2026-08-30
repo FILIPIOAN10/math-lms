@@ -15,12 +15,10 @@ public class JwtCookieSuccessHandler extends SimpleUrlAuthenticationSuccessHandl
 
     public static final String COOKIE_NAME = "MATHLMS_TOKEN";
 
-    private final JwtService jwtService;
-    private final int expirationMinutes;
+    private final JwtCookieFactory jwtCookieFactory;
 
-    public JwtCookieSuccessHandler(JwtService jwtService, AuthProperties authProperties) {
-        this.jwtService = jwtService;
-        this.expirationMinutes = authProperties.jwtExpirationMinutes();
+    public JwtCookieSuccessHandler(JwtCookieFactory jwtCookieFactory) {
+        this.jwtCookieFactory = jwtCookieFactory;
     }
 
     @Override
@@ -29,15 +27,7 @@ public class JwtCookieSuccessHandler extends SimpleUrlAuthenticationSuccessHandl
         AppOidcUser principal = (AppOidcUser) authentication.getPrincipal();
         User user = principal.getUser();
 
-        String token = jwtService.generateToken(user);
-
-        Cookie cookie = new Cookie(COOKIE_NAME, token);
-        cookie.setHttpOnly(true);
-        cookie.setSecure(false); // TODO: true in productie (HTTPS)
-        cookie.setPath("/");
-        cookie.setMaxAge(expirationMinutes * 60);
-        cookie.setAttribute("SameSite", "Lax");
-        response.addCookie(cookie);
+        response.addCookie(jwtCookieFactory.create(user));
 
         getRedirectStrategy().sendRedirect(request, response, "http://localhost:5173");
     }

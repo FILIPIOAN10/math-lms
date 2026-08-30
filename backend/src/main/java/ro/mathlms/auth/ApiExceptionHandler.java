@@ -3,6 +3,7 @@ package ro.mathlms.auth;
 import io.jsonwebtoken.JwtException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -13,6 +14,17 @@ public class ApiExceptionHandler {
     @ExceptionHandler(EmailAlreadyRegisteredException.class)
     public ResponseEntity<String> handleDuplicateEmail(EmailAlreadyRegisteredException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body("An account with this email already exists");
+    }
+
+    @ExceptionHandler(BadCredentialsException.class)
+    public ResponseEntity<String> handleBadCredentials(BadCredentialsException ex) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid email or password");
+    }
+
+    /** Credentials were correct but the account is not allowed a session yet. */
+    @ExceptionHandler(AccountNotActiveException.class)
+    public ResponseEntity<String> handleAccountNotActive(AccountNotActiveException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ex.reason());
     }
 
     @ExceptionHandler(JwtException.class)
