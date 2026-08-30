@@ -62,6 +62,21 @@ public class User {
         this.role = Objects.requireNonNull(role, "role");
     }
 
+    /**
+     * Creates a local (email/password) account awaiting email verification.
+     * The real {@link #role} stays null until an admin approves the requested role.
+     */
+    public static User registerLocal(String email, String fullName,
+                                     String passwordHash, Role requestedRole) {
+        User user = new User();
+        user.email = requireNonBlank(email, "email");
+        user.fullName = requireNonBlank(fullName, "fullName");
+        user.password = requireNonBlank(passwordHash, "password");
+        user.requestedRole = Objects.requireNonNull(requestedRole, "requestedRole");
+        // status defaults to PENDING_VERIFICATION, emailVerified to false, role stays null.
+        return user;
+    }
+
     /** Confirms the email and moves the account to approval. */
     public void verifyEmail() {
         if (status != AccountStatus.PENDING_VERIFICATION) {
