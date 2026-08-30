@@ -1,5 +1,6 @@
 package ro.mathlms.user;
 
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
@@ -13,6 +14,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @DataJpaTest
@@ -27,6 +29,9 @@ class UserRepositoryTest {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private EntityManager entityManager;
 
     @Test
     void savesAndFindsUserByEmail() {
@@ -52,5 +57,33 @@ class UserRepositoryTest {
         assertThatThrownBy(() ->
                 userRepository.saveAndFlush(new User("dup@scoala.ro", "A doua", Role.ADMIN)))
                 .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    // --- Step 1.6b: V2 migration (email/password auth columns) ---
+
+    @Test
+    void migrationGivesNewAccountsPendingDefaults() {
+        userRepository.saveAndFlush(new User("nou@scoala.ro", "Elev Nou", Role.STUDENT));
+
+        Object[] row = (Object[]) entityManager
+                .createNativeQuery("SELECT email_verified, status FROM users WHERE email = :email")
+                .setParameter("email", "nou@scoala.ro")
+                .getSingleResult();
+
+        assertThat(row[0]).isEqualTo(false);
+        assertThat(row[1]).isEqualTo("PENDING_VERIFICATION");
+    }
+
+    @Test
+    void migrationMakesRoleColumnNullable() {
+        // Role is assigned only on admin approval, so inserting a null role must succeed.
+        assertThatCode(() -> {
+            entityManager
+                    .createNativeQuery("INSERT INTO users (email, full_name, role) VALUES (:email, :name, NULL)")
+                    .setParameter("email", "fararol@scoala.ro")
+                    .setParameter("name", "Fara Rol")
+                    .executeUpdate();
+            entityManager.flush();
+        }).doesNotThrowAnyException();
     }
 }
