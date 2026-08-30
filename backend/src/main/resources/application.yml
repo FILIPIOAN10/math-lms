@@ -71,6 +71,9 @@ app:
     allowed-emails: ${ALLOWED_EMAILS:}
     jwt-secret: ${JWT_SECRET}
     jwt-expiration-minutes: ${JWT_EXPIRATION_MINUTES:60}
+  # Base URL of the frontend; verification / reset email links point here.
+  frontend:
+    base-url: ${FRONTEND_BASE_URL:http://localhost:5173}
 
 logging:
   level:
