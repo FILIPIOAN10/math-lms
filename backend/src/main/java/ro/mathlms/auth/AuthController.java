@@ -26,19 +26,22 @@ public class AuthController {
     private final VerificationTokenService verificationTokenService;
     private final LoginService loginService;
     private final JwtCookieFactory jwtCookieFactory;
+    private final PasswordResetService passwordResetService;
 
     public AuthController(UserRepository userRepository,
                           RegistrationService registrationService,
                           EmailService emailService,
                           VerificationTokenService verificationTokenService,
                           LoginService loginService,
-                          JwtCookieFactory jwtCookieFactory) {
+                          JwtCookieFactory jwtCookieFactory,
+                          PasswordResetService passwordResetService) {
         this.userRepository = userRepository;
         this.registrationService = registrationService;
         this.emailService = emailService;
         this.verificationTokenService = verificationTokenService;
         this.loginService = loginService;
         this.jwtCookieFactory = jwtCookieFactory;
+        this.passwordResetService = passwordResetService;
     }
 
     @GetMapping("/me")
@@ -80,6 +83,20 @@ public class AuthController {
         user.verifyEmail();
         userRepository.save(user);
         return ResponseEntity.ok().build();
+    }
+
+    /** Always answers 200 so callers cannot probe which emails have accounts. */
+    @PostMapping("/forgot-password")
+    public ResponseEntity<Void> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        passwordResetService.requestReset(request.email());
+        return ResponseEntity.ok().build();
+    }
+
+    /** Sets a new password using a valid reset token. */
+    @PostMapping("/reset-password")
+    public ResponseEntity<Void> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        passwordResetService.resetPassword(request.token(), request.newPassword());
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/logout")

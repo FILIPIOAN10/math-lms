@@ -32,9 +32,10 @@ class AuthControllerTest {
     private final VerificationTokenService verificationTokenService = mock(VerificationTokenService.class);
     private final LoginService loginService = mock(LoginService.class);
     private final JwtCookieFactory jwtCookieFactory = mock(JwtCookieFactory.class);
+    private final PasswordResetService passwordResetService = mock(PasswordResetService.class);
     private final AuthController controller = new AuthController(
             userRepository, registrationService, emailService, verificationTokenService,
-            loginService, jwtCookieFactory);
+            loginService, jwtCookieFactory, passwordResetService);
 
     @Test
     void meReturnsUserWhenAuthenticated() {
@@ -165,5 +166,25 @@ class AuthControllerTest {
                 .isInstanceOf(AccountNotActiveException.class);
 
         assertThat(servletResponse.getCookie(JwtCookieSuccessHandler.COOKIE_NAME)).isNull();
+    }
+
+    // --- Step 1.6h: forgot / reset password ---
+
+    @Test
+    void forgotPasswordAlwaysReturnsOkAndDelegates() {
+        ResponseEntity<Void> response =
+                controller.forgotPassword(new ForgotPasswordRequest("ana@scoala.ro"));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        verify(passwordResetService).requestReset("ana@scoala.ro");
+    }
+
+    @Test
+    void resetPasswordDelegatesAndReturnsNoContent() {
+        ResponseEntity<Void> response =
+                controller.resetPassword(new ResetPasswordRequest("RESET", "parolaNoua1"));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        verify(passwordResetService).resetPassword("RESET", "parolaNoua1");
     }
 }
