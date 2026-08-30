@@ -53,6 +53,12 @@
 			<artifactId>spring-boot-starter-validation</artifactId>
 		</dependency>
 
+		<!-- Email: verificare cont, reset parola, notificare aprobare (Step 1.6a) -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-mail</artifactId>
+		</dependency>
+
 		<!-- Health checks for Docker / CI -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
