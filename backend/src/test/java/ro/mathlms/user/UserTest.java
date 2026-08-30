@@ -43,4 +43,99 @@ class UserTest {
         assertThatThrownBy(() -> new User("ana@scoala.ro", "Ana Pop", null))
                 .isInstanceOf(NullPointerException.class);
     }
+
+    // --- Step 1.6c: onboarding state transitions ---
+
+    private User pendingUser() {
+        return new User("ana@scoala.ro", "Ana Pop", Role.STUDENT);
+    }
+
+    @Test
+    void newUserStartsPendingVerification() {
+        User user = pendingUser();
+
+        assertThat(user.getStatus()).isEqualTo(AccountStatus.PENDING_VERIFICATION);
+        assertThat(user.isEmailVerified()).isFalse();
+    }
+
+    @Test
+    void verifyEmailMovesToPendingApproval() {
+        User user = pendingUser();
+
+        user.verifyEmail();
+
+        assertThat(user.isEmailVerified()).isTrue();
+        assertThat(user.getStatus()).isEqualTo(AccountStatus.PENDING_APPROVAL);
+    }
+
+    @Test
+    void verifyEmailTwiceIsRejected() {
+        User user = pendingUser();
+        user.verifyEmail();
+
+        assertThatThrownBy(user::verifyEmail)
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void approveActivatesAndAssignsRole() {
+        User user = pendingUser();
+        user.verifyEmail();
+
+        user.approve(Role.STUDENT);
+
+        assertThat(user.getStatus()).isEqualTo(AccountStatus.ACTIVE);
+        assertThat(user.getRole()).isEqualTo(Role.STUDENT);
+    }
+
+    @Test
+    void approveFromWrongStateIsRejected() {
+        User user = pendingUser(); // still PENDING_VERIFICATION
+
+        assertThatThrownBy(() -> user.approve(Role.STUDENT))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void approveWithNullRoleIsRejected() {
+        User user = pendingUser();
+        user.verifyEmail();
+
+        assertThatThrownBy(() -> user.approve(null))
+                .isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
+    void rejectMarksAccountRejected() {
+        User user = pendingUser();
+        user.verifyEmail();
+
+        user.reject();
+
+        assertThat(user.getStatus()).isEqualTo(AccountStatus.REJECTED);
+    }
+
+    @Test
+    void rejectAfterActivationIsRejected() {
+        User user = pendingUser();
+        user.verifyEmail();
+        user.approve(Role.STUDENT);
+
+        assertThatThrownBy(user::reject)
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void linkGoogleRejectsBlankId() {
+        assertThatThrownBy(() -> pendingUser().linkGoogle(""))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("googleId");
+    }
+
+    @Test
+    void setPasswordRejectsBlankHash() {
+        assertThatThrownBy(() -> pendingUser().setPassword("  "))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("password");
+    }
 }

@@ -30,14 +30,76 @@ public class User {
     @Column(name = "full_name", nullable = false)
     private String fullName;
 
+    /** BCrypt hash; null for Google-only accounts. */
+    @Column
+    private String password;
+
+    /** Google subject id; null until the account is linked to Google. */
+    @Column(name = "google_id")
+    private String googleId;
+
+    /** true once the email is confirmed (immediately true for Google logins). */
+    @Column(name = "email_verified", nullable = false)
+    private boolean emailVerified = false;
+
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
+    @Column(nullable = false, length = 30)
+    private AccountStatus status = AccountStatus.PENDING_VERIFICATION;
+
+    /** Real role, assigned only when an admin approves the account. */
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
     private Role role;
+
+    /** Role asked for via the invite link; the real role lives in {@link #role}. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "requested_role", length = 20)
+    private Role requestedRole;
 
     public User(String email, String fullName, Role role) {
         this.email = requireNonBlank(email, "email");
         this.fullName = requireNonBlank(fullName, "fullName");
         this.role = Objects.requireNonNull(role, "role");
+    }
+
+    /** Confirms the email and moves the account to approval. */
+    public void verifyEmail() {
+        if (status != AccountStatus.PENDING_VERIFICATION) {
+            throw new IllegalStateException(
+                    "verifyEmail requires PENDING_VERIFICATION but was " + status);
+        }
+        this.emailVerified = true;
+        this.status = AccountStatus.PENDING_APPROVAL;
+    }
+
+    /** Admin approves the account and assigns its real role. */
+    public void approve(Role role) {
+        if (status != AccountStatus.PENDING_APPROVAL) {
+            throw new IllegalStateException(
+                    "approve requires PENDING_APPROVAL but was " + status);
+        }
+        this.role = Objects.requireNonNull(role, "role");
+        this.status = AccountStatus.ACTIVE;
+    }
+
+    /** Admin rejects a pending account. */
+    public void reject() {
+        if (status != AccountStatus.PENDING_VERIFICATION
+                && status != AccountStatus.PENDING_APPROVAL) {
+            throw new IllegalStateException(
+                    "reject requires a pending account but was " + status);
+        }
+        this.status = AccountStatus.REJECTED;
+    }
+
+    /** Links this account to a Google identity (account linking). */
+    public void linkGoogle(String googleId) {
+        this.googleId = requireNonBlank(googleId, "googleId");
+    }
+
+    /** Sets the BCrypt password hash for local login. */
+    public void setPassword(String passwordHash) {
+        this.password = requireNonBlank(passwordHash, "password");
     }
 
     private static String requireNonBlank(String value, String field) {
