@@ -7,6 +7,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.core.Authentication;
+import ro.mathlms.user.AccountStatus;
 import ro.mathlms.user.Role;
 import ro.mathlms.user.User;
 import ro.mathlms.user.UserRepository;
@@ -51,6 +52,21 @@ class AuthControllerTest {
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().email()).isEqualTo("profesor@gmail.com");
         assertThat(response.getBody().role()).isEqualTo(Role.ADMIN);
+    }
+
+    @Test
+    void meExposesStatusForPendingRolelessAccount() {
+        Authentication auth = mock(Authentication.class);
+        when(auth.getName()).thenReturn("ana@scoala.ro");
+        User pending = User.registerLocal("ana@scoala.ro", "Ana Pop", "HASH", Role.STUDENT);
+        when(userRepository.findByEmail("ana@scoala.ro")).thenReturn(Optional.of(pending));
+
+        ResponseEntity<UserDto> response = controller.me(auth);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().status()).isEqualTo(AccountStatus.PENDING_VERIFICATION);
+        assertThat(response.getBody().role()).isNull();
     }
 
     @Test
