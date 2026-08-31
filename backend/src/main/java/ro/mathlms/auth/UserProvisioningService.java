@@ -12,25 +12,51 @@ public class UserProvisioningService {
 
     private final UserRepository userRepository;
     private final AuthProperties authProperties;
+    private final InviteTokenService inviteTokenService;
 
-    public UserProvisioningService(UserRepository userRepository, AuthProperties authProperties) {
+    public UserProvisioningService(UserRepository userRepository,
+                                   AuthProperties authProperties,
+                                   InviteTokenService inviteTokenService) {
         this.userRepository = userRepository;
         this.authProperties = authProperties;
+        this.inviteTokenService = inviteTokenService;
     }
 
     /**
-     * Resolves the {@link User} behind a Google login. If an account already
-     * exists for the email (e.g. one registered locally), the Google identity is
-     * linked to it — one email is always a single {@code User}. Otherwise a new
-     * Google-provisioned account is created with a role from the access lists.
+     * Resolves the {@link User} behind a Google login, optionally carrying an invite
+     * token from the authorization request. If an account already exists for the email
+     * (e.g. one registered locally), the Google identity is linked to it — one email is
+     * always a single {@code User}. A brand-new login is provisioned as:
+     * <ul>
+     *   <li>an ACTIVE account if the email is on the admin/allowed lists (pre-trusted);</li>
+     *   <li>otherwise, if an invite token is present, a PENDING_APPROVAL account whose
+     *       requested role comes from the invite (admin confirms it on approval);</li>
+     *   <li>otherwise the login is rejected.</li>
+     * </ul>
      */
-    public User provision(String googleId, String email, String fullName) {
+    public User provision(String googleId, String email, String fullName, String inviteToken) {
         String normalizedEmail = email.toLowerCase();
 
         return userRepository.findByEmail(normalizedEmail)
                 .map(existing -> linkGoogleIfNeeded(existing, googleId))
-                .orElseGet(() -> userRepository.save(User.registerGoogle(
-                        googleId, normalizedEmail, fullName, resolveRole(normalizedEmail))));
+                .orElseGet(() -> userRepository.save(
+                        newAccount(googleId, normalizedEmail, fullName, inviteToken)));
+    }
+
+    private User newAccount(String googleId, String email, String fullName, String inviteToken) {
+        if (isPreTrusted(email)) {
+            return User.registerGoogle(googleId, email, fullName, resolveRole(email));
+        }
+        if (inviteToken != null && !inviteToken.isBlank()) {
+            Role requestedRole = inviteTokenService.verify(inviteToken);
+            return User.registerGoogleInvited(googleId, email, fullName, requestedRole);
+        }
+        throw new EmailNotAllowedException(email);
+    }
+
+    private boolean isPreTrusted(String email) {
+        return contains(authProperties.adminEmails(), email)
+                || contains(authProperties.allowedEmails(), email);
     }
 
     private User linkGoogleIfNeeded(User user, String googleId) {

@@ -139,6 +139,17 @@ class UserTest {
                 .hasMessageContaining("password");
     }
 
+    @Test
+    void registerGoogleInvitedStartsPendingApprovalWithRequestedRole() {
+        User user = User.registerGoogleInvited("google-sub", "nou@gmail.com", "Nou Venit", Role.PARENT);
+
+        assertThat(user.getStatus()).isEqualTo(AccountStatus.PENDING_APPROVAL);
+        assertThat(user.isEmailVerified()).isTrue();
+        assertThat(user.getRequestedRole()).isEqualTo(Role.PARENT);
+        assertThat(user.getRole()).isNull(); // real role assigned on approval
+        assertThat(user.getGoogleId()).isEqualTo("google-sub");
+    }
+
     // --- Step 1.6l: linking a student to a parent ---
 
     @Test

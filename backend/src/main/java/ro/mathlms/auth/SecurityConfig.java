@@ -9,6 +9,10 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
+import org.springframework.security.oauth2.client.web.DefaultOAuth2AuthorizationRequestResolver;
+import org.springframework.security.oauth2.client.web.HttpSessionOAuth2AuthorizationRequestRepository;
+import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestResolver;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
@@ -28,7 +32,16 @@ public class SecurityConfig {
     SecurityFilterChain securityFilterChain(HttpSecurity http,
                                             CustomOidcUserService customOidcUserService,
                                             JwtCookieSuccessHandler jwtCookieSuccessHandler,
-                                            JwtCookieAuthFilter jwtCookieAuthFilter) throws Exception {
+                                            JwtCookieAuthFilter jwtCookieAuthFilter,
+                                            ClientRegistrationRepository clientRegistrationRepository) throws Exception {
+        OAuth2AuthorizationRequestResolver inviteAwareResolver =
+                new InviteAwareAuthorizationRequestResolver(
+                        new DefaultOAuth2AuthorizationRequestResolver(
+                                clientRegistrationRepository, "/oauth2/authorization"));
+        InviteCapturingAuthorizationRequestRepository inviteCapturingRepository =
+                new InviteCapturingAuthorizationRequestRepository(
+                        new HttpSessionOAuth2AuthorizationRequestRepository());
+
         http
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session ->
@@ -45,6 +58,9 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth2 -> oauth2
+                        .authorizationEndpoint(authz -> authz
+                                .authorizationRequestResolver(inviteAwareResolver)
+                                .authorizationRequestRepository(inviteCapturingRepository))
                         .userInfoEndpoint(userInfo -> userInfo.oidcUserService(customOidcUserService))
                         .successHandler(jwtCookieSuccessHandler))
                 .exceptionHandling(ex ->

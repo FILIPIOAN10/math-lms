@@ -101,6 +101,24 @@ public class User {
         return user;
     }
 
+    /**
+     * Creates an account from a Google login that arrived via an invite link. Google
+     * has verified the email, but the account still needs admin approval, so it starts
+     * at {@code PENDING_APPROVAL} with the invited role recorded as {@link #requestedRole}
+     * (the real {@link #role} is assigned on approval).
+     */
+    public static User registerGoogleInvited(String googleId, String email, String fullName,
+                                             Role requestedRole) {
+        User user = new User();
+        user.googleId = requireNonBlank(googleId, "googleId");
+        user.email = requireNonBlank(email, "email");
+        user.fullName = requireNonBlank(fullName, "fullName");
+        user.requestedRole = Objects.requireNonNull(requestedRole, "requestedRole");
+        user.emailVerified = true;
+        user.status = AccountStatus.PENDING_APPROVAL;
+        return user;
+    }
+
     /** Confirms the email and moves the account to approval. */
     public void verifyEmail() {
         if (status != AccountStatus.PENDING_VERIFICATION) {
