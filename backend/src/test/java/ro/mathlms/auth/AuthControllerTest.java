@@ -30,12 +30,13 @@ class AuthControllerTest {
     private final RegistrationService registrationService = mock(RegistrationService.class);
     private final EmailService emailService = mock(EmailService.class);
     private final VerificationTokenService verificationTokenService = mock(VerificationTokenService.class);
+    private final InviteTokenService inviteTokenService = mock(InviteTokenService.class);
     private final LoginService loginService = mock(LoginService.class);
     private final JwtCookieFactory jwtCookieFactory = mock(JwtCookieFactory.class);
     private final PasswordResetService passwordResetService = mock(PasswordResetService.class);
     private final AuthController controller = new AuthController(
             userRepository, registrationService, emailService, verificationTokenService,
-            loginService, jwtCookieFactory, passwordResetService);
+            inviteTokenService, loginService, jwtCookieFactory, passwordResetService);
 
     @Test
     void meReturnsUserWhenAuthenticated() {
@@ -86,10 +87,11 @@ class AuthControllerTest {
     // --- Step 1.6f: register + verify-email ---
 
     @Test
-    void registerCreatesAccountAndSendsVerificationEmail() {
+    void registerDerivesRoleFromInviteThenSendsVerificationEmail() {
         RegisterRequest request = new RegisterRequest(
-                "ana@scoala.ro", "Ana Pop", "parola123", Role.STUDENT);
+                "ana@scoala.ro", "Ana Pop", "parola123", "INVITE");
         User created = User.registerLocal("ana@scoala.ro", "Ana Pop", "HASH", Role.STUDENT);
+        when(inviteTokenService.verify("INVITE")).thenReturn(Role.STUDENT);
         when(registrationService.register("ana@scoala.ro", "Ana Pop", "parola123", Role.STUDENT))
                 .thenReturn(created);
         when(verificationTokenService.generate("ana@scoala.ro", TokenPurpose.VERIFY_EMAIL))
@@ -99,6 +101,19 @@ class AuthControllerTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         verify(emailService).sendVerificationEmail("ana@scoala.ro", "TOKEN");
+    }
+
+    @Test
+    void registerRejectsInvalidInviteWithoutCreatingAccount() {
+        RegisterRequest request = new RegisterRequest(
+                "ana@scoala.ro", "Ana Pop", "parola123", "BAD");
+        when(inviteTokenService.verify("BAD")).thenThrow(new JwtException("bad invite"));
+
+        assertThatThrownBy(() -> controller.register(request))
+                .isInstanceOf(JwtException.class);
+
+        verify(registrationService, never()).register(anyString(), anyString(), anyString(), any());
+        verify(emailService, never()).sendVerificationEmail(anyString(), anyString());
     }
 
     @Test
