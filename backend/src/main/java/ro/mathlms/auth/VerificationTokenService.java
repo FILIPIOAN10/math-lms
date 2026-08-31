@@ -77,6 +77,7 @@ public class VerificationTokenService {
         return switch (purpose) {
             case VERIFY_EMAIL -> VERIFY_EMAIL_TTL;
             case PASSWORD_RESET -> PASSWORD_RESET_TTL;
+            default -> throw new IllegalArgumentException("Unknown token purpose: " + purpose);
         };
     }
 }
