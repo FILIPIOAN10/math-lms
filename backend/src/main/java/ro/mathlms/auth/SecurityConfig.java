@@ -37,6 +37,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/register", "/api/auth/verify-email", "/api/auth/login",
                                 "/api/auth/forgot-password", "/api/auth/reset-password").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        // Feature endpoints (content, quiz — Faza 2+) require an approved account.
+                        // A PENDING account is authenticated (can read /api/auth/me) but not ACTIVE.
+                        .requestMatchers("/api/quiz/**", "/api/content/**").hasAuthority("STATUS_ACTIVE")
                         .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth2 -> oauth2
