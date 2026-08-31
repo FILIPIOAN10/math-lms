@@ -54,6 +54,17 @@ export async function login(email: string, password: string): Promise<User> {
   return response.json()
 }
 
+export interface RegisterPayload {
+  email: string
+  fullName: string
+  password: string
+  inviteToken: string
+}
+
+export async function register(payload: RegisterPayload): Promise<void> {
+  await postJson('/auth/register', payload)
+}
+
 export async function forgotPassword(email: string): Promise<void> {
   await postJson('/auth/forgot-password', { email })
 }
