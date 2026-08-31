@@ -3,6 +3,7 @@ package ro.mathlms.auth;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import ro.mathlms.user.AccountStatus;
 import ro.mathlms.user.Role;
 import ro.mathlms.user.User;
 
@@ -41,5 +42,20 @@ class AdminUserControllerTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).isEmpty();
+    }
+
+    @Test
+    void approveReturnsTheActivatedAccount() {
+        User activated = User.registerLocal("dan@example.com", "Dan Ilie", "hash", Role.PARENT);
+        activated.verifyEmail();
+        activated.approve(Role.STUDENT);
+        when(adminUserService.approve(7L, Role.STUDENT)).thenReturn(activated);
+
+        ResponseEntity<UserDto> response = controller.approve(7L, new ApproveRequest(Role.STUDENT));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().role()).isEqualTo(Role.STUDENT);
+        assertThat(response.getBody().status()).isEqualTo(AccountStatus.ACTIVE);
     }
 }

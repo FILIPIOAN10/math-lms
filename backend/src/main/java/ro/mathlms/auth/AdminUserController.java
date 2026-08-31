@@ -1,10 +1,15 @@
 package ro.mathlms.auth;
 
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import ro.mathlms.user.User;
 
 import java.util.List;
 
@@ -31,5 +36,13 @@ public class AdminUserController {
                 .map(PendingUserDto::from)
                 .toList();
         return ResponseEntity.ok(pending);
+    }
+
+    /** Approves a pending account, assigning the real role the admin confirms. */
+    @PostMapping("/{id}/approve")
+    public ResponseEntity<UserDto> approve(@PathVariable Long id,
+                                           @Valid @RequestBody ApproveRequest request) {
+        User approved = adminUserService.approve(id, request.role());
+        return ResponseEntity.ok(UserDto.from(approved));
     }
 }

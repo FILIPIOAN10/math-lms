@@ -7,9 +7,13 @@ import ro.mathlms.user.User;
 import ro.mathlms.user.UserRepository;
 
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -28,5 +32,29 @@ class AdminUserServiceTest {
 
         assertThat(result).containsExactly(pending);
         verify(userRepository).findByStatus(AccountStatus.PENDING_APPROVAL);
+    }
+
+    @Test
+    void approveAssignsTheConfirmedRoleAndActivatesTheAccount() {
+        User user = User.registerLocal("dan@example.com", "Dan Ilie", "hash", Role.PARENT);
+        user.verifyEmail(); // now PENDING_APPROVAL
+        when(userRepository.findById(7L)).thenReturn(Optional.of(user));
+        when(userRepository.save(any(User.class))).thenAnswer(i -> i.getArgument(0));
+
+        // Admin overrides the requested PARENT role with the real STUDENT role.
+        User result = service.approve(7L, Role.STUDENT);
+
+        assertThat(result.getStatus()).isEqualTo(AccountStatus.ACTIVE);
+        assertThat(result.getRole()).isEqualTo(Role.STUDENT);
+        verify(userRepository).save(user);
+    }
+
+    @Test
+    void approveThrowsWhenAccountDoesNotExist() {
+        when(userRepository.findById(404L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.approve(404L, Role.STUDENT))
+                .isInstanceOf(UserNotFoundException.class);
+        verify(userRepository, never()).save(any());
     }
 }

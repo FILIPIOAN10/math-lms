@@ -27,6 +27,11 @@ public class ApiExceptionHandler {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ex.reason());
     }
 
+    @ExceptionHandler(UserNotFoundException.class)
+    public ResponseEntity<String> handleUserNotFound(UserNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body("No such account");
+    }
+
     @ExceptionHandler(JwtException.class)
     public ResponseEntity<String> handleInvalidToken(JwtException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid or expired token");

@@ -38,6 +38,15 @@ class ApiExceptionHandlerTest {
     }
 
     @Test
+    void userNotFoundMapsToNotFound() {
+        ResponseEntity<String> response =
+                handler.handleUserNotFound(new UserNotFoundException(99L));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(response.getBody()).doesNotContain("99"); // no id echo
+    }
+
+    @Test
     void badCredentialsMapsToUnauthorized() {
         ResponseEntity<String> response =
                 handler.handleBadCredentials(new BadCredentialsException("nope"));
