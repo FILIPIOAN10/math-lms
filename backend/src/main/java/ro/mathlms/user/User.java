@@ -4,9 +4,12 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -55,6 +58,11 @@ public class User {
     @Enumerated(EnumType.STRING)
     @Column(name = "requested_role", length = 20)
     private Role requestedRole;
+
+    /** The PARENT account this student belongs to; null until an admin links them. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_id")
+    private User parent;
 
     public User(String email, String fullName, Role role) {
         this.email = requireNonBlank(email, "email");
@@ -121,6 +129,24 @@ public class User {
                     "reject requires a pending account but was " + status);
         }
         this.status = AccountStatus.REJECTED;
+    }
+
+    /**
+     * Links this student to a parent account. Both must already hold their real role:
+     * this account must be a {@link Role#STUDENT} and {@code parent} a {@link Role#PARENT}.
+     */
+    public void linkParent(User parent) {
+        Objects.requireNonNull(parent, "parent");
+        if (this.role != Role.STUDENT) {
+            throw new IllegalStateException("Only a STUDENT can be linked to a parent, was " + this.role);
+        }
+        if (parent.role != Role.PARENT) {
+            throw new IllegalStateException("Parent account must have role PARENT, was " + parent.role);
+        }
+        if (parent == this) {
+            throw new IllegalArgumentException("An account cannot be its own parent");
+        }
+        this.parent = parent;
     }
 
     /** Links this account to a Google identity (account linking). */

@@ -138,4 +138,50 @@ class UserTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("password");
     }
+
+    // --- Step 1.6l: linking a student to a parent ---
+
+    @Test
+    void linkParentAttachesTheParentAccount() {
+        User student = new User("copil@scoala.ro", "Copil Pop", Role.STUDENT);
+        User parent = new User("parinte@scoala.ro", "Parinte Pop", Role.PARENT);
+
+        student.linkParent(parent);
+
+        assertThat(student.getParent()).isSameAs(parent);
+    }
+
+    @Test
+    void linkParentRejectsWhenThisAccountIsNotStudent() {
+        User notStudent = new User("prof@scoala.ro", "Prof Ion", Role.ADMIN);
+        User parent = new User("parinte@scoala.ro", "Parinte Pop", Role.PARENT);
+
+        assertThatThrownBy(() -> notStudent.linkParent(parent))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void linkParentRejectsWhenTargetIsNotParent() {
+        User student = new User("copil@scoala.ro", "Copil Pop", Role.STUDENT);
+        User notParent = new User("altul@scoala.ro", "Alt Elev", Role.STUDENT);
+
+        assertThatThrownBy(() -> student.linkParent(notParent))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void linkParentRejectsSelfLink() {
+        User student = new User("copil@scoala.ro", "Copil Pop", Role.STUDENT);
+
+        assertThatThrownBy(() -> student.linkParent(student))
+                .isInstanceOf(RuntimeException.class);
+    }
+
+    @Test
+    void linkParentRejectsNull() {
+        User student = new User("copil@scoala.ro", "Copil Pop", Role.STUDENT);
+
+        assertThatThrownBy(() -> student.linkParent(null))
+                .isInstanceOf(NullPointerException.class);
+    }
 }
