@@ -36,6 +36,28 @@ class JwtServiceTest {
     }
 
     @Test
+    void includesStatusClaimForActiveAccount() {
+        User user = User.registerGoogle("google-123", "ana@scoala.ro", "Ana Pop", Role.STUDENT);
+
+        String token = jwtService.generateToken(user);
+
+        assertThat(jwtService.extractStatus(token)).isEqualTo("ACTIVE");
+        assertThat(jwtService.extractRole(token)).isEqualTo("STUDENT");
+    }
+
+    @Test
+    void omitsRoleForNotYetApprovedAccountButKeepsStatus() {
+        // A local signup awaiting approval has no role yet — token must still mint.
+        User pending = User.registerLocal("ana@scoala.ro", "Ana Pop", "HASH", Role.STUDENT);
+
+        String token = jwtService.generateToken(pending);
+
+        assertThat(jwtService.extractEmail(token)).isEqualTo("ana@scoala.ro");
+        assertThat(jwtService.extractStatus(token)).isEqualTo("PENDING_VERIFICATION");
+        assertThat(jwtService.extractRole(token)).isNull();
+    }
+
+    @Test
     void rejectsTamperedToken() {
         User user = new User("profesor@gmail.com", "Prof Ion", Role.ADMIN);
         String token = jwtService.generateToken(user);

@@ -27,14 +27,19 @@ public class JwtService {
         Instant now = Instant.now();
         Instant expiry = now.plus(expirationMinutes, ChronoUnit.MINUTES);
 
-        return Jwts.builder()
+        var builder = Jwts.builder()
                 .subject(user.getEmail())
-                .claim("role", user.getRole().name())
+                .claim("status", user.getStatus().name())
                 .claim("name", user.getFullName())
                 .issuedAt(Date.from(now))
-                .expiration(Date.from(expiry))
-                .signWith(key)
-                .compact();
+                .expiration(Date.from(expiry));
+
+        // A not-yet-approved account has no role yet — omit the claim rather than NPE.
+        if (user.getRole() != null) {
+            builder.claim("role", user.getRole().name());
+        }
+
+        return builder.signWith(key).compact();
     }
 
     public String extractEmail(String token) {
@@ -43,6 +48,10 @@ public class JwtService {
 
     public String extractRole(String token) {
         return parse(token).get("role", String.class);
+    }
+
+    public String extractStatus(String token) {
+        return parse(token).get("status", String.class);
     }
 
     private Claims parse(String token) {
