@@ -78,4 +78,38 @@ class AdminUserServiceTest {
                 .isInstanceOf(UserNotFoundException.class);
         verify(userRepository, never()).save(any());
     }
+
+    @Test
+    void linkParentAttachesParentAndSavesTheStudent() {
+        User student = new User("copil@example.com", "Copil Pop", Role.STUDENT);
+        User parent = new User("parinte@example.com", "Parinte Pop", Role.PARENT);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(student));
+        when(userRepository.findById(2L)).thenReturn(Optional.of(parent));
+        when(userRepository.save(any(User.class))).thenAnswer(i -> i.getArgument(0));
+
+        User result = service.linkParent(1L, 2L);
+
+        assertThat(result.getParent()).isSameAs(parent);
+        verify(userRepository).save(student);
+    }
+
+    @Test
+    void linkParentThrowsWhenStudentDoesNotExist() {
+        when(userRepository.findById(1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.linkParent(1L, 2L))
+                .isInstanceOf(UserNotFoundException.class);
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void linkParentThrowsWhenParentDoesNotExist() {
+        User student = new User("copil@example.com", "Copil Pop", Role.STUDENT);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(student));
+        when(userRepository.findById(2L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.linkParent(1L, 2L))
+                .isInstanceOf(UserNotFoundException.class);
+        verify(userRepository, never()).save(any());
+    }
 }

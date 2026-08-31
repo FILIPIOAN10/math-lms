@@ -40,6 +40,14 @@ public class AdminUserService {
         return userRepository.save(user);
     }
 
+    /** Links a student account to a parent account (both must hold their real role). */
+    public User linkParent(Long studentId, Long parentId) {
+        User student = find(studentId);
+        User parent = find(parentId);
+        student.linkParent(parent);
+        return userRepository.save(student);
+    }
+
     private User find(Long id) {
         return userRepository.findById(id)
                 .orElseThrow(() -> new UserNotFoundException(id));

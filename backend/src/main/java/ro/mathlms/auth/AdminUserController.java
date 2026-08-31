@@ -52,4 +52,12 @@ public class AdminUserController {
         User rejected = adminUserService.reject(id);
         return ResponseEntity.ok(UserDto.from(rejected));
     }
+
+    /** Links the student in the path to the parent account named in the body. */
+    @PostMapping("/{id}/link-parent")
+    public ResponseEntity<UserDto> linkParent(@PathVariable Long id,
+                                              @Valid @RequestBody LinkParentRequest request) {
+        User student = adminUserService.linkParent(id, request.parentId());
+        return ResponseEntity.ok(UserDto.from(student));
+    }
 }

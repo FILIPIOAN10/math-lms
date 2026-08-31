@@ -71,4 +71,17 @@ class AdminUserControllerTest {
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().status()).isEqualTo(AccountStatus.REJECTED);
     }
+
+    @Test
+    void linkParentDelegatesAndReturnsTheStudent() {
+        User student = new User("copil@example.com", "Copil Pop", Role.STUDENT);
+        when(adminUserService.linkParent(1L, 2L)).thenReturn(student);
+
+        ResponseEntity<UserDto> response =
+                controller.linkParent(1L, new LinkParentRequest(2L));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().email()).isEqualTo("copil@example.com");
+    }
 }
