@@ -45,4 +45,11 @@ public class AdminUserController {
         User approved = adminUserService.approve(id, request.role());
         return ResponseEntity.ok(UserDto.from(approved));
     }
+
+    /** Rejects a pending account without deleting it. */
+    @PostMapping("/{id}/reject")
+    public ResponseEntity<UserDto> reject(@PathVariable Long id) {
+        User rejected = adminUserService.reject(id);
+        return ResponseEntity.ok(UserDto.from(rejected));
+    }
 }

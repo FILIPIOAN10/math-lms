@@ -58,4 +58,17 @@ class AdminUserControllerTest {
         assertThat(response.getBody().role()).isEqualTo(Role.STUDENT);
         assertThat(response.getBody().status()).isEqualTo(AccountStatus.ACTIVE);
     }
+
+    @Test
+    void rejectReturnsTheRejectedAccount() {
+        User rejected = User.registerLocal("eva@example.com", "Eva Marin", "hash", Role.STUDENT);
+        rejected.reject();
+        when(adminUserService.reject(3L)).thenReturn(rejected);
+
+        ResponseEntity<UserDto> response = controller.reject(3L);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().status()).isEqualTo(AccountStatus.REJECTED);
+    }
 }

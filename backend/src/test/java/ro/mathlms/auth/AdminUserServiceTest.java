@@ -57,4 +57,25 @@ class AdminUserServiceTest {
                 .isInstanceOf(UserNotFoundException.class);
         verify(userRepository, never()).save(any());
     }
+
+    @Test
+    void rejectMovesTheAccountToRejected() {
+        User user = User.registerLocal("eva@example.com", "Eva Marin", "hash", Role.STUDENT);
+        when(userRepository.findById(3L)).thenReturn(Optional.of(user));
+        when(userRepository.save(any(User.class))).thenAnswer(i -> i.getArgument(0));
+
+        User result = service.reject(3L);
+
+        assertThat(result.getStatus()).isEqualTo(AccountStatus.REJECTED);
+        verify(userRepository).save(user);
+    }
+
+    @Test
+    void rejectThrowsWhenAccountDoesNotExist() {
+        when(userRepository.findById(404L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.reject(404L))
+                .isInstanceOf(UserNotFoundException.class);
+        verify(userRepository, never()).save(any());
+    }
 }

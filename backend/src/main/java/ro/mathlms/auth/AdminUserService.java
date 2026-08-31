@@ -33,6 +33,13 @@ public class AdminUserService {
         return userRepository.save(user);
     }
 
+    /** Rejects a pending account (email/password or Google) without deleting it. */
+    public User reject(Long id) {
+        User user = find(id);
+        user.reject();
+        return userRepository.save(user);
+    }
+
     private User find(Long id) {
         return userRepository.findById(id)
                 .orElseThrow(() -> new UserNotFoundException(id));
