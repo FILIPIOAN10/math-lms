@@ -1,4 +1,5 @@
-import { Button } from '@/components/ui/button'
+import { Link } from 'react-router-dom'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useAuth } from '@/context/AuthContext'
 
@@ -23,9 +24,16 @@ export function DashboardPage() {
             <p className="text-muted-foreground">
               Aici va veni dashboard-ul specific rolului tău. Deocamdată e un placeholder.
             </p>
-            <Button variant="outline" onClick={logout}>
-              Logout
-            </Button>
+            <div className="flex gap-2">
+              {user.role === 'ADMIN' && (
+                <Link to="/admin/pending" className={buttonVariants({ variant: 'secondary' })}>
+                  Conturi în așteptare
+                </Link>
+              )}
+              <Button variant="outline" onClick={logout}>
+                Logout
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>

@@ -80,3 +80,26 @@ export async function verifyEmail(token: string): Promise<void> {
 export async function logout(): Promise<void> {
   await apiFetch('/auth/logout', { method: 'POST' })
 }
+
+export interface PendingUser {
+  id: number
+  email: string
+  fullName: string
+  requestedRole: Role | null
+  emailVerified: boolean
+}
+
+export async function listPendingUsers(): Promise<PendingUser[]> {
+  const response = await apiFetch('/admin/users/pending')
+  return response.json()
+}
+
+export async function approveUser(id: number, role: Role): Promise<User> {
+  const response = await postJson(`/admin/users/${id}/approve`, { role })
+  return response.json()
+}
+
+export async function rejectUser(id: number): Promise<User> {
+  const response = await postJson(`/admin/users/${id}/reject`, {})
+  return response.json()
+}

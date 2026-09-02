@@ -1,12 +1,14 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider, useAuth } from '@/context/AuthContext'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
+import { AdminRoute } from '@/components/AdminRoute'
 import { LoginPage } from '@/pages/LoginPage'
 import { RegisterPage } from '@/pages/RegisterPage'
 import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage'
 import { ResetPasswordPage } from '@/pages/ResetPasswordPage'
 import { VerifyEmailPage } from '@/pages/VerifyEmailPage'
 import { PendingPage } from '@/pages/PendingPage'
+import { AdminPendingPage } from '@/pages/AdminPendingPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 
 function LoginRoute() {
@@ -32,6 +34,14 @@ function App() {
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/verify-email" element={<VerifyEmailPage />} />
           <Route path="/pending" element={<PendingPage />} />
+          <Route
+            path="/admin/pending"
+            element={
+              <AdminRoute>
+                <AdminPendingPage />
+              </AdminRoute>
+            }
+          />
           <Route
             path="/"
             element={
