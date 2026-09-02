@@ -11,6 +11,7 @@ import { PendingPage } from '@/pages/PendingPage'
 import { AdminPendingPage } from '@/pages/AdminPendingPage'
 import { AdminLinksPage } from '@/pages/AdminLinksPage'
 import { AdminContentPage } from '@/pages/AdminContentPage'
+import { AdminQuizzesPage } from '@/pages/AdminQuizzesPage'
 import { ContentBrowserPage } from '@/pages/ContentBrowserPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 
@@ -66,6 +67,14 @@ function App() {
             element={
               <AdminRoute>
                 <AdminContentPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/quizzes"
+            element={
+              <AdminRoute>
+                <AdminQuizzesPage />
               </AdminRoute>
             }
           />

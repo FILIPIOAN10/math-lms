@@ -277,3 +277,98 @@ export async function enrollStudent(classId: number, studentId: number): Promise
 export async function unenroll(enrollmentId: number): Promise<void> {
   await del(`/admin/enrollments/${enrollmentId}`)
 }
+
+// --- Quiz builder (Faza Q, admin) ---
+
+export type QuizStatus = 'DRAFT' | 'PUBLISHED'
+export type QuizItemType = 'SINGLE_CHOICE' | 'OPEN'
+
+export interface QuizSummary {
+  id: number
+  title: string
+  description: string | null
+  status: QuizStatus
+}
+
+export interface QuizOptionDto {
+  id: number
+  position: number
+  text: string
+  correct: boolean
+}
+
+export interface QuizItemDto {
+  id: number
+  position: number
+  type: QuizItemType
+  statement: string
+  points: number
+  solution: string | null
+  options: QuizOptionDto[]
+}
+
+export interface QuizDetail {
+  id: number
+  title: string
+  description: string | null
+  status: QuizStatus
+  items: QuizItemDto[]
+}
+
+export interface OptionInput {
+  position: number
+  text: string
+  correct: boolean
+}
+
+export interface ItemInput {
+  type: QuizItemType
+  position: number
+  statement: string
+  points: number
+  solution: string | null
+  options: OptionInput[] | null
+}
+
+export async function listQuizzes(): Promise<QuizSummary[]> {
+  const response = await apiFetch('/admin/quizzes')
+  return response.json()
+}
+
+export async function getQuiz(id: number): Promise<QuizDetail> {
+  const response = await apiFetch(`/admin/quizzes/${id}`)
+  return response.json()
+}
+
+export async function createQuiz(title: string, description: string | null): Promise<QuizSummary> {
+  const response = await postJson('/admin/quizzes', { title, description })
+  return response.json()
+}
+
+export async function updateQuiz(id: number, title: string, description: string | null): Promise<QuizSummary> {
+  const response = await putJson(`/admin/quizzes/${id}`, { title, description })
+  return response.json()
+}
+
+export async function deleteQuiz(id: number): Promise<void> {
+  await del(`/admin/quizzes/${id}`)
+}
+
+export async function setQuizPublished(id: number, published: boolean): Promise<QuizSummary> {
+  const response = await postJson(`/admin/quizzes/${id}/${published ? 'publish' : 'unpublish'}`, {})
+  return response.json()
+}
+
+export async function addQuizItem(quizId: number, input: ItemInput): Promise<QuizItemDto> {
+  const response = await postJson(`/admin/quizzes/${quizId}/items`, input)
+  return response.json()
+}
+
+export async function updateQuizItem(itemId: number, input: ItemInput): Promise<QuizItemDto> {
+  const response = await putJson(`/admin/quiz-items/${itemId}`, input)
+  return response.json()
+}
+
+export async function deleteQuizItem(itemId: number): Promise<void> {
+  await del(`/admin/quiz-items/${itemId}`)
+}
