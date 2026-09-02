@@ -63,11 +63,11 @@ docker exec -i mathlms-postgres psql -U mathlms -d mathlms -c \
 Rulează asta înainte de orice commit.
 
 ```bash
-# Backend — 124 teste (necesită Docker pentru Testcontainers)
+# Backend — 217 teste (necesită Docker pentru Testcontainers)
 cd math-lms/backend && ./mvnw test
 
-# Doar suita admin (rapid)
-./mvnw -Dtest='AdminUserServiceTest,AdminUserControllerTest,AdminUserRbacTest' test
+# Doar suita de conținut (Faza 2)
+./mvnw -Dtest='ro.mathlms.content.*' test
 
 # Frontend — `npm run build` include `tsc -b`, deci prinde și erorile de tipuri
 cd math-lms/frontend && npm run build
@@ -106,6 +106,34 @@ Nu există runner de teste FE (fără vitest) — regula tests-first e doar pent
 ### 7. Google login (tab Google)
 - OAuth real; merge doar cu emailuri din `ADMIN_EMAILS` / `ALLOWED_EMAILS`, sau via invite link
 
+### 8. Admin — gestionare conținut (`/admin/content`, ca admin)
+Buton pe Dashboard: **Gestionează conținut**. Navigare arborescentă cu breadcrumb.
+- **Adaugă clasă** → dialog (nume + descriere) → apare în listă
+- **Deschide** o clasă → **Adaugă carte**; deschide cartea → **Adaugă capitol**; deschide capitolul → **Adaugă exercițiu**
+- La exercițiu: enunț + soluție pot conține LaTeX (`$x^2+1$`, `$$\frac{a}{b}$$`) + dificultate
+- **Editează** / **Șterge** pe fiecare rând (ștergerea cere confirmare; o clasă/carte/capitol cu copii dă 409 — șterge întâi copiii)
+- **Elevi** pe o clasă → dialog roster: alege un elev activ → **Adaugă**; **Scoate** pentru dezînscriere
+- **Optimistic locking**: dacă doi admini editează același exercițiu, al doilea „Salvează" dă 409 („a fost modificat de altcineva")
+
+### 9. Elev / oricine activ — răsfoire conținut (`/content`)
+Buton pe Dashboard: **Conținut**. Read-only.
+- Drill-down Clase → Cărți → Capitole → Exerciții, cu breadcrumb pentru a urca
+- Exercițiile arată enunțul randat cu **KaTeX**; **Vezi soluția** dezvăluie soluția (tot KaTeX) + badge de dificultate
+- Un cont PENDING nu ajunge aici (guard `STATUS_ACTIVE`)
+
+### Verificare rapidă prin API (ca admin, cu cookie)
+```bash
+# login și salvează cookie-ul
+curl -s -c /tmp/c.txt -X POST http://localhost:8080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@mathlms.local","password":"Admin123!"}' -o /dev/null
+# creează o clasă
+curl -s -b /tmp/c.txt -X POST http://localhost:8080/api/admin/classes \
+  -H "Content-Type: application/json" -d '{"name":"Clasa test","description":null}'
+# listează clasele
+curl -s -b /tmp/c.txt http://localhost:8080/api/classes
+```
+
 ## E. Debugging — unde te uiți când pică ceva
 
 ```bash
@@ -113,6 +141,9 @@ Nu există runner de teste FE (fără vitest) — regula tests-first e doar pent
 docker exec -it mathlms-postgres psql -U mathlms -d mathlms
 #   \dt                                       — tabele
 #   SELECT id,email,role,status,parent_id FROM users;
+#   SELECT * FROM school_classes; SELECT * FROM books; SELECT * FROM chapters;
+#   SELECT id,chapter_id,left(statement,40),difficulty,version FROM exercises;
+#   SELECT * FROM enrollments;
 
 # Backend logs: consola unde rulează spring-boot:run (Spring Security e pe DEBUG)
 ```
