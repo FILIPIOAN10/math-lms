@@ -17,5 +17,9 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
     return <Navigate to="/login" replace />
   }
 
+  if (user.status !== 'ACTIVE') {
+    return <Navigate to="/pending" replace />
+  }
+
   return <>{children}</>
 }
