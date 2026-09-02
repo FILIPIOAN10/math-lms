@@ -1,7 +1,14 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Button, buttonVariants } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 import { listActiveUsers, linkParent, type AdminUserSummary } from '@/lib/api'
 
 export function AdminLinksPage() {
@@ -66,16 +73,19 @@ export function AdminLinksPage() {
     <div className="min-h-screen bg-muted p-4">
       <div className="mx-auto max-w-4xl">
         <Card>
-          <CardHeader className="flex-row items-start justify-between gap-4">
-            <div className="space-y-1">
-              <CardTitle className="text-2xl">Leagă părinți de studenți</CardTitle>
-              <CardDescription>
-                Alege pentru fiecare student părintele căruia îi aparține.
-              </CardDescription>
-            </div>
-            <Link to="/admin/pending" className={buttonVariants({ variant: 'outline', size: 'sm' })}>
-              Conturi în așteptare
-            </Link>
+          <CardHeader>
+            <CardTitle className="text-2xl">Leagă părinți de studenți</CardTitle>
+            <CardDescription>
+              Alege pentru fiecare student părintele căruia îi aparține.
+            </CardDescription>
+            <CardAction>
+              <Link
+                to="/admin/pending"
+                className={buttonVariants({ variant: 'outline', size: 'sm' })}
+              >
+                Conturi în așteptare
+              </Link>
+            </CardAction>
           </CardHeader>
           <CardContent className="space-y-4">
             {loading && <p className="text-muted-foreground">Se încarcă...</p>}

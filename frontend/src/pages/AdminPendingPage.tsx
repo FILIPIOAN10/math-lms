@@ -1,6 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 import { useAuth } from '@/context/AuthContext'
 import {
   approveUser,
@@ -81,16 +88,16 @@ export function AdminPendingPage() {
     <div className="min-h-screen bg-muted p-4">
       <div className="mx-auto max-w-4xl">
         <Card>
-          <CardHeader className="flex-row items-start justify-between gap-4">
-            <div className="space-y-1">
-              <CardTitle className="text-2xl">Conturi în așteptare</CardTitle>
-              <CardDescription>
-                Aprobă sau respinge conturile care și-au confirmat emailul și așteaptă decizia ta.
-              </CardDescription>
-            </div>
-            <Button variant="outline" size="sm" onClick={logout}>
-              Logout
-            </Button>
+          <CardHeader>
+            <CardTitle className="text-2xl">Conturi în așteptare</CardTitle>
+            <CardDescription>
+              Aprobă sau respinge conturile care și-au confirmat emailul și așteaptă decizia ta.
+            </CardDescription>
+            <CardAction>
+              <Button variant="outline" size="sm" onClick={logout}>
+                Logout
+              </Button>
+            </CardAction>
           </CardHeader>
           <CardContent className="space-y-4">
             {loading && <p className="text-muted-foreground">Se încarcă...</p>}
