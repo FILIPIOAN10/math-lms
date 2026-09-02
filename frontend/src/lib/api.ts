@@ -73,6 +73,10 @@ export async function resetPassword(token: string, newPassword: string): Promise
   await postJson('/auth/reset-password', { token, newPassword })
 }
 
+export async function verifyEmail(token: string): Promise<void> {
+  await apiFetch(`/auth/verify-email?token=${encodeURIComponent(token)}`)
+}
+
 export async function logout(): Promise<void> {
   await apiFetch('/auth/logout', { method: 'POST' })
 }
