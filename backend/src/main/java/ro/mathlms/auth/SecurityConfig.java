@@ -2,6 +2,7 @@ package ro.mathlms.auth;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -54,6 +55,10 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         // Feature endpoints (content, quiz — Faza 2+) require an approved account.
                         // A PENDING account is authenticated (can read /api/auth/me) but not ACTIVE.
+                        // Reads of the content hierarchy are for active accounts (students browse);
+                        // writes live under /api/admin/** above and need ADMIN.
+                        .requestMatchers(HttpMethod.GET, "/api/classes/**", "/api/books/**",
+                                "/api/chapters/**", "/api/exercises/**").hasAuthority("STATUS_ACTIVE")
                         .requestMatchers("/api/quiz/**", "/api/content/**").hasAuthority("STATUS_ACTIVE")
                         .anyRequest().authenticated()
                 )
