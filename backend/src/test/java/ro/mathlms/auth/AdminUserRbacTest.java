@@ -39,6 +39,13 @@ class AdminUserRbacTest {
 
     @Test
     @WithAnonymousUser
+    void anonymousCannotListByRole() throws Exception {
+        mockMvc.perform(get("/api/admin/users").param("role", "PARENT"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @WithAnonymousUser
     void anonymousCannotApprove() throws Exception {
         mockMvc.perform(post("/api/admin/users/1/approve")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -73,12 +80,26 @@ class AdminUserRbacTest {
                 .andExpect(status().isForbidden());
     }
 
+    @Test
+    @WithMockUser(roles = "PARENT")
+    void parentCannotListByRole() throws Exception {
+        mockMvc.perform(get("/api/admin/users").param("role", "STUDENT"))
+                .andExpect(status().isForbidden());
+    }
+
     // --- admin -> allowed through RBAC (200 on an empty pending list) ---
 
     @Test
     @WithMockUser(roles = "ADMIN")
     void adminCanListPending() throws Exception {
         mockMvc.perform(get("/api/admin/users/pending"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void adminCanListByRole() throws Exception {
+        mockMvc.perform(get("/api/admin/users").param("role", "PARENT"))
                 .andExpect(status().isOk());
     }
 }

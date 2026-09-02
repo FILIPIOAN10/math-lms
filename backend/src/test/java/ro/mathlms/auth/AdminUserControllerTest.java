@@ -45,6 +45,23 @@ class AdminUserControllerTest {
     }
 
     @Test
+    void byRoleMapsActiveAccountsToSummaries() {
+        User parent = new User("parinte@example.com", "Parinte Pop", Role.PARENT);
+        User student = new User("copil@example.com", "Copil Pop", Role.STUDENT);
+        student.linkParent(parent); // student now carries its parent
+        when(adminUserService.listActiveByRole(Role.STUDENT)).thenReturn(List.of(student));
+
+        ResponseEntity<List<AdminUserSummaryDto>> response = controller.byRole(Role.STUDENT);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).singleElement().satisfies(dto -> {
+            assertThat(dto.email()).isEqualTo("copil@example.com");
+            assertThat(dto.role()).isEqualTo(Role.STUDENT);
+            assertThat(dto.parentName()).isEqualTo("Parinte Pop");
+        });
+    }
+
+    @Test
     void approveReturnsTheActivatedAccount() {
         User activated = User.registerLocal("dan@example.com", "Dan Ilie", "hash", Role.PARENT);
         activated.verifyEmail();

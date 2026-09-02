@@ -35,6 +35,18 @@ class AdminUserServiceTest {
     }
 
     @Test
+    void listActiveByRoleReturnsActiveAccountsOfThatRole() {
+        User parent = new User("parinte@example.com", "Parinte Pop", Role.PARENT);
+        when(userRepository.findByStatusAndRoleFetchParent(AccountStatus.ACTIVE, Role.PARENT))
+                .thenReturn(List.of(parent));
+
+        List<User> result = service.listActiveByRole(Role.PARENT);
+
+        assertThat(result).containsExactly(parent);
+        verify(userRepository).findByStatusAndRoleFetchParent(AccountStatus.ACTIVE, Role.PARENT);
+    }
+
+    @Test
     void approveAssignsTheConfirmedRoleAndActivatesTheAccount() {
         User user = User.registerLocal("dan@example.com", "Dan Ilie", "hash", Role.PARENT);
         user.verifyEmail(); // now PENDING_APPROVAL

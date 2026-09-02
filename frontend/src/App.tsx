@@ -9,6 +9,7 @@ import { ResetPasswordPage } from '@/pages/ResetPasswordPage'
 import { VerifyEmailPage } from '@/pages/VerifyEmailPage'
 import { PendingPage } from '@/pages/PendingPage'
 import { AdminPendingPage } from '@/pages/AdminPendingPage'
+import { AdminLinksPage } from '@/pages/AdminLinksPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 
 function LoginRoute() {
@@ -39,6 +40,14 @@ function App() {
             element={
               <AdminRoute>
                 <AdminPendingPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/links"
+            element={
+              <AdminRoute>
+                <AdminLinksPage />
               </AdminRoute>
             }
           />

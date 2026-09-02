@@ -26,9 +26,14 @@ export function DashboardPage() {
             </p>
             <div className="flex gap-2">
               {user.role === 'ADMIN' && (
-                <Link to="/admin/pending" className={buttonVariants({ variant: 'secondary' })}>
-                  Conturi în așteptare
-                </Link>
+                <>
+                  <Link to="/admin/pending" className={buttonVariants({ variant: 'secondary' })}>
+                    Conturi în așteptare
+                  </Link>
+                  <Link to="/admin/links" className={buttonVariants({ variant: 'secondary' })}>
+                    Leagă părinți
+                  </Link>
+                </>
               )}
               <Button variant="outline" onClick={logout}>
                 Logout

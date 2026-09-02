@@ -24,6 +24,14 @@ public class AdminUserService {
     }
 
     /**
+     * Active accounts holding a given real role — the pool the admin picks from when
+     * linking a student to a parent (role=PARENT for the options, role=STUDENT for the rows).
+     */
+    public List<User> listActiveByRole(Role role) {
+        return userRepository.findByStatusAndRoleFetchParent(AccountStatus.ACTIVE, role);
+    }
+
+    /**
      * Approves a pending account and assigns its real role. The admin may confirm or
      * override the applicant's {@code requestedRole} — this is the anti-fraud gate.
      */

@@ -103,3 +103,22 @@ export async function rejectUser(id: number): Promise<User> {
   const response = await postJson(`/admin/users/${id}/reject`, {})
   return response.json()
 }
+
+export interface AdminUserSummary {
+  id: number
+  email: string
+  fullName: string
+  role: Role
+  parentId: number | null
+  parentName: string | null
+}
+
+export async function listActiveUsers(role: Role): Promise<AdminUserSummary[]> {
+  const response = await apiFetch(`/admin/users?role=${role}`)
+  return response.json()
+}
+
+export async function linkParent(studentId: number, parentId: number): Promise<User> {
+  const response = await postJson(`/admin/users/${studentId}/link-parent`, { parentId })
+  return response.json()
+}

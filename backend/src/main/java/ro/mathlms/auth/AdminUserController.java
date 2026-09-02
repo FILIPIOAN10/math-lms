@@ -8,7 +8,9 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import ro.mathlms.user.Role;
 import ro.mathlms.user.User;
 
 import java.util.List;
@@ -27,6 +29,18 @@ public class AdminUserController {
 
     public AdminUserController(AdminUserService adminUserService) {
         this.adminUserService = adminUserService;
+    }
+
+    /**
+     * Active accounts of a given role, for the linking screen: {@code ?role=STUDENT} for
+     * the rows to link, {@code ?role=PARENT} for the parent options.
+     */
+    @GetMapping
+    public ResponseEntity<List<AdminUserSummaryDto>> byRole(@RequestParam Role role) {
+        List<AdminUserSummaryDto> users = adminUserService.listActiveByRole(role).stream()
+                .map(AdminUserSummaryDto::from)
+                .toList();
+        return ResponseEntity.ok(users);
     }
 
     /** Accounts awaiting an admin decision, for the review screen. */
