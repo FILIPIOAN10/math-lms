@@ -10,6 +10,7 @@ import { VerifyEmailPage } from '@/pages/VerifyEmailPage'
 import { PendingPage } from '@/pages/PendingPage'
 import { AdminPendingPage } from '@/pages/AdminPendingPage'
 import { AdminLinksPage } from '@/pages/AdminLinksPage'
+import { AdminContentPage } from '@/pages/AdminContentPage'
 import { ContentBrowserPage } from '@/pages/ContentBrowserPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 
@@ -58,6 +59,14 @@ function App() {
               <ProtectedRoute>
                 <ContentBrowserPage />
               </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/content"
+            element={
+              <AdminRoute>
+                <AdminContentPage />
+              </AdminRoute>
             }
           />
           <Route

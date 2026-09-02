@@ -44,6 +44,18 @@ async function postJson(path: string, payload: unknown): Promise<Response> {
   })
 }
 
+async function putJson(path: string, payload: unknown): Promise<Response> {
+  return apiFetch(path, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+}
+
+async function del(path: string): Promise<void> {
+  await apiFetch(path, { method: 'DELETE' })
+}
+
 export async function getCurrentUser(): Promise<User> {
   const response = await apiFetch('/auth/me')
   return response.json()
@@ -174,4 +186,94 @@ export async function listChapters(bookId: number): Promise<Chapter[]> {
 export async function listExercises(chapterId: number): Promise<Exercise[]> {
   const response = await apiFetch(`/chapters/${chapterId}/exercises`)
   return response.json()
+}
+
+// --- Content admin writes (Faza 2.5) ---
+
+export async function createClass(name: string, description: string | null): Promise<SchoolClass> {
+  const response = await postJson('/admin/classes', { name, description })
+  return response.json()
+}
+
+export async function updateClass(id: number, name: string, description: string | null): Promise<SchoolClass> {
+  const response = await putJson(`/admin/classes/${id}`, { name, description })
+  return response.json()
+}
+
+export async function deleteClass(id: number): Promise<void> {
+  await del(`/admin/classes/${id}`)
+}
+
+export async function createBook(classId: number, title: string, description: string | null): Promise<Book> {
+  const response = await postJson(`/admin/classes/${classId}/books`, { title, description })
+  return response.json()
+}
+
+export async function updateBook(id: number, title: string, description: string | null): Promise<Book> {
+  const response = await putJson(`/admin/books/${id}`, { title, description })
+  return response.json()
+}
+
+export async function deleteBook(id: number): Promise<void> {
+  await del(`/admin/books/${id}`)
+}
+
+export async function createChapter(bookId: number, title: string, description: string | null): Promise<Chapter> {
+  const response = await postJson(`/admin/books/${bookId}/chapters`, { title, description })
+  return response.json()
+}
+
+export async function updateChapter(id: number, title: string, description: string | null): Promise<Chapter> {
+  const response = await putJson(`/admin/chapters/${id}`, { title, description })
+  return response.json()
+}
+
+export async function deleteChapter(id: number): Promise<void> {
+  await del(`/admin/chapters/${id}`)
+}
+
+export interface ExerciseInput {
+  statement: string
+  solution: string | null
+  difficulty: Difficulty | null
+}
+
+export async function createExercise(chapterId: number, input: ExerciseInput): Promise<Exercise> {
+  const response = await postJson(`/admin/chapters/${chapterId}/exercises`, input)
+  return response.json()
+}
+
+export async function updateExercise(
+  id: number,
+  input: ExerciseInput & { version: number },
+): Promise<Exercise> {
+  const response = await putJson(`/admin/exercises/${id}`, input)
+  return response.json()
+}
+
+export async function deleteExercise(id: number): Promise<void> {
+  await del(`/admin/exercises/${id}`)
+}
+
+// --- Enrollment admin (Faza 2.5) ---
+
+export interface Enrollment {
+  id: number
+  studentId: number
+  studentName: string
+  studentEmail: string
+}
+
+export async function listRoster(classId: number): Promise<Enrollment[]> {
+  const response = await apiFetch(`/admin/classes/${classId}/enrollments`)
+  return response.json()
+}
+
+export async function enrollStudent(classId: number, studentId: number): Promise<Enrollment> {
+  const response = await postJson(`/admin/classes/${classId}/enrollments`, { studentId })
+  return response.json()
+}
+
+export async function unenroll(enrollmentId: number): Promise<void> {
+  await del(`/admin/enrollments/${enrollmentId}`)
 }

@@ -30,6 +30,9 @@ export function DashboardPage() {
               </Link>
               {user.role === 'ADMIN' && (
                 <>
+                  <Link to="/admin/content" className={buttonVariants({ variant: 'secondary' })}>
+                    Gestionează conținut
+                  </Link>
                   <Link to="/admin/pending" className={buttonVariants({ variant: 'secondary' })}>
                     Conturi în așteptare
                   </Link>
