@@ -24,7 +24,10 @@ export function DashboardPage() {
             <p className="text-muted-foreground">
               Aici va veni dashboard-ul specific rolului tău. Deocamdată e un placeholder.
             </p>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
+              <Link to="/content" className={buttonVariants({ variant: 'default' })}>
+                Conținut
+              </Link>
               {user.role === 'ADMIN' && (
                 <>
                   <Link to="/admin/pending" className={buttonVariants({ variant: 'secondary' })}>

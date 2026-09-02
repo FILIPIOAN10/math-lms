@@ -122,3 +122,56 @@ export async function linkParent(studentId: number, parentId: number): Promise<U
   const response = await postJson(`/admin/users/${studentId}/link-parent`, { parentId })
   return response.json()
 }
+
+// --- Content hierarchy (Faza 2) ---
+
+export type Difficulty = 'EASY' | 'MEDIUM' | 'HARD'
+
+export interface SchoolClass {
+  id: number
+  name: string
+  description: string | null
+}
+
+export interface Book {
+  id: number
+  schoolClassId: number
+  title: string
+  description: string | null
+}
+
+export interface Chapter {
+  id: number
+  bookId: number
+  title: string
+  description: string | null
+}
+
+export interface Exercise {
+  id: number
+  chapterId: number
+  statement: string
+  solution: string | null
+  difficulty: Difficulty | null
+  version: number
+}
+
+export async function listClasses(): Promise<SchoolClass[]> {
+  const response = await apiFetch('/classes')
+  return response.json()
+}
+
+export async function listBooks(classId: number): Promise<Book[]> {
+  const response = await apiFetch(`/classes/${classId}/books`)
+  return response.json()
+}
+
+export async function listChapters(bookId: number): Promise<Chapter[]> {
+  const response = await apiFetch(`/books/${bookId}/chapters`)
+  return response.json()
+}
+
+export async function listExercises(chapterId: number): Promise<Exercise[]> {
+  const response = await apiFetch(`/chapters/${chapterId}/exercises`)
+  return response.json()
+}
