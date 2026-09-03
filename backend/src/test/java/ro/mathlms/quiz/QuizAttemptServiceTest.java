@@ -1,9 +1,13 @@
 package ro.mathlms.quiz;
 
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.web.multipart.MultipartFile;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultDto;
 import ro.mathlms.quiz.StudentQuizDtos.StartedAttemptDto;
+import ro.mathlms.storage.FileService;
 import ro.mathlms.user.Role;
 import ro.mathlms.user.User;
 import ro.mathlms.user.UserRepository;
@@ -14,6 +18,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -27,9 +32,11 @@ class QuizAttemptServiceTest {
     private final QuizAttemptRepository attemptRepository = mock(QuizAttemptRepository.class);
     private final ItemResponseRepository responseRepository = mock(ItemResponseRepository.class);
     private final UserRepository userRepository = mock(UserRepository.class);
+    private final FileService fileService = mock(FileService.class);
     private final QuizAttemptService service = new QuizAttemptService(
             quizRepository, itemRepository, optionRepository,
-            attemptRepository, responseRepository, userRepository);
+            attemptRepository, responseRepository, userRepository,
+            fileService, "uploads/quiz-photos");
 
     private static final String EMAIL = "elev@scoala.ro";
 
@@ -248,6 +255,93 @@ class QuizAttemptServiceTest {
         when(attemptRepository.findById(50L)).thenReturn(Optional.of(attempt));
 
         assertThatThrownBy(() -> service.submit(50L, EMAIL))
+                .isInstanceOf(QuizAccessException.class);
+    }
+
+    // --- uploadOpenPhoto ---
+
+    private static MultipartFile image() {
+        return new MockMultipartFile("file", "rezolvare.jpg", "image/jpeg", "bytes".getBytes());
+    }
+
+    @Test
+    void uploadStoresPhotoAndSetsImageKey() throws Exception {
+        QuizItem openItem = open(101L, 30);
+        QuizAttempt attempt = attempt(50L, student);
+        when(attemptRepository.findById(50L)).thenReturn(Optional.of(attempt));
+        when(itemRepository.findById(101L)).thenReturn(Optional.of(openItem));
+        when(responseRepository.findByAttemptIdAndItemId(50L, 101L)).thenReturn(Optional.empty());
+        when(fileService.uploadImage(eq("uploads/quiz-photos"), any())).thenReturn("stored.jpg");
+
+        service.uploadOpenPhoto(50L, 101L, image(), EMAIL);
+
+        ArgumentCaptor<ItemResponse> saved = ArgumentCaptor.forClass(ItemResponse.class);
+        verify(responseRepository).save(saved.capture());
+        assertThat(saved.getValue().getImageKey()).isEqualTo("stored.jpg");
+    }
+
+    @Test
+    void uploadReplacesOldPhotoAndDeletesPrevious() throws Exception {
+        QuizItem openItem = open(101L, 30);
+        QuizAttempt attempt = attempt(50L, student);
+        ItemResponse existing = new ItemResponse(attempt, openItem);
+        existing.answerOpen("old.jpg");
+        when(attemptRepository.findById(50L)).thenReturn(Optional.of(attempt));
+        when(itemRepository.findById(101L)).thenReturn(Optional.of(openItem));
+        when(responseRepository.findByAttemptIdAndItemId(50L, 101L)).thenReturn(Optional.of(existing));
+        when(fileService.uploadImage(eq("uploads/quiz-photos"), any())).thenReturn("new.jpg");
+
+        service.uploadOpenPhoto(50L, 101L, image(), EMAIL);
+
+        assertThat(existing.getImageKey()).isEqualTo("new.jpg");
+        verify(fileService).deleteImage("uploads/quiz-photos", "old.jpg");
+    }
+
+    @Test
+    void uploadRejectsSingleChoiceItem() throws Exception {
+        QuizItem grila = singleChoice(100L, 5);
+        QuizAttempt attempt = attempt(50L, student);
+        when(attemptRepository.findById(50L)).thenReturn(Optional.of(attempt));
+        when(itemRepository.findById(100L)).thenReturn(Optional.of(grila));
+
+        assertThatThrownBy(() -> service.uploadOpenPhoto(50L, 100L, image(), EMAIL))
+                .isInstanceOf(InvalidQuizException.class);
+        verify(fileService, never()).uploadImage(any(), any());
+    }
+
+    @Test
+    void uploadRejectsNonImageFile() throws Exception {
+        QuizItem openItem = open(101L, 30);
+        QuizAttempt attempt = attempt(50L, student);
+        when(attemptRepository.findById(50L)).thenReturn(Optional.of(attempt));
+        when(itemRepository.findById(101L)).thenReturn(Optional.of(openItem));
+        MultipartFile pdf = new MockMultipartFile("file", "x.pdf", "application/pdf", "bytes".getBytes());
+
+        assertThatThrownBy(() -> service.uploadOpenPhoto(50L, 101L, pdf, EMAIL))
+                .isInstanceOf(InvalidQuizException.class);
+        verify(fileService, never()).uploadImage(any(), any());
+    }
+
+    @Test
+    void uploadRejectsEmptyFile() throws Exception {
+        QuizItem openItem = open(101L, 30);
+        QuizAttempt attempt = attempt(50L, student);
+        when(attemptRepository.findById(50L)).thenReturn(Optional.of(attempt));
+        when(itemRepository.findById(101L)).thenReturn(Optional.of(openItem));
+        MultipartFile empty = new MockMultipartFile("file", "x.jpg", "image/jpeg", new byte[0]);
+
+        assertThatThrownBy(() -> service.uploadOpenPhoto(50L, 101L, empty, EMAIL))
+                .isInstanceOf(InvalidQuizException.class);
+        verify(fileService, never()).uploadImage(any(), any());
+    }
+
+    @Test
+    void uploadRejectsOtherStudentsAttempt() {
+        User other = withId(new User("altul@scoala.ro", "Altul", Role.STUDENT), 2L);
+        QuizAttempt attempt = attempt(50L, other);
+        when(attemptRepository.findById(50L)).thenReturn(Optional.of(attempt));
+
+        assertThatThrownBy(() -> service.uploadOpenPhoto(50L, 101L, image(), EMAIL))
                 .isInstanceOf(QuizAccessException.class);
     }
 }

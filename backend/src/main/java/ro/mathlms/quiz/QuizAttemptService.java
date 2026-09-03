@@ -1,14 +1,19 @@
 package ro.mathlms.quiz;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultDto;
 import ro.mathlms.quiz.StudentQuizDtos.StartedAttemptDto;
 import ro.mathlms.quiz.StudentQuizDtos.StudentItemDto;
 import ro.mathlms.quiz.StudentQuizDtos.StudentQuizDto;
+import ro.mathlms.storage.FileService;
 import ro.mathlms.user.User;
 import ro.mathlms.user.UserRepository;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -29,16 +34,22 @@ public class QuizAttemptService {
     private final QuizAttemptRepository attemptRepository;
     private final ItemResponseRepository responseRepository;
     private final UserRepository userRepository;
+    private final FileService fileService;
+    private final String quizPhotosDir;
 
     public QuizAttemptService(QuizRepository quizRepository, QuizItemRepository itemRepository,
                               QuizOptionRepository optionRepository, QuizAttemptRepository attemptRepository,
-                              ItemResponseRepository responseRepository, UserRepository userRepository) {
+                              ItemResponseRepository responseRepository, UserRepository userRepository,
+                              FileService fileService,
+                              @Value("${app.storage.quiz-photos-dir}") String quizPhotosDir) {
         this.quizRepository = quizRepository;
         this.itemRepository = itemRepository;
         this.optionRepository = optionRepository;
         this.attemptRepository = attemptRepository;
         this.responseRepository = responseRepository;
         this.userRepository = userRepository;
+        this.fileService = fileService;
+        this.quizPhotosDir = quizPhotosDir;
     }
 
     /** Published quizzes a student may take. */
@@ -83,6 +94,44 @@ public class QuizAttemptService {
                 .orElseGet(() -> new ItemResponse(attempt, item));
         response.answerSingleChoice(option);
         responseRepository.save(response);
+    }
+
+    /**
+     * Stores the uploaded rezolvare photo for one OPEN item and points the response at it. Replacing
+     * an earlier photo deletes the old file. The correct/points stay null — a teacher grades it later.
+     */
+    @Transactional
+    public void uploadOpenPhoto(Long attemptId, Long itemId, MultipartFile file, String studentEmail) {
+        QuizAttempt attempt = requireOwnedInProgress(attemptId, studentEmail);
+        QuizItem item = itemRepository.findById(itemId)
+                .orElseThrow(() -> new QuizNotFoundException("QuizItem", itemId));
+        if (!item.getQuiz().getId().equals(attempt.getQuiz().getId())) {
+            throw new InvalidQuizException("Item does not belong to this quiz");
+        }
+        if (item.getType() != QuizItemType.OPEN) {
+            throw new InvalidQuizException("Only open items take a photo");
+        }
+        requireImage(file);
+
+        ItemResponse response = responseRepository.findByAttemptIdAndItemId(attemptId, itemId)
+                .orElseGet(() -> new ItemResponse(attempt, item));
+        String previous = response.getImageKey();
+        String stored;
+        try {
+            stored = fileService.uploadImage(quizPhotosDir, file);
+        } catch (IOException e) {
+            throw new UncheckedIOException("Could not store the photo", e);
+        }
+        response.answerOpen(stored);
+        responseRepository.save(response);
+
+        if (previous != null) {
+            try {
+                fileService.deleteImage(quizPhotosDir, previous);
+            } catch (IOException ignored) {
+                // The new photo is saved; a leftover old file is not worth failing the request.
+            }
+        }
     }
 
     /**
@@ -143,6 +192,16 @@ public class QuizAttemptService {
             throw new InvalidQuizException("This attempt is no longer in progress");
         }
         return attempt;
+    }
+
+    private static void requireImage(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new InvalidQuizException("A photo file is required");
+        }
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.startsWith("image/")) {
+            throw new InvalidQuizException("Only image files are accepted");
+        }
     }
 
     private User requireUser(String email) {

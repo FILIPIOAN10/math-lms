@@ -3,8 +3,10 @@ package ro.mathlms.quiz;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.multipart.MultipartFile;
 import ro.mathlms.quiz.QuizDtos.QuizSummaryDto;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultDto;
 import ro.mathlms.quiz.StudentQuizDtos.StartedAttemptDto;
@@ -52,6 +54,16 @@ class QuizAttemptControllerTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
         verify(service).saveResponse(50L, 100L, 1000L, "elev@scoala.ro");
+    }
+
+    @Test
+    void uploadPhotoReturns204AndDelegates() {
+        MultipartFile file = new MockMultipartFile("file", "r.jpg", "image/jpeg", "bytes".getBytes());
+
+        ResponseEntity<Void> response = controller.uploadPhoto(50L, 101L, file, auth);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        verify(service).uploadOpenPhoto(50L, 101L, file, "elev@scoala.ro");
     }
 
     @Test

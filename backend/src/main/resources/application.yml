@@ -22,6 +22,11 @@ spring:
     enabled: true
     locations: classpath:db/migration
 
+  servlet:
+    multipart:
+      max-file-size: 8MB
+      max-request-size: 8MB
+
   data:
     redis:
       host: localhost
@@ -74,6 +79,14 @@ app:
   # Base URL of the frontend; verification / reset email links point here.
   frontend:
     base-url: ${FRONTEND_BASE_URL:http://localhost:5173}
+  # File storage: local filesystem now, S3/MinIO drop-in later (see FileService seam).
+  storage:
+    quiz-photos-dir: ${QUIZ_PHOTOS_DIR:uploads/quiz-photos}
+
+# Storage provider selector for the FileService seam (local | s3). Local is the default.
+file:
+  storage:
+    provider: ${FILE_STORAGE_PROVIDER:local}
 
 logging:
   level:
