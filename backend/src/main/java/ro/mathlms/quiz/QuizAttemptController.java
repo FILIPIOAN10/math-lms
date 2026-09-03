@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import ro.mathlms.quiz.QuizDtos.QuizSummaryDto;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultDto;
+import ro.mathlms.quiz.StudentQuizDtos.AttemptResultViewDto;
 import ro.mathlms.quiz.StudentQuizDtos.StartedAttemptDto;
 
 import java.util.List;
@@ -60,5 +61,10 @@ public class QuizAttemptController {
     @PostMapping("/api/quiz/attempts/{attemptId}/submit")
     public AttemptResultDto submit(@PathVariable Long attemptId, Authentication auth) {
         return service.submit(attemptId, auth.getName());
+    }
+
+    @GetMapping("/api/quiz/attempts/{attemptId}/result")
+    public AttemptResultViewDto result(@PathVariable Long attemptId, Authentication auth) {
+        return service.getResult(attemptId, auth.getName());
     }
 }

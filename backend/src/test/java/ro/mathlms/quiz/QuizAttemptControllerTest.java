@@ -9,6 +9,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.multipart.MultipartFile;
 import ro.mathlms.quiz.QuizDtos.QuizSummaryDto;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultDto;
+import ro.mathlms.quiz.StudentQuizDtos.AttemptResultViewDto;
 import ro.mathlms.quiz.StudentQuizDtos.StartedAttemptDto;
 
 import java.util.List;
@@ -64,6 +65,15 @@ class QuizAttemptControllerTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
         verify(service).uploadOpenPhoto(50L, 101L, file, "elev@scoala.ro");
+    }
+
+    @Test
+    void resultDelegatesToService() {
+        AttemptResultViewDto view = new AttemptResultViewDto(
+                50L, "Simulare EN", QuizAttemptStatus.GRADED, 5, 35, List.of());
+        when(service.getResult(50L, "elev@scoala.ro")).thenReturn(view);
+
+        assertThat(controller.result(50L, auth)).isEqualTo(view);
     }
 
     @Test

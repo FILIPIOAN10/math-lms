@@ -69,4 +69,31 @@ public final class StudentQuizDtos {
             Integer finalScore
     ) {
     }
+
+    /**
+     * One item as shown on the student's result view (after submit). Now that grading is done the
+     * correct option and the barem — hidden before submit — are revealed for learning.
+     */
+    public record ItemResultDto(
+            int position,
+            QuizItemType type,
+            String statement,
+            int points,
+            Integer awardedPoints,
+            Boolean correct,
+            String selectedOptionText,
+            String correctOptionText,
+            String barem,
+            boolean photoUploaded
+    ) {}
+
+    /** The student's graded attempt: the score plus a per-item breakdown. */
+    public record AttemptResultViewDto(
+            Long attemptId,
+            String quizTitle,
+            QuizAttemptStatus status,
+            Integer finalScore,
+            int maxScore,
+            List<ItemResultDto> items
+    ) {}
 }

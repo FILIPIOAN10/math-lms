@@ -6,6 +6,8 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.multipart.MultipartFile;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultDto;
+import ro.mathlms.quiz.StudentQuizDtos.AttemptResultViewDto;
+import ro.mathlms.quiz.StudentQuizDtos.ItemResultDto;
 import ro.mathlms.quiz.StudentQuizDtos.StartedAttemptDto;
 import ro.mathlms.storage.FileService;
 import ro.mathlms.user.Role;
@@ -364,6 +366,59 @@ class QuizAttemptServiceTest {
         // Assert
         verify(response).gradeManual(15);
         verify(responseRepository).save(response);
+    }
+
+    // --- getResult (Q8) ---
+
+    @Test
+    void getResultRevealsCorrectAnswerBaremAndScore() {
+        QuizItem grila = singleChoice(100L, 5);
+        QuizOption correct = option(grila, 1000L, true);
+        QuizItem deschis = withId(new QuizItem(quiz, 2, QuizItemType.OPEN, "Rezolvă", 30, "barem-x"), 101L);
+        QuizAttempt attempt = attempt(50L, student);
+        attempt.submit();
+        attempt.markGraded(5);
+        ItemResponse r1 = new ItemResponse(attempt, grila);
+        r1.answerSingleChoice(correct);
+        r1.gradeAuto(true, 5);
+        when(attemptRepository.findById(50L)).thenReturn(Optional.of(attempt));
+        when(itemRepository.findByQuizIdOrderByPosition(10L)).thenReturn(List.of(grila, deschis));
+        when(responseRepository.findByAttemptId(50L)).thenReturn(List.of(r1));
+        when(optionRepository.findByItemIdOrderByPosition(100L)).thenReturn(List.of(correct));
+
+        AttemptResultViewDto view = service.getResult(50L, EMAIL);
+
+        assertThat(view.finalScore()).isEqualTo(5);
+        assertThat(view.maxScore()).isEqualTo(35);
+        assertThat(view.status()).isEqualTo(QuizAttemptStatus.GRADED);
+        ItemResultDto grView = view.items().get(0);
+        assertThat(grView.correctOptionText()).isEqualTo("opt");
+        assertThat(grView.selectedOptionText()).isEqualTo("opt");
+        assertThat(grView.correct()).isTrue();
+        assertThat(grView.awardedPoints()).isEqualTo(5);
+        ItemResultDto openView = view.items().get(1);
+        assertThat(openView.barem()).isEqualTo("barem-x");
+        assertThat(openView.photoUploaded()).isFalse();
+    }
+
+    @Test
+    void getResultRejectsInProgressAttempt() {
+        QuizAttempt attempt = attempt(50L, student); // still IN_PROGRESS
+        when(attemptRepository.findById(50L)).thenReturn(Optional.of(attempt));
+
+        assertThatThrownBy(() -> service.getResult(50L, EMAIL))
+                .isInstanceOf(InvalidQuizException.class);
+    }
+
+    @Test
+    void getResultRejectsOtherStudentsAttempt() {
+        User other = withId(new User("altul@scoala.ro", "Altul", Role.STUDENT), 2L);
+        QuizAttempt attempt = attempt(50L, other);
+        attempt.submit();
+        when(attemptRepository.findById(50L)).thenReturn(Optional.of(attempt));
+
+        assertThatThrownBy(() -> service.getResult(50L, EMAIL))
+                .isInstanceOf(QuizAccessException.class);
     }
 
     @Test
