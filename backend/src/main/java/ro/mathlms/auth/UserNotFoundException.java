@@ -5,4 +5,8 @@ public class UserNotFoundException extends RuntimeException {
     public UserNotFoundException(Long id) {
         super("No account with id " + id);
     }
+
+    public UserNotFoundException(String detail) {
+        super(detail);
+    }
 }
