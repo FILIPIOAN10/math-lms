@@ -4,6 +4,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.util.ReflectionTestUtils;
 import ro.mathlms.user.Role;
 import ro.mathlms.user.User;
 import ro.mathlms.user.UserRepository;
@@ -34,6 +35,16 @@ class LoginServiceTest {
         user.verifyEmail();
         user.approve(Role.STUDENT);
         return user;
+    }
+
+    @Test
+    void rejectsErasedAccount() {
+        User user = activeUser();
+        ReflectionTestUtils.setField(user, "erased", true);
+        when(userRepository.findByEmail("ana@scoala.ro")).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> service.authenticate("ana@scoala.ro", "parola123"))
+                .isInstanceOf(BadCredentialsException.class);
     }
 
     @Test

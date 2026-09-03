@@ -52,6 +52,8 @@ public class SecurityConfig {
                         .requestMatchers("/oauth2/**", "/login/**").permitAll()
                         .requestMatchers("/api/auth/register", "/api/auth/verify-email", "/api/auth/login",
                                 "/api/auth/forgot-password", "/api/auth/reset-password").permitAll()
+                        // GDPR erasure is confirmed via an emailed single-purpose token, no session.
+                        .requestMatchers("/api/public/gdpr/erase/confirm").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         // Feature endpoints (content, quiz — Faza 2+) require an approved account.
                         // A PENDING account is authenticated (can read /api/auth/me) but not ACTIVE.

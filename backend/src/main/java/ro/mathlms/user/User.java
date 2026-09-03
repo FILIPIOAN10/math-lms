@@ -15,6 +15,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.time.Instant;
 import java.util.Objects;
 
 @Entity
@@ -63,6 +64,13 @@ public class User {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_id")
     private User parent;
+
+    /** GDPR Art. 17 tombstone: once true the account is anonymised and can never authenticate. */
+    @Column(nullable = false)
+    private boolean erased = false;
+
+    @Column(name = "erased_at")
+    private Instant erasedAt;
 
     public User(String email, String fullName, Role role) {
         this.email = requireNonBlank(email, "email");
@@ -175,6 +183,23 @@ public class User {
     /** Sets the BCrypt password hash for local login. */
     public void setPassword(String passwordHash) {
         this.password = requireNonBlank(passwordHash, "password");
+    }
+
+    /**
+     * GDPR Art. 17 erasure: anonymise this account in place. Identifying fields are replaced with a
+     * deterministic pseudonym and every credential/link is dropped, so retained (anonymised) quiz
+     * attempts keep a valid foreign key while the person can no longer be identified or authenticate.
+     */
+    public void erase(String pseudonymEmail, String pseudonymName) {
+        this.email = requireNonBlank(pseudonymEmail, "pseudonymEmail");
+        this.fullName = requireNonBlank(pseudonymName, "pseudonymName");
+        this.password = null;
+        this.googleId = null;
+        this.requestedRole = null;
+        this.parent = null;
+        this.emailVerified = false;
+        this.erased = true;
+        this.erasedAt = Instant.now();
     }
 
     private static String requireNonBlank(String value, String field) {

@@ -24,6 +24,7 @@ public class VerificationTokenService {
 
     private static final Duration VERIFY_EMAIL_TTL = Duration.ofHours(24);
     private static final Duration PASSWORD_RESET_TTL = Duration.ofHours(1);
+    private static final Duration ERASE_ACCOUNT_TTL = Duration.ofMinutes(30);
     private static final String PURPOSE_CLAIM = "purpose";
 
     private final SecretKey key;
@@ -77,6 +78,7 @@ public class VerificationTokenService {
         return switch (purpose) {
             case VERIFY_EMAIL -> VERIFY_EMAIL_TTL;
             case PASSWORD_RESET -> PASSWORD_RESET_TTL;
+            case ERASE_ACCOUNT -> ERASE_ACCOUNT_TTL;
             default -> throw new IllegalArgumentException("Unknown token purpose: " + purpose);
         };
     }

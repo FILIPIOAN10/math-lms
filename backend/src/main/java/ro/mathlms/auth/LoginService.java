@@ -27,6 +27,11 @@ public class LoginService {
         User user = userRepository.findByEmail(email.toLowerCase())
                 .orElseThrow(() -> new BadCredentialsException("Invalid credentials"));
 
+        // A GDPR-erased account is a tombstone — never a valid login.
+        if (user.isErased()) {
+            throw new BadCredentialsException("Invalid credentials");
+        }
+
         // Google-only accounts have no local password.
         if (user.getPassword() == null
                 || !passwordEncoder.matches(rawPassword, user.getPassword())) {
