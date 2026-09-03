@@ -8,6 +8,7 @@ import java.io.File;
 import java.nio.file.Path;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * The local provider end to end, WITHOUT Spring or Docker: upload writes a uniquely-named file with
@@ -47,5 +48,12 @@ class FileServiceImplTest {
     void deleteIgnoresExternalUrls(@TempDir Path dir) throws Exception {
         // Must not touch the filesystem for an http(s) reference.
         fileService.deleteImage(dir.toString(), "https://cdn.example.com/a.jpg");
+    }
+
+    @Test
+    void loadRejectsPathTraversal(@TempDir Path dir) {
+        // A crafted name must not escape the storage directory.
+        assertThatThrownBy(() -> fileService.loadImage(dir.resolve("quiz-photos").toString(), "../../secret.txt"))
+                .isInstanceOf(java.io.FileNotFoundException.class);
     }
 }

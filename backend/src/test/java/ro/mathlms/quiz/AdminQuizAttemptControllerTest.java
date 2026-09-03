@@ -1,4 +1,4 @@
-package ro.mathlms.auth;
+package ro.mathlms.quiz;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.FilterChain;
@@ -19,23 +19,27 @@ import org.springframework.security.oauth2.client.registration.ClientRegistratio
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-
-import ro.mathlms.quiz.QuizAttemptService;
-import ro.mathlms.content.GradeRequestDto;
+import ro.mathlms.auth.CustomOidcUserService;
+import ro.mathlms.auth.JwtCookieAuthFilter;
+import ro.mathlms.auth.JwtCookieSuccessHandler;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(AdminQuizAttemptController.class)
 @Import(AdminQuizAttemptControllerTest.MethodSecurityConfig.class)
 class AdminQuizAttemptControllerTest {
 
-    // Aici aprindem protecția @PreAuthorize special pentru acest test!
+    /** Turn on @PreAuthorize for this slice test. */
     @TestConfiguration
     @EnableMethodSecurity
     static class MethodSecurityConfig {}
@@ -81,7 +85,6 @@ class AdminQuizAttemptControllerTest {
                 return "photo.png";
             }
         };
-
         when(service.getOpenPhotoResource(1L, 2L)).thenReturn(mockResource);
 
         mockMvc.perform(get("/api/admin/quiz/attempts/1/responses/2/photo"))

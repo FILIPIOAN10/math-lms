@@ -240,12 +240,15 @@ public class QuizAttemptService {
 
         QuizItem item = itemRepository.findById(itemId)
                 .orElseThrow(() -> new QuizNotFoundException("QuizItem", itemId));
+        if (item.getType() != QuizItemType.OPEN) {
+            throw new InvalidQuizException("Only open items are graded manually");
+        }
 
         // Dacă elevul nu a răspuns nimic, creăm un răspuns gol ca să reținem punctajul (ex: 0)
         ItemResponse response = responseRepository.findByAttemptIdAndItemId(attemptId, itemId)
                 .orElseGet(() -> new ItemResponse(attempt, item));
 
-        response.gradeManual(points); // Va face throw automat dacă tipul nu e OPEN
+        response.gradeManual(points);
         responseRepository.save(response);
     }
 

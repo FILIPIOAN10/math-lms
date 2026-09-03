@@ -62,7 +62,12 @@ public class FileServiceImpl implements FileService {
     }
     @Override
     public Resource loadImage(String path, String imageName) throws IOException {
-        Path filePath = Paths.get(path).resolve(imageName).normalize();
+        Path base = Paths.get(path).toAbsolutePath().normalize();
+        Path filePath = base.resolve(imageName).normalize();
+        // Defense in depth: never let a crafted name escape the storage directory.
+        if (!filePath.startsWith(base)) {
+            throw new FileNotFoundException("Invalid image name: " + imageName);
+        }
         Resource resource = new UrlResource(filePath.toUri());
         if (resource.exists() && resource.isReadable()) {
             return resource;

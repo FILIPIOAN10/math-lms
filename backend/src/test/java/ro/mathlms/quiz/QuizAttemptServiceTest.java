@@ -367,6 +367,18 @@ class QuizAttemptServiceTest {
     }
 
     @Test
+    void gradeOpenResponseRejectsSingleChoiceItem() {
+        QuizItem grila = singleChoice(100L, 5);
+        QuizAttempt attempt = attempt(50L, student);
+        attempt.submit();
+        when(attemptRepository.findById(50L)).thenReturn(Optional.of(attempt));
+        when(itemRepository.findById(100L)).thenReturn(Optional.of(grila));
+
+        assertThatThrownBy(() -> service.gradeOpenResponse(50L, 100L, 5))
+                .isInstanceOf(InvalidQuizException.class);
+    }
+
+    @Test
     void gradeOpenResponse_FailsIfNotSubmitted() {
         // Arrange
         QuizAttempt attempt = mock(QuizAttempt.class);
