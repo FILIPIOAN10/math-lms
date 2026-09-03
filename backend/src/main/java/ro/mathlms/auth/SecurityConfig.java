@@ -17,6 +17,8 @@ import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequest
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 
 @Configuration
 @EnableWebSecurity
@@ -43,8 +45,19 @@ public class SecurityConfig {
                 new InviteCapturingAuthorizationRequestRepository(
                         new HttpSessionOAuth2AuthorizationRequestRepository());
 
+        // Cookie double-submit CSRF for the browser SPA: the token rides in a JS-readable
+        // XSRF-TOKEN cookie and must be echoed as the X-XSRF-TOKEN header on state-changing
+        // requests. The auth/OAuth2/public endpoints are exempt — they are first-contact (no
+        // cookie yet) or gated by their own single-use token.
+        CsrfTokenRequestAttributeHandler csrfRequestHandler = new CsrfTokenRequestAttributeHandler();
+        csrfRequestHandler.setCsrfRequestAttributeName("_csrf");
+
         http
-                .csrf(csrf -> csrf.disable())
+                .csrf(csrf -> csrf
+                        .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                        .csrfTokenRequestHandler(csrfRequestHandler)
+                        .ignoringRequestMatchers("/api/auth/**", "/api/public/**",
+                                "/oauth2/**", "/login/**"))
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
@@ -75,7 +88,8 @@ public class SecurityConfig {
                         .successHandler(jwtCookieSuccessHandler))
                 .exceptionHandling(ex ->
                         ex.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
-                .addFilterBefore(jwtCookieAuthFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtCookieAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(new CsrfCookieFilter(), UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }

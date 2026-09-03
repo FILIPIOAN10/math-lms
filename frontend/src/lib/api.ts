@@ -24,10 +24,25 @@ export class ApiError extends Error {
   }
 }
 
+function readCookie(name: string): string | null {
+  const match = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'))
+  return match ? decodeURIComponent(match[1]) : null
+}
+
 async function apiFetch(path: string, options: RequestInit = {}): Promise<Response> {
+  const method = (options.method ?? 'GET').toUpperCase()
+  const headers = new Headers(options.headers)
+  // Double-submit CSRF: echo the XSRF-TOKEN cookie on state-changing requests.
+  if (method !== 'GET' && method !== 'HEAD') {
+    const csrfToken = readCookie('XSRF-TOKEN')
+    if (csrfToken) {
+      headers.set('X-XSRF-TOKEN', csrfToken)
+    }
+  }
   const response = await fetch(`/api${path}`, {
     credentials: 'include',
     ...options,
+    headers,
   })
   if (!response.ok) {
     const body = await response.text().catch(() => '')
