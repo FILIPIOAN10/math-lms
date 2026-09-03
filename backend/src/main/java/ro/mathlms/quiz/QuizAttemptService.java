@@ -11,6 +11,7 @@ import ro.mathlms.quiz.StudentQuizDtos.StudentQuizDto;
 import ro.mathlms.storage.FileService;
 import ro.mathlms.user.User;
 import ro.mathlms.user.UserRepository;
+import org.springframework.core.io.Resource;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -207,5 +208,77 @@ public class QuizAttemptService {
     private User requireUser(String email) {
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new QuizAccessException("Unknown user " + email));
+    }
+    /** Fetch pentru poza uploadată, folosit de admin/profesor. */
+    public Resource getOpenPhotoResource(Long attemptId, Long itemId) {
+        QuizAttempt attempt = attemptRepository.findById(attemptId)
+                .orElseThrow(() -> new QuizNotFoundException("QuizAttempt", attemptId));
+
+        ItemResponse response = responseRepository.findByAttemptIdAndItemId(attemptId, itemId)
+                .orElseThrow(() -> new InvalidQuizException("Nu există răspuns pentru acest subiect"));
+
+        if (response.getImageKey() == null) {
+            throw new InvalidQuizException("Nu a fost încărcată nicio poză pentru acest răspuns");
+        }
+
+        try {
+            return fileService.loadImage(quizPhotosDir, response.getImageKey());
+        } catch (IOException e) {
+            throw new UncheckedIOException("Nu am putut citi poza", e);
+        }
+    }
+
+    /** Profesorul acordă punctaj manual pentru un subiect OPEN. */
+    @Transactional
+    public void gradeOpenResponse(Long attemptId, Long itemId, int points) {
+        QuizAttempt attempt = attemptRepository.findById(attemptId)
+                .orElseThrow(() -> new QuizNotFoundException("QuizAttempt", attemptId));
+
+        if (attempt.getStatus() != QuizAttemptStatus.SUBMITTED) {
+            throw new InvalidQuizException("Attempt-ul trebuie să fie SUBMITTED pentru corectură");
+        }
+
+        QuizItem item = itemRepository.findById(itemId)
+                .orElseThrow(() -> new QuizNotFoundException("QuizItem", itemId));
+
+        // Dacă elevul nu a răspuns nimic, creăm un răspuns gol ca să reținem punctajul (ex: 0)
+        ItemResponse response = responseRepository.findByAttemptIdAndItemId(attemptId, itemId)
+                .orElseGet(() -> new ItemResponse(attempt, item));
+
+        response.gradeManual(points); // Va face throw automat dacă tipul nu e OPEN
+        responseRepository.save(response);
+    }
+
+    /** Profesorul închide corectura, validând că toate subiectele OPEN au fost notate. */
+    @Transactional
+    public void finalizeGrading(Long attemptId) {
+        QuizAttempt attempt = attemptRepository.findById(attemptId)
+                .orElseThrow(() -> new QuizNotFoundException("QuizAttempt", attemptId));
+
+        if (attempt.getStatus() != QuizAttemptStatus.SUBMITTED) {
+            throw new InvalidQuizException("Attempt-ul trebuie să fie SUBMITTED pentru finalizare");
+        }
+
+        List<QuizItem> items = itemRepository.findByQuizIdOrderByPosition(attempt.getQuiz().getId());
+        Map<Long, ItemResponse> responses = responseRepository.findByAttemptId(attemptId).stream()
+                .collect(Collectors.toMap(r -> r.getItem().getId(), Function.identity()));
+
+        int totalScore = 0;
+        for (QuizItem item : items) {
+            ItemResponse response = responses.get(item.getId());
+
+            if (item.getType() == QuizItemType.OPEN) {
+                if (response == null || response.getAwardedPoints() == null) {
+                    throw new InvalidQuizException("Subiectul " + item.getId() + " nu a fost corectat!");
+                }
+            }
+
+            if (response != null && response.getAwardedPoints() != null) {
+                totalScore += response.getAwardedPoints();
+            }
+        }
+
+        attempt.markGraded(totalScore);
+        attemptRepository.save(attempt);
     }
 }

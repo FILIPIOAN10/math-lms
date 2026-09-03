@@ -1,6 +1,7 @@
 package ro.mathlms.storage;
 
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.core.io.Resource;
 
 import java.io.IOException;
 
@@ -21,4 +22,8 @@ public interface FileService {
 
     /** Removes the file previously stored under the given reference. No-op for external URLs. */
     void deleteImage(String path, String imageName) throws IOException;
+    // ... (metodele existente)
+    /** Încarcă fișierul ca resursă pentru a putea fi descărcat sau afișat în browser. */
+    Resource loadImage(String path, String imageName) throws IOException;
+
 }

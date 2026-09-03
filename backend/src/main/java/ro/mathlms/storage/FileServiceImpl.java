@@ -1,12 +1,16 @@
 package ro.mathlms.storage;
 
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.UUID;
 
@@ -55,5 +59,15 @@ public class FileServiceImpl implements FileService {
             return "";
         }
         return originalFilename.substring(originalFilename.lastIndexOf('.'));
+    }
+    @Override
+    public Resource loadImage(String path, String imageName) throws IOException {
+        Path filePath = Paths.get(path).resolve(imageName).normalize();
+        Resource resource = new UrlResource(filePath.toUri());
+        if (resource.exists() && resource.isReadable()) {
+            return resource;
+        } else {
+            throw new FileNotFoundException("Fișierul nu a fost găsit sau nu poate fi citit: " + imageName);
+        }
     }
 }

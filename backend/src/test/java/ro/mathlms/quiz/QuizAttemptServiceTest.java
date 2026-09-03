@@ -344,4 +344,94 @@ class QuizAttemptServiceTest {
         assertThatThrownBy(() -> service.uploadOpenPhoto(50L, 101L, image(), EMAIL))
                 .isInstanceOf(QuizAccessException.class);
     }
+    @Test
+    void gradeOpenResponse_Success() {
+        // Arrange
+        QuizAttempt attempt = mock(QuizAttempt.class);
+        when(attempt.getStatus()).thenReturn(QuizAttemptStatus.SUBMITTED);
+        when(attemptRepository.findById(1L)).thenReturn(Optional.of(attempt));
+
+        QuizItem item = mock(QuizItem.class);
+        when(item.getType()).thenReturn(QuizItemType.OPEN);
+        when(itemRepository.findById(2L)).thenReturn(Optional.of(item));
+
+        ItemResponse response = mock(ItemResponse.class);
+        when(responseRepository.findByAttemptIdAndItemId(1L, 2L)).thenReturn(Optional.of(response));
+
+        // Act
+        service.gradeOpenResponse(1L, 2L, 15);
+
+        // Assert
+        verify(response).gradeManual(15);
+        verify(responseRepository).save(response);
+    }
+
+    @Test
+    void gradeOpenResponse_FailsIfNotSubmitted() {
+        // Arrange
+        QuizAttempt attempt = mock(QuizAttempt.class);
+        when(attempt.getStatus()).thenReturn(QuizAttemptStatus.IN_PROGRESS); // Greșit pentru corectură
+        when(attemptRepository.findById(1L)).thenReturn(Optional.of(attempt));
+
+        // Act & Assert
+        assertThatThrownBy(() -> service.gradeOpenResponse(1L, 2L, 15))
+                .isInstanceOf(InvalidQuizException.class)
+                .hasMessageContaining("SUBMITTED");
+    }
+
+    @Test
+    void finalizeGrading_Success() {
+        // Arrange
+        Quiz quiz = mock(Quiz.class);
+        when(quiz.getId()).thenReturn(99L);
+
+        QuizAttempt attempt = mock(QuizAttempt.class);
+        when(attempt.getStatus()).thenReturn(QuizAttemptStatus.SUBMITTED);
+        when(attempt.getQuiz()).thenReturn(quiz);
+        when(attemptRepository.findById(1L)).thenReturn(Optional.of(attempt));
+
+        QuizItem item = mock(QuizItem.class);
+        when(item.getId()).thenReturn(2L);
+        when(item.getType()).thenReturn(QuizItemType.OPEN);
+        when(itemRepository.findByQuizIdOrderByPosition(99L)).thenReturn(List.of(item));
+
+        ItemResponse response = mock(ItemResponse.class);
+        when(response.getItem()).thenReturn(item);
+        when(response.getAwardedPoints()).thenReturn(15); // Corectat
+        when(responseRepository.findByAttemptId(1L)).thenReturn(List.of(response));
+
+        // Act
+        service.finalizeGrading(1L);
+
+        // Assert
+        verify(attempt).markGraded(15);
+        verify(attemptRepository).save(attempt);
+    }
+
+    @Test
+    void finalizeGrading_FailsIfOpenItemNotGraded() {
+        // Arrange
+        Quiz quiz = mock(Quiz.class);
+        when(quiz.getId()).thenReturn(99L);
+
+        QuizAttempt attempt = mock(QuizAttempt.class);
+        when(attempt.getStatus()).thenReturn(QuizAttemptStatus.SUBMITTED);
+        when(attempt.getQuiz()).thenReturn(quiz);
+        when(attemptRepository.findById(1L)).thenReturn(Optional.of(attempt));
+
+        QuizItem item = mock(QuizItem.class);
+        when(item.getId()).thenReturn(2L);
+        when(item.getType()).thenReturn(QuizItemType.OPEN);
+        when(itemRepository.findByQuizIdOrderByPosition(99L)).thenReturn(List.of(item));
+
+        ItemResponse response = mock(ItemResponse.class);
+        when(response.getItem()).thenReturn(item);
+        when(response.getAwardedPoints()).thenReturn(null); // NECorectat!
+        when(responseRepository.findByAttemptId(1L)).thenReturn(List.of(response));
+
+        // Act & Assert
+        assertThatThrownBy(() -> service.finalizeGrading(1L))
+                .isInstanceOf(InvalidQuizException.class)
+                .hasMessageContaining("nu a fost corectat");
+    }
 }
