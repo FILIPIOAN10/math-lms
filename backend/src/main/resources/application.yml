@@ -95,4 +95,6 @@ file:
 
 logging:
   level:
-    org.springframework.security: DEBUG
+    # Verbose security logging is a dev aid, not for prod (it narrates the auth flow).
+    # Defaults to INFO; set SECURITY_LOG_LEVEL=DEBUG in .env for local debugging.
+    org.springframework.security: ${SECURITY_LOG_LEVEL:INFO}

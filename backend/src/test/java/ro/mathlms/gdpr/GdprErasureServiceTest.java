@@ -99,11 +99,13 @@ class GdprErasureServiceTest {
     @Test
     void confirmErasureIsIdempotent() {
         seedStudentWithData("bis@scoala.ro");
-        String token = tokenService.generate("bis@scoala.ro", TokenPurpose.ERASE_ACCOUNT);
+        // Two valid tokens issued before erasure (tokens are single-use, so we can't replay one).
+        String token1 = tokenService.generate("bis@scoala.ro", TokenPurpose.ERASE_ACCOUNT);
+        String token2 = tokenService.generate("bis@scoala.ro", TokenPurpose.ERASE_ACCOUNT);
 
-        service.confirmErasure(token);
-        // Replaying the (now stale) token must not throw.
-        service.confirmErasure(token);
+        service.confirmErasure(token1);
+        // A second valid token for an already-erased account is a quiet no-op (email no longer resolves).
+        service.confirmErasure(token2);
     }
 
     @Test
