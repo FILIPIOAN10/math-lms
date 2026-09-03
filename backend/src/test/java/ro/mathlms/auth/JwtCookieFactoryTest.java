@@ -23,20 +23,32 @@ class JwtCookieFactoryTest {
                 "test-secret-at-least-32-characters-long!!",
                 60);
         jwtService = new JwtService(properties);
-        factory = new JwtCookieFactory(jwtService, properties);
+        factory = new JwtCookieFactory(jwtService, properties, true);
     }
 
     @Test
-    void buildsHttpOnlyCookieCarryingASignedToken() {
+    void buildsHttpOnlySecureCookieCarryingASignedToken() {
         User user = new User("ana@scoala.ro", "Ana Pop", Role.STUDENT);
 
         Cookie cookie = factory.create(user);
 
         assertThat(cookie.getName()).isEqualTo(JwtCookieSuccessHandler.COOKIE_NAME);
         assertThat(cookie.isHttpOnly()).isTrue();
+        assertThat(cookie.getSecure()).isTrue();
         assertThat(cookie.getPath()).isEqualTo("/");
         assertThat(cookie.getMaxAge()).isEqualTo(60 * 60);
         assertThat(cookie.getAttribute("SameSite")).isEqualTo("Lax");
         assertThat(jwtService.extractEmail(cookie.getValue())).isEqualTo("ana@scoala.ro");
+    }
+
+    @Test
+    void secureFlagFollowsConfigForLocalHttpDev() {
+        JwtCookieFactory devFactory = new JwtCookieFactory(jwtService,
+                new AuthProperties(List.of(), List.of(), "test-secret-at-least-32-characters-long!!", 60),
+                false);
+
+        Cookie cookie = devFactory.create(new User("ana@scoala.ro", "Ana Pop", Role.STUDENT));
+
+        assertThat(cookie.getSecure()).isFalse();
     }
 }

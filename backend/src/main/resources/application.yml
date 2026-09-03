@@ -76,6 +76,9 @@ app:
     allowed-emails: ${ALLOWED_EMAILS:}
     jwt-secret: ${JWT_SECRET}
     jwt-expiration-minutes: ${JWT_EXPIRATION_MINUTES:60}
+    # Secure flag on the auth cookie. Defaults true (HTTPS/prod); set COOKIE_SECURE=false
+    # only for local plain-HTTP development, otherwise the browser won't send the cookie.
+    cookie-secure: ${COOKIE_SECURE:true}
   # Base URL of the frontend; verification / reset email links point here.
   frontend:
     base-url: ${FRONTEND_BASE_URL:http://localhost:5173}
