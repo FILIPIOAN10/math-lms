@@ -8,6 +8,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ro.mathlms.auth.EmailService;
+import ro.mathlms.auth.RefreshTokenService;
 import ro.mathlms.auth.TokenPurpose;
 import ro.mathlms.auth.UserNotFoundException;
 import ro.mathlms.auth.VerificationTokenService;
@@ -46,12 +47,13 @@ public class GdprErasureService {
     private final EnrollmentRepository enrollmentRepository;
     private final ItemResponseRepository responseRepository;
     private final FileService fileService;
+    private final RefreshTokenService refreshTokenService;
     private final String quizPhotosDir;
 
     public GdprErasureService(UserRepository userRepository, PasswordEncoder passwordEncoder,
                               VerificationTokenService tokenService, EmailService emailService,
                               EnrollmentRepository enrollmentRepository, ItemResponseRepository responseRepository,
-                              FileService fileService,
+                              FileService fileService, RefreshTokenService refreshTokenService,
                               @Value("${app.storage.quiz-photos-dir}") String quizPhotosDir) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
@@ -60,6 +62,7 @@ public class GdprErasureService {
         this.enrollmentRepository = enrollmentRepository;
         this.responseRepository = responseRepository;
         this.fileService = fileService;
+        this.refreshTokenService = refreshTokenService;
         this.quizPhotosDir = quizPhotosDir;
     }
 
@@ -106,6 +109,9 @@ public class GdprErasureService {
 
         // Drop the person's own state; quiz attempts/grades stay, now anonymised via the tombstone.
         enrollmentRepository.deleteByStudentId(userId);
+
+        // Revoke every login session before the email changes (sessions are keyed by email).
+        refreshTokenService.revokeAll(email);
 
         // Re-load after the bulk statements cleared the context, then anonymise in place.
         User fresh = userRepository.findById(userId)

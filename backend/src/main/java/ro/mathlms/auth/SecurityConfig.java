@@ -51,7 +51,10 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers("/oauth2/**", "/login/**").permitAll()
                         .requestMatchers("/api/auth/register", "/api/auth/verify-email", "/api/auth/login",
-                                "/api/auth/forgot-password", "/api/auth/reset-password").permitAll()
+                                "/api/auth/forgot-password", "/api/auth/reset-password",
+                                // refresh runs on the refresh cookie (access token may be expired);
+                                // logout only clears cookies + revokes the presented refresh token.
+                                "/api/auth/refresh", "/api/auth/logout").permitAll()
                         // GDPR erasure is confirmed via an emailed single-purpose token, no session.
                         .requestMatchers("/api/public/gdpr/erase/confirm").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
