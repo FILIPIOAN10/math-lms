@@ -18,4 +18,9 @@ public class QuizExceptionHandler {
     public ResponseEntity<String> handleInvalid(InvalidQuizException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ex.getMessage());
     }
+
+    @ExceptionHandler(QuizAccessException.class)
+    public ResponseEntity<String> handleAccess(QuizAccessException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ex.getMessage());
+    }
 }
