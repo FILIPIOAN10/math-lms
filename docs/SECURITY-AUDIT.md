@@ -9,7 +9,8 @@ instead — recommend wiring these into CI (see end).
 
 ## Summary
 
-**0 critical · 1 high (fixed) · 3 medium · 1 low.** The app's security posture is solid: parameterised
+**0 critical · 1 high (fixed) · 3 medium (all fixed) · 1 low.** _Update 2026-09-03: the high and all
+three mediums have since been remediated — see the FIXED tags per finding._ The app's security posture is solid: parameterised
 data access (no SQL/JPQL injection surface), role from a signed invite (no privilege escalation via
 request body), quiz ownership enforced server-side (no IDOR), XSS-safe LaTeX rendering, no tokens in
 `localStorage`, non-enumerating login, and `.env` secrets correctly kept out of git. The one HIGH — an
@@ -25,7 +26,9 @@ auth cookie that was never marked `Secure` — is fixed in this pass. The medium
 - **Fix (commit `acc6661`):** flag driven by `app.auth.cookie-secure`, **default `true`**; local
   plain-HTTP dev opts out with `COOKIE_SECURE=false` in `.env`. `HttpOnly` + `SameSite=Lax` unchanged.
 
-### [MEDIUM] Email verification / password-reset tokens are not single-use — A04/A07
+### [MEDIUM — FIXED ✅ `20e505e`] Email verification / password-reset tokens are not single-use — A04/A07
+_Fix: each token now carries a `jti` recorded in Redis at issue and atomically spent (GETDEL) on the first successful verify, so a replay fails like an expired token._
+
 - **Where:** `auth/VerificationTokenService.java`.
 - **Issue:** tokens are stateless signed JWS (24h verify / 1h reset TTL, `purpose` claim checked) but
   nothing binds them to one use. A reset token can be **replayed** any number of times within its hour,
@@ -36,7 +39,9 @@ auth cookie that was never marked `Secure` — is fixed in this pass. The medium
   on use — e.g. include the current password hash (or a `passwordUpdatedAt`) in the token and re-check
   it on verify, so the first successful reset invalidates the token. (Or store a `jti` of consumed tokens.)
 
-### [MEDIUM] CSRF disabled globally, relying only on SameSite=Lax — A05
+### [MEDIUM — FIXED ✅ `71446fd`] CSRF disabled globally, relying only on SameSite=Lax — A05
+_Fix: cookie double-submit CSRF (`CookieCsrfTokenRepository.withHttpOnlyFalse` + `CsrfCookieFilter`); the protected surface now requires the `X-XSRF-TOKEN` header, auth/OAuth2/public endpoints exempt, and the React client echoes the cookie centrally._
+
 - **Where:** `auth/SecurityConfig.java` (`.csrf(csrf -> csrf.disable())`).
 - **Issue:** all state-changing endpoints use the cookie for auth with CSRF fully off. `SameSite=Lax`
   blocks cross-site POST/PUT/DELETE, so there's no concrete exploit today, but it's the *only* layer —
@@ -45,7 +50,9 @@ auth cookie that was never marked `Secure` — is fixed in this pass. The medium
   endpoints as deliberate `ignoringRequestMatchers`, and have the SPA echo the `XSRF-TOKEN`. Revisit
   together with the refresh-token work.
 
-### [MEDIUM] Verbose Spring Security logging in every profile — A09
+### [MEDIUM — FIXED ✅ `20e505e`] Verbose Spring Security logging in every profile — A09
+_Fix: `org.springframework.security` log level defaults to INFO via `SECURITY_LOG_LEVEL`; DEBUG only in local `.env`._
+
 - **Where:** `application.yml` → `logging.level.org.springframework.security: DEBUG`.
 - **Issue:** DEBUG security logging is global (no prod override); in production it is noisy and can log
   authentication-flow detail. Combined with `format_sql: true`, prod logs get chatty.
@@ -82,9 +89,11 @@ auth cookie that was never marked `Secure` — is fixed in this pass. The medium
 
 ## Known gaps (by roadmap, not defects)
 
-- No refresh-token rotation / server-side revocation yet — logout and password-reset don't invalidate
-  existing JWTs before expiry. **Being addressed next** (refresh-token rotation + Redis sessions).
-- No login lockout / rate limiting on auth endpoints (brute-force). Consider adding.
+- ~~No refresh-token rotation / server-side revocation~~ — **DONE (`cab1083`)**: Redis refresh-token
+  rotation + device sessions; logout and GDPR erasure revoke sessions. (Access JWT itself is still
+  valid until its ≤60min expiry — inherent to stateless JWT.)
+- No login lockout / rate limiting on auth endpoints (brute-force). Consider adding
+  (`spring-redis-rate-limiting`).
 
 ## Recommended: wire scanners into CI
 
