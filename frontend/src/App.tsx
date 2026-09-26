@@ -18,6 +18,7 @@ import { DashboardPage } from '@/pages/DashboardPage'
 import { StudentQuizListPage } from '@/pages/StudentQuizListPage'
 import { TakeQuizPage } from '@/pages/TakeQuizPage'
 import { AttemptResultPage } from '@/pages/AttemptResultPage'
+import { AdminGradingPage } from '@/pages/AdminGradingPage'
 
 function LoginRoute() {
   const { user, loading } = useAuth()
@@ -79,6 +80,14 @@ function App() {
             element={
               <AdminRoute>
                 <AdminQuizzesPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/grading"
+            element={
+              <AdminRoute>
+                <AdminGradingPage />
               </AdminRoute>
             }
           />

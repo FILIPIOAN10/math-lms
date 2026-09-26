@@ -41,6 +41,9 @@ export function DashboardPage() {
                   <Link to="/admin/quizzes" className={buttonVariants({ variant: 'secondary' })}>
                     Quiz-uri
                   </Link>
+                  <Link to="/admin/grading" className={buttonVariants({ variant: 'secondary' })}>
+                    Corectură
+                  </Link>
                   <Link to="/admin/pending" className={buttonVariants({ variant: 'secondary' })}>
                     Conturi în așteptare
                   </Link>
