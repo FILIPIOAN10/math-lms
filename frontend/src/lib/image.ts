@@ -26,7 +26,9 @@ export async function shrinkImage(file: File, maxSide = 2000, quality = 0.85): P
     context.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
     bitmap.close()
     const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality))
-    if (!blob) {
+    // An already well-compressed original (e.g. a flat PNG scan) can come out larger as JPEG;
+    // the point is fewer bytes over mobile data, so keep whichever is smaller.
+    if (!blob || blob.size >= file.size) {
       return file
     }
     return new File([blob], file.name.replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' })
