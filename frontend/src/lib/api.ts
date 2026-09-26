@@ -29,21 +29,58 @@ function readCookie(name: string): string | null {
   return match ? decodeURIComponent(match[1]) : null
 }
 
-async function apiFetch(path: string, options: RequestInit = {}): Promise<Response> {
+function send(path: string, options: RequestInit): Promise<Response> {
   const method = (options.method ?? 'GET').toUpperCase()
   const headers = new Headers(options.headers)
-  // Double-submit CSRF: echo the XSRF-TOKEN cookie on state-changing requests.
+  // Double-submit CSRF: echo the XSRF-TOKEN cookie on state-changing requests. Read per attempt,
+  // so a replay after a refresh echoes whatever token the cookie holds by then.
   if (method !== 'GET' && method !== 'HEAD') {
     const csrfToken = readCookie('XSRF-TOKEN')
     if (csrfToken) {
       headers.set('X-XSRF-TOKEN', csrfToken)
     }
   }
-  const response = await fetch(`/api${path}`, {
+  return fetch(`/api${path}`, {
     credentials: 'include',
     ...options,
     headers,
   })
+}
+
+/** Endpoints where a 401 is the real answer, not a stale access token. */
+const NO_REFRESH_ON_401 = ['/auth/refresh', '/auth/login', '/auth/logout']
+
+let refreshInFlight: Promise<boolean> | null = null
+
+/**
+ * Trades the refresh cookie for a fresh access cookie. Concurrent callers share one in-flight
+ * request: the backend rotates (and so invalidates) the refresh token on use, so parallel
+ * rotations would race and log the user out.
+ */
+function refreshSession(): Promise<boolean> {
+  if (!refreshInFlight) {
+    refreshInFlight = fetch('/api/auth/refresh', { method: 'POST', credentials: 'include' })
+      .then((r) => r.ok)
+      .catch(() => false)
+      .finally(() => {
+        refreshInFlight = null
+      })
+  }
+  return refreshInFlight
+}
+
+async function apiFetch(path: string, options: RequestInit = {}): Promise<Response> {
+  let response = await send(path, options)
+
+  // The access cookie lasts an hour, the refresh session days. Without this a tab left open past
+  // that hour keeps rendering the data it already fetched while every new call 401s — the request
+  // is rejected by the authorization filter before reaching a controller, so replaying is safe.
+  if (response.status === 401 && !NO_REFRESH_ON_401.includes(path)) {
+    if (await refreshSession()) {
+      response = await send(path, options)
+    }
+  }
+
   if (!response.ok) {
     const body = await response.text().catch(() => '')
     throw new ApiError(response.status, body)
