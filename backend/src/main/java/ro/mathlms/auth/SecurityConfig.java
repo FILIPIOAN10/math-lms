@@ -17,6 +17,7 @@ import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequest
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.authentication.session.NullAuthenticatedSessionStrategy;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 
@@ -56,6 +57,11 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf
                         .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                         .csrfTokenRequestHandler(csrfRequestHandler)
+                        // JwtCookieAuthFilter re-authenticates every request, and with STATELESS sessions
+                        // SessionManagementFilter treats each one as a fresh login. The default
+                        // CsrfAuthenticationStrategy would then rotate the token on every request — deleting
+                        // the XSRF-TOKEN cookie on each read, so the SPA's next write carried no token (403).
+                        .sessionAuthenticationStrategy(new NullAuthenticatedSessionStrategy())
                         .ignoringRequestMatchers("/api/auth/**", "/api/public/**",
                                 "/oauth2/**", "/login/**"))
                 .sessionManagement(session ->
