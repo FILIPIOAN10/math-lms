@@ -13,7 +13,12 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import ro.mathlms.quiz.AdminAttemptDtos.AdminAttemptDetailDto;
+import ro.mathlms.quiz.AdminAttemptDtos.AdminAttemptSummaryDto;
+
+import java.util.List;
 
 /**
  * Teacher-side grading of quiz attempts, under {@code /api/admin/quiz/attempts/...} (ADMIN — the
@@ -29,6 +34,18 @@ public class AdminQuizAttemptController {
 
     public AdminQuizAttemptController(QuizAttemptService service) {
         this.service = service;
+    }
+
+    /** The grading queue. Defaults to SUBMITTED (waiting for the teacher); ?status=GRADED shows history. */
+    @GetMapping
+    public List<AdminAttemptSummaryDto> list(
+            @RequestParam(defaultValue = "SUBMITTED") QuizAttemptStatus status) {
+        return service.listForGrading(status);
+    }
+
+    @GetMapping("/{attemptId}")
+    public AdminAttemptDetailDto detail(@PathVariable Long attemptId) {
+        return service.getAttemptForGrading(attemptId);
     }
 
     @GetMapping("/{attemptId}/responses/{itemId}/photo")

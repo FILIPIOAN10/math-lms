@@ -22,6 +22,10 @@ import org.springframework.test.web.servlet.MockMvc;
 import ro.mathlms.auth.CustomOidcUserService;
 import ro.mathlms.auth.JwtCookieAuthFilter;
 import ro.mathlms.auth.JwtCookieSuccessHandler;
+import ro.mathlms.quiz.AdminAttemptDtos.AdminAttemptDetailDto;
+import ro.mathlms.quiz.AdminAttemptDtos.AdminAttemptSummaryDto;
+
+import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
@@ -33,6 +37,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(AdminQuizAttemptController.class)
@@ -141,5 +146,45 @@ class AdminQuizAttemptControllerTest {
                 .andExpect(status().isNoContent());
 
         verify(service).finalizeGrading(1L);
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void listDefaultsToSubmittedQueue() throws Exception {
+        when(service.listForGrading(QuizAttemptStatus.SUBMITTED)).thenReturn(List.of(
+                new AdminAttemptSummaryDto(1L, 10L, "Simulare EN", 5L, "Ana", QuizAttemptStatus.SUBMITTED, null, null)));
+
+        mockMvc.perform(get("/api/admin/quiz/attempts"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].studentName").value("Ana"));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void listAcceptsAStatusFilter() throws Exception {
+        when(service.listForGrading(QuizAttemptStatus.GRADED)).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/admin/quiz/attempts").param("status", "GRADED"))
+                .andExpect(status().isOk());
+
+        verify(service).listForGrading(QuizAttemptStatus.GRADED);
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void detailReturnsTheAttempt() throws Exception {
+        when(service.getAttemptForGrading(1L)).thenReturn(new AdminAttemptDetailDto(
+                1L, "Simulare EN", "Ana", QuizAttemptStatus.SUBMITTED, null, null, 35, List.of()));
+
+        mockMvc.perform(get("/api/admin/quiz/attempts/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.maxScore").value(35));
+    }
+
+    @Test
+    @WithMockUser(roles = "STUDENT")
+    void studentCannotSeeTheGradingQueue() throws Exception {
+        mockMvc.perform(get("/api/admin/quiz/attempts"))
+                .andExpect(status().isForbidden());
     }
 }

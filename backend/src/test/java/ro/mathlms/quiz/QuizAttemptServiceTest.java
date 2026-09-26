@@ -7,6 +7,8 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.multipart.MultipartFile;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultDto;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultViewDto;
+import ro.mathlms.quiz.AdminAttemptDtos.AdminAttemptDetailDto;
+import ro.mathlms.quiz.AdminAttemptDtos.AdminAttemptSummaryDto;
 import ro.mathlms.quiz.StudentQuizDtos.ItemResultDto;
 import ro.mathlms.quiz.StudentQuizDtos.MyAttemptDto;
 import ro.mathlms.quiz.StudentQuizDtos.StartedAttemptDto;
@@ -572,5 +574,65 @@ class QuizAttemptServiceTest {
             assertThat(dto.score()).isEqualTo(7);
             assertThat(dto.submittedAt()).isNotNull();
         });
+    }
+
+    // --- Q10: teacher grading views ---
+
+    @Test
+    void listForGradingMapsTheQueue() {
+        QuizAttempt submitted = attempt(50L, student);
+        submitted.submit();
+        when(attemptRepository.findByStatusForGrading(QuizAttemptStatus.SUBMITTED))
+                .thenReturn(List.of(submitted));
+
+        List<AdminAttemptSummaryDto> queue = service.listForGrading(QuizAttemptStatus.SUBMITTED);
+
+        assertThat(queue).singleElement().satisfies(dto -> {
+            assertThat(dto.attemptId()).isEqualTo(50L);
+            assertThat(dto.studentName()).isEqualTo("Elev Pop");
+            assertThat(dto.quizTitle()).isEqualTo("Simulare EN");
+            assertThat(dto.status()).isEqualTo(QuizAttemptStatus.SUBMITTED);
+        });
+    }
+
+    @Test
+    void getAttemptForGradingShowsAnswersBaremAndPhotoFlag() {
+        QuizItem grila = singleChoice(100L, 5);
+        QuizOption wrong = option(grila, 1000L, false);
+        QuizOption right = withId(new QuizOption(grila, 1, "corect", true), 1001L);
+        QuizItem deschis = withId(new QuizItem(quiz, 2, QuizItemType.OPEN, "Rezolvă", 30, "barem-x"), 101L);
+        QuizAttempt attempt = attempt(50L, student);
+        ItemResponse r1 = new ItemResponse(attempt, grila);
+        r1.answerSingleChoice(wrong);
+        r1.gradeAuto(false, 0);
+        ItemResponse r2 = new ItemResponse(attempt, deschis);
+        r2.answerOpen("poza.jpg");
+        attempt.submit();
+        when(attemptRepository.findById(50L)).thenReturn(Optional.of(attempt));
+        when(itemRepository.findByQuizIdOrderByPosition(10L)).thenReturn(List.of(grila, deschis));
+        when(responseRepository.findByAttemptId(50L)).thenReturn(List.of(r1, r2));
+        when(optionRepository.findByItemIdOrderByPosition(100L)).thenReturn(List.of(wrong, right));
+
+        AdminAttemptDetailDto detail = service.getAttemptForGrading(50L);
+
+        assertThat(detail.studentName()).isEqualTo("Elev Pop");
+        assertThat(detail.maxScore()).isEqualTo(35);
+        assertThat(detail.items()).hasSize(2);
+        assertThat(detail.items().get(0).selectedOptionText()).isEqualTo("opt");
+        assertThat(detail.items().get(0).correctOptionText()).isEqualTo("corect");
+        assertThat(detail.items().get(0).correct()).isFalse();
+        assertThat(detail.items().get(1).itemId()).isEqualTo(101L);
+        assertThat(detail.items().get(1).barem()).isEqualTo("barem-x");
+        assertThat(detail.items().get(1).photoUploaded()).isTrue();
+        assertThat(detail.items().get(1).awardedPoints()).isNull();
+    }
+
+    @Test
+    void getAttemptForGradingRejectsInProgressAttempt() {
+        QuizAttempt attempt = attempt(50L, student); // still IN_PROGRESS
+        when(attemptRepository.findById(50L)).thenReturn(Optional.of(attempt));
+
+        assertThatThrownBy(() -> service.getAttemptForGrading(50L))
+                .isInstanceOf(InvalidQuizException.class);
     }
 }

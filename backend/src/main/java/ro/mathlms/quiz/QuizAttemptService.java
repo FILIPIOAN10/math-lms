@@ -4,6 +4,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import ro.mathlms.quiz.AdminAttemptDtos.AdminAttemptDetailDto;
+import ro.mathlms.quiz.AdminAttemptDtos.AdminAttemptSummaryDto;
+import ro.mathlms.quiz.AdminAttemptDtos.AdminItemReviewDto;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultDto;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultViewDto;
 import ro.mathlms.quiz.StudentQuizDtos.ItemResultDto;
@@ -355,5 +358,57 @@ public class QuizAttemptService {
 
         attempt.markGraded(totalScore);
         attemptRepository.save(attempt);
+    }
+
+    /** The teacher's grading queue (Q10): attempts in one status, oldest submission first. */
+    @Transactional(readOnly = true)
+    public List<AdminAttemptSummaryDto> listForGrading(QuizAttemptStatus status) {
+        return attemptRepository.findByStatusForGrading(status).stream()
+                .map(AdminAttemptSummaryDto::from)
+                .toList();
+    }
+
+    /**
+     * One submitted attempt as the teacher reviews it: every item with the student's answer, the
+     * correct option, the barem and the points so far. An in-progress attempt is not reviewable yet.
+     */
+    @Transactional(readOnly = true)
+    public AdminAttemptDetailDto getAttemptForGrading(Long attemptId) {
+        QuizAttempt attempt = attemptRepository.findById(attemptId)
+                .orElseThrow(() -> new QuizNotFoundException("QuizAttempt", attemptId));
+        if (attempt.getStatus() == QuizAttemptStatus.IN_PROGRESS) {
+            throw new InvalidQuizException("The student has not submitted this attempt yet");
+        }
+
+        List<QuizItem> items = itemRepository.findByQuizIdOrderByPosition(attempt.getQuiz().getId());
+        Map<Long, ItemResponse> byItem = responseRepository.findByAttemptId(attemptId).stream()
+                .collect(Collectors.toMap(r -> r.getItem().getId(), Function.identity()));
+
+        int maxScore = 0;
+        List<AdminItemReviewDto> reviews = new ArrayList<>();
+        for (QuizItem item : items) {
+            maxScore += item.getPoints();
+            ItemResponse response = byItem.get(item.getId());
+            String selectedText = null;
+            String correctText = null;
+            if (item.getType() == QuizItemType.SINGLE_CHOICE) {
+                correctText = optionRepository.findByItemIdOrderByPosition(item.getId()).stream()
+                        .filter(QuizOption::isCorrect)
+                        .map(QuizOption::getText)
+                        .findFirst().orElse(null);
+                if (response != null && response.getSelectedOption() != null) {
+                    selectedText = response.getSelectedOption().getText();
+                }
+            }
+            reviews.add(new AdminItemReviewDto(
+                    item.getId(), item.getPosition(), item.getType(), item.getStatement(), item.getPoints(),
+                    item.getSolution(), selectedText, correctText,
+                    response == null ? null : response.getCorrect(),
+                    response == null ? null : response.getAwardedPoints(),
+                    response != null && response.getImageKey() != null));
+        }
+        return new AdminAttemptDetailDto(attempt.getId(), attempt.getQuiz().getTitle(),
+                attempt.getStudent().getFullName(), attempt.getStatus(), attempt.getSubmittedAt(),
+                attempt.getScore(), maxScore, reviews);
     }
 }
