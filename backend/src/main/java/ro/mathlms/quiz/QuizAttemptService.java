@@ -7,6 +7,8 @@ import org.springframework.web.multipart.MultipartFile;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultDto;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultViewDto;
 import ro.mathlms.quiz.StudentQuizDtos.ItemResultDto;
+import ro.mathlms.quiz.StudentQuizDtos.MyAttemptDto;
+import ro.mathlms.quiz.StudentQuizDtos.SavedAnswerDto;
 import ro.mathlms.quiz.StudentQuizDtos.StartedAttemptDto;
 import ro.mathlms.quiz.StudentQuizDtos.StudentItemDto;
 import ro.mathlms.quiz.StudentQuizDtos.StudentQuizDto;
@@ -74,7 +76,19 @@ public class QuizAttemptService {
         QuizAttempt attempt = attemptRepository
                 .findByQuizIdAndStudentIdAndStatus(quizId, student.getId(), QuizAttemptStatus.IN_PROGRESS)
                 .orElseGet(() -> attemptRepository.save(new QuizAttempt(quiz, student)));
-        return new StartedAttemptDto(attempt.getId(), attempt.getStatus(), studentQuiz(quiz));
+        List<SavedAnswerDto> answers = responseRepository.findByAttemptId(attempt.getId()).stream()
+                .map(SavedAnswerDto::from)
+                .toList();
+        return new StartedAttemptDto(attempt.getId(), attempt.getStatus(), studentQuiz(quiz), answers);
+    }
+
+    /** The student's own attempts, newest first — the "Încercările mele" list. */
+    @Transactional(readOnly = true)
+    public List<MyAttemptDto> listMyAttempts(String studentEmail) {
+        User student = requireUser(studentEmail);
+        return attemptRepository.findByStudentIdOrderByStartedAtDesc(student.getId()).stream()
+                .map(MyAttemptDto::from)
+                .toList();
     }
 
     /** Records (or replaces) the student's choice for one SINGLE_CHOICE item. */

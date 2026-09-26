@@ -8,6 +8,7 @@ import org.springframework.web.multipart.MultipartFile;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultDto;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultViewDto;
 import ro.mathlms.quiz.StudentQuizDtos.ItemResultDto;
+import ro.mathlms.quiz.StudentQuizDtos.MyAttemptDto;
 import ro.mathlms.quiz.StudentQuizDtos.StartedAttemptDto;
 import ro.mathlms.storage.FileService;
 import ro.mathlms.user.Role;
@@ -500,5 +501,52 @@ class QuizAttemptServiceTest {
         assertThatThrownBy(() -> service.finalizeGrading(1L))
                 .isInstanceOf(InvalidQuizException.class)
                 .hasMessageContaining("nu a fost corectat");
+    }
+
+    // --- Q9: resume restores saved answers + "my attempts" ---
+
+    @Test
+    void startReturnsSavedAnswersWhenResuming() {
+        QuizItem grila = singleChoice(100L, 5);
+        QuizOption chosen = option(grila, 1000L, false);
+        QuizItem deschis = open(101L, 30);
+        QuizAttempt existing = attempt(50L, student);
+        ItemResponse r1 = new ItemResponse(existing, grila);
+        r1.answerSingleChoice(chosen);
+        ItemResponse r2 = new ItemResponse(existing, deschis);
+        r2.answerOpen("poza.jpg");
+        when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(student));
+        when(quizRepository.findById(10L)).thenReturn(Optional.of(quiz));
+        when(attemptRepository.findByQuizIdAndStudentIdAndStatus(10L, 1L, QuizAttemptStatus.IN_PROGRESS))
+                .thenReturn(Optional.of(existing));
+        when(itemRepository.findByQuizIdOrderByPosition(10L)).thenReturn(List.of(grila, deschis));
+        when(responseRepository.findByAttemptId(50L)).thenReturn(List.of(r1, r2));
+
+        StartedAttemptDto dto = service.startAttempt(10L, EMAIL);
+
+        assertThat(dto.answers()).hasSize(2);
+        assertThat(dto.answers().get(0).itemId()).isEqualTo(100L);
+        assertThat(dto.answers().get(0).selectedOptionId()).isEqualTo(1000L);
+        assertThat(dto.answers().get(1).itemId()).isEqualTo(101L);
+        assertThat(dto.answers().get(1).photoUploaded()).isTrue();
+    }
+
+    @Test
+    void listMyAttemptsMapsTheStudentsAttempts() {
+        QuizAttempt graded = attempt(50L, student);
+        graded.submit();
+        graded.markGraded(7);
+        when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(student));
+        when(attemptRepository.findByStudentIdOrderByStartedAtDesc(1L)).thenReturn(List.of(graded));
+
+        List<MyAttemptDto> mine = service.listMyAttempts(EMAIL);
+
+        assertThat(mine).singleElement().satisfies(dto -> {
+            assertThat(dto.attemptId()).isEqualTo(50L);
+            assertThat(dto.quizTitle()).isEqualTo("Simulare EN");
+            assertThat(dto.status()).isEqualTo(QuizAttemptStatus.GRADED);
+            assertThat(dto.score()).isEqualTo(7);
+            assertThat(dto.submittedAt()).isNotNull();
+        });
     }
 }

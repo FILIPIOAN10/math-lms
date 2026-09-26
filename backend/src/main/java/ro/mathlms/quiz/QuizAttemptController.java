@@ -15,6 +15,7 @@ import org.springframework.web.multipart.MultipartFile;
 import ro.mathlms.quiz.QuizDtos.QuizSummaryDto;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultDto;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultViewDto;
+import ro.mathlms.quiz.StudentQuizDtos.MyAttemptDto;
 import ro.mathlms.quiz.StudentQuizDtos.StartedAttemptDto;
 
 import java.util.List;
@@ -42,6 +43,11 @@ public class QuizAttemptController {
     @PostMapping("/api/quiz/quizzes/{quizId}/attempts")
     public StartedAttemptDto start(@PathVariable Long quizId, Authentication auth) {
         return service.startAttempt(quizId, auth.getName());
+    }
+
+    @GetMapping("/api/quiz/attempts")
+    public List<MyAttemptDto> myAttempts(Authentication auth) {
+        return service.listMyAttempts(auth.getName());
     }
 
     @PutMapping("/api/quiz/attempts/{attemptId}/responses/{itemId}")

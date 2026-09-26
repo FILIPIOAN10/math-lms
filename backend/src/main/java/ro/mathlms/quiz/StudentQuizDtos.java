@@ -1,5 +1,6 @@
 package ro.mathlms.quiz;
 
+import java.time.Instant;
 import java.util.List;
 
 /**
@@ -52,8 +53,41 @@ public final class StudentQuizDtos {
         }
     }
 
-    /** The attempt the student is now working on, plus the answer-hidden quiz to fill in. */
-    public record StartedAttemptDto(Long attemptId, QuizAttemptStatus status, StudentQuizDto quiz) {
+    /**
+     * What the student already saved on an in-progress attempt, so a resumed page can restore it.
+     * Only the student's own choice (option id / "photo sent") — never whether it is correct.
+     */
+    public record SavedAnswerDto(Long itemId, Long selectedOptionId, boolean photoUploaded) {
+        public static SavedAnswerDto from(ItemResponse response) {
+            return new SavedAnswerDto(
+                    response.getItem().getId(),
+                    response.getSelectedOption() == null ? null : response.getSelectedOption().getId(),
+                    response.getImageKey() != null);
+        }
+    }
+
+    /**
+     * The attempt the student is now working on, the answer-hidden quiz to fill in, and the answers
+     * already saved (empty for a fresh attempt).
+     */
+    public record StartedAttemptDto(Long attemptId, QuizAttemptStatus status, StudentQuizDto quiz,
+                                    List<SavedAnswerDto> answers) {
+    }
+
+    /** One row of the student's own attempt history ("Încercările mele"). */
+    public record MyAttemptDto(
+            Long attemptId,
+            Long quizId,
+            String quizTitle,
+            QuizAttemptStatus status,
+            Instant startedAt,
+            Instant submittedAt,
+            Integer score
+    ) {
+        public static MyAttemptDto from(QuizAttempt attempt) {
+            return new MyAttemptDto(attempt.getId(), attempt.getQuiz().getId(), attempt.getQuiz().getTitle(),
+                    attempt.getStatus(), attempt.getStartedAt(), attempt.getSubmittedAt(), attempt.getScore());
+        }
     }
 
     /**

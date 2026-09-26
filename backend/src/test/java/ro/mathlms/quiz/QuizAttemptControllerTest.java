@@ -10,6 +10,7 @@ import org.springframework.web.multipart.MultipartFile;
 import ro.mathlms.quiz.QuizDtos.QuizSummaryDto;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultDto;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultViewDto;
+import ro.mathlms.quiz.StudentQuizDtos.MyAttemptDto;
 import ro.mathlms.quiz.StudentQuizDtos.StartedAttemptDto;
 
 import java.util.List;
@@ -42,10 +43,19 @@ class QuizAttemptControllerTest {
 
     @Test
     void startDelegatesWithPrincipalEmail() {
-        StartedAttemptDto dto = new StartedAttemptDto(50L, QuizAttemptStatus.IN_PROGRESS, null);
+        StartedAttemptDto dto = new StartedAttemptDto(50L, QuizAttemptStatus.IN_PROGRESS, null, List.of());
         when(service.startAttempt(10L, "elev@scoala.ro")).thenReturn(dto);
 
         assertThat(controller.start(10L, auth)).isEqualTo(dto);
+    }
+
+    @Test
+    void myAttemptsDelegatesWithPrincipalEmail() {
+        List<MyAttemptDto> mine = List.of(new MyAttemptDto(
+                50L, 10L, "Simulare EN", QuizAttemptStatus.GRADED, null, null, 7));
+        when(service.listMyAttempts("elev@scoala.ro")).thenReturn(mine);
+
+        assertThat(controller.myAttempts(auth)).isEqualTo(mine);
     }
 
     @Test
