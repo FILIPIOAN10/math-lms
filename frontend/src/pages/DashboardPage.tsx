@@ -28,6 +28,11 @@ export function DashboardPage() {
               <Link to="/content" className={buttonVariants({ variant: 'default' })}>
                 Conținut
               </Link>
+              {user.role === 'STUDENT' && (
+                <Link to="/quizzes" className={buttonVariants({ variant: 'default' })}>
+                  Testele mele
+                </Link>
+              )}
               {user.role === 'ADMIN' && (
                 <>
                   <Link to="/admin/content" className={buttonVariants({ variant: 'secondary' })}>

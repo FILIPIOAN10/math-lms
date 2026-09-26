@@ -424,3 +424,185 @@ export async function updateQuizItem(itemId: number, input: ItemInput): Promise<
 export async function deleteQuizItem(itemId: number): Promise<void> {
   await del(`/admin/quiz-items/${itemId}`)
 }
+
+// ---------- Student quiz (Q5–Q9) ----------
+
+export type QuizAttemptStatus = 'IN_PROGRESS' | 'SUBMITTED' | 'GRADED'
+
+/** An answer choice as the student sees it — no `correct` flag (anti-cheat, see StudentQuizDtos). */
+export interface StudentOptionDto {
+  id: number
+  position: number
+  text: string
+}
+
+export interface StudentItemDto {
+  id: number
+  position: number
+  type: QuizItemType
+  statement: string
+  points: number
+  options: StudentOptionDto[]
+}
+
+export interface StudentQuizDetailDto {
+  id: number
+  title: string
+  description: string | null
+  items: StudentItemDto[]
+}
+
+/** What the student already saved on a resumed attempt. */
+export interface SavedAnswerDto {
+  itemId: number
+  selectedOptionId: number | null
+  photoUploaded: boolean
+}
+
+export interface StartedAttemptDto {
+  attemptId: number
+  status: QuizAttemptStatus
+  quiz: StudentQuizDetailDto
+  answers: SavedAnswerDto[]
+}
+
+export interface SubmitResultDto {
+  attemptId: number
+  status: QuizAttemptStatus
+  autoScore: number
+  autoMaxScore: number
+  finalScore: number | null
+}
+
+export interface MyAttemptDto {
+  attemptId: number
+  quizId: number
+  quizTitle: string
+  status: QuizAttemptStatus
+  startedAt: string
+  submittedAt: string | null
+  score: number | null
+}
+
+export interface ItemResultDto {
+  position: number
+  type: QuizItemType
+  statement: string
+  points: number
+  awardedPoints: number | null
+  correct: boolean | null
+  selectedOptionText: string | null
+  correctOptionText: string | null
+  barem: string | null
+  photoUploaded: boolean
+}
+
+export interface AttemptResultViewDto {
+  attemptId: number
+  quizTitle: string
+  status: QuizAttemptStatus
+  finalScore: number | null
+  maxScore: number
+  items: ItemResultDto[]
+}
+
+export async function getStudentQuizzes(): Promise<QuizSummary[]> {
+  const response = await apiFetch('/quiz/quizzes')
+  return response.json()
+}
+
+export async function getMyAttempts(): Promise<MyAttemptDto[]> {
+  const response = await apiFetch('/quiz/attempts')
+  return response.json()
+}
+
+/** Starts a new attempt, or resumes the one already in progress for this quiz. */
+export async function startQuizAttempt(quizId: number): Promise<StartedAttemptDto> {
+  const response = await postJson(`/quiz/quizzes/${quizId}/attempts`, {})
+  return response.json()
+}
+
+export async function saveQuizAnswer(attemptId: number, itemId: number, optionId: number): Promise<void> {
+  await putJson(`/quiz/attempts/${attemptId}/responses/${itemId}`, { optionId })
+}
+
+export async function uploadQuizPhoto(attemptId: number, itemId: number, file: File): Promise<void> {
+  const formData = new FormData()
+  formData.append('file', file)
+  // No Content-Type header: the browser sets multipart/form-data with the boundary itself.
+  await apiFetch(`/quiz/attempts/${attemptId}/responses/${itemId}/photo`, {
+    method: 'POST',
+    body: formData,
+  })
+}
+
+export async function submitQuizAttempt(attemptId: number): Promise<SubmitResultDto> {
+  const response = await postJson(`/quiz/attempts/${attemptId}/submit`, {})
+  return response.json()
+}
+
+export async function getAttemptResult(attemptId: number): Promise<AttemptResultViewDto> {
+  const response = await apiFetch(`/quiz/attempts/${attemptId}/result`)
+  return response.json()
+}
+
+// ---------- Teacher grading (Q10) ----------
+
+export interface AdminAttemptSummary {
+  attemptId: number
+  quizId: number
+  quizTitle: string
+  studentId: number
+  studentName: string
+  status: QuizAttemptStatus
+  submittedAt: string | null
+  score: number | null
+}
+
+export interface AdminItemReview {
+  itemId: number
+  position: number
+  type: QuizItemType
+  statement: string
+  points: number
+  barem: string | null
+  selectedOptionText: string | null
+  correctOptionText: string | null
+  correct: boolean | null
+  awardedPoints: number | null
+  photoUploaded: boolean
+}
+
+export interface AdminAttemptDetail {
+  attemptId: number
+  quizTitle: string
+  studentName: string
+  status: QuizAttemptStatus
+  submittedAt: string | null
+  score: number | null
+  maxScore: number
+  items: AdminItemReview[]
+}
+
+export async function listAttemptsForGrading(status: QuizAttemptStatus): Promise<AdminAttemptSummary[]> {
+  const response = await apiFetch(`/admin/quiz/attempts?status=${status}`)
+  return response.json()
+}
+
+export async function getAttemptForGrading(attemptId: number): Promise<AdminAttemptDetail> {
+  const response = await apiFetch(`/admin/quiz/attempts/${attemptId}`)
+  return response.json()
+}
+
+export async function gradeOpenItem(attemptId: number, itemId: number, points: number): Promise<void> {
+  await putJson(`/admin/quiz/attempts/${attemptId}/responses/${itemId}/grade`, { points })
+}
+
+export async function finalizeGrading(attemptId: number): Promise<void> {
+  await postJson(`/admin/quiz/attempts/${attemptId}/mark-graded`, {})
+}
+
+/** A plain GET the browser makes itself for an <img>; the auth cookie rides along via the /api proxy. */
+export function attemptPhotoUrl(attemptId: number, itemId: number): string {
+  return `/api/admin/quiz/attempts/${attemptId}/responses/${itemId}/photo`
+}
