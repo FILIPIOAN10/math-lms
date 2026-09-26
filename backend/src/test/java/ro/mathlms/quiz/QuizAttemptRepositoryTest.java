@@ -127,4 +127,27 @@ class QuizAttemptRepositoryTest {
                 quiz.getId(), ana.getId(), QuizAttemptStatus.IN_PROGRESS))
                 .get().extracting(QuizAttempt::getId).isEqualTo(inProgress.getId());
     }
+
+    @Test
+    void allowsOnlyOneInProgressAttemptPerQuizAndStudent() {
+        Quiz quiz = quizRepository.save(new Quiz("Simulare EN", null));
+        User ana = student("ana@scoala.ro");
+        quizAttemptRepository.saveAndFlush(new QuizAttempt(quiz, ana));
+
+        assertThatThrownBy(() -> quizAttemptRepository.saveAndFlush(new QuizAttempt(quiz, ana)))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void finishedAttemptsDoNotBlockANewOne() {
+        Quiz quiz = quizRepository.save(new Quiz("Simulare EN", null));
+        User ana = student("ana@scoala.ro");
+        QuizAttempt done = new QuizAttempt(quiz, ana);
+        done.submit();
+        quizAttemptRepository.saveAndFlush(done);
+
+        QuizAttempt again = quizAttemptRepository.saveAndFlush(new QuizAttempt(quiz, ana));
+
+        assertThat(again.getId()).isNotNull();
+    }
 }

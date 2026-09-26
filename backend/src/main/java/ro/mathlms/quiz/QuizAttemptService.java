@@ -252,7 +252,7 @@ public class QuizAttemptService {
     }
 
     private QuizAttempt requireOwnedInProgress(Long attemptId, String studentEmail) {
-        QuizAttempt attempt = attemptRepository.findById(attemptId)
+        QuizAttempt attempt = attemptRepository.findByIdForUpdate(attemptId)
                 .orElseThrow(() -> new QuizNotFoundException("QuizAttempt", attemptId));
         if (!attempt.getStudent().getEmail().equals(studentEmail)) {
             throw new QuizAccessException("This attempt belongs to another student");

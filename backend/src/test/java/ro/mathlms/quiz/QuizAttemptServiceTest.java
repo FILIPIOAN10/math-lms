@@ -130,7 +130,7 @@ class QuizAttemptServiceTest {
         QuizItem item = singleChoice(100L, 5);
         QuizOption a = option(item, 1000L, true);
         QuizAttempt attempt = attempt(50L, student);
-        when(attemptRepository.findById(50L)).thenReturn(Optional.of(attempt));
+        when(attemptRepository.findByIdForUpdate(50L)).thenReturn(Optional.of(attempt));
         when(itemRepository.findById(100L)).thenReturn(Optional.of(item));
         when(optionRepository.findById(1000L)).thenReturn(Optional.of(a));
         when(responseRepository.findByAttemptIdAndItemId(50L, 100L)).thenReturn(Optional.empty());
@@ -144,7 +144,7 @@ class QuizAttemptServiceTest {
     void saveResponseRejectsOtherStudentsAttempt() {
         User other = withId(new User("altul@scoala.ro", "Altul", Role.STUDENT), 2L);
         QuizAttempt attempt = attempt(50L, other);
-        when(attemptRepository.findById(50L)).thenReturn(Optional.of(attempt));
+        when(attemptRepository.findByIdForUpdate(50L)).thenReturn(Optional.of(attempt));
 
         assertThatThrownBy(() -> service.saveResponse(50L, 100L, 1000L, EMAIL))
                 .isInstanceOf(QuizAccessException.class);
@@ -154,7 +154,7 @@ class QuizAttemptServiceTest {
     void saveResponseRejectsSubmittedAttempt() {
         QuizAttempt attempt = attempt(50L, student);
         attempt.submit();
-        when(attemptRepository.findById(50L)).thenReturn(Optional.of(attempt));
+        when(attemptRepository.findByIdForUpdate(50L)).thenReturn(Optional.of(attempt));
 
         assertThatThrownBy(() -> service.saveResponse(50L, 100L, 1000L, EMAIL))
                 .isInstanceOf(InvalidQuizException.class)
@@ -165,7 +165,7 @@ class QuizAttemptServiceTest {
     void saveResponseRejectsOpenItem() {
         QuizItem openItem = open(101L, 30);
         QuizAttempt attempt = attempt(50L, student);
-        when(attemptRepository.findById(50L)).thenReturn(Optional.of(attempt));
+        when(attemptRepository.findByIdForUpdate(50L)).thenReturn(Optional.of(attempt));
         when(itemRepository.findById(101L)).thenReturn(Optional.of(openItem));
 
         assertThatThrownBy(() -> service.saveResponse(50L, 101L, 1000L, EMAIL))
@@ -179,7 +179,7 @@ class QuizAttemptServiceTest {
         QuizItem otherItem = singleChoice(102L, 5);
         QuizOption strayOption = option(otherItem, 1002L, true);
         QuizAttempt attempt = attempt(50L, student);
-        when(attemptRepository.findById(50L)).thenReturn(Optional.of(attempt));
+        when(attemptRepository.findByIdForUpdate(50L)).thenReturn(Optional.of(attempt));
         when(itemRepository.findById(100L)).thenReturn(Optional.of(item));
         when(optionRepository.findById(1002L)).thenReturn(Optional.of(strayOption));
 
@@ -197,7 +197,7 @@ class QuizAttemptServiceTest {
         QuizAttempt attempt = attempt(50L, student);
         ItemResponse response = new ItemResponse(attempt, item);
         response.answerSingleChoice(correct);
-        when(attemptRepository.findById(50L)).thenReturn(Optional.of(attempt));
+        when(attemptRepository.findByIdForUpdate(50L)).thenReturn(Optional.of(attempt));
         when(itemRepository.findByQuizIdOrderByPosition(10L)).thenReturn(List.of(item));
         when(responseRepository.findByAttemptId(50L)).thenReturn(List.of(response));
 
@@ -219,7 +219,7 @@ class QuizAttemptServiceTest {
         QuizAttempt attempt = attempt(50L, student);
         ItemResponse response = new ItemResponse(attempt, answered);
         response.answerSingleChoice(wrong);
-        when(attemptRepository.findById(50L)).thenReturn(Optional.of(attempt));
+        when(attemptRepository.findByIdForUpdate(50L)).thenReturn(Optional.of(attempt));
         when(itemRepository.findByQuizIdOrderByPosition(10L)).thenReturn(List.of(answered, unanswered));
         when(responseRepository.findByAttemptId(50L)).thenReturn(List.of(response));
 
@@ -241,7 +241,7 @@ class QuizAttemptServiceTest {
         QuizAttempt attempt = attempt(50L, student);
         ItemResponse response = new ItemResponse(attempt, grila);
         response.answerSingleChoice(correct);
-        when(attemptRepository.findById(50L)).thenReturn(Optional.of(attempt));
+        when(attemptRepository.findByIdForUpdate(50L)).thenReturn(Optional.of(attempt));
         when(itemRepository.findByQuizIdOrderByPosition(10L)).thenReturn(List.of(grila, deschis));
         when(responseRepository.findByAttemptId(50L)).thenReturn(List.of(response));
 
@@ -257,7 +257,7 @@ class QuizAttemptServiceTest {
     void submitRejectsOtherStudentsAttempt() {
         User other = withId(new User("altul@scoala.ro", "Altul", Role.STUDENT), 2L);
         QuizAttempt attempt = attempt(50L, other);
-        when(attemptRepository.findById(50L)).thenReturn(Optional.of(attempt));
+        when(attemptRepository.findByIdForUpdate(50L)).thenReturn(Optional.of(attempt));
 
         assertThatThrownBy(() -> service.submit(50L, EMAIL))
                 .isInstanceOf(QuizAccessException.class);
@@ -273,7 +273,7 @@ class QuizAttemptServiceTest {
     void uploadStoresPhotoAndSetsImageKey() throws Exception {
         QuizItem openItem = open(101L, 30);
         QuizAttempt attempt = attempt(50L, student);
-        when(attemptRepository.findById(50L)).thenReturn(Optional.of(attempt));
+        when(attemptRepository.findByIdForUpdate(50L)).thenReturn(Optional.of(attempt));
         when(itemRepository.findById(101L)).thenReturn(Optional.of(openItem));
         when(responseRepository.findByAttemptIdAndItemId(50L, 101L)).thenReturn(Optional.empty());
         when(fileService.uploadImage(eq("uploads/quiz-photos"), any())).thenReturn("stored.jpg");
@@ -291,7 +291,7 @@ class QuizAttemptServiceTest {
         QuizAttempt attempt = attempt(50L, student);
         ItemResponse existing = new ItemResponse(attempt, openItem);
         existing.answerOpen("old.jpg");
-        when(attemptRepository.findById(50L)).thenReturn(Optional.of(attempt));
+        when(attemptRepository.findByIdForUpdate(50L)).thenReturn(Optional.of(attempt));
         when(itemRepository.findById(101L)).thenReturn(Optional.of(openItem));
         when(responseRepository.findByAttemptIdAndItemId(50L, 101L)).thenReturn(Optional.of(existing));
         when(fileService.uploadImage(eq("uploads/quiz-photos"), any())).thenReturn("new.jpg");
@@ -306,7 +306,7 @@ class QuizAttemptServiceTest {
     void uploadRejectsSingleChoiceItem() throws Exception {
         QuizItem grila = singleChoice(100L, 5);
         QuizAttempt attempt = attempt(50L, student);
-        when(attemptRepository.findById(50L)).thenReturn(Optional.of(attempt));
+        when(attemptRepository.findByIdForUpdate(50L)).thenReturn(Optional.of(attempt));
         when(itemRepository.findById(100L)).thenReturn(Optional.of(grila));
 
         assertThatThrownBy(() -> service.uploadOpenPhoto(50L, 100L, image(), EMAIL))
@@ -318,7 +318,7 @@ class QuizAttemptServiceTest {
     void uploadRejectsNonImageFile() throws Exception {
         QuizItem openItem = open(101L, 30);
         QuizAttempt attempt = attempt(50L, student);
-        when(attemptRepository.findById(50L)).thenReturn(Optional.of(attempt));
+        when(attemptRepository.findByIdForUpdate(50L)).thenReturn(Optional.of(attempt));
         when(itemRepository.findById(101L)).thenReturn(Optional.of(openItem));
         MultipartFile pdf = new MockMultipartFile("file", "x.pdf", "application/pdf", "bytes".getBytes());
 
@@ -331,7 +331,7 @@ class QuizAttemptServiceTest {
     void uploadRejectsEmptyFile() throws Exception {
         QuizItem openItem = open(101L, 30);
         QuizAttempt attempt = attempt(50L, student);
-        when(attemptRepository.findById(50L)).thenReturn(Optional.of(attempt));
+        when(attemptRepository.findByIdForUpdate(50L)).thenReturn(Optional.of(attempt));
         when(itemRepository.findById(101L)).thenReturn(Optional.of(openItem));
         MultipartFile empty = new MockMultipartFile("file", "x.jpg", "image/jpeg", new byte[0]);
 
@@ -344,7 +344,7 @@ class QuizAttemptServiceTest {
     void uploadRejectsOtherStudentsAttempt() {
         User other = withId(new User("altul@scoala.ro", "Altul", Role.STUDENT), 2L);
         QuizAttempt attempt = attempt(50L, other);
-        when(attemptRepository.findById(50L)).thenReturn(Optional.of(attempt));
+        when(attemptRepository.findByIdForUpdate(50L)).thenReturn(Optional.of(attempt));
 
         assertThatThrownBy(() -> service.uploadOpenPhoto(50L, 101L, image(), EMAIL))
                 .isInstanceOf(QuizAccessException.class);

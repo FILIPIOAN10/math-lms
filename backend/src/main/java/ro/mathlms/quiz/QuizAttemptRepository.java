@@ -1,7 +1,9 @@
 package ro.mathlms.quiz;
 
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -18,6 +20,14 @@ public interface QuizAttemptRepository extends JpaRepository<QuizAttempt, Long> 
 
     Optional<QuizAttempt> findByQuizIdAndStudentIdAndStatus(
             Long quizId, Long studentId, QuizAttemptStatus status);
+
+    /**
+     * Loads the attempt with a row lock (SELECT ... FOR UPDATE) held until the transaction ends, so
+     * answering, uploading and submitting the same attempt run one after another, never interleaved.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select a from QuizAttempt a where a.id = :id")
+    Optional<QuizAttempt> findByIdForUpdate(@Param("id") Long id);
 
     /** The teacher's grading queue: attempts in one status, with quiz + student fetched up front. */
     @Query("select a from QuizAttempt a join fetch a.quiz join fetch a.student "
