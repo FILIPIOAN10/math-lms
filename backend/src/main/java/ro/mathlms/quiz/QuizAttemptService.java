@@ -308,6 +308,13 @@ public class QuizAttemptService {
         if (item.getType() != QuizItemType.OPEN) {
             throw new InvalidQuizException("Only open items are graded manually");
         }
+        if (!item.getQuiz().getId().equals(attempt.getQuiz().getId())) {
+            throw new InvalidQuizException("Item does not belong to this quiz");
+        }
+        if (points > item.getPoints()) {
+            throw new InvalidQuizException(
+                    "At most " + item.getPoints() + " points can be awarded for this item");
+        }
 
         // Dacă elevul nu a răspuns nimic, creăm un răspuns gol ca să reținem punctajul (ex: 0)
         ItemResponse response = responseRepository.findByAttemptIdAndItemId(attemptId, itemId)

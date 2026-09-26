@@ -349,24 +349,48 @@ class QuizAttemptServiceTest {
     }
     @Test
     void gradeOpenResponse_Success() {
-        // Arrange
-        QuizAttempt attempt = mock(QuizAttempt.class);
-        when(attempt.getStatus()).thenReturn(QuizAttemptStatus.SUBMITTED);
-        when(attemptRepository.findById(1L)).thenReturn(Optional.of(attempt));
+        QuizItem deschis = open(101L, 30);
+        QuizAttempt attempt = attempt(50L, student);
+        attempt.submit();
+        ItemResponse response = new ItemResponse(attempt, deschis);
+        response.answerOpen("poza.jpg");
+        when(attemptRepository.findById(50L)).thenReturn(Optional.of(attempt));
+        when(itemRepository.findById(101L)).thenReturn(Optional.of(deschis));
+        when(responseRepository.findByAttemptIdAndItemId(50L, 101L)).thenReturn(Optional.of(response));
 
-        QuizItem item = mock(QuizItem.class);
-        when(item.getType()).thenReturn(QuizItemType.OPEN);
-        when(itemRepository.findById(2L)).thenReturn(Optional.of(item));
+        service.gradeOpenResponse(50L, 101L, 15);
 
-        ItemResponse response = mock(ItemResponse.class);
-        when(responseRepository.findByAttemptIdAndItemId(1L, 2L)).thenReturn(Optional.of(response));
-
-        // Act
-        service.gradeOpenResponse(1L, 2L, 15);
-
-        // Assert
-        verify(response).gradeManual(15);
+        assertThat(response.getAwardedPoints()).isEqualTo(15);
         verify(responseRepository).save(response);
+    }
+
+    @Test
+    void gradeOpenResponseRejectsMorePointsThanTheItemIsWorth() {
+        QuizItem deschis = open(101L, 30);
+        QuizAttempt attempt = attempt(50L, student);
+        attempt.submit();
+        when(attemptRepository.findById(50L)).thenReturn(Optional.of(attempt));
+        when(itemRepository.findById(101L)).thenReturn(Optional.of(deschis));
+
+        assertThatThrownBy(() -> service.gradeOpenResponse(50L, 101L, 31))
+                .isInstanceOf(InvalidQuizException.class)
+                .hasMessageContaining("30");
+        verify(responseRepository, never()).save(any());
+    }
+
+    @Test
+    void gradeOpenResponseRejectsItemFromAnotherQuiz() {
+        Quiz other = published(withId(new Quiz("Alt quiz", null), 11L));
+        QuizItem foreign = withId(new QuizItem(other, 1, QuizItemType.OPEN, "s", 30, null), 200L);
+        QuizAttempt attempt = attempt(50L, student);
+        attempt.submit();
+        when(attemptRepository.findById(50L)).thenReturn(Optional.of(attempt));
+        when(itemRepository.findById(200L)).thenReturn(Optional.of(foreign));
+
+        assertThatThrownBy(() -> service.gradeOpenResponse(50L, 200L, 5))
+                .isInstanceOf(InvalidQuizException.class)
+                .hasMessageContaining("does not belong");
+        verify(responseRepository, never()).save(any());
     }
 
     // --- getResult (Q8) ---
