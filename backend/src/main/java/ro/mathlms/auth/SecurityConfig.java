@@ -62,6 +62,11 @@ public class SecurityConfig {
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/health").permitAll()
+                        // Boot renders denials by forwarding to /error. That ERROR dispatch re-enters
+                        // this chain unauthenticated (OncePerRequestFilter skips error dispatches, so
+                        // JwtCookieAuthFilter never runs), so gating it would turn every 403 into a
+                        // 401 and hide the real reason a request was refused.
+                        .requestMatchers("/error").permitAll()
                         .requestMatchers("/oauth2/**", "/login/**").permitAll()
                         .requestMatchers("/api/auth/register", "/api/auth/verify-email", "/api/auth/login",
                                 "/api/auth/forgot-password", "/api/auth/reset-password",
