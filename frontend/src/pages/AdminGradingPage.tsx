@@ -83,6 +83,7 @@ function OpenItemGrader({
       <div className="flex flex-wrap items-center gap-2">
         <Input
           type="number"
+          data-testid="grade-points"
           min={0}
           max={item.points}
           value={points}
@@ -93,7 +94,7 @@ function OpenItemGrader({
         />
         <span className="text-sm text-muted-foreground">/ {item.points} p</span>
         {!readOnly && (
-          <Button size="sm" onClick={save} disabled={busy}>
+          <Button size="sm" onClick={save} disabled={busy} data-testid="grade-save">
             {busy ? 'Se salvează...' : 'Salvează punctajul'}
           </Button>
         )}
@@ -246,7 +247,7 @@ export function AdminGradingPage() {
                 {!allOpenGraded && (
                   <p className="text-sm text-muted-foreground">Notează toate subiectele cu rezolvare ca să poți finaliza.</p>
                 )}
-                <Button onClick={finalize} disabled={!allOpenGraded || finalizing}>
+                <Button onClick={finalize} disabled={!allOpenGraded || finalizing} data-testid="grade-finalize">
                   {finalizing ? 'Se finalizează...' : 'Finalizează nota'}
                 </Button>
               </div>
@@ -279,7 +280,7 @@ export function AdminGradingPage() {
             <div className="space-y-2">
               {attempts.map((a) => (
                 <Card key={a.attemptId}>
-                  <CardContent className="flex items-center justify-between gap-3 py-3">
+                  <CardContent data-testid="attempt-row" className="flex items-center justify-between gap-3 py-3">
                     <div className="min-w-0 space-y-1">
                       <p className="truncate font-medium">{a.studentName} — {a.quizTitle}</p>
                       <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
@@ -288,7 +289,7 @@ export function AdminGradingPage() {
                         {a.score !== null && <span className="text-foreground">{a.score} p</span>}
                       </p>
                     </div>
-                    <Button size="sm" variant={a.status === 'SUBMITTED' ? 'default' : 'outline'} onClick={() => open(a.attemptId)}>
+                    <Button size="sm" variant={a.status === 'SUBMITTED' ? 'default' : 'outline'} onClick={() => open(a.attemptId)} data-testid="attempt-open">
                       {a.status === 'SUBMITTED' ? 'Corectează' : 'Vezi'}
                     </Button>
                   </CardContent>

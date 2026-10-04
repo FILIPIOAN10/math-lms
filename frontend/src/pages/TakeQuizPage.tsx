@@ -152,7 +152,7 @@ export function TakeQuizPage() {
               {error && <p className="text-sm text-destructive">{error}</p>}
               <div className="flex justify-center gap-2">
                 <Link to="/quizzes" className={buttonVariants({ variant: 'outline' })}>Înapoi</Link>
-                <Button onClick={start} disabled={starting}>
+                <Button onClick={start} disabled={starting} data-testid="quiz-start">
                   {starting ? 'Se pregătește...' : 'Începe testul'}
                 </Button>
               </div>
@@ -213,6 +213,7 @@ export function TakeQuizPage() {
                   </p>
                   <input
                     type="file"
+                    data-testid="item-photo"
                     accept="image/*"
                     disabled={saving[item.id]}
                     onChange={(e) => {
@@ -243,7 +244,7 @@ export function TakeQuizPage() {
           <p className="text-sm text-muted-foreground">
             {answeredCount} / {attempt.quiz.items.length} răspunsuri salvate
           </p>
-          <Button onClick={submit} disabled={submitting}>
+          <Button onClick={submit} disabled={submitting} data-testid="quiz-submit">
             {submitting ? 'Se trimite...' : 'Trimite lucrarea'}
           </Button>
         </div>

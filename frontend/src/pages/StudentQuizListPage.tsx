@@ -59,14 +59,14 @@ export function StudentQuizListPage() {
               ) : (
                 quizzes.map((q) => (
                   <Card key={q.id}>
-                    <CardContent className="flex items-center justify-between gap-3 py-3">
+                    <CardContent data-testid="quiz-card" className="flex items-center justify-between gap-3 py-3">
                       <div className="min-w-0">
                         <p className="truncate font-medium">{q.title}</p>
                         {q.description && (
                           <p className="truncate text-sm text-muted-foreground">{q.description}</p>
                         )}
                       </div>
-                      <Link to={`/quizzes/${q.id}/take`} className={buttonVariants({ size: 'sm' })}>
+                      <Link to={`/quizzes/${q.id}/take`} data-testid="quiz-open" className={buttonVariants({ size: 'sm' })}>
                         {inProgressQuizIds.has(q.id) ? 'Continuă' : 'Începe'}
                       </Link>
                     </CardContent>

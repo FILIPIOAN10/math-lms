@@ -103,7 +103,7 @@ export function AttemptResultPage() {
                   <AttemptStatusBadge status={result.status} />
                 </div>
                 {result.status === 'GRADED' ? (
-                  <p className="text-3xl font-semibold">
+                  <p data-testid="result-score" className="text-3xl font-semibold">
                     {result.finalScore} <span className="text-base text-muted-foreground">/ {result.maxScore} puncte</span>
                   </p>
                 ) : (
