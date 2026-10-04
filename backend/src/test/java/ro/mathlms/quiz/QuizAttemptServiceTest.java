@@ -44,10 +44,11 @@ class QuizAttemptServiceTest {
     private final FileService fileService = mock(FileService.class);
     private final EnrollmentRepository enrollmentRepository = mock(EnrollmentRepository.class);
     private final AfterCommitCacheEvictor cacheEvictor = mock(AfterCommitCacheEvictor.class);
+    private final ResultNotifier resultNotifier = mock(ResultNotifier.class);
     private final QuizAttemptService service = new QuizAttemptService(
             quizRepository, itemRepository, optionRepository,
             attemptRepository, responseRepository, userRepository,
-            enrollmentRepository, cacheEvictor, fileService, "uploads/quiz-photos");
+            enrollmentRepository, cacheEvictor, resultNotifier, fileService, "uploads/quiz-photos");
 
     private static final String EMAIL = "elev@scoala.ro";
 
@@ -97,6 +98,7 @@ class QuizAttemptServiceTest {
 
         verify(cacheEvictor).evict(CacheNames.PROGRESS, EMAIL);
         verify(cacheEvictor).evict(CacheNames.QUIZ_STATS, 10L);
+        verify(resultNotifier).resultGraded(inProgress); // the "result is ready" emails are queued too
     }
 
     @Test
@@ -110,6 +112,7 @@ class QuizAttemptServiceTest {
         service.submit(50L, EMAIL);
 
         verify(cacheEvictor, never()).evict(any(), any());
+        verify(resultNotifier, never()).resultGraded(any());
     }
 
     // --- progress over time (Phase 5.3) ---
@@ -651,6 +654,7 @@ class QuizAttemptServiceTest {
         // the grade changes the student's progress and the quiz's statistics
         verify(cacheEvictor).evict(CacheNames.PROGRESS, EMAIL);
         verify(cacheEvictor).evict(CacheNames.QUIZ_STATS, 99L);
+        verify(resultNotifier).resultGraded(attempt);
     }
 
     @Test

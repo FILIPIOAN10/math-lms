@@ -60,6 +60,30 @@ public class EmailService {
                         + frontendBaseUrl + "/login");
     }
 
+    public void sendResultReadyToStudent(String email, String studentName, String quizTitle,
+                                         int score, int maxScore, Long attemptId) {
+        send(email, "Rezultatul testului „" + quizTitle + "” este gata",
+                "Salut, " + studentName + "!\n\n"
+                        + "Profesorul ți-a corectat testul „" + quizTitle + "”.\n"
+                        + "Nota ta: " + score + " / " + maxScore + " puncte" + percent(score, maxScore) + ".\n\n"
+                        + "Vezi rezolvarea și baremul aici:\n"
+                        + frontendBaseUrl + "/quizzes/attempts/" + attemptId + "/result");
+    }
+
+    public void sendResultReadyToParent(String email, String studentName, String quizTitle,
+                                        int score, int maxScore, Long studentId, Long attemptId) {
+        send(email, "Rezultatul lui " + studentName + " la „" + quizTitle + "” este gata",
+                "Bună!\n\n"
+                        + "Testul „" + quizTitle + "” al lui " + studentName + " a fost corectat.\n"
+                        + "Nota: " + score + " / " + maxScore + " puncte" + percent(score, maxScore) + ".\n\n"
+                        + "Vezi detaliile aici:\n"
+                        + frontendBaseUrl + "/parent/children/" + studentId + "/attempts/" + attemptId);
+    }
+
+    private static String percent(int score, int maxScore) {
+        return maxScore == 0 ? "" : " (" + Math.round(score * 100f / maxScore) + "%)";
+    }
+
     private void send(String to, String subject, String body) {
         SimpleMailMessage message = new SimpleMailMessage();
         message.setFrom(fromAddress);

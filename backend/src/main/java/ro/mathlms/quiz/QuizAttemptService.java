@@ -50,6 +50,7 @@ public class QuizAttemptService {
     private final UserRepository userRepository;
     private final EnrollmentRepository enrollmentRepository;
     private final AfterCommitCacheEvictor cacheEvictor;
+    private final ResultNotifier resultNotifier;
     private final FileService fileService;
     private final String quizPhotosDir;
 
@@ -57,7 +58,7 @@ public class QuizAttemptService {
                               QuizOptionRepository optionRepository, QuizAttemptRepository attemptRepository,
                               ItemResponseRepository responseRepository, UserRepository userRepository,
                               EnrollmentRepository enrollmentRepository, AfterCommitCacheEvictor cacheEvictor,
-                              FileService fileService,
+                              ResultNotifier resultNotifier, FileService fileService,
                               @Value("${app.storage.quiz-photos-dir}") String quizPhotosDir) {
         this.quizRepository = quizRepository;
         this.itemRepository = itemRepository;
@@ -67,6 +68,7 @@ public class QuizAttemptService {
         this.userRepository = userRepository;
         this.enrollmentRepository = enrollmentRepository;
         this.cacheEvictor = cacheEvictor;
+        this.resultNotifier = resultNotifier;
         this.fileService = fileService;
         this.quizPhotosDir = quizPhotosDir;
     }
@@ -414,10 +416,15 @@ public class QuizAttemptService {
         evictGradingCaches(attempt);
     }
 
-    /** A graded attempt changes the student's progress and the quiz's statistics — dropped after the commit. */
+    /**
+     * Everything that follows an attempt becoming GRADED, inside the grading transaction: the cached progress
+     * and statistics are dropped (after the commit) and the "result is ready" emails are queued in the outbox
+     * (committed atomically with the grade).
+     */
     private void evictGradingCaches(QuizAttempt attempt) {
         cacheEvictor.evict(CacheNames.PROGRESS, attempt.getStudent().getEmail());
         cacheEvictor.evict(CacheNames.QUIZ_STATS, attempt.getQuiz().getId());
+        resultNotifier.resultGraded(attempt);
     }
 
     /** The teacher's grading queue (Q10): attempts in one status, oldest submission first. */

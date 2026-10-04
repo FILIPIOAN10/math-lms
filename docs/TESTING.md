@@ -63,7 +63,7 @@ docker exec -i mathlms-postgres psql -U mathlms -d mathlms -c \
 Rulează asta înainte de orice commit.
 
 ```bash
-# Backend — 455 teste (necesită Docker pentru Testcontainers)
+# Backend — 483 teste (necesită Docker pentru Testcontainers)
 cd math-lms/backend && ./mvnw test
 
 # Doar suita de conținut (Faza 2)
@@ -170,6 +170,14 @@ Buton pe Dashboard: **Corectură**.
 - punctaj peste valoarea subiectului → eroare; punctaj valid → **Salvează punctajul** → „✓ notat cu X p”
 - **Finalizează nota** se deblochează când toate subiectele deschise au punctaj → lucrarea trece la „Notate”
 - ca elev, rezultatul arată acum nota finală (`X / max puncte`)
+
+### 12d. Email „rezultatul e gata” (outbox tranzacțional)
+Când o lucrare devine `GRADED` (finalizare de profesor SAU auto-corectare la submit) se pun în tabela `outbox_event` — **în aceeași tranzacție cu nota** — câte un eveniment `RESULT_READY_EMAIL` pe destinatar: unul pentru elev și, dacă adminul a legat un părinte, unul pentru părinte. Un dispatcher (`@Scheduled`, la 5 s) le trimite cu `FOR UPDATE SKIP LOCKED`; eșec SMTP → reîncercare cu backoff exponențial (30 s, 60 s, 120 s … max 1 h), după 8 încercări `DEAD` (necesită om). Payload = doar ids (fără date personale → GDPR curat); un eveniment per destinatar ca o reîncercare să nu retrimită cuiva care a primit deja.
+- **IMPLICIT OPRIT**: `NOTIFY_RESULT_READY=true` în `.env` îl pornește (altfel, cu SMTP-ul real din `.env`, testele/E2E ar încerca să scrie la `@mathlms.local`). Oprit → niciun rând în outbox, niciun email
+- Verificare manuală (cu SMTP real): pornește cu `NOTIFY_RESULT_READY=true`, notează o lucrare → `select event_type, status, attempts, last_error from outbox_event order by id desc;` (`PENDING` → `DONE` în ~5 s); emailul elevului trimite la `/quizzes/attempts/{id}/result`, al părintelui la `/parent/children/{id}/attempts/{id}`
+- `DEAD` = `select * from outbox_event where status='DEAD'`; după ce repari cauza: `update outbox_event set status='PENDING', attempts=0, next_attempt_at=now() where id=…`
+- Rândurile `DONE` mai vechi de 14 zile se șterg zilnic (03:30); cele `DEAD` rămân
+- Teste: `OutboxIntegrationTest` (publish fără tranzacție → eroare; rollback → niciun rând; retry → dead-letter; purge), `ResultReadyNotificationIntegrationTest` (notare → 2 evenimente → processor → 2 emailuri; SMTP căzut → rămâne PENDING). Testele rulează cu `app.outbox.enabled=false` (`src/test/resources/application.properties`) și apelează `OutboxProcessor` direct
 
 ### 12c. Cache Redis pe agregate (statistici + progres)
 `QuizStatsService.getStats` (cache `quizStats`, cheie = id quiz) și `QuizAttemptService.getProgress` (cache `progress`, cheie = email elev) sunt cache-uite în Redis, prefix `mathlms:`, TTL 10 min ca plasă de siguranță. Valorile sunt JSON simplu, fără nume de clase.

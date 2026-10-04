@@ -84,6 +84,21 @@ app:
   # Base URL of the frontend; verification / reset email links point here.
   frontend:
     base-url: ${FRONTEND_BASE_URL:http://localhost:5173}
+  # Transactional outbox: durable, retried side effects (Phase 5.6). The poller is a no-op when disabled.
+  outbox:
+    enabled: ${OUTBOX_ENABLED:true}
+    poll-interval-ms: ${OUTBOX_POLL_INTERVAL_MS:5000}
+    initial-delay-ms: ${OUTBOX_INITIAL_DELAY_MS:15000}
+    batch-size: ${OUTBOX_BATCH_SIZE:20}
+    max-batches-per-tick: ${OUTBOX_MAX_BATCHES_PER_TICK:10}
+    max-attempts: ${OUTBOX_MAX_ATTEMPTS:8}
+    base-backoff-seconds: ${OUTBOX_BASE_BACKOFF_SECONDS:30}
+    done-retention-days: ${OUTBOX_DONE_RETENTION_DAYS:14}
+  # Emails sent when a result is ready (student + linked parent). OFF by default so dev/tests never mail
+  # anyone; set NOTIFY_RESULT_READY=true where SMTP is real.
+  notifications:
+    result-ready:
+      enabled: ${NOTIFY_RESULT_READY:false}
   # File storage: local filesystem now, S3/MinIO drop-in later (see FileService seam).
   storage:
     quiz-photos-dir: ${QUIZ_PHOTOS_DIR:uploads/quiz-photos}
