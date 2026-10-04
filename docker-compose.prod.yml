@@ -74,6 +74,7 @@ services:
       RATE_LIMIT_ENABLED: ${RATE_LIMIT_ENABLED:-true}
       RATE_LIMIT_TRUST_XFF: "true"          # nginx (the only way in) sets X-Forwarded-For
       SECURITY_LOG_LEVEL: ${SECURITY_LOG_LEVEL:-INFO}
+      LOG_FORMAT: ${LOG_FORMAT:-logstash}     # structured JSON logs (one object per line, with requestId)
     volumes:
       # Student solution photos: lose this volume and the photos are gone (see backup, step 6.7).
       - uploads:/app/uploads

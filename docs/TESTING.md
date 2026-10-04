@@ -63,7 +63,7 @@ docker exec -i mathlms-postgres psql -U mathlms -d mathlms -c \
 Rulează asta înainte de orice commit.
 
 ```bash
-# Backend — 518 teste (necesită Docker pentru Testcontainers)
+# Backend — 523 teste (necesită Docker pentru Testcontainers)
 cd math-lms/backend && ./mvnw test
 
 # Doar suita de conținut (Faza 2)
@@ -180,6 +180,12 @@ Buton pe Dashboard: **Corectură**.
 - **Rate limiting prin nginx**: cu `RATE_LIMIT_ENABLED=true`, 7 login-uri greșite cu `X-Forwarded-For: 203.0.113.5` → `401×5` apoi `429`; alt client (`203.0.113.9`) are găleata lui. `/actuator/*` prin nginx → 404
 - **Verificări rapide**: `curl -i http://localhost:8088/` (SPA + headere), `.../quizzes` (fallback SPA), `.../api/auth/me` → 401, `.../healthz` → `ok`; Prometheus http://localhost:9090/targets → `math-lms` **UP**
 - **Descoperit la testare**: `/actuator/health` devenea `DOWN` când SMTP nu era configurat/disponibil (indicatorul de mail) și containerul era marcat nesănătos — dezactivat (`management.health.mail.enabled=false`; emailurile oricum merg prin outbox cu reîncercări). Testat de `HealthIndicatorsTest`
+
+### 12i. Loguri structurate + correlation ID
+Fiecare cerere primește un id (`CorrelationIdFilter`, primul filtru): nginx generează `$request_id` și îl trimite ca `X-Request-Id`; backend-ul îl pune în MDC (`requestId`), îl scrie pe **fiecare linie de log** (`INFO [<id>] ...`) și îl întoarce în header-ul răspunsului. Un id nesigur (spații, newline, prea lung/scurt) e înlocuit, nu crezut; după cerere se șterge din MDC (thread-urile se reutilizează).
+- Dev: format text; în producție compose-ul setează `LOG_FORMAT=logstash` → un obiect JSON pe linie (`@timestamp`, `level`, `logger_name`, `message`, `requestId`, …) bun pentru Loki/ELK
+- Verificare: `curl -si http://localhost:8088/api/auth/me | grep -i x-request-id` apoi `docker logs <backend> | grep <id>` (pornește backend-ul cu `SECURITY_LOG_LEVEL=DEBUG` ca să vezi linii per cerere) și `docker logs <frontend> | grep rid=<id>` — același id în răspuns, în logul backend-ului și în access-log-ul nginx
+- Teste: `CorrelationIdFilterTest` (id păstrat / generat / înlocuit / curățat și la eroare)
 
 ### 12g. Observabilitate (Prometheus + Grafana + Alertmanager) — `monitoring/README.md`
 `/actuator/prometheus` (Micrometer) cere header-ul `Authorization: Bearer <METRICS_TOKEN>`; fără token → 401, utilizator logat oarecare → 403, token nesetat → blocat pentru toți. `/actuator/health` și `/info` rămân publice. Metrici proprii: `security_failed_logins_total`, `rate_limit_blocked_total{rule}`, `outbox_events{status="pending|dead"}` (dead = un email de rezultat care nu va mai pleca fără om).

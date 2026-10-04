@@ -134,6 +134,14 @@ file:
     provider: ${FILE_STORAGE_PROVIDER:local}
 
 logging:
+  # Every log line carries the request's correlation id (CorrelationIdFilter); [] when logging outside a request.
+  pattern:
+    level: "%5p [%X{requestId:-}]"
+  # LOG_FORMAT=logstash (or ecs) switches the console to structured JSON — one object per line with the MDC
+  # fields (requestId) — for log shippers (Loki, ELK). Empty (default) = the readable text format for dev.
+  structured:
+    format:
+      console: ${LOG_FORMAT:}
   level:
     # Verbose security logging is a dev aid, not for prod (it narrates the auth flow).
     # Defaults to INFO; set SECURITY_LOG_LEVEL=DEBUG in .env for local debugging.

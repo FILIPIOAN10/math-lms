@@ -1,0 +1,9 @@
+# Files that run on Linux (containers, servers) must keep LF line endings even when checked out on Windows:
+# a CRLF in a shell script or a Dockerfile `\` continuation breaks the build.
+*.sh          text eol=lf
+Dockerfile    text eol=lf
+*.conf        text eol=lf
+*.inc         text eol=lf
+*.sql         text eol=lf
+deploy/*      text eol=lf
+.github/**    text eol=lf
