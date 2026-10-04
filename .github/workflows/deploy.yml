@@ -1,0 +1,90 @@
+name: Deploy to Production
+
+# Push a version tag (git tag v1.0.0 && git push origin v1.0.0) -> build + push images -> deploy over SSH.
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository_owner }}/math-lms
+
+jobs:
+  build-and-push:
+    name: Build & push images
+    uses: ./.github/workflows/build-push.yml
+
+  deploy:
+    name: Deploy
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+    steps:
+      - name: Are the deploy secrets configured?
+        id: check
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER_NAME: ${{ secrets.DEPLOY_USER }}
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          if [ -n "$HOST" ] && [ -n "$USER_NAME" ] && [ -n "$KEY" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Server prerequisites: docs/DEPLOY.md (docker compose, docker-compose.prod.yml + monitoring/ + .env.prod in DEPLOY_PATH,
+      # `docker login ghcr.io` once with a read:packages token).
+      - name: Deploy over SSH (health-gated, rolls back on failure)
+        if: steps.check.outputs.configured == 'true'
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          BACKEND_IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-backend:${{ github.ref_name }}
+          FRONTEND_IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-frontend:${{ github.ref_name }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          envs: BACKEND_IMAGE,FRONTEND_IMAGE
+          script: |
+            set -eu
+            cd "${DEPLOY_PATH:-/opt/math-lms}"
+            COMPOSE="docker compose -f docker-compose.prod.yml --env-file .env.prod"
+
+            # Remember what runs now, so a failed release can be undone.
+            cp .env.prod .env.prod.previous
+            set_var() { grep -q "^$1=" .env.prod && sed -i "s|^$1=.*|$1=$2|" .env.prod || echo "$1=$2" >> .env.prod; }
+            set_var BACKEND_IMAGE "$BACKEND_IMAGE"
+            set_var FRONTEND_IMAGE "$FRONTEND_IMAGE"
+
+            $COMPOSE pull backend frontend
+            $COMPOSE up -d --no-build --remove-orphans
+
+            # Health gate: through nginx, the backend must answer (401 = the app is up and the proxy works).
+            PORT=$(grep '^HTTP_PORT=' .env.prod | cut -d= -f2); PORT=${PORT:-80}
+            HEALTHY=false
+            for i in $(seq 1 36); do
+              CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:${PORT}/api/auth/me" || echo 000)
+              if [ "$CODE" = "401" ] || [ "$CODE" = "200" ]; then HEALTHY=true; echo "healthy (HTTP $CODE)"; break; fi
+              echo "attempt $i: HTTP $CODE, retrying in 5s"; sleep 5
+            done
+
+            if [ "$HEALTHY" != "true" ]; then
+              echo "::error::New release is not healthy — rolling back"
+              cp .env.prod.previous .env.prod
+              $COMPOSE pull backend frontend || true
+              $COMPOSE up -d --no-build --remove-orphans
+              exit 1
+            fi
+            docker image prune -f
+
+      - name: Deploy secrets missing
+        if: steps.check.outputs.configured == 'false'
+        run: echo "::warning::DEPLOY_HOST / DEPLOY_USER / DEPLOY_SSH_KEY are not set. Images ${{ github.ref_name }} were pushed to GHCR, nothing was deployed."
