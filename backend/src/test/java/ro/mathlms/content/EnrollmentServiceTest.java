@@ -96,6 +96,17 @@ class EnrollmentServiceTest {
     }
 
     @Test
+    void myClassesComeInNaturalOrder() {
+        User student = new User("elev@scoala.ro", "Ana Pop", Role.STUDENT);
+        SchoolClass tenth = new SchoolClass("Clasa a 10-a", null);
+        when(userRepository.findByEmail("elev@scoala.ro")).thenReturn(Optional.of(student));
+        when(enrollmentRepository.findByStudentIdFetchClass(any()))
+                .thenReturn(List.of(new Enrollment(student, tenth), new Enrollment(student, ninth)));
+
+        assertThat(service.myClasses("elev@scoala.ro")).containsExactly(ninth, tenth);
+    }
+
+    @Test
     void myClassesIsEmptyForAStudentWithoutEnrollments() {
         User student = new User("elev@scoala.ro", "Ana Pop", Role.STUDENT);
         when(userRepository.findByEmail("elev@scoala.ro")).thenReturn(Optional.of(student));

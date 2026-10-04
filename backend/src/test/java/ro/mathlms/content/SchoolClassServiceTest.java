@@ -1,7 +1,9 @@
 package ro.mathlms.content;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.data.domain.Sort;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -16,6 +18,14 @@ class SchoolClassServiceTest {
 
     private final SchoolClassRepository repository = mock(SchoolClassRepository.class);
     private final SchoolClassService service = new SchoolClassService(repository);
+
+    @Test
+    void classesAreListedInNaturalOrderSoTenthGradeComesAfterNinth() {
+        when(repository.findAll(any(Sort.class))).thenReturn(List.of(
+                new SchoolClass("Clasa a 10-a", null), new SchoolClass("Clasa a 9-a", null)));
+
+        assertThat(service.list()).extracting(SchoolClass::getName).containsExactly("Clasa a 9-a", "Clasa a 10-a");
+    }
 
     @Test
     void getReturnsTheClass() {

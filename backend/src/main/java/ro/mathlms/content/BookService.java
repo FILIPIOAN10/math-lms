@@ -3,6 +3,7 @@ package ro.mathlms.content;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Comparator;
 import java.util.List;
 
 /** CRUD for books within a school class. */
@@ -19,7 +20,8 @@ public class BookService {
 
     public List<Book> listByClass(Long classId) {
         requireClass(classId);
-        return bookRepository.findBySchoolClassIdOrderByTitle(classId);
+        return bookRepository.findBySchoolClassIdOrderByTitle(classId).stream()
+                .sorted(Comparator.comparing(Book::getTitle, NaturalOrder.BY_NAME)).toList();
     }
 
     public Book get(Long id) {

@@ -4,6 +4,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Comparator;
 import java.util.List;
 
 /** CRUD for school classes. Writes are transactional; uniqueness of name is checked up front. */
@@ -17,7 +18,8 @@ public class SchoolClassService {
     }
 
     public List<SchoolClass> list() {
-        return repository.findAll(Sort.by("name"));
+        return repository.findAll(Sort.by("name")).stream()
+                .sorted(Comparator.comparing(SchoolClass::getName, NaturalOrder.BY_NAME)).toList();
     }
 
     public SchoolClass get(Long id) {

@@ -5,6 +5,7 @@ import org.springframework.transaction.annotation.Transactional;
 import ro.mathlms.user.User;
 import ro.mathlms.user.UserRepository;
 
+import java.util.Comparator;
 import java.util.List;
 
 /** Admin management of who is enrolled in which class. */
@@ -35,6 +36,7 @@ public class EnrollmentService {
                 .orElseThrow(() -> new ContentNotFoundException("No account for " + studentEmail));
         return enrollmentRepository.findByStudentIdFetchClass(student.getId()).stream()
                 .map(Enrollment::getSchoolClass)
+                .sorted(Comparator.comparing(SchoolClass::getName, NaturalOrder.BY_NAME))
                 .toList();
     }
 
@@ -43,7 +45,9 @@ public class EnrollmentService {
     public List<SchoolClass> classesOfMyChildren(String parentEmail) {
         User parent = userRepository.findByEmail(parentEmail)
                 .orElseThrow(() -> new ContentNotFoundException("No account for " + parentEmail));
-        return enrollmentRepository.findClassesOfChildrenOf(parent.getId());
+        return enrollmentRepository.findClassesOfChildrenOf(parent.getId()).stream()
+                .sorted(Comparator.comparing(SchoolClass::getName, NaturalOrder.BY_NAME))
+                .toList();
     }
 
     @Transactional

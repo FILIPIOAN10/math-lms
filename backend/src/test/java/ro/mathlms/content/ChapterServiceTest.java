@@ -2,6 +2,7 @@ package ro.mathlms.content;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -20,6 +21,17 @@ class ChapterServiceTest {
     private final ChapterService service = new ChapterService(chapterRepository, bookRepository);
 
     private final Book book = new Book(new SchoolClass("Clasa a 9-a", null), "M1", null);
+
+    @Test
+    void chaptersAreListedInNaturalOrderSoChapterTenComesAfterChapterTwo() {
+        when(bookRepository.findById(1L)).thenReturn(Optional.of(book));
+        when(chapterRepository.findByBookIdOrderByTitle(1L)).thenReturn(List.of(
+                new Chapter(book, "Capitolul 10", null), new Chapter(book, "Capitolul 2", null),
+                new Chapter(book, "Capitolul 1", null)));
+
+        assertThat(service.listByBook(1L)).extracting(Chapter::getTitle)
+                .containsExactly("Capitolul 1", "Capitolul 2", "Capitolul 10");
+    }
 
     @Test
     void listByBookThrowsWhenBookMissing() {

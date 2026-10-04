@@ -2,6 +2,7 @@ package ro.mathlms.content;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -20,6 +21,15 @@ class BookServiceTest {
     private final BookService service = new BookService(bookRepository, schoolClassRepository);
 
     private final SchoolClass ninth = new SchoolClass("Clasa a 9-a", null);
+
+    @Test
+    void booksAreListedInNaturalOrder() {
+        when(schoolClassRepository.findById(1L)).thenReturn(Optional.of(ninth));
+        when(bookRepository.findBySchoolClassIdOrderByTitle(1L)).thenReturn(List.of(
+                new Book(ninth, "Culegere 12", null), new Book(ninth, "Culegere 3", null)));
+
+        assertThat(service.listByClass(1L)).extracting(Book::getTitle).containsExactly("Culegere 3", "Culegere 12");
+    }
 
     @Test
     void listByClassThrowsWhenClassMissing() {

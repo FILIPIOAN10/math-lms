@@ -3,6 +3,7 @@ package ro.mathlms.content;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Comparator;
 import java.util.List;
 
 /** CRUD for chapters within a book. */
@@ -19,7 +20,8 @@ public class ChapterService {
 
     public List<Chapter> listByBook(Long bookId) {
         requireBook(bookId);
-        return chapterRepository.findByBookIdOrderByTitle(bookId);
+        return chapterRepository.findByBookIdOrderByTitle(bookId).stream()
+                .sorted(Comparator.comparing(Chapter::getTitle, NaturalOrder.BY_NAME)).toList();
     }
 
     public Chapter get(Long id) {
