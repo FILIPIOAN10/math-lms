@@ -6,6 +6,10 @@ useDefault = true
 
 [allowlist]
 description = "Valori dummy folosite DOAR pentru CI - nu sunt credentiale reale. Secretele reale stau in .env (gitignored)."
+# Sabloanele de variabile de mediu contin doar nume + valori goale/de exemplu (fisierele reale .env sunt gitignored).
+paths = [
+  '''(^|/)\.env(\.prod)?\.example$''',
+]
 regexes = [
   # Valoarea de test pentru JWT din .github/workflows/ci.yml
   '''ci-test-secret-at-least-32-characters-long''',

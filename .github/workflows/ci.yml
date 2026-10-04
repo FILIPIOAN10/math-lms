@@ -106,7 +106,7 @@ jobs:
       # Scans pom.xml, package-lock.json and the Dockerfiles for known CVEs. Fixed CRITICAL/HIGH ones fail
       # the build; vulnerabilities without an available fix are ignored (nothing to do about them yet).
       - name: Trivy filesystem scan
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: fs
           scan-ref: .
@@ -117,7 +117,7 @@ jobs:
 
       - name: Dependency review (new vulnerable dependencies in the PR)
         if: github.event_name == 'pull_request'
-        uses: actions/dependency-review-action@v4
+        uses: actions/dependency-review-action@v4.9.0
         with:
           fail-on-severity: high
 
