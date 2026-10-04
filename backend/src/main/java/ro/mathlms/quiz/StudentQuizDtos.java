@@ -46,10 +46,12 @@ public final class StudentQuizDtos {
             Long id,
             String title,
             String description,
+            Integer timeLimitMinutes, // null = untimed
             List<StudentItemDto> items
     ) {
         public static StudentQuizDto of(Quiz quiz, List<StudentItemDto> items) {
-            return new StudentQuizDto(quiz.getId(), quiz.getTitle(), quiz.getDescription(), items);
+            return new StudentQuizDto(quiz.getId(), quiz.getTitle(), quiz.getDescription(),
+                    quiz.getTimeLimitMinutes(), items);
         }
     }
 
@@ -71,7 +73,10 @@ public final class StudentQuizDtos {
      * already saved (empty for a fresh attempt).
      */
     public record StartedAttemptDto(Long attemptId, QuizAttemptStatus status, StudentQuizDto quiz,
-                                    List<SavedAnswerDto> answers) {
+                                    List<SavedAnswerDto> answers,
+                                    Instant deadlineAt, // null = untimed
+                                    Instant serverNow   // the server's clock, so the browser can show the right countdown despite a skewed own clock
+    ) {
     }
 
     /** One point of the progress chart: how a graded attempt went, as points and as a percent of the quiz's max. */

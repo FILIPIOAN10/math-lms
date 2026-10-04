@@ -164,6 +164,21 @@ Buton pe Dashboard: **Testele mele**.
   corect, subiectul deschis „în corectare”, **Arată baremul**
 - ca admin sau părinte, `/quizzes` te trimite acasă (RoleRoute)
 
+### 11a. Quiz cronometrat — timer pe server (`/admin/quizzes`, apoi `/quizzes`)
+**Ca admin:** la „Adaugă quiz” / „Editează” completează **Limită de timp (minute)** (1–600; gol = fără limită). Lista arată „⏱ 45 min”.
+**Ca elev:** în „Teste disponibile” apare „⏱ 45 minute”; pe pagina testului scrie că cronometrul pornește la „Începe testul”.
+- bară sus „⏱ Timp rămas: mm:ss” (roșie în ultimul minut); la **0:00** lucrarea se trimite singură cu ce era salvat → pagina de rezultat
+- serverul e sursa adevărului: după termen + 30 s grație, orice răspuns/poză e respins cu **409** („Timpul pentru acest test a expirat”);
+  `submit` rămâne permis (se notează ce s-a salvat la timp)
+- ai închis tab-ul? jobul `AttemptExpiryJob` (la 30 s) trimite încercarea expirată singur — fără browser
+- revii pe un test expirat → încercarea veche e trimisă/notată, apoi începe una nouă cu timp întreg
+- modificarea limitei unui quiz nu schimbă încercările deja pornite (termenul e copiat la start)
+
+Verificare rapidă fără să aștepți: pornește o încercare, apoi
+`docker exec -i mathlms-postgres psql -U mathlms -d mathlms -c "update quiz_attempts set deadline_at = now() - interval '2 minutes' where id = <id>"`
+→ un `PUT …/responses/…` dă 409, iar în ≤ ~30–45 s încercarea devine GRADED/SUBMITTED fără nicio acțiune.
+Config (opțional): `app.quiz.expiry-job.enabled` (true), `.interval-ms` (30000), `.initial-delay-ms` (20000).
+
 ### 12. Profesor — corectură (`/admin/grading`, ca admin)
 Buton pe Dashboard: **Corectură**.
 - „De corectat” → **Corectează** → grilele (corectate automat), poza elevului (click = mărime completă), baremul

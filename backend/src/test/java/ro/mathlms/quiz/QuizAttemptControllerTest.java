@@ -51,7 +51,7 @@ class QuizAttemptControllerTest {
 
     @Test
     void startDelegatesWithPrincipalEmail() {
-        StartedAttemptDto dto = new StartedAttemptDto(50L, QuizAttemptStatus.IN_PROGRESS, null, List.of());
+        StartedAttemptDto dto = new StartedAttemptDto(50L, QuizAttemptStatus.IN_PROGRESS, null, List.of(), null, null);
         when(service.startAttempt(10L, "elev@scoala.ro")).thenReturn(dto);
 
         assertThat(controller.start(10L, auth)).isEqualTo(dto);

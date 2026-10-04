@@ -1,5 +1,7 @@
 package ro.mathlms.quiz;
 
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
@@ -7,6 +9,7 @@ import jakarta.validation.constraints.Size;
 public record QuizRequest(
         @NotBlank @Size(max = 200) String title,
         @Size(max = 1000) String description,
-        Long schoolClassId // optional: null = every student may take the quiz
+        Long schoolClassId, // optional: null = every student may take the quiz
+        @Min(1) @Max(Quiz.MAX_TIME_LIMIT_MINUTES) Integer timeLimitMinutes // optional: null = untimed
 ) {
 }

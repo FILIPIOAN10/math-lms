@@ -58,4 +58,31 @@ class QuizTest {
         assertThat(quiz.getTitle()).isEqualTo("nou");
         assertThat(quiz.getDescription()).isEqualTo("d2");
     }
+
+    @Test
+    void isUntimedByDefault() {
+        assertThat(new Quiz("Simulare EN", null).getTimeLimitMinutes()).isNull();
+    }
+
+    @Test
+    void changeTimeLimitSetsAndClearsIt() {
+        Quiz quiz = new Quiz("Simulare EN", null);
+
+        quiz.changeTimeLimit(45);
+        assertThat(quiz.getTimeLimitMinutes()).isEqualTo(45);
+
+        quiz.changeTimeLimit(null);
+        assertThat(quiz.getTimeLimitMinutes()).isNull();
+    }
+
+    @Test
+    void timeLimitMustBeBetweenOneMinuteAndTenHours() {
+        Quiz quiz = new Quiz("Simulare EN", null);
+
+        assertThatThrownBy(() -> quiz.changeTimeLimit(0)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> quiz.changeTimeLimit(-5)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> quiz.changeTimeLimit(601)).isInstanceOf(IllegalArgumentException.class);
+        quiz.changeTimeLimit(1);
+        quiz.changeTimeLimit(600);
+    }
 }

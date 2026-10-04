@@ -58,17 +58,19 @@ public class QuizAdminService {
 
     /** {@code schoolClassId} {@code null} = a quiz for every student. */
     @Transactional
-    public Quiz createQuiz(String title, String description, Long schoolClassId) {
+    public Quiz createQuiz(String title, String description, Long schoolClassId, Integer timeLimitMinutes) {
         Quiz quiz = new Quiz(title, description);
         quiz.assignToClass(findClass(schoolClassId));
+        quiz.changeTimeLimit(timeLimitMinutes);
         return quizRepository.save(quiz);
     }
 
     @Transactional
-    public Quiz updateQuiz(Long id, String title, String description, Long schoolClassId) {
+    public Quiz updateQuiz(Long id, String title, String description, Long schoolClassId, Integer timeLimitMinutes) {
         Quiz quiz = getQuiz(id);
         quiz.update(title, description);
         quiz.assignToClass(findClass(schoolClassId));
+        quiz.changeTimeLimit(timeLimitMinutes); // attempts already running keep their own deadline
         return quizRepository.save(quiz);
     }
 

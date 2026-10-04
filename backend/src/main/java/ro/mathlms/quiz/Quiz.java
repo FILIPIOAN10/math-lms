@@ -46,6 +46,15 @@ public class Quiz {
     @JoinColumn(name = "school_class_id")
     private SchoolClass schoolClass;
 
+    /**
+     * Minutes a student has once an attempt starts; {@code null} = untimed. Each attempt snapshots its own
+     * deadline (see {@link QuizAttempt#getDeadlineAt()}), so changing this affects only attempts started later.
+     */
+    @Column(name = "time_limit_minutes")
+    private Integer timeLimitMinutes;
+
+    public static final int MAX_TIME_LIMIT_MINUTES = 600;
+
     public Quiz(String title, String description) {
         this.title = requireNonBlank(title, "title");
         this.description = description;
@@ -54,6 +63,15 @@ public class Quiz {
     public void update(String title, String description) {
         this.title = requireNonBlank(title, "title");
         this.description = description;
+    }
+
+    /** Sets the time limit in minutes (1–{@value #MAX_TIME_LIMIT_MINUTES}), or {@code null} for no limit. */
+    public void changeTimeLimit(Integer minutes) {
+        if (minutes != null && (minutes < 1 || minutes > MAX_TIME_LIMIT_MINUTES)) {
+            throw new IllegalArgumentException(
+                    "timeLimitMinutes must be between 1 and " + MAX_TIME_LIMIT_MINUTES + ", was " + minutes);
+        }
+        this.timeLimitMinutes = minutes;
     }
 
     /** Restricts the quiz to one class, or ({@code null}) opens it to every student again. */

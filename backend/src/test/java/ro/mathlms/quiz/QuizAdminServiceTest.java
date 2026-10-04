@@ -46,7 +46,7 @@ class QuizAdminServiceTest {
     void createQuizWithoutClassIsForEveryone() {
         when(quizRepository.save(any(Quiz.class))).thenAnswer(i -> i.getArgument(0));
 
-        Quiz created = service.createQuiz("Simulare EN", "d", null);
+        Quiz created = service.createQuiz("Simulare EN", "d", null, null);
 
         assertThat(created.getSchoolClass()).isNull();
         verify(schoolClassRepository, never()).findById(any());
@@ -57,7 +57,7 @@ class QuizAdminServiceTest {
         when(schoolClassRepository.findById(5L)).thenReturn(Optional.of(ninth));
         when(quizRepository.save(any(Quiz.class))).thenAnswer(i -> i.getArgument(0));
 
-        Quiz created = service.createQuiz("Simulare EN", "d", 5L);
+        Quiz created = service.createQuiz("Simulare EN", "d", 5L, null);
 
         assertThat(created.getSchoolClass()).isSameAs(ninth);
     }
@@ -66,7 +66,7 @@ class QuizAdminServiceTest {
     void createQuizRejectsAnUnknownClass() {
         when(schoolClassRepository.findById(404L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.createQuiz("Simulare EN", "d", 404L))
+        assertThatThrownBy(() -> service.createQuiz("Simulare EN", "d", 404L, null))
                 .isInstanceOf(QuizNotFoundException.class);
         verify(quizRepository, never()).save(any());
     }
@@ -77,8 +77,8 @@ class QuizAdminServiceTest {
         when(schoolClassRepository.findById(5L)).thenReturn(Optional.of(ninth));
         when(quizRepository.save(any(Quiz.class))).thenAnswer(i -> i.getArgument(0));
 
-        assertThat(service.updateQuiz(1L, "Nou", "d", 5L).getSchoolClass()).isSameAs(ninth);
-        assertThat(service.updateQuiz(1L, "Nou", "d", null).getSchoolClass()).isNull();
+        assertThat(service.updateQuiz(1L, "Nou", "d", 5L, null).getSchoolClass()).isSameAs(ninth);
+        assertThat(service.updateQuiz(1L, "Nou", "d", null, null).getSchoolClass()).isNull();
     }
 
     @Test
@@ -169,5 +169,31 @@ class QuizAdminServiceTest {
 
         verify(optionRepository).deleteByItemId(9L);
         verify(itemRepository).delete(item);
+    }
+
+    @Test
+    void createQuizStoresTheTimeLimit() {
+        when(quizRepository.save(any(Quiz.class))).thenAnswer(i -> i.getArgument(0));
+
+        Quiz created = service.createQuiz("Simulare EN", "d", null, 45);
+
+        assertThat(created.getTimeLimitMinutes()).isEqualTo(45);
+    }
+
+    @Test
+    void updateQuizCanSetAndClearTheTimeLimit() {
+        when(quizRepository.findById(1L)).thenReturn(Optional.of(quiz));
+        when(quizRepository.save(any(Quiz.class))).thenAnswer(i -> i.getArgument(0));
+
+        assertThat(service.updateQuiz(1L, "Nou", "d", null, 30).getTimeLimitMinutes()).isEqualTo(30);
+        assertThat(service.updateQuiz(1L, "Nou", "d", null, null).getTimeLimitMinutes()).isNull();
+    }
+
+    @Test
+    void anOutOfRangeTimeLimitIsRejectedAndNothingIsSaved() {
+        assertThatThrownBy(() -> service.createQuiz("Simulare EN", "d", null, 0))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        verify(quizRepository, never()).save(any());
     }
 }

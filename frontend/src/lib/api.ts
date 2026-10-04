@@ -349,6 +349,8 @@ export interface QuizSummary {
   /** The one class this quiz is for; null = every student may take it. */
   schoolClassId: number | null
   schoolClassName: string | null
+  /** Minutes a student has once an attempt starts; null = untimed. */
+  timeLimitMinutes: number | null
 }
 
 export interface QuizOptionDto {
@@ -439,8 +441,9 @@ export async function createQuiz(
   title: string,
   description: string | null,
   schoolClassId: number | null,
+  timeLimitMinutes: number | null,
 ): Promise<QuizSummary> {
-  const response = await postJson('/admin/quizzes', { title, description, schoolClassId })
+  const response = await postJson('/admin/quizzes', { title, description, schoolClassId, timeLimitMinutes })
   return response.json()
 }
 
@@ -449,8 +452,9 @@ export async function updateQuiz(
   title: string,
   description: string | null,
   schoolClassId: number | null,
+  timeLimitMinutes: number | null,
 ): Promise<QuizSummary> {
-  const response = await putJson(`/admin/quizzes/${id}`, { title, description, schoolClassId })
+  const response = await putJson(`/admin/quizzes/${id}`, { title, description, schoolClassId, timeLimitMinutes })
   return response.json()
 }
 
@@ -501,6 +505,8 @@ export interface StudentQuizDetailDto {
   id: number
   title: string
   description: string | null
+  /** null = untimed */
+  timeLimitMinutes: number | null
   items: StudentItemDto[]
 }
 
@@ -516,6 +522,10 @@ export interface StartedAttemptDto {
   status: QuizAttemptStatus
   quiz: StudentQuizDetailDto
   answers: SavedAnswerDto[]
+  /** When time runs out (server's decision); null = untimed. */
+  deadlineAt: string | null
+  /** The server's clock at the moment it answered — the countdown is measured from this, not from the browser's clock. */
+  serverNow: string
 }
 
 export interface SubmitResultDto {

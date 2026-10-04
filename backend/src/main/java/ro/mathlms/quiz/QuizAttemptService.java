@@ -26,10 +26,14 @@ import ro.mathlms.user.UserRepository;
 import org.springframework.core.io.Resource;
 
 import java.io.IOException;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -52,13 +56,20 @@ public class QuizAttemptService {
     private final AfterCommitCacheEvictor cacheEvictor;
     private final ResultNotifier resultNotifier;
     private final FileService fileService;
+    private final Clock clock;
     private final String quizPhotosDir;
+
+    /**
+     * How long after the deadline a request is still honoured - covers a browser that fires its last save or its
+     * auto-submit a moment late (latency, a slow upload). Anything later is rejected; the server's clock decides.
+     */
+    static final Duration SUBMIT_GRACE = Duration.ofSeconds(30);
 
     public QuizAttemptService(QuizRepository quizRepository, QuizItemRepository itemRepository,
                               QuizOptionRepository optionRepository, QuizAttemptRepository attemptRepository,
                               ItemResponseRepository responseRepository, UserRepository userRepository,
                               EnrollmentRepository enrollmentRepository, AfterCommitCacheEvictor cacheEvictor,
-                              ResultNotifier resultNotifier, FileService fileService,
+                              ResultNotifier resultNotifier, FileService fileService, Clock clock,
                               @Value("${app.storage.quiz-photos-dir}") String quizPhotosDir) {
         this.quizRepository = quizRepository;
         this.itemRepository = itemRepository;
@@ -70,6 +81,7 @@ public class QuizAttemptService {
         this.cacheEvictor = cacheEvictor;
         this.resultNotifier = resultNotifier;
         this.fileService = fileService;
+        this.clock = clock;
         this.quizPhotosDir = quizPhotosDir;
     }
 
@@ -105,13 +117,19 @@ public class QuizAttemptService {
                 // 404 (not 403) for another class's quiz: a guessed id must not confirm it exists
                 .filter(q -> isVisibleTo(q, student))
                 .orElseThrow(() -> new QuizNotFoundException("Quiz", quizId));
-        QuizAttempt attempt = attemptRepository
-                .findByQuizIdAndStudentIdAndStatus(quizId, student.getId(), QuizAttemptStatus.IN_PROGRESS)
-                .orElseGet(() -> attemptRepository.save(new QuizAttempt(quiz, student)));
+        Optional<QuizAttempt> open = attemptRepository
+                .findByQuizIdAndStudentIdAndStatus(quizId, student.getId(), QuizAttemptStatus.IN_PROGRESS);
+        if (open.isPresent() && open.get().isOverdue(Instant.now(clock), SUBMIT_GRACE)) {
+            // Time ran out before the expiry job got to it: hand it in now (its saved answers count), then start fresh.
+            autoSubmitIfOverdue(open.get().getId());
+            open = Optional.empty();
+        }
+        QuizAttempt attempt = open.orElseGet(() -> attemptRepository.save(new QuizAttempt(quiz, student, Instant.now(clock))));
         List<SavedAnswerDto> answers = responseRepository.findByAttemptId(attempt.getId()).stream()
                 .map(SavedAnswerDto::from)
                 .toList();
-        return new StartedAttemptDto(attempt.getId(), attempt.getStatus(), studentQuiz(quiz), answers);
+        return new StartedAttemptDto(attempt.getId(), attempt.getStatus(), studentQuiz(quiz), answers,
+                attempt.getDeadlineAt(), Instant.now(clock));
     }
 
     /** The student's own attempts, newest first — the "Încercările mele" list. */
@@ -152,6 +170,7 @@ public class QuizAttemptService {
     @Transactional
     public void saveResponse(Long attemptId, Long itemId, Long optionId, String studentEmail) {
         QuizAttempt attempt = requireOwnedInProgress(attemptId, studentEmail);
+        requireTimeLeft(attempt);
         QuizItem item = itemRepository.findById(itemId)
                 .orElseThrow(() -> new QuizNotFoundException("QuizItem", itemId));
         if (!item.getQuiz().getId().equals(attempt.getQuiz().getId())) {
@@ -178,6 +197,7 @@ public class QuizAttemptService {
     @Transactional
     public void uploadOpenPhoto(Long attemptId, Long itemId, MultipartFile file, String studentEmail) {
         QuizAttempt attempt = requireOwnedInProgress(attemptId, studentEmail);
+        requireTimeLeft(attempt);
         QuizItem item = itemRepository.findById(itemId)
                 .orElseThrow(() -> new QuizNotFoundException("QuizItem", itemId));
         if (!item.getQuiz().getId().equals(attempt.getQuiz().getId())) {
@@ -216,7 +236,36 @@ public class QuizAttemptService {
      */
     @Transactional
     public AttemptResultDto submit(Long attemptId, String studentEmail) {
+        // Not time-checked on purpose: after the deadline the answers can no longer change, so handing in what was
+        // saved in time is exactly right (and it is what the browser does when the countdown reaches zero).
         QuizAttempt attempt = requireOwnedInProgress(attemptId, studentEmail);
+        return finishSubmission(attempt);
+    }
+
+    /** Ids of in-progress attempts whose time (plus grace) has run out - the expiry job's work list. */
+    @Transactional(readOnly = true)
+    public List<Long> findOverdueAttemptIds() {
+        return attemptRepository.findOverdueIds(Instant.now(clock).minus(SUBMIT_GRACE));
+    }
+
+    /**
+     * Hands in one overdue attempt on the student's behalf. Re-checks under the row lock, so a student who submitted
+     * a moment earlier (or a second app instance running the same job) makes this a harmless no-op.
+     */
+    @Transactional
+    public void autoSubmitIfOverdue(Long attemptId) {
+        attemptRepository.findByIdForUpdate(attemptId)
+                .filter(a -> a.getStatus() == QuizAttemptStatus.IN_PROGRESS)
+                .filter(a -> a.isOverdue(Instant.now(clock), SUBMIT_GRACE))
+                .ifPresent(attempt -> {
+                    finishSubmission(attempt);
+                    attemptRepository.saveAndFlush(attempt); // flushed now: a fresh attempt may be inserted right after
+                });
+    }
+
+    /** Grades the SINGLE_CHOICE items and hands the attempt in; shared by the student's submit and the auto-submit. */
+    private AttemptResultDto finishSubmission(QuizAttempt attempt) {
+        Long attemptId = attempt.getId();
         List<QuizItem> items = itemRepository.findByQuizIdOrderByPosition(attempt.getQuiz().getId());
         Map<Long, ItemResponse> byItem = responseRepository.findByAttemptId(attemptId).stream()
                 .collect(Collectors.toMap(r -> r.getItem().getId(), Function.identity()));
@@ -316,6 +365,12 @@ public class QuizAttemptService {
             throw new InvalidQuizException("This attempt is no longer in progress");
         }
         return attempt;
+    }
+
+    private void requireTimeLeft(QuizAttempt attempt) {
+        if (attempt.isOverdue(Instant.now(clock), SUBMIT_GRACE)) {
+            throw new AttemptExpiredException();
+        }
     }
 
     private static void requireImage(MultipartFile file) {

@@ -46,6 +46,9 @@ class QuizAttemptRepositoryTest {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private org.springframework.jdbc.core.JdbcTemplate jdbc;
+
     private User student(String email) {
         return userRepository.save(new User(email, "Elev " + email, Role.STUDENT));
     }
@@ -230,5 +233,43 @@ class QuizAttemptRepositoryTest {
         attempt.submit();
         attempt.markGraded(score);
         quizAttemptRepository.saveAndFlush(attempt);
+    }
+
+    @Test
+    void timeLimitAndDeadlineRoundTripAndOnlyOverdueInProgressAttemptsAreFound() {
+        Quiz timed = new Quiz("Cronometrat", null);
+        timed.changeTimeLimit(10);
+        timed = quizRepository.save(timed);
+        Quiz untimed = quizRepository.save(new Quiz("Fara limita", null));
+
+        QuizAttempt overdue = quizAttemptRepository.save(new QuizAttempt(timed, student("a@t.ro")));
+        QuizAttempt stillOpen = quizAttemptRepository.save(new QuizAttempt(timed, student("b@t.ro")));
+        QuizAttempt noDeadline = quizAttemptRepository.save(new QuizAttempt(untimed, student("c@t.ro")));
+        QuizAttempt alreadyIn = new QuizAttempt(timed, student("d@t.ro"));
+        alreadyIn.submit();
+        alreadyIn = quizAttemptRepository.save(alreadyIn);
+        quizAttemptRepository.flush();
+
+        assertThat(quizRepository.findById(timed.getId()).orElseThrow().getTimeLimitMinutes()).isEqualTo(10);
+        assertThat(noDeadline.getDeadlineAt()).isNull();
+
+        // "now" is 11 minutes after everyone started: every 10-minute deadline has passed ...
+        java.time.Instant later = overdue.getStartedAt().plus(java.time.Duration.ofMinutes(11));
+        assertThat(quizAttemptRepository.findOverdueIds(later))
+                .contains(overdue.getId(), stillOpen.getId())      // ... for the two in-progress timed attempts
+                .doesNotContain(noDeadline.getId(), alreadyIn.getId()); // not for an untimed or an already submitted one
+
+        // ... and 5 minutes in, nothing is overdue yet
+        assertThat(quizAttemptRepository.findOverdueIds(overdue.getStartedAt().plus(java.time.Duration.ofMinutes(5))))
+                .doesNotContain(overdue.getId(), stillOpen.getId());
+    }
+
+    @Test
+    void theDatabaseRejectsAnOutOfRangeTimeLimit() {
+        Quiz quiz = quizRepository.save(new Quiz("Cronometrat", null));
+
+        assertThatThrownBy(() -> {
+            jdbc.update("update quizzes set time_limit_minutes = 0 where id = ?", quiz.getId());
+        }).isInstanceOf(DataIntegrityViolationException.class);
     }
 }

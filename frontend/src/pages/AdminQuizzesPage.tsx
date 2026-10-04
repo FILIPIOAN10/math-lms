@@ -42,6 +42,7 @@ function QuizDialog({
   initialTitle,
   initialDescription,
   initialClassId,
+  initialTimeLimit,
   classes,
   onSubmit,
 }: {
@@ -50,12 +51,19 @@ function QuizDialog({
   initialTitle: string
   initialDescription: string
   initialClassId: number | null
+  initialTimeLimit: number | null
   classes: SchoolClass[]
-  onSubmit: (title: string, description: string | null, schoolClassId: number | null) => Promise<void>
+  onSubmit: (
+    title: string,
+    description: string | null,
+    schoolClassId: number | null,
+    timeLimitMinutes: number | null,
+  ) => Promise<void>
 }) {
   const [title, setTitle] = useState(initialTitle)
   const [description, setDescription] = useState(initialDescription)
   const [classId, setClassId] = useState(initialClassId === null ? '' : String(initialClassId))
+  const [timeLimit, setTimeLimit] = useState(initialTimeLimit === null ? '' : String(initialTimeLimit))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -64,7 +72,12 @@ function QuizDialog({
     setError(null)
     setBusy(true)
     try {
-      await onSubmit(title.trim(), description.trim() || null, classId === '' ? null : Number(classId))
+      await onSubmit(
+        title.trim(),
+        description.trim() || null,
+        classId === '' ? null : Number(classId),
+        timeLimit.trim() === '' ? null : Number(timeLimit),
+      )
       onClose()
     } catch (err) {
       setError(errorMessage(err))
@@ -94,6 +107,24 @@ function QuizDialog({
           </select>
           <p className="text-xs text-muted-foreground">
             „Toți elevii” = orice elev activ îl vede. Altfel, doar elevii înscriși în clasa aleasă.
+          </p>
+        </div>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="qlimit">Limită de timp (minute, opțional)</Label>
+          <Input
+            id="qlimit"
+            type="number"
+            inputMode="numeric"
+            min={1}
+            max={600}
+            step={1}
+            placeholder="fără limită"
+            value={timeLimit}
+            onChange={(e) => setTimeLimit(e.target.value)}
+          />
+          <p className="text-xs text-muted-foreground">
+            Cronometrul pornește când elevul începe testul, iar serverul respinge răspunsurile după expirare.
+            Încercările deja începute își păstrează timpul inițial.
           </p>
         </div>
         {error && <p className="text-sm text-destructive">{error}</p>}
@@ -412,6 +443,7 @@ export function AdminQuizzesPage() {
                       </p>
                       <p className="truncate text-xs text-muted-foreground" data-testid="quiz-audience">
                         {q.schoolClassName ? `Clasa: ${q.schoolClassName}` : 'Toți elevii'}
+                        {q.timeLimitMinutes !== null && ` · ⏱ ${q.timeLimitMinutes} min`}
                       </p>
                       {q.description && <p className="truncate text-sm text-muted-foreground">{q.description}</p>}
                     </div>
@@ -438,12 +470,13 @@ export function AdminQuizzesPage() {
           initialTitle={quizDialog.item?.title ?? ''}
           initialDescription={quizDialog.item?.description ?? ''}
           initialClassId={quizDialog.item?.schoolClassId ?? null}
+          initialTimeLimit={quizDialog.item?.timeLimitMinutes ?? null}
           classes={classes}
-          onSubmit={async (title, desc, schoolClassId) => {
+          onSubmit={async (title, desc, schoolClassId, timeLimitMinutes) => {
             if (quizDialog.item) {
-              await updateQuiz(quizDialog.item.id, title, desc, schoolClassId)
+              await updateQuiz(quizDialog.item.id, title, desc, schoolClassId, timeLimitMinutes)
             } else {
-              await createQuiz(title, desc, schoolClassId)
+              await createQuiz(title, desc, schoolClassId, timeLimitMinutes)
             }
             await reloadList()
           }}

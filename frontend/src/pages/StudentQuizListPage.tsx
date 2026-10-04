@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { AttemptStatusBadge } from '@/components/AttemptStatusBadge'
 import { getMyAttempts, getStudentQuizzes, type MyAttemptDto, type QuizSummary } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
+import { formatMinutes } from '@/lib/format'
 
 function formatDate(iso: string | null): string {
   return iso ? new Date(iso).toLocaleString('ro-RO', { dateStyle: 'medium', timeStyle: 'short' }) : '—'
@@ -64,6 +65,11 @@ export function StudentQuizListPage() {
                         <p className="truncate font-medium">{q.title}</p>
                         {q.description && (
                           <p className="truncate text-sm text-muted-foreground">{q.description}</p>
+                        )}
+                        {q.timeLimitMinutes !== null && (
+                          <p className="text-xs font-medium text-muted-foreground" data-testid="quiz-time-limit">
+                            ⏱ {formatMinutes(q.timeLimitMinutes)}
+                          </p>
                         )}
                       </div>
                       <Link to={`/quizzes/${q.id}/take`} data-testid="quiz-open" className={buttonVariants({ size: 'sm' })}>

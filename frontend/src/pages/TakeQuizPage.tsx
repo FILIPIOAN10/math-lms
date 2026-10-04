@@ -1,17 +1,20 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { MathContent } from '@/components/MathContent'
 import {
   ApiError,
+  getStudentQuizzes,
   saveQuizAnswer,
   startQuizAttempt,
   submitQuizAttempt,
   uploadQuizPhoto,
   type StartedAttemptDto,
 } from '@/lib/api'
+import { formatClock, secondsLeft } from '@/lib/countdown'
 import { errorMessage } from '@/lib/errors'
+import { formatMinutes } from '@/lib/format'
 import { shrinkImage } from '@/lib/image'
 
 const MAX_UPLOAD_BYTES = 8 * 1024 * 1024 // matches spring.servlet.multipart.max-file-size
@@ -21,6 +24,10 @@ const MAX_UPLOAD_BYTES = 8 * 1024 * 1024 // matches spring.servlet.multipart.max
  * the attempt, or resumes the one in progress). Every answer is saved to the server as soon as it
  * is given, so a closed tab or a dead battery loses nothing — reopening resumes with the saved
  * answers restored.
+ *
+ * A timed quiz shows a countdown, but only as a display: the SERVER holds the deadline and rejects answers
+ * after it (HTTP 409). When the countdown reaches zero — or the server says time is up — the page hands the
+ * attempt in with whatever was saved in time.
  */
 export function TakeQuizPage() {
   const { id } = useParams<{ id: string }>()
@@ -35,6 +42,57 @@ export function TakeQuizPage() {
   const [starting, setStarting] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [limitMinutes, setLimitMinutes] = useState<number | null>(null) // shown before start, so no one is surprised by the clock
+  const [receivedAt, setReceivedAt] = useState(0)
+  const [now, setNow] = useState(() => Date.now())
+  const autoSubmitted = useRef(false)
+
+  useEffect(() => {
+    let cancelled = false
+    getStudentQuizzes()
+      .then((list) => !cancelled && setLimitMinutes(list.find((q) => q.id === quizId)?.timeLimitMinutes ?? null))
+      .catch(() => undefined) // purely informative: the quiz still starts without it
+    return () => {
+      cancelled = true
+    }
+  }, [quizId])
+
+  const deadlineAt = attempt?.deadlineAt ?? null
+  useEffect(() => {
+    if (!deadlineAt) return
+    const timer = window.setInterval(() => setNow(Date.now()), 1000)
+    return () => window.clearInterval(timer)
+  }, [deadlineAt])
+
+  const timeLeft = attempt && attempt.deadlineAt
+    ? secondsLeft(attempt.deadlineAt, attempt.serverNow, receivedAt, now)
+    : null
+  const timeUp = timeLeft === 0
+
+  /** Hands in what was saved, without asking: time is up. Tried once; if it fails the manual button remains. */
+  async function submitBecauseTimeIsUp() {
+    if (!attempt || autoSubmitted.current) return
+    autoSubmitted.current = true
+    setSubmitting(true)
+    setError(null)
+    try {
+      await submitQuizAttempt(attempt.attemptId)
+      navigate(`/quizzes/attempts/${attempt.attemptId}/result`, { replace: true })
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 400) {
+        // "no longer in progress": the server already handed it in when the time ran out — just show the result.
+        navigate(`/quizzes/attempts/${attempt.attemptId}/result`, { replace: true })
+        return
+      }
+      setError(`${errorMessage(e)} Apasă „Trimite lucrarea” ca să încerci din nou.`)
+      setSubmitting(false)
+    }
+  }
+
+  useEffect(() => {
+    if (timeUp) void submitBecauseTimeIsUp()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeUp])
 
   function setItemBusy(itemId: number, busy: boolean) {
     setSaving((s) => ({ ...s, [itemId]: busy }))
@@ -66,6 +124,8 @@ export function TakeQuizPage() {
       }
       setSelected(restoredChoices)
       setPhotos(restoredPhotos)
+      setReceivedAt(Date.now())
+      setNow(Date.now())
       setAttempt(data)
     } catch (e) {
       setError(errorMessage(e))
@@ -91,6 +151,7 @@ export function TakeQuizPage() {
         return next
       })
       setItemError(itemId, errorMessage(e))
+      if (e instanceof ApiError && e.status === 409) void submitBecauseTimeIsUp() // the server says time is up
     } finally {
       setItemBusy(itemId, false)
     }
@@ -110,6 +171,7 @@ export function TakeQuizPage() {
       setPhotos((s) => ({ ...s, [itemId]: true }))
     } catch (e) {
       setItemError(itemId, errorMessage(e))
+      if (e instanceof ApiError && e.status === 409) void submitBecauseTimeIsUp()
     } finally {
       setItemBusy(itemId, false)
     }
@@ -121,7 +183,8 @@ export function TakeQuizPage() {
       item.type === 'SINGLE_CHOICE' ? selected[item.id] === undefined : !photos[item.id],
     ).length
     const question =
-      unanswered > 0
+      timeUp ? 'Timpul a expirat. Trimiți lucrarea cu răspunsurile salvate?'
+      : unanswered > 0
         ? `Ai ${unanswered} subiect(e) fără răspuns. Trimiți lucrarea oricum?`
         : 'Trimiți lucrarea? După trimitere nu mai poți modifica răspunsurile.'
     if (!window.confirm(question)) return
@@ -149,6 +212,12 @@ export function TakeQuizPage() {
                 Răspunsurile se salvează automat pe măsură ce lucrezi. Dacă închizi pagina, poți continua
                 de unde ai rămas din „Testele mele”.
               </p>
+              {limitMinutes !== null && (
+                <p className="text-sm font-medium" data-testid="quiz-limit-note">
+                  ⏱ Testul are limită de timp: {formatMinutes(limitMinutes)}. Cronometrul pornește când apeși „Începe testul”
+                  și nu se oprește dacă închizi pagina.
+                </p>
+              )}
               {error && <p className="text-sm text-destructive">{error}</p>}
               <div className="flex justify-center gap-2">
                 <Link to="/quizzes" className={buttonVariants({ variant: 'outline' })}>Înapoi</Link>
@@ -170,7 +239,18 @@ export function TakeQuizPage() {
 
   return (
     <div className="min-h-screen bg-muted p-4 pb-28">
-      <div className="mx-auto max-w-3xl space-y-4">
+      {timeLeft !== null && (
+        <div
+          role="timer"
+          data-testid="quiz-timer"
+          className={`fixed inset-x-0 top-0 z-10 border-b p-2 text-center text-sm font-semibold ${
+            timeLeft <= 60 ? 'bg-destructive text-destructive-foreground' : 'bg-background'
+          }`}
+        >
+          {timeUp ? 'Timpul a expirat — se trimite lucrarea...' : `⏱ Timp rămas: ${formatClock(timeLeft)}`}
+        </div>
+      )}
+      <div className={`mx-auto max-w-3xl space-y-4 ${timeLeft !== null ? 'pt-10' : ''}`}>
         <div>
           <h1 className="text-2xl font-semibold">{attempt.quiz.title}</h1>
           {attempt.quiz.description && (
@@ -199,7 +279,7 @@ export function TakeQuizPage() {
                         type="radio"
                         name={`item-${item.id}`}
                         checked={selected[item.id] === option.id}
-                        disabled={saving[item.id]}
+                        disabled={saving[item.id] || timeUp}
                         onChange={() => choose(item.id, option.id)}
                       />
                       <MathContent className="inline">{option.text}</MathContent>
@@ -215,7 +295,7 @@ export function TakeQuizPage() {
                     type="file"
                     data-testid="item-photo"
                     accept="image/*"
-                    disabled={saving[item.id]}
+                    disabled={saving[item.id] || timeUp}
                     onChange={(e) => {
                       const file = e.target.files?.[0]
                       if (file) upload(item.id, file)

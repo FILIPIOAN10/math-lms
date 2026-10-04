@@ -48,7 +48,7 @@ class QuizAttemptServiceTest {
     private final QuizAttemptService service = new QuizAttemptService(
             quizRepository, itemRepository, optionRepository,
             attemptRepository, responseRepository, userRepository,
-            enrollmentRepository, cacheEvictor, resultNotifier, fileService, "uploads/quiz-photos");
+            enrollmentRepository, cacheEvictor, resultNotifier, fileService, java.time.Clock.systemUTC(), "uploads/quiz-photos");
 
     private static final String EMAIL = "elev@scoala.ro";
 

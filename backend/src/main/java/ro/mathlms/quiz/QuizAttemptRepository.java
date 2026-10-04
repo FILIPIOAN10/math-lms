@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -36,6 +37,14 @@ public interface QuizAttemptRepository extends JpaRepository<QuizAttempt, Long> 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select a from QuizAttempt a where a.id = :id")
     Optional<QuizAttempt> findByIdForUpdate(@Param("id") Long id);
+
+    /**
+     * In-progress attempts whose deadline is before {@code cutoff} (the expiry job passes now minus the grace
+     * period). Ids only: each one is then handed in under its own lock and transaction.
+     */
+    @Query("select a.id from QuizAttempt a where a.status = ro.mathlms.quiz.QuizAttemptStatus.IN_PROGRESS "
+            + "and a.deadlineAt is not null and a.deadlineAt < :cutoff order by a.deadlineAt")
+    List<Long> findOverdueIds(@Param("cutoff") Instant cutoff);
 
     /** The teacher's grading queue: attempts in one status, with quiz + student fetched up front. */
     @Query("select a from QuizAttempt a join fetch a.quiz join fetch a.student "

@@ -4,6 +4,9 @@ import org.junit.jupiter.api.Test;
 import ro.mathlms.user.Role;
 import ro.mathlms.user.User;
 
+import java.time.Duration;
+import java.time.Instant;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -89,5 +92,47 @@ class QuizAttemptTest {
         assertThatThrownBy(() -> attempt.markGraded(-1))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("score");
+    }
+
+    // --- server-side timer ---
+
+    @Test
+    void anUntimedQuizGivesAnAttemptNoDeadline() {
+        QuizAttempt attempt = new QuizAttempt(quiz, student);
+
+        assertThat(attempt.getDeadlineAt()).isNull();
+        assertThat(attempt.isOverdue(Instant.now().plus(Duration.ofDays(30)), Duration.ZERO)).isFalse();
+    }
+
+    @Test
+    void aTimedQuizSnapshotsTheDeadlineAtStart() {
+        quiz.changeTimeLimit(45);
+
+        QuizAttempt attempt = new QuizAttempt(quiz, student);
+
+        assertThat(attempt.getDeadlineAt()).isEqualTo(attempt.getStartedAt().plus(Duration.ofMinutes(45)));
+    }
+
+    @Test
+    void changingTheQuizLimitLaterDoesNotMoveARunningAttemptsDeadline() {
+        quiz.changeTimeLimit(45);
+        QuizAttempt attempt = new QuizAttempt(quiz, student);
+        Instant before = attempt.getDeadlineAt();
+
+        quiz.changeTimeLimit(5);
+
+        assertThat(attempt.getDeadlineAt()).isEqualTo(before);
+    }
+
+    @Test
+    void isOverdueOnlyAfterTheDeadlinePlusGrace() {
+        quiz.changeTimeLimit(10);
+        QuizAttempt attempt = new QuizAttempt(quiz, student);
+        Instant deadline = attempt.getDeadlineAt();
+        Duration grace = Duration.ofSeconds(30);
+
+        assertThat(attempt.isOverdue(deadline.minusSeconds(1), grace)).isFalse();
+        assertThat(attempt.isOverdue(deadline.plusSeconds(30), grace)).isFalse();   // exactly at the edge: still allowed
+        assertThat(attempt.isOverdue(deadline.plusSeconds(31), grace)).isTrue();
     }
 }

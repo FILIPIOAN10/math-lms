@@ -17,6 +17,7 @@ import lombok.NoArgsConstructor;
 import ro.mathlms.user.Role;
 import ro.mathlms.user.User;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Objects;
 
@@ -53,11 +54,23 @@ public class QuizAttempt {
     @Column(name = "submitted_at")
     private Instant submittedAt;
 
+    /**
+     * When time runs out, snapshotted from the quiz's limit at start; {@code null} = untimed. The server —
+     * never the browser's clock — decides whether an attempt is still open.
+     */
+    @Column(name = "deadline_at")
+    private Instant deadlineAt;
+
     /** Total awarded points across all items; null until {@link QuizAttemptStatus#GRADED}. */
     @Column
     private Integer score;
 
     public QuizAttempt(Quiz quiz, User student) {
+        this(quiz, student, Instant.now());
+    }
+
+    /** {@code startedAt} comes from the caller's clock, so the service and its tests share one notion of "now". */
+    public QuizAttempt(Quiz quiz, User student, Instant startedAt) {
         this.quiz = Objects.requireNonNull(quiz, "quiz");
         Objects.requireNonNull(student, "student");
         if (student.getRole() != Role.STUDENT) {
@@ -65,7 +78,15 @@ public class QuizAttempt {
                     "Only a STUDENT can attempt a quiz, was " + student.getRole());
         }
         this.student = student;
-        this.startedAt = Instant.now();
+        this.startedAt = Objects.requireNonNull(startedAt, "startedAt");
+        if (quiz.getTimeLimitMinutes() != null) {
+            this.deadlineAt = startedAt.plus(Duration.ofMinutes(quiz.getTimeLimitMinutes()));
+        }
+    }
+
+    /** True once {@code now} is past the deadline plus {@code grace} (network latency); never for an untimed attempt. */
+    public boolean isOverdue(Instant now, Duration grace) {
+        return deadlineAt != null && now.isAfter(deadlineAt.plus(grace));
     }
 
     /** Hands the attempt in for grading. Only valid while still in progress. */
