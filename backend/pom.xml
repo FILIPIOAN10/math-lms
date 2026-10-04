@@ -20,6 +20,9 @@
 		     pornit (backend :8080 + Vite :5173) si de Chrome. Rulare:
 		     ./mvnw test -Dgroups=e2e -DexcludedGroups= -->
 		<excludedGroups>e2e</excludedGroups>
+		<!-- Override peste BOM-ul Spring Boot: 42.7.11 are CVE-2026-54291 (HIGH, downgrade SCRAM-PLUS),
+		     reparat in 42.7.12. De scos cand un Boot 3.5.x nou aduce >= 42.7.12. -->
+		<postgresql.version>42.7.12</postgresql.version>
 	</properties>
 
 	<dependencies>
