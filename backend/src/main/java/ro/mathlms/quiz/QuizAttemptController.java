@@ -14,6 +14,8 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import ro.mathlms.quiz.QuizDtos.QuizSummaryDto;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultDto;
+import ro.mathlms.quiz.StudentQuizDtos.AttemptResultViewDto;
+import ro.mathlms.quiz.StudentQuizDtos.MyAttemptDto;
 import ro.mathlms.quiz.StudentQuizDtos.StartedAttemptDto;
 
 import java.util.List;
@@ -43,6 +45,11 @@ public class QuizAttemptController {
         return service.startAttempt(quizId, auth.getName());
     }
 
+    @GetMapping("/api/quiz/attempts")
+    public List<MyAttemptDto> myAttempts(Authentication auth) {
+        return service.listMyAttempts(auth.getName());
+    }
+
     @PutMapping("/api/quiz/attempts/{attemptId}/responses/{itemId}")
     public ResponseEntity<Void> answer(@PathVariable Long attemptId, @PathVariable Long itemId,
                                        @Valid @RequestBody AnswerRequest request, Authentication auth) {
@@ -60,5 +67,10 @@ public class QuizAttemptController {
     @PostMapping("/api/quiz/attempts/{attemptId}/submit")
     public AttemptResultDto submit(@PathVariable Long attemptId, Authentication auth) {
         return service.submit(attemptId, auth.getName());
+    }
+
+    @GetMapping("/api/quiz/attempts/{attemptId}/result")
+    public AttemptResultViewDto result(@PathVariable Long attemptId, Authentication auth) {
+        return service.getResult(attemptId, auth.getName());
     }
 }

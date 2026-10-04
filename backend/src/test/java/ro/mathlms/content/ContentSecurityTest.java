@@ -15,6 +15,7 @@ import ro.mathlms.TestcontainersConfiguration;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -60,7 +61,7 @@ class ContentSecurityTest {
     @Test
     @WithMockUser(username = "ana", roles = "STUDENT")
     void studentCannotCreateClass() throws Exception {
-        mockMvc.perform(post("/api/admin/classes")
+        mockMvc.perform(post("/api/admin/classes").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"Clasa a 9-a\"}"))
                 .andExpect(status().isForbidden());
@@ -72,7 +73,7 @@ class ContentSecurityTest {
         when(schoolClassService.create(anyString(), any()))
                 .thenReturn(new SchoolClass("Clasa a 9-a", null));
 
-        mockMvc.perform(post("/api/admin/classes")
+        mockMvc.perform(post("/api/admin/classes").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"Clasa a 9-a\"}"))
                 .andExpect(status().isCreated());

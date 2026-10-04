@@ -1,14 +1,18 @@
 package ro.mathlms.auth;
 
 import io.jsonwebtoken.JwtException;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import ro.mathlms.user.Role;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
+import java.util.Date;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -57,10 +61,16 @@ class InviteTokenServiceTest {
 
     @Test
     void rejectsTokenIssuedForAnotherPurpose() {
-        // A verification token is validly signed with the same key but carries
-        // purpose=VERIFY_EMAIL, so the invite service must refuse it.
-        VerificationTokenService verificationTokens = new VerificationTokenService(properties);
-        String verifyEmailToken = verificationTokens.generate("ana@scoala.ro", TokenPurpose.VERIFY_EMAIL);
+        // A token validly signed with the same key but carrying purpose=VERIFY_EMAIL,
+        // so the invite service must refuse it. Built inline to avoid pulling in Redis.
+        var key = Keys.hmacShaKeyFor(properties.jwtSecret().getBytes(StandardCharsets.UTF_8));
+        String verifyEmailToken = Jwts.builder()
+                .subject("ana@scoala.ro")
+                .claim("purpose", TokenPurpose.VERIFY_EMAIL.name())
+                .issuedAt(Date.from(Instant.now()))
+                .expiration(Date.from(Instant.now().plusSeconds(3600)))
+                .signWith(key)
+                .compact();
 
         assertThatThrownBy(() -> service.verify(verifyEmailToken))
                 .isInstanceOf(JwtException.class);

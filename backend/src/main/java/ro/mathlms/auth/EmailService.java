@@ -42,6 +42,17 @@ public class EmailService {
                         + "Linkul expiră într-o oră. Dacă nu tu ai cerut resetarea, ignoră acest mesaj.");
     }
 
+    public void sendErasureConfirmationEmail(String email, String token) {
+        String link = frontendBaseUrl + "/erase-account?token=" + token;
+        send(email, "Confirmă ștergerea contului MathLMS",
+                "Ai cerut ștergerea definitivă a contului tău.\n\n"
+                        + "Confirmă accesând linkul de mai jos. Datele tale personale vor fi șterse,\n"
+                        + "iar notele vor fi păstrate anonimizat:\n"
+                        + link + "\n\n"
+                        + "Linkul expiră în 30 de minute. Dacă nu tu ai cerut ștergerea, ignoră acest mesaj\n"
+                        + "și schimbă-ți parola — cineva ar putea avea acces la contul tău.");
+    }
+
     public void sendAccountApprovedEmail(String email) {
         send(email, "Contul tău MathLMS a fost aprobat",
                 "Contul tău a fost aprobat de profesor.\n\n"

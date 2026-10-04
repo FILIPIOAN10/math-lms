@@ -11,6 +11,7 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 import ro.mathlms.TestcontainersConfiguration;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -47,7 +48,7 @@ class AdminUserRbacTest {
     @Test
     @WithAnonymousUser
     void anonymousCannotApprove() throws Exception {
-        mockMvc.perform(post("/api/admin/users/1/approve")
+        mockMvc.perform(post("/api/admin/users/1/approve").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"role\":\"STUDENT\"}"))
                 .andExpect(status().isUnauthorized());
@@ -65,7 +66,7 @@ class AdminUserRbacTest {
     @Test
     @WithMockUser(roles = "PARENT")
     void parentCannotApprove() throws Exception {
-        mockMvc.perform(post("/api/admin/users/1/approve")
+        mockMvc.perform(post("/api/admin/users/1/approve").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"role\":\"STUDENT\"}"))
                 .andExpect(status().isForbidden());
@@ -74,7 +75,7 @@ class AdminUserRbacTest {
     @Test
     @WithMockUser(roles = "STUDENT")
     void studentCannotLinkParent() throws Exception {
-        mockMvc.perform(post("/api/admin/users/1/link-parent")
+        mockMvc.perform(post("/api/admin/users/1/link-parent").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"parentId\":2}"))
                 .andExpect(status().isForbidden());

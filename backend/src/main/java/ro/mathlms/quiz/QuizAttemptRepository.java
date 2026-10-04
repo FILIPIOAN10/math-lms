@@ -1,16 +1,36 @@
 package ro.mathlms.quiz;
 
+import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
 
 public interface QuizAttemptRepository extends JpaRepository<QuizAttempt, Long> {
 
+    /** Loads each attempt's quiz in the same query — the list reads its title (no N+1). */
+    @EntityGraph(attributePaths = "quiz")
     List<QuizAttempt> findByStudentIdOrderByStartedAtDesc(Long studentId);
 
     List<QuizAttempt> findByQuizId(Long quizId);
 
     Optional<QuizAttempt> findByQuizIdAndStudentIdAndStatus(
             Long quizId, Long studentId, QuizAttemptStatus status);
+
+    /**
+     * Loads the attempt with a row lock (SELECT ... FOR UPDATE) held until the transaction ends, so
+     * answering, uploading and submitting the same attempt run one after another, never interleaved.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select a from QuizAttempt a where a.id = :id")
+    Optional<QuizAttempt> findByIdForUpdate(@Param("id") Long id);
+
+    /** The teacher's grading queue: attempts in one status, with quiz + student fetched up front. */
+    @Query("select a from QuizAttempt a join fetch a.quiz join fetch a.student "
+            + "where a.status = :status order by a.submittedAt asc")
+    List<QuizAttempt> findByStatusForGrading(@Param("status") QuizAttemptStatus status);
 }

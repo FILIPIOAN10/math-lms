@@ -4,7 +4,9 @@ import io.jsonwebtoken.JwtException;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
+import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.core.Authentication;
 import ro.mathlms.user.AccountStatus;
@@ -35,9 +37,10 @@ class AuthControllerTest {
     private final LoginService loginService = mock(LoginService.class);
     private final JwtCookieFactory jwtCookieFactory = mock(JwtCookieFactory.class);
     private final PasswordResetService passwordResetService = mock(PasswordResetService.class);
+    private final RefreshTokenService refreshTokenService = mock(RefreshTokenService.class);
     private final AuthController controller = new AuthController(
             userRepository, registrationService, emailService, verificationTokenService,
-            inviteTokenService, loginService, jwtCookieFactory, passwordResetService);
+            inviteTokenService, loginService, jwtCookieFactory, passwordResetService, refreshTokenService);
 
     @Test
     void meReturnsUserWhenAuthenticated() {
@@ -88,16 +91,19 @@ class AuthControllerTest {
     }
 
     @Test
-    void logoutClearsCookie() {
+    void logoutClearsCookieAndRevokesRefreshSession() {
+        when(refreshTokenService.cleanRefreshCookie())
+                .thenReturn(ResponseCookie.from(RefreshTokenService.REFRESH_COOKIE_NAME, "").maxAge(0).build());
         MockHttpServletResponse servletResponse = new MockHttpServletResponse();
 
-        controller.logout(servletResponse);
+        controller.logout(new MockHttpServletRequest(), servletResponse);
 
         Cookie cookie = servletResponse.getCookie(JwtCookieSuccessHandler.COOKIE_NAME);
         assertThat(cookie).isNotNull();
         assertThat(cookie.getMaxAge()).isZero();
         assertThat(cookie.getValue()).isEmpty();
         assertThat(cookie.isHttpOnly()).isTrue();
+        verify(refreshTokenService).revokeByToken(any());
     }
 
     // --- Step 1.6f: register + verify-email ---
@@ -175,6 +181,9 @@ class AuthControllerTest {
         Cookie authCookie = new Cookie(JwtCookieSuccessHandler.COOKIE_NAME, "JWT");
         when(loginService.authenticate("ana@scoala.ro", "parola123")).thenReturn(user);
         when(jwtCookieFactory.create(user)).thenReturn(authCookie);
+        when(refreshTokenService.createSession("ana@scoala.ro")).thenReturn("RT");
+        when(refreshTokenService.refreshCookie("RT"))
+                .thenReturn(ResponseCookie.from(RefreshTokenService.REFRESH_COOKIE_NAME, "RT").build());
         MockHttpServletResponse servletResponse = new MockHttpServletResponse();
 
         ResponseEntity<UserDto> response = controller.login(
@@ -217,5 +226,76 @@ class AuthControllerTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
         verify(passwordResetService).resetPassword("RESET", "parolaNoua1");
+    }
+
+    // --- refresh-token rotation + sessions ---
+
+    @Test
+    void refreshRotatesTokenAndIssuesFreshCookies() {
+        User user = new User("ana@scoala.ro", "Ana Pop", Role.STUDENT);
+        when(refreshTokenService.readRefreshCookie(any())).thenReturn("OLD");
+        when(refreshTokenService.rotate("OLD"))
+                .thenReturn(new RefreshTokenService.Rotation("ana@scoala.ro", "NEW"));
+        when(userRepository.findByEmail("ana@scoala.ro")).thenReturn(Optional.of(user));
+        when(jwtCookieFactory.create(user)).thenReturn(new Cookie(JwtCookieSuccessHandler.COOKIE_NAME, "JWT"));
+        when(refreshTokenService.refreshCookie("NEW"))
+                .thenReturn(ResponseCookie.from(RefreshTokenService.REFRESH_COOKIE_NAME, "NEW").build());
+        MockHttpServletResponse servletResponse = new MockHttpServletResponse();
+
+        ResponseEntity<UserDto> response = controller.refresh(new MockHttpServletRequest(), servletResponse);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody().email()).isEqualTo("ana@scoala.ro");
+        assertThat(servletResponse.getCookie(JwtCookieSuccessHandler.COOKIE_NAME)).isNotNull();
+    }
+
+    @Test
+    void refreshRejectsErasedAccount() {
+        User user = new User("ana@scoala.ro", "Ana Pop", Role.STUDENT);
+        org.springframework.test.util.ReflectionTestUtils.setField(user, "erased", true);
+        when(refreshTokenService.readRefreshCookie(any())).thenReturn("OLD");
+        when(refreshTokenService.rotate("OLD"))
+                .thenReturn(new RefreshTokenService.Rotation("ana@scoala.ro", "NEW"));
+        when(userRepository.findByEmail("ana@scoala.ro")).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> controller.refresh(new MockHttpServletRequest(), new MockHttpServletResponse()))
+                .isInstanceOf(InvalidRefreshTokenException.class);
+    }
+
+    @Test
+    void sessionsDelegatesToService() {
+        Authentication auth = mock(Authentication.class);
+        when(auth.getName()).thenReturn("ana@scoala.ro");
+        when(refreshTokenService.readRefreshCookie(any())).thenReturn("CUR");
+        DeviceSessionResponse s = new DeviceSessionResponse("sid", "Desktop - Chrome", "127.0.0.1", 1L, 2L, true);
+        when(refreshTokenService.listSessions("ana@scoala.ro", "CUR")).thenReturn(java.util.List.of(s));
+
+        assertThat(controller.sessions(auth, new MockHttpServletRequest())).containsExactly(s);
+    }
+
+    @Test
+    void revokeSessionDelegatesAndReturns204() {
+        Authentication auth = mock(Authentication.class);
+        when(auth.getName()).thenReturn("ana@scoala.ro");
+
+        ResponseEntity<Void> response = controller.revokeSession("sid", auth);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        verify(refreshTokenService).revokeSession("ana@scoala.ro", "sid");
+    }
+
+    @Test
+    void logoutAllRevokesEverySessionAndClearsCookies() {
+        Authentication auth = mock(Authentication.class);
+        when(auth.getName()).thenReturn("ana@scoala.ro");
+        when(refreshTokenService.cleanRefreshCookie())
+                .thenReturn(ResponseCookie.from(RefreshTokenService.REFRESH_COOKIE_NAME, "").maxAge(0).build());
+        MockHttpServletResponse servletResponse = new MockHttpServletResponse();
+
+        ResponseEntity<Void> response = controller.logoutAll(auth, servletResponse);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        verify(refreshTokenService).revokeAll("ana@scoala.ro");
+        assertThat(servletResponse.getCookie(JwtCookieSuccessHandler.COOKIE_NAME)).isNotNull();
     }
 }

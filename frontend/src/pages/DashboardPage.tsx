@@ -28,6 +28,11 @@ export function DashboardPage() {
               <Link to="/content" className={buttonVariants({ variant: 'default' })}>
                 Conținut
               </Link>
+              {user.role === 'STUDENT' && (
+                <Link to="/quizzes" className={buttonVariants({ variant: 'default' })}>
+                  Testele mele
+                </Link>
+              )}
               {user.role === 'ADMIN' && (
                 <>
                   <Link to="/admin/content" className={buttonVariants({ variant: 'secondary' })}>
@@ -35,6 +40,9 @@ export function DashboardPage() {
                   </Link>
                   <Link to="/admin/quizzes" className={buttonVariants({ variant: 'secondary' })}>
                     Quiz-uri
+                  </Link>
+                  <Link to="/admin/grading" className={buttonVariants({ variant: 'secondary' })}>
+                    Corectură
                   </Link>
                   <Link to="/admin/pending" className={buttonVariants({ variant: 'secondary' })}>
                     Conturi în așteptare

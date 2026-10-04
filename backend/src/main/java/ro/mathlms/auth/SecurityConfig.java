@@ -17,6 +17,9 @@ import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequest
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.authentication.session.NullAuthenticatedSessionStrategy;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 
 @Configuration
 @EnableWebSecurity
@@ -43,15 +46,41 @@ public class SecurityConfig {
                 new InviteCapturingAuthorizationRequestRepository(
                         new HttpSessionOAuth2AuthorizationRequestRepository());
 
+        // Cookie double-submit CSRF for the browser SPA: the token rides in a JS-readable
+        // XSRF-TOKEN cookie and must be echoed as the X-XSRF-TOKEN header on state-changing
+        // requests. The auth/OAuth2/public endpoints are exempt — they are first-contact (no
+        // cookie yet) or gated by their own single-use token.
+        CsrfTokenRequestAttributeHandler csrfRequestHandler = new CsrfTokenRequestAttributeHandler();
+        csrfRequestHandler.setCsrfRequestAttributeName("_csrf");
+
         http
-                .csrf(csrf -> csrf.disable())
+                .csrf(csrf -> csrf
+                        .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                        .csrfTokenRequestHandler(csrfRequestHandler)
+                        // JwtCookieAuthFilter re-authenticates every request, and with STATELESS sessions
+                        // SessionManagementFilter treats each one as a fresh login. The default
+                        // CsrfAuthenticationStrategy would then rotate the token on every request — deleting
+                        // the XSRF-TOKEN cookie on each read, so the SPA's next write carried no token (403).
+                        .sessionAuthenticationStrategy(new NullAuthenticatedSessionStrategy())
+                        .ignoringRequestMatchers("/api/auth/**", "/api/public/**",
+                                "/oauth2/**", "/login/**"))
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/health").permitAll()
+                        // Boot renders denials by forwarding to /error. That ERROR dispatch re-enters
+                        // this chain unauthenticated (OncePerRequestFilter skips error dispatches, so
+                        // JwtCookieAuthFilter never runs), so gating it would turn every 403 into a
+                        // 401 and hide the real reason a request was refused.
+                        .requestMatchers("/error").permitAll()
                         .requestMatchers("/oauth2/**", "/login/**").permitAll()
                         .requestMatchers("/api/auth/register", "/api/auth/verify-email", "/api/auth/login",
-                                "/api/auth/forgot-password", "/api/auth/reset-password").permitAll()
+                                "/api/auth/forgot-password", "/api/auth/reset-password",
+                                // refresh runs on the refresh cookie (access token may be expired);
+                                // logout only clears cookies + revokes the presented refresh token.
+                                "/api/auth/refresh", "/api/auth/logout").permitAll()
+                        // GDPR erasure is confirmed via an emailed single-purpose token, no session.
+                        .requestMatchers("/api/public/gdpr/erase/confirm").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         // Feature endpoints (content, quiz — Faza 2+) require an approved account.
                         // A PENDING account is authenticated (can read /api/auth/me) but not ACTIVE.
@@ -70,7 +99,8 @@ public class SecurityConfig {
                         .successHandler(jwtCookieSuccessHandler))
                 .exceptionHandling(ex ->
                         ex.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
-                .addFilterBefore(jwtCookieAuthFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtCookieAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(new CsrfCookieFilter(), UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }

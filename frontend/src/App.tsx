@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider, useAuth } from '@/context/AuthContext'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { AdminRoute } from '@/components/AdminRoute'
+import { RoleRoute } from '@/components/RoleRoute'
 import { LoginPage } from '@/pages/LoginPage'
 import { RegisterPage } from '@/pages/RegisterPage'
 import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage'
@@ -14,6 +15,10 @@ import { AdminContentPage } from '@/pages/AdminContentPage'
 import { AdminQuizzesPage } from '@/pages/AdminQuizzesPage'
 import { ContentBrowserPage } from '@/pages/ContentBrowserPage'
 import { DashboardPage } from '@/pages/DashboardPage'
+import { StudentQuizListPage } from '@/pages/StudentQuizListPage'
+import { TakeQuizPage } from '@/pages/TakeQuizPage'
+import { AttemptResultPage } from '@/pages/AttemptResultPage'
+import { AdminGradingPage } from '@/pages/AdminGradingPage'
 
 function LoginRoute() {
   const { user, loading } = useAuth()
@@ -76,6 +81,38 @@ function App() {
               <AdminRoute>
                 <AdminQuizzesPage />
               </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/grading"
+            element={
+              <AdminRoute>
+                <AdminGradingPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/quizzes"
+            element={
+              <RoleRoute role="STUDENT">
+                <StudentQuizListPage />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/quizzes/:id/take"
+            element={
+              <RoleRoute role="STUDENT">
+                <TakeQuizPage />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/quizzes/attempts/:attemptId/result"
+            element={
+              <RoleRoute role="STUDENT">
+                <AttemptResultPage />
+              </RoleRoute>
             }
           />
           <Route

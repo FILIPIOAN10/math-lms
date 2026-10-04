@@ -1,6 +1,7 @@
 package ro.mathlms.content;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -12,6 +13,11 @@ public interface EnrollmentRepository extends JpaRepository<Enrollment, Long> {
     List<Enrollment> findByStudentId(Long studentId);
 
     boolean existsByStudentIdAndSchoolClassId(Long studentId, Long schoolClassId);
+
+    /** GDPR erasure: drop which classes a student attended (personal, not retained). */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("delete from Enrollment e where e.student.id = :userId")
+    void deleteByStudentId(@Param("userId") Long userId);
 
     /**
      * Roster of a class with the student eagerly fetched, so the DTO mapping can read the

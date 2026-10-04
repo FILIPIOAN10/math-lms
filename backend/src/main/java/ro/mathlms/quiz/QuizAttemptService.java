@@ -4,7 +4,14 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import ro.mathlms.quiz.AdminAttemptDtos.AdminAttemptDetailDto;
+import ro.mathlms.quiz.AdminAttemptDtos.AdminAttemptSummaryDto;
+import ro.mathlms.quiz.AdminAttemptDtos.AdminItemReviewDto;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultDto;
+import ro.mathlms.quiz.StudentQuizDtos.AttemptResultViewDto;
+import ro.mathlms.quiz.StudentQuizDtos.ItemResultDto;
+import ro.mathlms.quiz.StudentQuizDtos.MyAttemptDto;
+import ro.mathlms.quiz.StudentQuizDtos.SavedAnswerDto;
 import ro.mathlms.quiz.StudentQuizDtos.StartedAttemptDto;
 import ro.mathlms.quiz.StudentQuizDtos.StudentItemDto;
 import ro.mathlms.quiz.StudentQuizDtos.StudentQuizDto;
@@ -15,6 +22,7 @@ import org.springframework.core.io.Resource;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -71,7 +79,19 @@ public class QuizAttemptService {
         QuizAttempt attempt = attemptRepository
                 .findByQuizIdAndStudentIdAndStatus(quizId, student.getId(), QuizAttemptStatus.IN_PROGRESS)
                 .orElseGet(() -> attemptRepository.save(new QuizAttempt(quiz, student)));
-        return new StartedAttemptDto(attempt.getId(), attempt.getStatus(), studentQuiz(quiz));
+        List<SavedAnswerDto> answers = responseRepository.findByAttemptId(attempt.getId()).stream()
+                .map(SavedAnswerDto::from)
+                .toList();
+        return new StartedAttemptDto(attempt.getId(), attempt.getStatus(), studentQuiz(quiz), answers);
+    }
+
+    /** The student's own attempts, newest first — the "Încercările mele" list. */
+    @Transactional(readOnly = true)
+    public List<MyAttemptDto> listMyAttempts(String studentEmail) {
+        User student = requireUser(studentEmail);
+        return attemptRepository.findByStudentIdOrderByStartedAtDesc(student.getId()).stream()
+                .map(MyAttemptDto::from)
+                .toList();
     }
 
     /** Records (or replaces) the student's choice for one SINGLE_CHOICE item. */
@@ -176,6 +196,54 @@ public class QuizAttemptService {
                 autoScore, autoMaxScore, attempt.getScore());
     }
 
+    /**
+     * The student's own graded attempt (Q8). Available once submitted; the correct option and the
+     * barem — withheld before submit — are revealed here. OPEN items show their teacher-awarded points
+     * (null while still pending). Only the owner may view it.
+     */
+    @Transactional(readOnly = true)
+    public AttemptResultViewDto getResult(Long attemptId, String studentEmail) {
+        QuizAttempt attempt = attemptRepository.findById(attemptId)
+                .orElseThrow(() -> new QuizNotFoundException("QuizAttempt", attemptId));
+        if (!attempt.getStudent().getEmail().equals(studentEmail)) {
+            throw new QuizAccessException("This attempt belongs to another student");
+        }
+        if (attempt.getStatus() == QuizAttemptStatus.IN_PROGRESS) {
+            throw new InvalidQuizException("Submit the attempt to see the result");
+        }
+
+        List<QuizItem> items = itemRepository.findByQuizIdOrderByPosition(attempt.getQuiz().getId());
+        Map<Long, ItemResponse> byItem = responseRepository.findByAttemptId(attemptId).stream()
+                .collect(Collectors.toMap(r -> r.getItem().getId(), Function.identity()));
+
+        int maxScore = 0;
+        List<ItemResultDto> itemResults = new ArrayList<>();
+        for (QuizItem item : items) {
+            maxScore += item.getPoints();
+            ItemResponse response = byItem.get(item.getId());
+            String selectedText = null;
+            String correctText = null;
+            boolean photoUploaded = false;
+            if (item.getType() == QuizItemType.SINGLE_CHOICE) {
+                List<QuizOption> options = optionRepository.findByItemIdOrderByPosition(item.getId());
+                correctText = options.stream().filter(QuizOption::isCorrect)
+                        .map(QuizOption::getText).findFirst().orElse(null);
+                if (response != null && response.getSelectedOption() != null) {
+                    selectedText = response.getSelectedOption().getText();
+                }
+            } else {
+                photoUploaded = response != null && response.getImageKey() != null;
+            }
+            itemResults.add(new ItemResultDto(
+                    item.getPosition(), item.getType(), item.getStatement(), item.getPoints(),
+                    response == null ? null : response.getAwardedPoints(),
+                    response == null ? null : response.getCorrect(),
+                    selectedText, correctText, item.getSolution(), photoUploaded));
+        }
+        return new AttemptResultViewDto(attempt.getId(), attempt.getQuiz().getTitle(),
+                attempt.getStatus(), attempt.getScore(), maxScore, itemResults);
+    }
+
     private StudentQuizDto studentQuiz(Quiz quiz) {
         List<StudentItemDto> items = itemRepository.findByQuizIdOrderByPosition(quiz.getId()).stream()
                 .map(item -> StudentItemDto.from(item, optionRepository.findByItemIdOrderByPosition(item.getId())))
@@ -184,7 +252,7 @@ public class QuizAttemptService {
     }
 
     private QuizAttempt requireOwnedInProgress(Long attemptId, String studentEmail) {
-        QuizAttempt attempt = attemptRepository.findById(attemptId)
+        QuizAttempt attempt = attemptRepository.findByIdForUpdate(attemptId)
                 .orElseThrow(() -> new QuizNotFoundException("QuizAttempt", attemptId));
         if (!attempt.getStudent().getEmail().equals(studentEmail)) {
             throw new QuizAccessException("This attempt belongs to another student");
@@ -240,12 +308,22 @@ public class QuizAttemptService {
 
         QuizItem item = itemRepository.findById(itemId)
                 .orElseThrow(() -> new QuizNotFoundException("QuizItem", itemId));
+        if (item.getType() != QuizItemType.OPEN) {
+            throw new InvalidQuizException("Only open items are graded manually");
+        }
+        if (!item.getQuiz().getId().equals(attempt.getQuiz().getId())) {
+            throw new InvalidQuizException("Item does not belong to this quiz");
+        }
+        if (points > item.getPoints()) {
+            throw new InvalidQuizException(
+                    "At most " + item.getPoints() + " points can be awarded for this item");
+        }
 
         // Dacă elevul nu a răspuns nimic, creăm un răspuns gol ca să reținem punctajul (ex: 0)
         ItemResponse response = responseRepository.findByAttemptIdAndItemId(attemptId, itemId)
                 .orElseGet(() -> new ItemResponse(attempt, item));
 
-        response.gradeManual(points); // Va face throw automat dacă tipul nu e OPEN
+        response.gradeManual(points);
         responseRepository.save(response);
     }
 
@@ -280,5 +358,57 @@ public class QuizAttemptService {
 
         attempt.markGraded(totalScore);
         attemptRepository.save(attempt);
+    }
+
+    /** The teacher's grading queue (Q10): attempts in one status, oldest submission first. */
+    @Transactional(readOnly = true)
+    public List<AdminAttemptSummaryDto> listForGrading(QuizAttemptStatus status) {
+        return attemptRepository.findByStatusForGrading(status).stream()
+                .map(AdminAttemptSummaryDto::from)
+                .toList();
+    }
+
+    /**
+     * One submitted attempt as the teacher reviews it: every item with the student's answer, the
+     * correct option, the barem and the points so far. An in-progress attempt is not reviewable yet.
+     */
+    @Transactional(readOnly = true)
+    public AdminAttemptDetailDto getAttemptForGrading(Long attemptId) {
+        QuizAttempt attempt = attemptRepository.findById(attemptId)
+                .orElseThrow(() -> new QuizNotFoundException("QuizAttempt", attemptId));
+        if (attempt.getStatus() == QuizAttemptStatus.IN_PROGRESS) {
+            throw new InvalidQuizException("The student has not submitted this attempt yet");
+        }
+
+        List<QuizItem> items = itemRepository.findByQuizIdOrderByPosition(attempt.getQuiz().getId());
+        Map<Long, ItemResponse> byItem = responseRepository.findByAttemptId(attemptId).stream()
+                .collect(Collectors.toMap(r -> r.getItem().getId(), Function.identity()));
+
+        int maxScore = 0;
+        List<AdminItemReviewDto> reviews = new ArrayList<>();
+        for (QuizItem item : items) {
+            maxScore += item.getPoints();
+            ItemResponse response = byItem.get(item.getId());
+            String selectedText = null;
+            String correctText = null;
+            if (item.getType() == QuizItemType.SINGLE_CHOICE) {
+                correctText = optionRepository.findByItemIdOrderByPosition(item.getId()).stream()
+                        .filter(QuizOption::isCorrect)
+                        .map(QuizOption::getText)
+                        .findFirst().orElse(null);
+                if (response != null && response.getSelectedOption() != null) {
+                    selectedText = response.getSelectedOption().getText();
+                }
+            }
+            reviews.add(new AdminItemReviewDto(
+                    item.getId(), item.getPosition(), item.getType(), item.getStatement(), item.getPoints(),
+                    item.getSolution(), selectedText, correctText,
+                    response == null ? null : response.getCorrect(),
+                    response == null ? null : response.getAwardedPoints(),
+                    response != null && response.getImageKey() != null));
+        }
+        return new AdminAttemptDetailDto(attempt.getId(), attempt.getQuiz().getTitle(),
+                attempt.getStudent().getFullName(), attempt.getStatus(), attempt.getSubmittedAt(),
+                attempt.getScore(), maxScore, reviews);
     }
 }
