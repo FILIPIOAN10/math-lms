@@ -22,6 +22,7 @@ import java.time.Duration;
 abstract class E2eBase {
 
     static final String BASE_URL = System.getProperty("e2e.baseUrl", "http://localhost:5173");
+    static final String API_URL = System.getProperty("e2e.apiUrl", "http://localhost:8080");
     static final String PASSWORD = "Admin123!"; // seed password from docs/TESTING.md
     static final String ADMIN = "admin@mathlms.local";
     static final String STUDENT = "student.activ@mathlms.local";

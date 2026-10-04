@@ -79,6 +79,27 @@ La finalul suitei backend poate apărea `Surefire is going to kill self fork JVM
 (build-ul rămâne SUCCESS): testele de repository își pornesc fiecare propriul container Postgres,
 iar la oprire Hikari închide lent conexiunile spre containerele deja oprite.
 
+### Teste E2E (Selenium, Chrome) — `@Tag("e2e")`
+
+Rulează într-un browser real împotriva stack-ului **deja pornit** (secțiunea A: Postgres + Redis,
+backend `:8080`, Vite `:5173`) și a conturilor seed din secțiunea B. Sunt excluse din `./mvnw test`
+(și din CI); se rulează explicit, din `backend/`:
+
+```bash
+./mvnw test "-Dgroups=e2e" "-DexcludedGroups="                    # toate
+./mvnw test "-Dgroups=e2e" "-DexcludedGroups=" "-Dtest=QuizFlowE2eTest"   # doar fluxul complet
+./mvnw test "-Dgroups=e2e" "-DexcludedGroups=" "-De2e.headless=false"     # Chrome vizibil, ca să urmărești
+```
+
+- `QuizFlowE2eTest`: quiz creat prin REST (`ApiSeeder`) → elevul îl dă (grilă + poză) → profesorul
+  corectează → elevul vede 13 / 15. Fiecare rulare creează un quiz nou „E2E flow <timp>" (nu se șterg;
+  un quiz cu încercări nu poate fi șters).
+- `LoginE2eTest`: login admin/elev + logout real prin UI.
+- Parametri opționali: `-De2e.baseUrl=…` (implicit `http://localhost:5173`), `-De2e.apiUrl=…` (`http://localhost:8080`).
+- Selectorii sunt atributele `data-testid` din frontend; Page Objects în `backend/src/test/java/ro/mathlms/e2e/`.
+- Logout-ul se face prin butonul din UI, nu `deleteAllCookies()`: cookie-ul de refresh e limitat la
+  o cale sub `/api/auth`, iar SPA-ul ar reloga silențios utilizatorul.
+
 ## D. Testare manuală, per feature
 
 ### 1. Login email/parolă (`/login`, tab „Email și parolă")
