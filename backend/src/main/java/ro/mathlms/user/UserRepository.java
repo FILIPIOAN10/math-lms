@@ -14,6 +14,15 @@ public interface UserRepository extends JpaRepository<User,Long> {
 
     List<User> findByStatus(AccountStatus status);
 
+    /** The students linked to one parent, by name. */
+    List<User> findByParentIdOrderByFullName(Long parentId);
+
+    /**
+     * A student ONLY if linked to this parent — the authorization check of the parent API lives in
+     * the query, so someone else's child and a non-existent id both come back empty.
+     */
+    Optional<User> findByIdAndParentId(Long id, Long parentId);
+
     /**
      * Accounts of a given status and role, with the parent eagerly fetched so the DTO
      * mapping can read it after the transaction closes (open-in-view is off). Ordered
