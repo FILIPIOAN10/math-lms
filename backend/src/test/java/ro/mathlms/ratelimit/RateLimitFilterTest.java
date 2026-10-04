@@ -1,5 +1,6 @@
 package ro.mathlms.ratelimit;
 
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import jakarta.servlet.FilterChain;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -22,6 +23,7 @@ class RateLimitFilterTest {
     private final RedisRateLimitService service = mock(RedisRateLimitService.class);
     private final FilterChain chain = mock(FilterChain.class);
     private final MockHttpServletResponse response = new MockHttpServletResponse();
+    private final SimpleMeterRegistry meters = new SimpleMeterRegistry();
 
     private final RateLimitRule login =
             new RateLimitRule("login", "POST", "/api/auth/login", 5, Duration.ofMinutes(1), RateLimitKeyType.IP);
@@ -29,7 +31,7 @@ class RateLimitFilterTest {
             new RateLimitRule("photo", "POST", "/api/quiz/attempts/*/responses/*/photo", 20, Duration.ofMinutes(1), RateLimitKeyType.USER);
 
     private RateLimitFilter filter(boolean trustForwardedFor, RateLimitPrincipalResolver resolver) {
-        return new RateLimitFilter(service, List.of(login, upload), resolver, trustForwardedFor);
+        return new RateLimitFilter(service, List.of(login, upload), resolver, trustForwardedFor, meters);
     }
 
     private MockHttpServletRequest post(String path) {
@@ -71,6 +73,16 @@ class RateLimitFilterTest {
         assertThat(response.getStatus()).isEqualTo(429);
         assertThat(response.getHeader("Retry-After")).isEqualTo("42");
         assertThat(response.getContentAsString(java.nio.charset.StandardCharsets.UTF_8)).contains("Prea multe cereri").contains("42");
+    }
+
+    @Test
+    void everyBlockedRequestIsCountedPerRule() throws Exception {
+        when(service.checkLimit(any(), any())).thenReturn(new RateLimitResult(false, 6, 0, 42));
+
+        filter(false, r -> null).doFilter(post("/api/auth/login"), response, chain);
+        filter(false, r -> null).doFilter(post("/api/auth/login"), new MockHttpServletResponse(), chain);
+
+        assertThat(meters.counter("rate_limit_blocked", "rule", "login").count()).isEqualTo(2.0);
     }
 
     @Test

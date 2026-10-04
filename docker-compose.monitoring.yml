@@ -1,0 +1,53 @@
+# Prometheus + Grafana + Alertmanager for the math-lms backend (Phase 6.3).
+#
+# LOCAL: the backend runs on the host (`mvnw spring-boot:run`), so Prometheus reaches it at host.docker.internal:8080.
+#   1. put a token in backend/.env  ->  METRICS_TOKEN=<openssl rand -hex 32>
+#   2. the SAME string (no trailing newline) in monitoring/secrets/metrics-token
+#   3. docker compose -f docker-compose.monitoring.yml up -d
+#   Prometheus http://localhost:9090 (Status > Targets: math-lms must be UP) · Grafana http://localhost:3000 (admin/admin)
+#
+# PRODUCTION: use docker-compose.prod.yml (it includes these services on the app network, scraping backend:8080).
+services:
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/alert-rules.yml:/etc/prometheus/alert-rules.yml:ro
+      - ./monitoring/secrets/metrics-token:/etc/prometheus/secrets/metrics-token:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.retention.time=15d'
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}   # change for anything but local
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+  alertmanager:
+    image: prom/alertmanager:v0.28.0
+    volumes:
+      - ./monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    ports:
+      - "9093:9093"
+    restart: unless-stopped
+
+volumes:
+  prometheus-data:
+  grafana-data:

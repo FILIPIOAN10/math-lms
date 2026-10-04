@@ -15,6 +15,7 @@ import org.springframework.security.oauth2.client.web.DefaultOAuth2Authorization
 import org.springframework.security.oauth2.client.web.HttpSessionOAuth2AuthorizationRequestRepository;
 import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestResolver;
 import org.springframework.security.web.SecurityFilterChain;
+import ro.mathlms.monitoring.MetricsTokenAuthorizationManager;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.authentication.session.NullAuthenticatedSessionStrategy;
@@ -45,7 +46,8 @@ public class SecurityConfig {
                                             CustomOidcUserService customOidcUserService,
                                             JwtCookieSuccessHandler jwtCookieSuccessHandler,
                                             JwtCookieAuthFilter jwtCookieAuthFilter,
-                                            ClientRegistrationRepository clientRegistrationRepository) throws Exception {
+                                            ClientRegistrationRepository clientRegistrationRepository,
+                                            MetricsTokenAuthorizationManager metricsAccess) throws Exception {
         OAuth2AuthorizationRequestResolver inviteAwareResolver =
                 new InviteAwareAuthorizationRequestResolver(
                         new DefaultOAuth2AuthorizationRequestResolver(
@@ -84,7 +86,9 @@ public class SecurityConfig {
                         .frameOptions(frame -> frame.deny())
                         .permissionsPolicyHeader(permissions -> permissions.policy("geolocation=(), microphone=(), payment=()")))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/actuator/health").permitAll()
+                        .requestMatchers("/actuator/health", "/actuator/info").permitAll()
+                        // Prometheus scrapes with a bearer token; no token configured = nobody can read it.
+                        .requestMatchers("/actuator/prometheus").access(metricsAccess)
                         // Boot renders denials by forwarding to /error. That ERROR dispatch re-enters
                         // this chain unauthenticated (OncePerRequestFilter skips error dispatches, so
                         // JwtCookieAuthFilter never runs), so gating it would turn every 403 into a

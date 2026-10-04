@@ -1,5 +1,6 @@
 package ro.mathlms.ratelimit;
 
+import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
@@ -45,9 +46,10 @@ public class RateLimitConfig {
     @Bean
     public FilterRegistrationBean<RateLimitFilter> rateLimitFilterRegistration(
             RedisRateLimitService service, List<RateLimitRule> rules, RateLimitPrincipalResolver principalResolver,
-            @Value("${rate.limit.trust-x-forwarded-for:false}") boolean trustForwardedFor) {
-        FilterRegistrationBean<RateLimitFilter> registration =
-                new FilterRegistrationBean<>(new RateLimitFilter(service, rules, principalResolver, trustForwardedFor));
+            @Value("${rate.limit.trust-x-forwarded-for:false}") boolean trustForwardedFor,
+            MeterRegistry meterRegistry) {
+        FilterRegistrationBean<RateLimitFilter> registration = new FilterRegistrationBean<>(
+                new RateLimitFilter(service, rules, principalResolver, trustForwardedFor, meterRegistry));
         registration.setOrder(Ordered.LOWEST_PRECEDENCE);
         return registration;
     }

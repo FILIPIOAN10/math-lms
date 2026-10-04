@@ -1,5 +1,6 @@
 package ro.mathlms.ratelimit;
 
+import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -27,14 +28,17 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private final List<RateLimitRule> rules;
     private final RateLimitPrincipalResolver principalResolver;
     private final boolean trustForwardedFor;
+    private final MeterRegistry meterRegistry;
     private final AntPathMatcher pathMatcher = new AntPathMatcher();
 
     public RateLimitFilter(RedisRateLimitService service, List<RateLimitRule> rules,
-                           RateLimitPrincipalResolver principalResolver, boolean trustForwardedFor) {
+                           RateLimitPrincipalResolver principalResolver, boolean trustForwardedFor,
+                           MeterRegistry meterRegistry) {
         this.service = service;
         this.rules = rules;
         this.principalResolver = principalResolver;
         this.trustForwardedFor = trustForwardedFor;
+        this.meterRegistry = meterRegistry;
     }
 
     @Override
@@ -51,6 +55,8 @@ public class RateLimitFilter extends OncePerRequestFilter {
         response.setHeader("X-RateLimit-Limit", String.valueOf(rule.limit()));
         response.setHeader("X-RateLimit-Remaining", String.valueOf(result.remainingRequests()));
         if (!result.allowed()) {
+            // bounded tag (one value per rule): how often each limit bites — a spike means an attack or a too-tight rule
+            meterRegistry.counter("rate_limit_blocked", "rule", rule.name()).increment();
             response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
             response.setHeader("Retry-After", String.valueOf(result.retryAfterSeconds()));
             response.setContentType("text/plain;charset=UTF-8");

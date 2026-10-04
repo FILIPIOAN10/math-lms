@@ -63,7 +63,7 @@ docker exec -i mathlms-postgres psql -U mathlms -d mathlms -c \
 Rulează asta înainte de orice commit.
 
 ```bash
-# Backend — 504 teste (necesită Docker pentru Testcontainers)
+# Backend — 516 teste (necesită Docker pentru Testcontainers)
 cd math-lms/backend && ./mvnw test
 
 # Doar suita de conținut (Faza 2)
@@ -170,6 +170,13 @@ Buton pe Dashboard: **Corectură**.
 - punctaj peste valoarea subiectului → eroare; punctaj valid → **Salvează punctajul** → „✓ notat cu X p”
 - **Finalizează nota** se deblochează când toate subiectele deschise au punctaj → lucrarea trece la „Notate”
 - ca elev, rezultatul arată acum nota finală (`X / max puncte`)
+
+### 12g. Observabilitate (Prometheus + Grafana + Alertmanager) — `monitoring/README.md`
+`/actuator/prometheus` (Micrometer) cere header-ul `Authorization: Bearer <METRICS_TOKEN>`; fără token → 401, utilizator logat oarecare → 403, token nesetat → blocat pentru toți. `/actuator/health` și `/info` rămân publice. Metrici proprii: `security_failed_logins_total`, `rate_limit_blocked_total{rule}`, `outbox_events{status="pending|dead"}` (dead = un email de rezultat care nu va mai pleca fără om).
+- **După adăugarea dependenței `micrometer-registry-prometheus` backend-ul trebuie repornit complet** (`Ctrl+C`, `.\mvnw.cmd spring-boot:run`); restartul automat devtools nu încarcă jar-uri noi (până atunci `/actuator/prometheus` dă 404)
+- Pornire stack (local): token în `backend/.env` (`METRICS_TOKEN=`) ȘI în `monitoring/secrets/metrics-token` (același șir, gitignorat) → `docker compose -f docker-compose.monitoring.yml up -d`. Prometheus http://localhost:9090 → **Status → Targets: `math-lms` = UP**; Grafana http://localhost:3000 (admin/admin) → „Math LMS — Service Overview"; Alertmanager http://localhost:9093
+- 9 alerte: BackendDown, HighErrorRate, HighLatencyP95, DatabaseConnectionPoolHigh, JVMHeapUsageHigh (doar heap: celelalte pool-uri au max=-1), FailedLoginBruteForce, RateLimitSpike, OutboxDeadLetters, OutboxBacklog. Validate cu `promtool check rules` / `check config` și `amtool check-config`
+- Test: `PrometheusEndpointIntegrationTest` (token, serii: `jvm_memory_used_bytes`, `hikaricp_connections_active`, `http_server_requests_seconds_bucket`, `security_failed_logins_total`, `outbox_events`)
 
 ### 12f. Headere de securitate
 Fiecare răspuns al API-ului poartă: `Content-Security-Policy` (`default-src 'self'`; `style-src 'self' 'unsafe-inline'` pentru KaTeX; `img-src 'self' data: blob:` pentru previzualizarea pozei; `frame-ancestors 'none'`), `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` (fără geolocation/microfon/plăți; camera rămâne permisă pentru poza rezolvării) și `Strict-Transport-Security` (1 an) **doar pe HTTPS**.

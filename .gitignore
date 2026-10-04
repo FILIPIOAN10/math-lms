@@ -25,3 +25,7 @@ dist-ssr/
 npm-debug.log*
 # Documentatie locala (nu se comite)
 ROADMAP.md
+
+# Prometheus scrape token (Phase 6.3)
+monitoring/secrets/*
+!monitoring/secrets/.gitkeep

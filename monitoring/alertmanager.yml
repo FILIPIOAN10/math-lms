@@ -1,0 +1,17 @@
+# Minimal Alertmanager: alerts are grouped and visible at http://localhost:9093, but delivered nowhere.
+# To get them by email, add an email receiver (SMTP creds) — an example is commented below.
+route:
+  receiver: 'default'
+  group_by: ['alertname']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+
+receivers:
+  - name: 'default'
+    # email_configs:
+    #   - to: 'profesor@example.com'
+    #     from: 'alerte@example.com'
+    #     smarthost: 'smtp.gmail.com:587'
+    #     auth_username: 'alerte@example.com'
+    #     auth_password: '<app password>'

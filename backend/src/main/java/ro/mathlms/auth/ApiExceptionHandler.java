@@ -1,6 +1,11 @@
 package ro.mathlms.auth;
 
 import io.jsonwebtoken.JwtException;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -11,6 +16,21 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice
 public class ApiExceptionHandler {
 
+    /** Failed credential checks — the FailedLoginBruteForce alert watches the rate of this counter. */
+    private final Counter failedLogins;
+
+    /** Spring uses this one; web-slice tests have no registry, so they get a throwaway one. */
+    @Autowired
+    public ApiExceptionHandler(ObjectProvider<MeterRegistry> meterRegistry) {
+        this(meterRegistry.getIfAvailable(SimpleMeterRegistry::new));
+    }
+
+    ApiExceptionHandler(MeterRegistry meterRegistry) {
+        this.failedLogins = Counter.builder("security_failed_logins")
+                .description("Failed login / credential checks")
+                .register(meterRegistry); // registered up front so the series exists (at 0) before the first failure
+    }
+
     @ExceptionHandler(EmailAlreadyRegisteredException.class)
     public ResponseEntity<String> handleDuplicateEmail(EmailAlreadyRegisteredException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body("An account with this email already exists");
@@ -18,6 +38,7 @@ public class ApiExceptionHandler {
 
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<String> handleBadCredentials(BadCredentialsException ex) {
+        failedLogins.increment();
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid email or password");
     }
 

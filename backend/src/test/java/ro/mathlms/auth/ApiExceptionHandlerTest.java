@@ -1,6 +1,7 @@
 package ro.mathlms.auth;
 
 import io.jsonwebtoken.JwtException;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -10,7 +11,18 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class ApiExceptionHandlerTest {
 
-    private final ApiExceptionHandler handler = new ApiExceptionHandler();
+    private final SimpleMeterRegistry meters = new SimpleMeterRegistry();
+    private final ApiExceptionHandler handler = new ApiExceptionHandler(meters);
+
+    @Test
+    void everyFailedLoginMovesTheBruteForceCounter() {
+        assertThat(meters.counter("security_failed_logins").count()).isZero(); // registered up front
+
+        handler.handleBadCredentials(new BadCredentialsException("Invalid credentials"));
+        handler.handleBadCredentials(new BadCredentialsException("Invalid credentials"));
+
+        assertThat(meters.counter("security_failed_logins").count()).isEqualTo(2.0);
+    }
 
     @Test
     void duplicateEmailMapsToConflict() {
