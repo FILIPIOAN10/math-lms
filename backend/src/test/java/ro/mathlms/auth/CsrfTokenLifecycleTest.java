@@ -13,6 +13,7 @@ import org.springframework.http.ResponseEntity;
 import ro.mathlms.TestcontainersConfiguration;
 import ro.mathlms.user.Role;
 import ro.mathlms.user.User;
+import ro.mathlms.user.UserRepository;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -38,6 +39,9 @@ class CsrfTokenLifecycleTest {
     @Autowired
     private JwtService jwtService;
 
+    @Autowired
+    private UserRepository userRepository;
+
     private HttpHeaders withSessionAndCsrfCookie(User user) {
         HttpHeaders headers = new HttpHeaders();
         headers.add(HttpHeaders.COOKIE, JwtCookieSuccessHandler.COOKIE_NAME + "=" + jwtService.generateToken(user)
@@ -47,10 +51,10 @@ class CsrfTokenLifecycleTest {
 
     @Test
     void authenticatedReadLeavesTheCsrfCookieAlone() {
-        User student = User.registerGoogle("g-student", "elev@example.com", "Elev", Role.STUDENT);
+        // Persisted: a student's reads (quizzes, classes) resolve their account row, so a phantom user gets 403/404
+        User student = userRepository.save(User.registerGoogle("g-student", "elev@example.com", "Elev", Role.STUDENT));
 
-        // Any authenticated read will do; /api/classes needs no account row (the JWT user is not persisted here)
-        ResponseEntity<String> response = rest.exchange("/api/classes", HttpMethod.GET,
+        ResponseEntity<String> response = rest.exchange("/api/quiz/quizzes", HttpMethod.GET,
                 new HttpEntity<>(withSessionAndCsrfCookie(student)), String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);

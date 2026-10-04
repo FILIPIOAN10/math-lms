@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -24,18 +25,22 @@ import java.util.List;
 public class ExerciseController {
 
     private final ExerciseService service;
+    private final ContentAccess access;
 
-    public ExerciseController(ExerciseService service) {
+    public ExerciseController(ExerciseService service, ContentAccess access) {
         this.service = service;
+        this.access = access;
     }
 
     @GetMapping("/api/chapters/{chapterId}/exercises")
-    public List<ExerciseDto> listByChapter(@PathVariable Long chapterId) {
+    public List<ExerciseDto> listByChapter(@PathVariable Long chapterId, Authentication authentication) {
+        access.checkChapter(chapterId, authentication);
         return service.listByChapter(chapterId).stream().map(ExerciseDto::from).toList();
     }
 
     @GetMapping("/api/exercises/{id}")
-    public ExerciseDto get(@PathVariable Long id) {
+    public ExerciseDto get(@PathVariable Long id, Authentication authentication) {
+        access.checkExercise(id, authentication);
         return ExerciseDto.from(service.get(id));
     }
 

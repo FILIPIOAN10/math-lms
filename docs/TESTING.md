@@ -63,7 +63,7 @@ docker exec -i mathlms-postgres psql -U mathlms -d mathlms -c \
 Rulează asta înainte de orice commit.
 
 ```bash
-# Backend — 378 teste (necesită Docker pentru Testcontainers)
+# Backend — 398 teste (necesită Docker pentru Testcontainers)
 cd math-lms/backend && ./mvnw test
 
 # Doar suita de conținut (Faza 2)
@@ -146,7 +146,7 @@ Buton pe Dashboard: **Conținut**. Read-only.
 - Drill-down Clase → Cărți → Capitole → Exerciții, cu breadcrumb pentru a urca
 - Exercițiile arată enunțul randat cu **KaTeX**; **Vezi soluția** dezvăluie soluția (tot KaTeX) + badge de dificultate
 - Un cont PENDING nu ajunge aici (guard `STATUS_ACTIVE`)
-- **Elev**: vede DOAR clasele în care e înscris (`GET /api/me/classes`); neînscris nicăieri → „Nu ești înscris în nicio clasă”. Adminul/părintele văd toate clasele (Step 2.4a)
+- **Elev**: vede DOAR clasele în care e înscris (`GET /api/me/classes`, iar `GET /api/classes` îi întoarce tot doar clasele lui). Cartea/capitolul/exercițiul unei alte clase → **404** (nu 403), pe fiecare nivel: `/api/classes/{id}`, `/api/books/{id}`, `/api/chapters/{id}`, `/api/exercises/{id}` și listele lor (`ContentAccess`); neînscris nicăieri → „Nu ești înscris în nicio clasă”. Adminul/părintele văd toate clasele (Step 2.4a)
 
 ### 10. Admin — quiz builder (`/admin/quizzes`, ca admin)
 - **Adaugă quiz** → **Deschide** → **Adaugă subiect**: grilă (≥2 variante, exact una corectă) sau deschis (punctaj + barem)

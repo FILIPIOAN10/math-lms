@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -23,18 +24,28 @@ import java.util.List;
 public class SchoolClassController {
 
     private final SchoolClassService service;
+    private final ContentAccess access;
+    private final EnrollmentService enrollmentService;
 
-    public SchoolClassController(SchoolClassService service) {
+    public SchoolClassController(SchoolClassService service, ContentAccess access,
+                                 EnrollmentService enrollmentService) {
         this.service = service;
+        this.access = access;
+        this.enrollmentService = enrollmentService;
     }
 
+    /** Every class for admins/parents; a student only gets the classes they are enrolled in. */
     @GetMapping("/api/classes")
-    public List<SchoolClassDto> list() {
-        return service.list().stream().map(SchoolClassDto::from).toList();
+    public List<SchoolClassDto> list(Authentication authentication) {
+        List<SchoolClass> classes = access.isStudent(authentication)
+                ? enrollmentService.myClasses(authentication.getName())
+                : service.list();
+        return classes.stream().map(SchoolClassDto::from).toList();
     }
 
     @GetMapping("/api/classes/{id}")
-    public SchoolClassDto get(@PathVariable Long id) {
+    public SchoolClassDto get(@PathVariable Long id, Authentication authentication) {
+        access.checkClass(id, authentication);
         return SchoolClassDto.from(service.get(id));
     }
 

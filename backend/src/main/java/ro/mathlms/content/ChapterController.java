@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -22,18 +23,22 @@ import java.util.List;
 public class ChapterController {
 
     private final ChapterService service;
+    private final ContentAccess access;
 
-    public ChapterController(ChapterService service) {
+    public ChapterController(ChapterService service, ContentAccess access) {
         this.service = service;
+        this.access = access;
     }
 
     @GetMapping("/api/books/{bookId}/chapters")
-    public List<ChapterDto> listByBook(@PathVariable Long bookId) {
+    public List<ChapterDto> listByBook(@PathVariable Long bookId, Authentication authentication) {
+        access.checkBook(bookId, authentication);
         return service.listByBook(bookId).stream().map(ChapterDto::from).toList();
     }
 
     @GetMapping("/api/chapters/{id}")
-    public ChapterDto get(@PathVariable Long id) {
+    public ChapterDto get(@PathVariable Long id, Authentication authentication) {
+        access.checkChapter(id, authentication);
         return ChapterDto.from(service.get(id));
     }
 

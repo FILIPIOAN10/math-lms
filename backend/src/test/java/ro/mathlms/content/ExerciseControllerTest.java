@@ -3,6 +3,8 @@ package ro.mathlms.content;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 
 import java.util.List;
 
@@ -14,7 +16,9 @@ import static org.mockito.Mockito.when;
 class ExerciseControllerTest {
 
     private final ExerciseService service = mock(ExerciseService.class);
-    private final ExerciseController controller = new ExerciseController(service);
+    private final ContentAccess access = mock(ContentAccess.class);
+    private final ExerciseController controller = new ExerciseController(service, access);
+    private final Authentication auth = new UsernamePasswordAuthenticationToken("ana@scoala.ro", null);
 
     private final Chapter chapter =
             new Chapter(new Book(new SchoolClass("Clasa a 9-a", null), "M1", null), "Ecuații", null);
@@ -24,12 +28,24 @@ class ExerciseControllerTest {
         when(service.listByChapter(1L))
                 .thenReturn(List.of(new Exercise(chapter, "enunț", null, Difficulty.EASY)));
 
-        List<ExerciseDto> result = controller.listByChapter(1L);
+        List<ExerciseDto> result = controller.listByChapter(1L, auth);
 
         assertThat(result).singleElement().satisfies(dto -> {
             assertThat(dto.statement()).isEqualTo("enunț");
             assertThat(dto.difficulty()).isEqualTo(Difficulty.EASY);
         });
+    }
+
+    @Test
+    void readsAskTheAccessGuardFirst() {
+        when(service.listByChapter(1L)).thenReturn(List.of());
+        when(service.get(2L)).thenReturn(new Exercise(chapter, "enunț", null, Difficulty.EASY));
+
+        controller.listByChapter(1L, auth);
+        controller.get(2L, auth);
+
+        verify(access).checkChapter(1L, auth);
+        verify(access).checkExercise(2L, auth);
     }
 
     @Test
