@@ -1,7 +1,9 @@
 package ro.mathlms.quiz;
 
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import ro.mathlms.cache.CacheNames;
 import ro.mathlms.quiz.QuizStatsDtos.BucketDto;
 import ro.mathlms.quiz.QuizStatsDtos.ItemStatDto;
 import ro.mathlms.quiz.QuizStatsDtos.QuizStatsDto;
@@ -35,6 +37,8 @@ public class QuizStatsService {
         this.responseRepository = responseRepository;
     }
 
+    /** Cached per quiz id; evicted when an attempt of the quiz is graded or its items change. */
+    @Cacheable(cacheNames = CacheNames.QUIZ_STATS, key = "#quizId")
     @Transactional(readOnly = true)
     public QuizStatsDto getStats(Long quizId) {
         Quiz quiz = quizRepository.findById(quizId)

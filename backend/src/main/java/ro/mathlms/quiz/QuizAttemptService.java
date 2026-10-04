@@ -1,9 +1,12 @@
 package ro.mathlms.quiz;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import ro.mathlms.cache.AfterCommitCacheEvictor;
+import ro.mathlms.cache.CacheNames;
 import ro.mathlms.content.EnrollmentRepository;
 import ro.mathlms.quiz.AdminAttemptDtos.AdminAttemptDetailDto;
 import ro.mathlms.quiz.AdminAttemptDtos.AdminAttemptSummaryDto;
@@ -46,13 +49,15 @@ public class QuizAttemptService {
     private final ItemResponseRepository responseRepository;
     private final UserRepository userRepository;
     private final EnrollmentRepository enrollmentRepository;
+    private final AfterCommitCacheEvictor cacheEvictor;
     private final FileService fileService;
     private final String quizPhotosDir;
 
     public QuizAttemptService(QuizRepository quizRepository, QuizItemRepository itemRepository,
                               QuizOptionRepository optionRepository, QuizAttemptRepository attemptRepository,
                               ItemResponseRepository responseRepository, UserRepository userRepository,
-                              EnrollmentRepository enrollmentRepository, FileService fileService,
+                              EnrollmentRepository enrollmentRepository, AfterCommitCacheEvictor cacheEvictor,
+                              FileService fileService,
                               @Value("${app.storage.quiz-photos-dir}") String quizPhotosDir) {
         this.quizRepository = quizRepository;
         this.itemRepository = itemRepository;
@@ -61,6 +66,7 @@ public class QuizAttemptService {
         this.responseRepository = responseRepository;
         this.userRepository = userRepository;
         this.enrollmentRepository = enrollmentRepository;
+        this.cacheEvictor = cacheEvictor;
         this.fileService = fileService;
         this.quizPhotosDir = quizPhotosDir;
     }
@@ -119,6 +125,7 @@ public class QuizAttemptService {
      * The student's graded attempts over time, oldest first, each with its percent of the quiz's maximum
      * score. The maximums come from one aggregate query for all the quizzes involved.
      */
+    @Cacheable(cacheNames = CacheNames.PROGRESS, key = "#studentEmail")
     @Transactional(readOnly = true)
     public List<ProgressPointDto> getProgress(String studentEmail) {
         User student = requireUser(studentEmail);
@@ -136,7 +143,7 @@ public class QuizAttemptService {
             int percent = max == 0 ? 0 : Math.round(score * 100f / max);
             return new ProgressPointDto(attempt.getId(), attempt.getQuiz().getId(), attempt.getQuiz().getTitle(),
                     attempt.getSubmittedAt(), score, max, percent);
-        }).toList();
+        }).collect(Collectors.toCollection(ArrayList::new)); // a plain list: it is what the cache stores
     }
 
     /** Records (or replaces) the student's choice for one SINGLE_CHOICE item. */
@@ -235,6 +242,7 @@ public class QuizAttemptService {
         attempt.submit();
         if (!hasOpenItems) {
             attempt.markGraded(autoScore);
+            evictGradingCaches(attempt);
         }
         attemptRepository.save(attempt);
         return new AttemptResultDto(attempt.getId(), attempt.getStatus(),
@@ -403,6 +411,13 @@ public class QuizAttemptService {
 
         attempt.markGraded(totalScore);
         attemptRepository.save(attempt);
+        evictGradingCaches(attempt);
+    }
+
+    /** A graded attempt changes the student's progress and the quiz's statistics — dropped after the commit. */
+    private void evictGradingCaches(QuizAttempt attempt) {
+        cacheEvictor.evict(CacheNames.PROGRESS, attempt.getStudent().getEmail());
+        cacheEvictor.evict(CacheNames.QUIZ_STATS, attempt.getQuiz().getId());
     }
 
     /** The teacher's grading queue (Q10): attempts in one status, oldest submission first. */

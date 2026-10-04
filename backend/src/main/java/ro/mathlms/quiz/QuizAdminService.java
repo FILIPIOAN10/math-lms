@@ -2,6 +2,8 @@ package ro.mathlms.quiz;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import ro.mathlms.cache.AfterCommitCacheEvictor;
+import ro.mathlms.cache.CacheNames;
 import ro.mathlms.content.SchoolClass;
 import ro.mathlms.content.SchoolClassRepository;
 import ro.mathlms.quiz.QuizDtos.ItemDto;
@@ -17,13 +19,22 @@ public class QuizAdminService {
     private final QuizItemRepository itemRepository;
     private final QuizOptionRepository optionRepository;
     private final SchoolClassRepository schoolClassRepository;
+    private final AfterCommitCacheEvictor cacheEvictor;
 
     public QuizAdminService(QuizRepository quizRepository, QuizItemRepository itemRepository,
-                            QuizOptionRepository optionRepository, SchoolClassRepository schoolClassRepository) {
+                            QuizOptionRepository optionRepository, SchoolClassRepository schoolClassRepository,
+                            AfterCommitCacheEvictor cacheEvictor) {
         this.quizRepository = quizRepository;
         this.itemRepository = itemRepository;
         this.optionRepository = optionRepository;
         this.schoolClassRepository = schoolClassRepository;
+        this.cacheEvictor = cacheEvictor;
+    }
+
+    /** Items define a quiz's max score, so any change to them invalidates every stats/progress entry. */
+    private void dropScoreCaches() {
+        cacheEvictor.evictAll(CacheNames.QUIZ_STATS);
+        cacheEvictor.evictAll(CacheNames.PROGRESS);
     }
 
     // --- quiz-level ---
@@ -88,6 +99,7 @@ public class QuizAdminService {
         }
         itemRepository.deleteAll(itemRepository.findByQuizIdOrderByPosition(id));
         quizRepository.delete(quiz);
+        dropScoreCaches();
     }
 
     // --- item-level ---
@@ -104,6 +116,7 @@ public class QuizAdminService {
                 quiz, request.position(), request.type(), request.statement(),
                 request.points(), request.solution()));
         List<QuizOption> options = saveOptionsIfSingleChoice(item, request);
+        dropScoreCaches();
         return ItemDto.from(item, options);
     }
 
@@ -118,6 +131,7 @@ public class QuizAdminService {
         // Replace options wholesale for a single-choice item.
         optionRepository.deleteByItemId(itemId);
         List<QuizOption> options = saveOptionsIfSingleChoice(item, request);
+        dropScoreCaches();
         return ItemDto.from(item, options);
     }
 
@@ -126,6 +140,7 @@ public class QuizAdminService {
         QuizItem item = getItem(itemId);
         optionRepository.deleteByItemId(itemId);
         itemRepository.delete(item);
+        dropScoreCaches();
     }
 
     /**

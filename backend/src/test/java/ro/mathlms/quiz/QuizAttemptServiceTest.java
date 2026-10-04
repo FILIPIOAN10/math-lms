@@ -5,6 +5,8 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.multipart.MultipartFile;
+import ro.mathlms.cache.AfterCommitCacheEvictor;
+import ro.mathlms.cache.CacheNames;
 import ro.mathlms.content.EnrollmentRepository;
 import ro.mathlms.content.SchoolClass;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultDto;
@@ -41,10 +43,11 @@ class QuizAttemptServiceTest {
     private final UserRepository userRepository = mock(UserRepository.class);
     private final FileService fileService = mock(FileService.class);
     private final EnrollmentRepository enrollmentRepository = mock(EnrollmentRepository.class);
+    private final AfterCommitCacheEvictor cacheEvictor = mock(AfterCommitCacheEvictor.class);
     private final QuizAttemptService service = new QuizAttemptService(
             quizRepository, itemRepository, optionRepository,
             attemptRepository, responseRepository, userRepository,
-            enrollmentRepository, fileService, "uploads/quiz-photos");
+            enrollmentRepository, cacheEvictor, fileService, "uploads/quiz-photos");
 
     private static final String EMAIL = "elev@scoala.ro";
 
@@ -75,6 +78,38 @@ class QuizAttemptServiceTest {
 
     private QuizAttempt attempt(long id, User owner) {
         return withId(new QuizAttempt(quiz, owner), id);
+    }
+
+    // --- cache eviction (Phase 5.5) ---
+
+    @Test
+    void anAutoGradedSubmitEvictsTheStudentsProgressAndTheQuizStats() {
+        QuizItem item = singleChoice(100L, 5);
+        QuizOption correct = option(item, 1000L, true);
+        QuizAttempt inProgress = attempt(50L, student);
+        ItemResponse answer = new ItemResponse(inProgress, item);
+        answer.answerSingleChoice(correct);
+        when(attemptRepository.findByIdForUpdate(50L)).thenReturn(Optional.of(inProgress));
+        when(itemRepository.findByQuizIdOrderByPosition(10L)).thenReturn(List.of(item)); // no OPEN item
+        when(responseRepository.findByAttemptId(50L)).thenReturn(List.of(answer));
+
+        service.submit(50L, EMAIL);
+
+        verify(cacheEvictor).evict(CacheNames.PROGRESS, EMAIL);
+        verify(cacheEvictor).evict(CacheNames.QUIZ_STATS, 10L);
+    }
+
+    @Test
+    void aSubmitThatStillWaitsForTheTeacherEvictsNothing() {
+        QuizItem item = open(101L, 10);
+        QuizAttempt inProgress = attempt(50L, student);
+        when(attemptRepository.findByIdForUpdate(50L)).thenReturn(Optional.of(inProgress));
+        when(itemRepository.findByQuizIdOrderByPosition(10L)).thenReturn(List.of(item));
+        when(responseRepository.findByAttemptId(50L)).thenReturn(List.of());
+
+        service.submit(50L, EMAIL);
+
+        verify(cacheEvictor, never()).evict(any(), any());
     }
 
     // --- progress over time (Phase 5.3) ---
@@ -594,6 +629,7 @@ class QuizAttemptServiceTest {
         QuizAttempt attempt = mock(QuizAttempt.class);
         when(attempt.getStatus()).thenReturn(QuizAttemptStatus.SUBMITTED);
         when(attempt.getQuiz()).thenReturn(quiz);
+        when(attempt.getStudent()).thenReturn(student);
         when(attemptRepository.findById(1L)).thenReturn(Optional.of(attempt));
 
         QuizItem item = mock(QuizItem.class);
@@ -612,6 +648,9 @@ class QuizAttemptServiceTest {
         // Assert
         verify(attempt).markGraded(15);
         verify(attemptRepository).save(attempt);
+        // the grade changes the student's progress and the quiz's statistics
+        verify(cacheEvictor).evict(CacheNames.PROGRESS, EMAIL);
+        verify(cacheEvictor).evict(CacheNames.QUIZ_STATS, 99L);
     }
 
     @Test

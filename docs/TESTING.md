@@ -63,7 +63,7 @@ docker exec -i mathlms-postgres psql -U mathlms -d mathlms -c \
 Rulează asta înainte de orice commit.
 
 ```bash
-# Backend — 445 teste (necesită Docker pentru Testcontainers)
+# Backend — 455 teste (necesită Docker pentru Testcontainers)
 cd math-lms/backend && ./mvnw test
 
 # Doar suita de conținut (Faza 2)
@@ -170,6 +170,13 @@ Buton pe Dashboard: **Corectură**.
 - punctaj peste valoarea subiectului → eroare; punctaj valid → **Salvează punctajul** → „✓ notat cu X p”
 - **Finalizează nota** se deblochează când toate subiectele deschise au punctaj → lucrarea trece la „Notate”
 - ca elev, rezultatul arată acum nota finală (`X / max puncte`)
+
+### 12c. Cache Redis pe agregate (statistici + progres)
+`QuizStatsService.getStats` (cache `quizStats`, cheie = id quiz) și `QuizAttemptService.getProgress` (cache `progress`, cheie = email elev) sunt cache-uite în Redis, prefix `mathlms:`, TTL 10 min ca plasă de siguranță. Valorile sunt JSON simplu, fără nume de clase.
+- Evict **după commit** (`AfterCommitCacheEvictor`): când o lucrare devine `GRADED` (finalizare de către profesor SAU auto-corectare la submit, dacă quiz-ul n-are subiecte deschise) → se șterg `progress[email]` și `quizStats[quizId]`; orice modificare de subiecte/quiz șterge ambele cache-uri integral (se schimbă punctajul maxim). La rollback nu se șterge nimic
+- Redis căzut = cache dezactivat, nu 500 (erorile se loghează și valoarea se recalculează)
+- Verificare manuală: după ce deschizi `/admin/quizzes/{id}/stats` apare cheia: `docker exec mathlms-redis redis-cli --scan --pattern "mathlms*"` (`mathlms:quizStats::<id>`); `redis-cli ttl <cheie>` ≈ 600
+- Testat pe Redis+Postgres reale: `QuizCachingIntegrationTest` (citit → în cache → notare → evict → citire nouă vede nota)
 
 ### 12b. Profesor — statistici pe quiz (`/admin/quizzes/:id/stats`, ca admin)
 Buton **Statistici** pe fiecare quiz din `/admin/quizzes`. Doar lucrările **notate** (`GRADED`) contează.

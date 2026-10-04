@@ -1,6 +1,8 @@
 package ro.mathlms.quiz;
 
 import org.junit.jupiter.api.Test;
+import ro.mathlms.cache.AfterCommitCacheEvictor;
+import ro.mathlms.cache.CacheNames;
 import ro.mathlms.content.SchoolClass;
 import ro.mathlms.content.SchoolClassRepository;
 import ro.mathlms.quiz.QuizDtos.ItemDto;
@@ -22,11 +24,23 @@ class QuizAdminServiceTest {
     private final QuizItemRepository itemRepository = mock(QuizItemRepository.class);
     private final QuizOptionRepository optionRepository = mock(QuizOptionRepository.class);
     private final SchoolClassRepository schoolClassRepository = mock(SchoolClassRepository.class);
+    private final AfterCommitCacheEvictor cacheEvictor = mock(AfterCommitCacheEvictor.class);
     private final QuizAdminService service =
-            new QuizAdminService(quizRepository, itemRepository, optionRepository, schoolClassRepository);
+            new QuizAdminService(quizRepository, itemRepository, optionRepository, schoolClassRepository, cacheEvictor);
 
     private final Quiz quiz = new Quiz("Simulare EN", null);
     private final SchoolClass ninth = new SchoolClass("Clasa a 9-a", null);
+
+    @Test
+    void changingItemsDropsTheStatsAndProgressCaches() {
+        when(quizRepository.findById(1L)).thenReturn(Optional.of(quiz));
+        when(itemRepository.save(any(QuizItem.class))).thenAnswer(i -> i.getArgument(0));
+
+        service.addItem(1L, new ItemRequest(QuizItemType.OPEN, 1, "deschis", 10, null, null));
+
+        verify(cacheEvictor).evictAll(CacheNames.QUIZ_STATS);
+        verify(cacheEvictor).evictAll(CacheNames.PROGRESS);
+    }
 
     @Test
     void createQuizWithoutClassIsForEveryone() {
