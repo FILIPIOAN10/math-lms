@@ -15,7 +15,7 @@ export function DashboardPage() {
       <div className="mx-auto max-w-2xl">
         <Card>
           <CardHeader>
-            <CardTitle className="text-2xl">Bine ai venit, {user.fullName}</CardTitle>
+            <CardTitle data-testid="welcome" className="text-2xl">Bine ai venit, {user.fullName}</CardTitle>
             <CardDescription>
               Ești autentificat ca <strong>{user.role}</strong> ({user.email})
             </CardDescription>
@@ -52,7 +52,7 @@ export function DashboardPage() {
                   </Link>
                 </>
               )}
-              <Button variant="outline" onClick={logout}>
+              <Button variant="outline" onClick={logout} data-testid="logout">
                 Logout
               </Button>
             </div>
