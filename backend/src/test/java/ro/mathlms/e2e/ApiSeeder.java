@@ -41,16 +41,44 @@ final class ApiSeeder {
     }
 
     void enroll(long classId, String studentEmail) {
-        long studentId = -1;
-        for (JsonNode student : send("GET", "/api/admin/users?role=STUDENT", null)) {
-            if (student.get("email").asText().equals(studentEmail)) {
-                studentId = student.get("id").asLong();
+        long studentId = userId("STUDENT", studentEmail);
+        send("POST", "/api/admin/classes/" + classId + "/enrollments", Map.of("studentId", studentId));
+    }
+
+    /** Admin: attaches the student to the parent account (the link the parent dashboard is built on). */
+    void linkParent(String studentEmail, String parentEmail) {
+        send("POST", "/api/admin/users/" + userId("STUDENT", studentEmail) + "/link-parent",
+                Map.of("parentId", userId("PARENT", parentEmail)));
+    }
+
+    private long userId(String role, String email) {
+        for (JsonNode user : send("GET", "/api/admin/users?role=" + role, null)) {
+            if (user.get("email").asText().equals(email)) {
+                return user.get("id").asLong();
             }
         }
-        if (studentId < 0) {
-            throw new IllegalStateException("No STUDENT account " + studentEmail);
+        throw new IllegalStateException("No " + role + " account " + email);
+    }
+
+    /**
+     * Student side: starts the quiz, picks {@code optionText} on its first single-choice item, and hands the
+     * attempt in. The open item stays unanswered, so the attempt ends SUBMITTED (waiting for the teacher).
+     */
+    long takeAndSubmit(long quizId, String optionText) {
+        JsonNode started = send("POST", "/api/quiz/quizzes/" + quizId + "/attempts", Map.of());
+        long attemptId = started.get("attemptId").asLong();
+        for (JsonNode item : started.get("quiz").get("items")) {
+            if (item.get("type").asText().equals("SINGLE_CHOICE")) {
+                for (JsonNode option : item.get("options")) {
+                    if (option.get("text").asText().equals(optionText)) {
+                        send("PUT", "/api/quiz/attempts/" + attemptId + "/responses/" + item.get("id").asLong(),
+                                Map.of("optionId", option.get("id").asLong()));
+                    }
+                }
+            }
         }
-        send("POST", "/api/admin/classes/" + classId + "/enrollments", Map.of("studentId", studentId));
+        send("POST", "/api/quiz/attempts/" + attemptId + "/submit", Map.of());
+        return attemptId;
     }
 
     /** A quiz for every student. */

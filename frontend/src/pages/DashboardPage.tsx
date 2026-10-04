@@ -33,6 +33,11 @@ export function DashboardPage() {
                   Testele mele
                 </Link>
               )}
+              {user.role === 'PARENT' && (
+                <Link to="/parent" data-testid="my-children" className={buttonVariants({ variant: 'default' })}>
+                  Copiii mei
+                </Link>
+              )}
               {user.role === 'ADMIN' && (
                 <>
                   <Link to="/admin/content" className={buttonVariants({ variant: 'secondary' })}>

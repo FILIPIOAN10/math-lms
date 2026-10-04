@@ -26,6 +26,7 @@ abstract class E2eBase {
     static final String PASSWORD = "Admin123!"; // seed password from docs/TESTING.md
     static final String ADMIN = "admin@mathlms.local";
     static final String STUDENT = "student.activ@mathlms.local";
+    static final String PARENT = "parinte@mathlms.local";
 
     protected WebDriver driver;
     protected WebDriverWait wait;

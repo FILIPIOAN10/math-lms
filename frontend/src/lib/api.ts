@@ -524,6 +524,29 @@ export interface AttemptResultViewDto {
   items: ItemResultDto[]
 }
 
+// ----- Parent (Phase 5): read-only view of one's own children -----
+
+export interface ChildDto {
+  id: number
+  fullName: string
+  email: string
+}
+
+export async function listMyChildren(): Promise<ChildDto[]> {
+  const response = await apiFetch('/parent/children')
+  return response.json()
+}
+
+export async function getChildAttempts(childId: number): Promise<MyAttemptDto[]> {
+  const response = await apiFetch(`/parent/children/${childId}/attempts`)
+  return response.json()
+}
+
+export async function getChildAttemptResult(childId: number, attemptId: number): Promise<AttemptResultViewDto> {
+  const response = await apiFetch(`/parent/children/${childId}/attempts/${attemptId}/result`)
+  return response.json()
+}
+
 export async function getStudentQuizzes(): Promise<QuizSummary[]> {
   const response = await apiFetch('/quiz/quizzes')
   return response.json()

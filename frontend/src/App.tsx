@@ -19,6 +19,9 @@ import { StudentQuizListPage } from '@/pages/StudentQuizListPage'
 import { TakeQuizPage } from '@/pages/TakeQuizPage'
 import { AttemptResultPage } from '@/pages/AttemptResultPage'
 import { AdminGradingPage } from '@/pages/AdminGradingPage'
+import { ParentChildrenPage } from '@/pages/ParentChildrenPage'
+import { ParentChildPage } from '@/pages/ParentChildPage'
+import { ParentAttemptResultPage } from '@/pages/ParentAttemptResultPage'
 
 function LoginRoute() {
   const { user, loading } = useAuth()
@@ -112,6 +115,30 @@ function App() {
             element={
               <RoleRoute role="STUDENT">
                 <AttemptResultPage />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/parent"
+            element={
+              <RoleRoute role="PARENT">
+                <ParentChildrenPage />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/parent/children/:childId"
+            element={
+              <RoleRoute role="PARENT">
+                <ParentChildPage />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/parent/children/:childId/attempts/:attemptId"
+            element={
+              <RoleRoute role="PARENT">
+                <ParentAttemptResultPage />
               </RoleRoute>
             }
           />
