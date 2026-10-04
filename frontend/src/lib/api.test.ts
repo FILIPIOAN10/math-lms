@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ApiError, createQuiz, listClasses, login, saveQuizAnswer, startQuizAttempt, uploadQuizPhoto } from '@/lib/api'
+import { ApiError, createQuiz, listClasses, login, revealQuizHint, saveQuizAnswer, startQuizAttempt, uploadQuizPhoto } from '@/lib/api'
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
@@ -143,6 +143,23 @@ describe('API client', () => {
       fetchMock.mockResolvedValueOnce(json(feedback))
 
       await expect(uploadQuizPhoto(5, 6, new File(['x'], 'p.jpg', { type: 'image/jpeg' }))).resolves.toEqual(feedback)
+    })
+  })
+
+  describe('hints', () => {
+    it('reveals hint N of an item with a PUT and returns it', async () => {
+      const hint = { number: 2, text: 'Imparte la coeficient', total: 3 }
+      fetchMock.mockResolvedValueOnce(json(hint))
+
+      await expect(revealQuizHint(50, 100, 2)).resolves.toEqual(hint)
+
+      expect(calls(fetchMock)).toEqual(['PUT /api/quiz/attempts/50/items/100/hints/2'])
+    })
+
+    it('surfaces the server refusal, e.g. hints asked for in a graded test', async () => {
+      fetchMock.mockResolvedValueOnce(new Response('Indiciile sunt disponibile doar în modul practică', { status: 400 }))
+
+      await expect(revealQuizHint(50, 100, 1)).rejects.toMatchObject({ status: 400 })
     })
   })
 })

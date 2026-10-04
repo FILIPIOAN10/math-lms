@@ -58,6 +58,10 @@ public class ItemResponse {
     @Column(name = "awarded_points")
     private Integer awardedPoints;
 
+    /** How many of the item's hints the student revealed (practice mode only; always 0 in a graded test). */
+    @Column(name = "hints_used", nullable = false)
+    private int hintsUsed;
+
     /** Whether the choice was right (SINGLE_CHOICE only); null until graded or for OPEN items. */
     @Column
     private Boolean correct;
@@ -83,6 +87,14 @@ public class ItemResponse {
         requireType(QuizItemType.OPEN);
         this.imageKey = requireNonBlank(imageKey, "imageKey");
         this.selectedOption = null;
+    }
+
+    /** Records that hint number {@code number} (1-based) was revealed; asking for an earlier one never lowers the count. */
+    public void revealHint(int number) {
+        if (number < 1) {
+            throw new IllegalArgumentException("hint numbers start at 1, was " + number);
+        }
+        this.hintsUsed = Math.max(this.hintsUsed, number);
     }
 
     /** Auto-grades a SINGLE_CHOICE response: correct answers earn the item's points, wrong ones zero. */

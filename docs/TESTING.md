@@ -196,6 +196,17 @@ de aceea e opt-in per quiz: bifeaz-o doar pentru materiale de exersare, nu pentr
 Verificare rapidă prin API (ca elev, cu cookie): practică → `PUT …/responses/…` răspunde `200 {"correct":false,"correctOptionId":…,"solution":"…"}`;
 test → `204` fără corp.
 
+### 11c. Indicii progresive + rezolvare explicată (E3) — `/admin/quizzes`, apoi practică
+**Ca admin:** în dialogul unui subiect (grilă sau deschis): **Indicii progresive** — până la 5 casete, „Adaugă indiciu”, × ca să ștergi; ordinea e cea afișată
+(de la vag la concret, LaTeX între `$…$`). Casetele goale se ignoră. Câmpul **Rezolvare explicată / Barem** există acum și pe grile (înainte doar pe cele deschise).
+**Ca elev, în practică** (`/quizzes/:id/take?mode=practice`, quiz cu „Permite practică”):
+- sub subiect: butonul **Vrei un indiciu? (0/3)** → apare „Indiciul 1 din 3”; apoi **Încă un indiciu (1/3)**…; la ultimul butonul dispare
+- indiciile vin **pe rând** (serverul refuză sărirea peste: `PUT …/items/{item}/hints/{n}` cu n > folosite+1 → 400 „Indiciile se dezvăluie pe rând”), nu costă puncte
+- reîncarci pagina → indiciile deja dezvăluite revin; **nu** apare niciun „răspuns” sau rezolvare doar pentru că ai cerut un indiciu
+- după ce răspunzi, apare rezolvarea explicată (ca la 11b); în rezultat: „Indicii folosite: 2 din 3” pe subiect și în total
+- **în testul notat** nu există indicii: ecranul nu primește nici numărul lor (`hintCount` = 0) și `PUT …/hints/1` pe o încercare de test → 400 „doar în modul practică”
+- ștergerea unui subiect/quiz șterge și indiciile lui; modificarea subiectului înlocuiește lista de indicii
+
 ### 12. Profesor — corectură (`/admin/grading`, ca admin)
 Buton pe Dashboard: **Corectură**.
 - „De corectat” → **Corectează** → grilele (corectate automat), poza elevului (click = mărime completă), baremul

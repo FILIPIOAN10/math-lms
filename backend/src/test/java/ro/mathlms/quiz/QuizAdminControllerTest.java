@@ -58,7 +58,7 @@ class QuizAdminControllerTest {
     @Test
     void addItemReturns201AndDelegates() {
         ItemRequest request = new ItemRequest(QuizItemType.OPEN, 1, "x", 10, null, null);
-        ItemDto dto = new ItemDto(1L, 1, QuizItemType.OPEN, "x", 10, null, List.of());
+        ItemDto dto = new ItemDto(1L, 1, QuizItemType.OPEN, "x", 10, null, List.of(), List.of());
         when(service.addItem(3L, request)).thenReturn(dto);
 
         ResponseEntity<ItemDto> response = controller.addItem(3L, request);

@@ -56,7 +56,7 @@ class QuizAttemptTimerServiceTest {
     private final ResultNotifier resultNotifier = mock(ResultNotifier.class);
     private final SettableClock clock = new SettableClock();
     private final QuizAttemptService service = new QuizAttemptService(
-            quizRepository, itemRepository, optionRepository, attemptRepository, responseRepository,
+            quizRepository, itemRepository, optionRepository, mock(QuizItemHintRepository.class), attemptRepository, responseRepository,
             userRepository, mock(EnrollmentRepository.class), mock(AfterCommitCacheEvictor.class),
             resultNotifier, fileService, clock, "uploads/quiz-photos");
 

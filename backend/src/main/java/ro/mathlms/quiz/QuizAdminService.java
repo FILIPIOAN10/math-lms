@@ -18,15 +18,17 @@ public class QuizAdminService {
     private final QuizRepository quizRepository;
     private final QuizItemRepository itemRepository;
     private final QuizOptionRepository optionRepository;
+    private final QuizItemHintRepository hintRepository;
     private final SchoolClassRepository schoolClassRepository;
     private final AfterCommitCacheEvictor cacheEvictor;
 
     public QuizAdminService(QuizRepository quizRepository, QuizItemRepository itemRepository,
-                            QuizOptionRepository optionRepository, SchoolClassRepository schoolClassRepository,
-                            AfterCommitCacheEvictor cacheEvictor) {
+                            QuizOptionRepository optionRepository, QuizItemHintRepository hintRepository,
+                            SchoolClassRepository schoolClassRepository, AfterCommitCacheEvictor cacheEvictor) {
         this.quizRepository = quizRepository;
         this.itemRepository = itemRepository;
         this.optionRepository = optionRepository;
+        this.hintRepository = hintRepository;
         this.schoolClassRepository = schoolClassRepository;
         this.cacheEvictor = cacheEvictor;
     }
@@ -51,7 +53,8 @@ public class QuizAdminService {
     public QuizDetailDto getQuizDetail(Long id) {
         Quiz quiz = getQuiz(id);
         List<ItemDto> items = itemRepository.findByQuizIdOrderByPosition(id).stream()
-                .map(item -> ItemDto.from(item, optionRepository.findByItemIdOrderByPosition(item.getId())))
+                .map(item -> ItemDto.from(item, optionRepository.findByItemIdOrderByPosition(item.getId()),
+                        hintRepository.findByItemIdOrderByPosition(item.getId())))
                 .toList();
         return QuizDetailDto.of(quiz, items);
     }
@@ -102,6 +105,7 @@ public class QuizAdminService {
         Quiz quiz = getQuiz(id);
         for (QuizItem item : itemRepository.findByQuizIdOrderByPosition(id)) {
             optionRepository.deleteByItemId(item.getId());
+            hintRepository.deleteByItemId(item.getId());
         }
         itemRepository.deleteAll(itemRepository.findByQuizIdOrderByPosition(id));
         quizRepository.delete(quiz);
@@ -118,12 +122,14 @@ public class QuizAdminService {
     @Transactional
     public ItemDto addItem(Long quizId, ItemRequest request) {
         Quiz quiz = getQuiz(quizId);
+        requireValidHints(request.hints()); // before anything is written
         QuizItem item = itemRepository.save(new QuizItem(
                 quiz, request.position(), request.type(), request.statement(),
                 request.points(), request.solution()));
         List<QuizOption> options = saveOptionsIfSingleChoice(item, request);
+        List<QuizItemHint> hints = saveHints(item, request.hints());
         dropScoreCaches();
-        return ItemDto.from(item, options);
+        return ItemDto.from(item, options, hints);
     }
 
     @Transactional
@@ -132,21 +138,49 @@ public class QuizAdminService {
         if (item.getType() != request.type()) {
             throw new InvalidQuizException("The item type cannot be changed");
         }
+        requireValidHints(request.hints());
         item.update(request.position(), request.statement(), request.points(), request.solution());
         itemRepository.save(item);
         // Replace options wholesale for a single-choice item.
         optionRepository.deleteByItemId(itemId);
         List<QuizOption> options = saveOptionsIfSingleChoice(item, request);
+        hintRepository.deleteByItemId(itemId); // hints are replaced wholesale too
+        List<QuizItemHint> hints = saveHints(item, request.hints());
         dropScoreCaches();
-        return ItemDto.from(item, options);
+        return ItemDto.from(item, options, hints);
     }
 
     @Transactional
     public void deleteItem(Long itemId) {
         QuizItem item = getItem(itemId);
         optionRepository.deleteByItemId(itemId);
+        hintRepository.deleteByItemId(itemId);
         itemRepository.delete(item);
         dropScoreCaches();
+    }
+
+    private static void requireValidHints(List<String> hints) {
+        if (hints == null) {
+            return;
+        }
+        if (hints.size() > QuizItem.MAX_HINTS) {
+            throw new InvalidQuizException("An item can have at most " + QuizItem.MAX_HINTS + " hints");
+        }
+        if (hints.stream().anyMatch(h -> h == null || h.isBlank())) {
+            throw new InvalidQuizException("A hint must not be blank");
+        }
+    }
+
+    /** Persists an item's (already validated) hints in the order given, numbered from 1. Null/empty = no hints. */
+    private List<QuizItemHint> saveHints(QuizItem item, List<String> hints) {
+        if (hints == null || hints.isEmpty()) {
+            return List.of();
+        }
+        List<QuizItemHint> saved = new java.util.ArrayList<>();
+        for (int i = 0; i < hints.size(); i++) {
+            saved.add(hintRepository.save(new QuizItemHint(item, i + 1, hints.get(i))));
+        }
+        return saved;
     }
 
     /**

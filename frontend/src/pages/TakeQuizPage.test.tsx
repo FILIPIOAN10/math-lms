@@ -3,18 +3,23 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { TakeQuizPage } from '@/pages/TakeQuizPage'
-import type { AnswerFeedback, AttemptMode, StartedAttemptDto } from '@/lib/api'
+import { ApiError, type AnswerFeedback, type AttemptMode, type StartedAttemptDto } from '@/lib/api'
 
 const api = vi.hoisted(() => ({
   startQuizAttempt: vi.fn(),
   saveQuizAnswer: vi.fn(),
   uploadQuizPhoto: vi.fn(),
   submitQuizAttempt: vi.fn(),
+  revealQuizHint: vi.fn(),
   getStudentQuizzes: vi.fn(),
 }))
 vi.mock('@/lib/api', async (importOriginal) => ({ ...(await importOriginal<typeof import('@/lib/api')>()), ...api }))
 
-function started(mode: AttemptMode, answers: StartedAttemptDto['answers'] = []): StartedAttemptDto {
+function started(
+  mode: AttemptMode,
+  answers: StartedAttemptDto['answers'] = [],
+  { hintCount = 0, revealed = [] as string[] } = {},
+): StartedAttemptDto {
   return {
     attemptId: 50,
     status: 'IN_PROGRESS',
@@ -22,6 +27,7 @@ function started(mode: AttemptMode, answers: StartedAttemptDto['answers'] = []):
     deadlineAt: null,
     serverNow: '2026-10-04T12:00:00Z',
     answers,
+    revealedHints: revealed.length > 0 ? [{ itemId: 100, hints: revealed }] : [],
     quiz: {
       id: 7,
       title: 'Simulare EN',
@@ -34,6 +40,7 @@ function started(mode: AttemptMode, answers: StartedAttemptDto['answers'] = []):
             { id: 1000, position: 0, text: 'Varianta A' },
             { id: 1001, position: 1, text: 'Varianta B' },
           ],
+          hintCount,
         },
       ],
     },
@@ -145,6 +152,83 @@ describe('TakeQuizPage', () => {
       expect(screen.queryByTestId('item-feedback')).not.toBeInTheDocument()
       expect(screen.queryByTestId('quiz-practice-banner')).not.toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'Trimite lucrarea' })).toBeInTheDocument()
+    })
+  })
+
+  describe('hints (practice only)', () => {
+    const hint = (number: number, text: string) => ({ number, text, total: 2 })
+
+    it('offers a hint button with the count, and reveals the hints one at a time', async () => {
+      api.startQuizAttempt.mockResolvedValue(started('PRACTICE', [], { hintCount: 2 }))
+      api.revealQuizHint.mockResolvedValueOnce(hint(1, 'Muta termenii')).mockResolvedValueOnce(hint(2, 'Imparte la coeficient'))
+      renderPage('?mode=practice')
+      await begin('Începe practica')
+      expect(screen.queryAllByTestId('hint')).toHaveLength(0)
+      expect(screen.getByTestId('hint-button')).toHaveTextContent('Vrei un indiciu? (0/2)')
+
+      await userEvent.click(screen.getByTestId('hint-button'))
+
+      expect(await screen.findByText('Muta termenii')).toBeInTheDocument()
+      expect(api.revealQuizHint).toHaveBeenLastCalledWith(50, 100, 1)
+      expect(screen.getByTestId('hint-button')).toHaveTextContent('Încă un indiciu (1/2)')
+
+      await userEvent.click(screen.getByTestId('hint-button'))
+
+      expect(await screen.findByText('Imparte la coeficient')).toBeInTheDocument()
+      expect(api.revealQuizHint).toHaveBeenLastCalledWith(50, 100, 2)
+      expect(screen.getAllByTestId('hint')).toHaveLength(2)
+      expect(screen.queryByTestId('hint-button')).not.toBeInTheDocument() // all revealed
+    })
+
+    it('restores the hints already revealed when a practice is resumed', async () => {
+      api.startQuizAttempt.mockResolvedValue(started('PRACTICE', [], { hintCount: 2, revealed: ['Muta termenii'] }))
+      renderPage('?mode=practice')
+
+      await begin('Începe practica')
+
+      expect(screen.getByText('Muta termenii')).toBeInTheDocument()
+      expect(screen.getByTestId('hint-button')).toHaveTextContent('Încă un indiciu (1/2)')
+    })
+
+    it('shows nothing for an item that has no hints', async () => {
+      api.startQuizAttempt.mockResolvedValue(started('PRACTICE', [], { hintCount: 0 }))
+      renderPage('?mode=practice')
+
+      await begin('Începe practica')
+
+      expect(screen.queryByTestId('item-hints')).not.toBeInTheDocument()
+    })
+
+    it('shows the server error and keeps the button when a hint cannot be revealed', async () => {
+      api.startQuizAttempt.mockResolvedValue(started('PRACTICE', [], { hintCount: 2 }))
+      api.revealQuizHint.mockRejectedValue(new ApiError(400, 'Indiciile se dezvăluie pe rând'))
+      renderPage('?mode=practice')
+      await begin('Începe practica')
+
+      await userEvent.click(screen.getByTestId('hint-button'))
+
+      expect(await screen.findByText(/Indiciile se dezvăluie pe rând/)).toBeInTheDocument()
+      expect(screen.getByTestId('hint-button')).toBeEnabled()
+    })
+
+    it('never shows a hint button in a graded test: its items report no hints', async () => {
+      api.startQuizAttempt.mockResolvedValue(started('TEST')) // hintCount 0 - the server hides hints in a test
+      api.getStudentQuizzes.mockResolvedValue([])
+      renderPage('')
+
+      await begin('Începe testul')
+
+      expect(screen.queryByTestId('item-hints')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('hint-button')).not.toBeInTheDocument()
+    })
+
+    it('does not show hints in a test even if a (buggy) response carried a hint count', async () => {
+      api.startQuizAttempt.mockResolvedValue(started('TEST', [], { hintCount: 3 }))
+      renderPage('')
+
+      await begin('Începe testul')
+
+      expect(screen.queryByTestId('hint-button')).not.toBeInTheDocument() // the page itself also gates on practice mode
     })
   })
 })

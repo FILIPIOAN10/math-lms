@@ -155,12 +155,14 @@ function QuizDialog({
 
 // ---------- Item create/edit dialog ----------
 
+const MAX_HINTS = 5 // matches QuizItem.MAX_HINTS on the server
+
 interface OptionDraft {
   text: string
   correct: boolean
 }
 
-function ItemDialog({
+export function ItemDialog({
   open,
   onClose,
   initial,
@@ -175,6 +177,7 @@ function ItemDialog({
   const [statement, setStatement] = useState(initial?.statement ?? '')
   const [points, setPoints] = useState(String(initial?.points ?? 5))
   const [solution, setSolution] = useState(initial?.solution ?? '')
+  const [hints, setHints] = useState<string[]>(initial?.hints ?? [])
   const [options, setOptions] = useState<OptionDraft[]>(
     initial && initial.options.length > 0
       ? initial.options.map((o) => ({ text: o.text, correct: o.correct }))
@@ -197,6 +200,13 @@ function ItemDialog({
   function addOption() {
     setOptions((prev) => [...prev, { text: '', correct: false }])
   }
+  function setHintText(index: number, text: string) {
+    setHints((prev) => prev.map((h, i) => (i === index ? text : h)))
+  }
+  function removeHint(index: number) {
+    setHints((prev) => prev.filter((_, i) => i !== index))
+  }
+
   function removeOption(index: number) {
     setOptions((prev) => (prev.length <= 2 ? prev : prev.filter((_, i) => i !== index)))
   }
@@ -219,11 +229,12 @@ function ItemDialog({
       position: initial?.position ?? 0,
       statement: statement.trim(),
       points: Number(points) || 0,
-      solution: type === 'OPEN' ? solution.trim() || null : null,
+      solution: solution.trim() || null,
       options:
         type === 'SINGLE_CHOICE'
           ? options.map((o, i) => ({ position: i, text: o.text.trim(), correct: o.correct }))
           : null,
+      hints: hints.map((h) => h.trim()).filter((h) => h !== ''), // an empty box is just dropped
     }
     setBusy(true)
     try {
@@ -294,12 +305,48 @@ function ItemDialog({
               Adaugă variantă
             </Button>
           </div>
-        ) : (
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="isolution">Barem / răspuns corect (opțional)</Label>
-            <Textarea id="isolution" value={solution} onChange={(e) => setSolution(e.target.value)} />
-          </div>
-        )}
+        ) : null}
+
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="isolution">
+            {type === 'OPEN' ? 'Barem / rezolvare (opțional)' : 'Rezolvare explicată (opțional)'}
+          </Label>
+          <Textarea id="isolution" value={solution} onChange={(e) => setSolution(e.target.value)} />
+          <p className="text-xs text-muted-foreground">
+            Elevul o vede după trimitere (în rezultat) și, în modul practică, imediat după ce răspunde.
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-2" data-testid="hints-editor">
+          <Label>Indicii progresive (opțional, maxim {MAX_HINTS})</Label>
+          {hints.map((h, i) => (
+            <div key={i} className="flex items-start gap-2">
+              <span className="mt-2 w-5 text-xs text-muted-foreground">{i + 1}.</span>
+              <Textarea
+                value={h}
+                onChange={(e) => setHintText(i, e.target.value)}
+                placeholder={`Indiciul ${i + 1} — de la vag la concret`}
+                aria-label={`Indiciul ${i + 1}`}
+              />
+              <Button type="button" variant="ghost" size="icon-sm" onClick={() => removeHint(i)} aria-label={`Șterge indiciul ${i + 1}`}>
+                ×
+              </Button>
+            </div>
+          ))}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="self-start"
+            disabled={hints.length >= MAX_HINTS}
+            onClick={() => setHints((prev) => [...prev, ''])}
+          >
+            Adaugă indiciu
+          </Button>
+          <p className="text-xs text-muted-foreground">
+            Apar doar în modul practică, unul câte unul, în ordinea de mai sus. Testul notat nu are indicii.
+          </p>
+        </div>
 
         {error && <p className="text-sm text-destructive">{error}</p>}
         <div className="flex justify-end gap-2">

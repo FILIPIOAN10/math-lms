@@ -13,6 +13,8 @@ import ro.mathlms.quiz.AdminAttemptDtos.AdminAttemptSummaryDto;
 import ro.mathlms.quiz.AdminAttemptDtos.AdminItemReviewDto;
 import ro.mathlms.quiz.StudentQuizDtos.AnswerFeedbackDto;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultDto;
+import ro.mathlms.quiz.StudentQuizDtos.HintDto;
+import ro.mathlms.quiz.StudentQuizDtos.RevealedHintsDto;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultViewDto;
 import ro.mathlms.quiz.StudentQuizDtos.ItemResultDto;
 import ro.mathlms.quiz.StudentQuizDtos.MyAttemptDto;
@@ -50,6 +52,7 @@ public class QuizAttemptService {
     private final QuizRepository quizRepository;
     private final QuizItemRepository itemRepository;
     private final QuizOptionRepository optionRepository;
+    private final QuizItemHintRepository hintRepository;
     private final QuizAttemptRepository attemptRepository;
     private final ItemResponseRepository responseRepository;
     private final UserRepository userRepository;
@@ -67,7 +70,8 @@ public class QuizAttemptService {
     static final Duration SUBMIT_GRACE = Duration.ofSeconds(30);
 
     public QuizAttemptService(QuizRepository quizRepository, QuizItemRepository itemRepository,
-                              QuizOptionRepository optionRepository, QuizAttemptRepository attemptRepository,
+                              QuizOptionRepository optionRepository, QuizItemHintRepository hintRepository,
+                              QuizAttemptRepository attemptRepository,
                               ItemResponseRepository responseRepository, UserRepository userRepository,
                               EnrollmentRepository enrollmentRepository, AfterCommitCacheEvictor cacheEvictor,
                               ResultNotifier resultNotifier, FileService fileService, Clock clock,
@@ -75,6 +79,7 @@ public class QuizAttemptService {
         this.quizRepository = quizRepository;
         this.itemRepository = itemRepository;
         this.optionRepository = optionRepository;
+        this.hintRepository = hintRepository;
         this.attemptRepository = attemptRepository;
         this.responseRepository = responseRepository;
         this.userRepository = userRepository;
@@ -138,13 +143,20 @@ public class QuizAttemptService {
             open = Optional.empty();
         }
         QuizAttempt attempt = open.orElseGet(() -> attemptRepository.save(new QuizAttempt(quiz, student, Instant.now(clock), mode)));
-        List<SavedAnswerDto> answers = responseRepository.findByAttemptId(attempt.getId()).stream()
+        List<ItemResponse> responses = responseRepository.findByAttemptId(attempt.getId());
+        // A row that exists only because the student asked for a hint is not an answer: it must not come back as one
+        // (its "feedback" would hand over the solution of a question they have not tried).
+        List<SavedAnswerDto> answers = responses.stream()
+                .filter(response -> response.getSelectedOption() != null || response.getImageKey() != null)
                 .map(response -> attempt.getMode() == AttemptMode.PRACTICE
                         ? SavedAnswerDto.from(response, feedbackFor(response.getItem(), response))
                         : SavedAnswerDto.from(response))
                 .toList();
-        return new StartedAttemptDto(attempt.getId(), attempt.getStatus(), studentQuiz(quiz), answers,
-                attempt.getDeadlineAt(), Instant.now(clock), attempt.getMode());
+        List<RevealedHintsDto> revealedHints = attempt.getMode() == AttemptMode.PRACTICE
+                ? revealedHints(responses)
+                : List.of();
+        return new StartedAttemptDto(attempt.getId(), attempt.getStatus(), studentQuiz(quiz, attempt.getMode()), answers,
+                attempt.getDeadlineAt(), Instant.now(clock), attempt.getMode(), revealedHints);
     }
 
     /** The student's own attempts, newest first — the "Încercările mele" list. */
@@ -350,6 +362,8 @@ public class QuizAttemptService {
         Map<Long, ItemResponse> byItem = responseRepository.findByAttemptId(attemptId).stream()
                 .collect(Collectors.toMap(r -> r.getItem().getId(), Function.identity()));
 
+        Map<Long, Integer> hintCounts = attempt.getMode() == AttemptMode.PRACTICE
+                ? hintCounts(attempt.getQuiz().getId()) : Map.of();
         int maxScore = 0;
         List<ItemResultDto> itemResults = new ArrayList<>();
         for (QuizItem item : items) {
@@ -372,15 +386,20 @@ public class QuizAttemptService {
                     item.getPosition(), item.getType(), item.getStatement(), item.getPoints(),
                     response == null ? null : response.getAwardedPoints(),
                     response == null ? null : response.getCorrect(),
-                    selectedText, correctText, item.getSolution(), photoUploaded));
+                    selectedText, correctText, item.getSolution(), photoUploaded,
+                    response == null ? 0 : response.getHintsUsed(),
+                    hintCounts.getOrDefault(item.getId(), 0)));
         }
         return new AttemptResultViewDto(attempt.getId(), attempt.getQuiz().getTitle(),
                 attempt.getStatus(), attempt.getScore(), maxScore, itemResults, attempt.getMode());
     }
 
-    private StudentQuizDto studentQuiz(Quiz quiz) {
+    /** The quiz as the student sees it; hint counts only exist in a practice - a graded test hides even that. */
+    private StudentQuizDto studentQuiz(Quiz quiz, AttemptMode mode) {
+        Map<Long, Integer> hintCounts = mode == AttemptMode.PRACTICE ? hintCounts(quiz.getId()) : Map.of();
         List<StudentItemDto> items = itemRepository.findByQuizIdOrderByPosition(quiz.getId()).stream()
-                .map(item -> StudentItemDto.from(item, optionRepository.findByItemIdOrderByPosition(item.getId())))
+                .map(item -> StudentItemDto.from(item, optionRepository.findByItemIdOrderByPosition(item.getId()),
+                        hintCounts.getOrDefault(item.getId(), 0)))
                 .toList();
         return StudentQuizDto.of(quiz, items);
     }
@@ -395,6 +414,53 @@ public class QuizAttemptService {
             throw new InvalidQuizException("This attempt is no longer in progress");
         }
         return attempt;
+    }
+
+    /**
+     * Reveals hint {@code number} (1-based) of an item to a student PRACTISING. Hints come one at a time and in order
+     * (asking again for one already shown just returns it), cost nothing, and the furthest one reached is recorded on the
+     * student's response. A graded test never gives hints.
+     */
+    @Transactional
+    public HintDto revealHint(Long attemptId, Long itemId, int number, String studentEmail) {
+        QuizAttempt attempt = requireOwnedInProgress(attemptId, studentEmail);
+        if (attempt.getMode() != AttemptMode.PRACTICE) {
+            throw new InvalidQuizException("Indiciile sunt disponibile doar în modul practică");
+        }
+        QuizItem item = itemRepository.findById(itemId)
+                .orElseThrow(() -> new QuizNotFoundException("QuizItem", itemId));
+        if (!item.getQuiz().getId().equals(attempt.getQuiz().getId())) {
+            throw new InvalidQuizException("Item does not belong to this quiz");
+        }
+        List<QuizItemHint> hints = hintRepository.findByItemIdOrderByPosition(itemId);
+        if (number < 1 || number > hints.size()) {
+            throw new InvalidQuizException("Nu există acest indiciu");
+        }
+        ItemResponse response = responseRepository.findByAttemptIdAndItemId(attemptId, itemId)
+                .orElseGet(() -> new ItemResponse(attempt, item));
+        if (number > response.getHintsUsed() + 1) {
+            throw new InvalidQuizException("Indiciile se dezvăluie pe rând");
+        }
+        response.revealHint(number);
+        responseRepository.save(response);
+        return new HintDto(number, hints.get(number - 1).getText(), hints.size());
+    }
+
+    private Map<Long, Integer> hintCounts(Long quizId) {
+        return hintRepository.countsByQuizId(quizId).stream()
+                .collect(Collectors.toMap(HintCount::itemId, count -> count.total().intValue()));
+    }
+
+    /** The hints a practice has already revealed, per item, so a reloaded page shows them again. */
+    private List<RevealedHintsDto> revealedHints(List<ItemResponse> responses) {
+        return responses.stream()
+                .filter(response -> response.getHintsUsed() > 0)
+                .map(response -> new RevealedHintsDto(response.getItem().getId(),
+                        hintRepository.findByItemIdOrderByPosition(response.getItem().getId()).stream()
+                                .limit(response.getHintsUsed())
+                                .map(QuizItemHint::getText)
+                                .toList()))
+                .toList();
     }
 
     /** What a PRACTICE answer reveals: the verdict (SINGLE_CHOICE), the right option's id and the barem. */

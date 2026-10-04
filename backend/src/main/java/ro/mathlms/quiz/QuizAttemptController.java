@@ -16,6 +16,7 @@ import ro.mathlms.quiz.QuizDtos.QuizSummaryDto;
 import ro.mathlms.quiz.StudentQuizDtos.AnswerFeedbackDto;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultDto;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultViewDto;
+import ro.mathlms.quiz.StudentQuizDtos.HintDto;
 import ro.mathlms.quiz.StudentQuizDtos.ProgressPointDto;
 import ro.mathlms.quiz.StudentQuizDtos.MyAttemptDto;
 import ro.mathlms.quiz.StudentQuizDtos.StartedAttemptDto;
@@ -76,6 +77,13 @@ public class QuizAttemptController {
     /** 200 + feedback in a practice, 204 (nothing revealed) in a graded test. */
     private static ResponseEntity<AnswerFeedbackDto> feedbackOrNoContent(Optional<AnswerFeedbackDto> feedback) {
         return feedback.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.noContent().build());
+    }
+
+    /** Reveals hint {@code number} (1-based) of an item - practice only, in order; idempotent per number. */
+    @PutMapping("/api/quiz/attempts/{attemptId}/items/{itemId}/hints/{number}")
+    public HintDto hint(@PathVariable Long attemptId, @PathVariable Long itemId, @PathVariable int number,
+                        Authentication auth) {
+        return service.revealHint(attemptId, itemId, number, auth.getName());
     }
 
     @PostMapping("/api/quiz/attempts/{attemptId}/submit")

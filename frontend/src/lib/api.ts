@@ -372,6 +372,8 @@ export interface QuizItemDto {
   points: number
   solution: string | null
   options: QuizOptionDto[]
+  /** Progressive hints in order (practice mode shows them to students one at a time). */
+  hints: string[]
 }
 
 export interface QuizDetail {
@@ -395,6 +397,8 @@ export interface ItemInput {
   points: number
   solution: string | null
   options: OptionInput[] | null
+  /** Up to 5 hints, in order; empty = none. */
+  hints: string[]
 }
 
 export async function listQuizzes(): Promise<QuizSummary[]> {
@@ -501,6 +505,8 @@ export interface StudentItemDto {
   statement: string
   points: number
   options: StudentOptionDto[]
+  /** Hints this item has - only ever above 0 in a practice; a graded test hides even their existence. */
+  hintCount: number
 }
 
 export interface StudentQuizDetailDto {
@@ -531,6 +537,19 @@ export interface SavedAnswerDto {
   feedback: AnswerFeedback | null
 }
 
+/** One revealed hint: its 1-based number, its text and how many hints the item has in all. */
+export interface HintDto {
+  number: number
+  text: string
+  total: number
+}
+
+/** The hints a resumed practice has already revealed for one item, in order. */
+export interface RevealedHintsDto {
+  itemId: number
+  hints: string[]
+}
+
 export interface StartedAttemptDto {
   attemptId: number
   status: QuizAttemptStatus
@@ -541,6 +560,8 @@ export interface StartedAttemptDto {
   /** The server's clock at the moment it answered — the countdown is measured from this, not from the browser's clock. */
   serverNow: string
   mode: AttemptMode
+  /** Practice only; empty in a graded test. */
+  revealedHints: RevealedHintsDto[]
 }
 
 export interface SubmitResultDto {
@@ -584,6 +605,9 @@ export interface ItemResultDto {
   correctOptionText: string | null
   barem: string | null
   photoUploaded: boolean
+  /** Practice only (0 in a graded test). */
+  hintsUsed: number
+  hintsAvailable: number
 }
 
 export interface AttemptResultViewDto {
@@ -668,6 +692,12 @@ export async function uploadQuizPhoto(attemptId: number, itemId: number, file: F
       body: formData,
     }),
   )
+}
+
+/** Reveals hint `number` (1-based) of an item - practice only, in order; asking again for one already shown is harmless. */
+export async function revealQuizHint(attemptId: number, itemId: number, number: number): Promise<HintDto> {
+  const response = await putJson(`/quiz/attempts/${attemptId}/items/${itemId}/hints/${number}`, {})
+  return response.json()
 }
 
 export async function submitQuizAttempt(attemptId: number): Promise<SubmitResultDto> {

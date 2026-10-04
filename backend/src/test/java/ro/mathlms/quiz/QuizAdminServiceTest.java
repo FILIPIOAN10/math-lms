@@ -1,6 +1,7 @@
 package ro.mathlms.quiz;
 
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import ro.mathlms.cache.AfterCommitCacheEvictor;
 import ro.mathlms.cache.CacheNames;
 import ro.mathlms.content.SchoolClass;
@@ -23,10 +24,11 @@ class QuizAdminServiceTest {
     private final QuizRepository quizRepository = mock(QuizRepository.class);
     private final QuizItemRepository itemRepository = mock(QuizItemRepository.class);
     private final QuizOptionRepository optionRepository = mock(QuizOptionRepository.class);
+    private final QuizItemHintRepository hintRepository = mock(QuizItemHintRepository.class);
     private final SchoolClassRepository schoolClassRepository = mock(SchoolClassRepository.class);
     private final AfterCommitCacheEvictor cacheEvictor = mock(AfterCommitCacheEvictor.class);
     private final QuizAdminService service =
-            new QuizAdminService(quizRepository, itemRepository, optionRepository, schoolClassRepository, cacheEvictor);
+            new QuizAdminService(quizRepository, itemRepository, optionRepository, hintRepository, schoolClassRepository, cacheEvictor);
 
     private final Quiz quiz = new Quiz("Simulare EN", null);
     private final SchoolClass ninth = new SchoolClass("Clasa a 9-a", null);
@@ -212,5 +214,82 @@ class QuizAdminServiceTest {
 
         assertThat(service.updateQuiz(1L, "Nou", "d", null, null, true).isPracticeAllowed()).isTrue();
         assertThat(service.updateQuiz(1L, "Nou", "d", null, null, false).isPracticeAllowed()).isFalse();
+    }
+
+    // --- E3 hints ---
+
+    private ItemRequest openWithHints(List<String> hints) {
+        return new ItemRequest(QuizItemType.OPEN, 1, "deschis", 10, null, null, hints);
+    }
+
+    @Test
+    void anItemsHintsAreStoredInTheOrderGivenWithPositionsFromOne() {
+        when(quizRepository.findById(1L)).thenReturn(Optional.of(quiz));
+        when(itemRepository.save(any(QuizItem.class))).thenAnswer(i -> i.getArgument(0));
+        when(hintRepository.save(any(QuizItemHint.class))).thenAnswer(i -> i.getArgument(0));
+
+        ItemDto dto = service.addItem(1L, openWithHints(List.of("primul", "al doilea")));
+
+        ArgumentCaptor<QuizItemHint> saved = ArgumentCaptor.forClass(QuizItemHint.class);
+        verify(hintRepository, org.mockito.Mockito.times(2)).save(saved.capture());
+        assertThat(saved.getAllValues()).extracting(QuizItemHint::getPosition).containsExactly(1, 2);
+        assertThat(saved.getAllValues()).extracting(QuizItemHint::getText).containsExactly("primul", "al doilea");
+        assertThat(dto.hints()).containsExactly("primul", "al doilea");
+    }
+
+    @Test
+    void anItemWithoutHintsStoresNone() {
+        when(quizRepository.findById(1L)).thenReturn(Optional.of(quiz));
+        when(itemRepository.save(any(QuizItem.class))).thenAnswer(i -> i.getArgument(0));
+
+        ItemDto dto = service.addItem(1L, new ItemRequest(QuizItemType.OPEN, 1, "deschis", 10, null, null));
+
+        assertThat(dto.hints()).isEmpty();
+        verify(hintRepository, never()).save(any());
+    }
+
+    @Test
+    void moreThanFiveHintsAreRejectedAndNothingIsSaved() {
+        when(quizRepository.findById(1L)).thenReturn(Optional.of(quiz));
+
+        assertThatThrownBy(() -> service.addItem(1L, openWithHints(List.of("1", "2", "3", "4", "5", "6"))))
+                .isInstanceOf(InvalidQuizException.class);
+
+        verify(itemRepository, never()).save(any());
+        verify(hintRepository, never()).save(any());
+    }
+
+    @Test
+    void aBlankHintIsRejected() {
+        when(quizRepository.findById(1L)).thenReturn(Optional.of(quiz));
+
+        assertThatThrownBy(() -> service.addItem(1L, openWithHints(List.of("bun", "  "))))
+                .isInstanceOf(InvalidQuizException.class);
+
+        verify(hintRepository, never()).save(any());
+    }
+
+    @Test
+    void updatingAnItemReplacesItsHintsWholesale() {
+        QuizItem existing = new QuizItem(quiz, 1, QuizItemType.OPEN, "deschis", 10, null);
+        when(itemRepository.findById(9L)).thenReturn(Optional.of(existing));
+        when(hintRepository.save(any(QuizItemHint.class))).thenAnswer(i -> i.getArgument(0));
+
+        ItemDto dto = service.updateItem(9L, openWithHints(List.of("nou")));
+
+        verify(hintRepository).deleteByItemId(any());
+        assertThat(dto.hints()).containsExactly("nou");
+    }
+
+    @Test
+    void deletingAnItemDeletesItsHintsFirst() {
+        QuizItem existing = new QuizItem(quiz, 1, QuizItemType.OPEN, "deschis", 10, null);
+        when(itemRepository.findById(9L)).thenReturn(Optional.of(existing));
+
+        service.deleteItem(9L);
+
+        org.mockito.InOrder order = org.mockito.Mockito.inOrder(hintRepository, itemRepository);
+        order.verify(hintRepository).deleteByItemId(any());
+        order.verify(itemRepository).delete(existing);
     }
 }

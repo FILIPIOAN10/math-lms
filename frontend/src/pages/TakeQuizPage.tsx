@@ -6,6 +6,7 @@ import { MathContent } from '@/components/MathContent'
 import {
   ApiError,
   getStudentQuizzes,
+  revealQuizHint,
   saveQuizAnswer,
   startQuizAttempt,
   submitQuizAttempt,
@@ -47,6 +48,8 @@ export function TakeQuizPage() {
   const [selected, setSelected] = useState<Record<number, number>>({})
   const [photos, setPhotos] = useState<Record<number, boolean>>({})
   const [feedback, setFeedback] = useState<Record<number, AnswerFeedback | undefined>>({}) // practice only
+  const [hints, setHints] = useState<Record<number, string[]>>({}) // itemId -> hints revealed so far (practice only)
+  const [hintBusy, setHintBusy] = useState<Record<number, boolean>>({})
   const [saving, setSaving] = useState<Record<number, boolean>>({})
   const [itemErrors, setItemErrors] = useState<Record<number, string | undefined>>({})
   const [starting, setStarting] = useState(false)
@@ -137,6 +140,7 @@ export function TakeQuizPage() {
       setSelected(restoredChoices)
       setPhotos(restoredPhotos)
       setFeedback(restoredFeedback)
+      setHints(Object.fromEntries(data.revealedHints.map((r) => [r.itemId, r.hints])))
       setReceivedAt(Date.now())
       setNow(Date.now())
       setAttempt(data)
@@ -144,6 +148,25 @@ export function TakeQuizPage() {
       setError(errorMessage(e))
     } finally {
       setStarting(false)
+    }
+  }
+
+  /** Asks the server for hint `number` of an item (practice only); it keeps the order and records the usage. */
+  async function askHint(itemId: number, number: number) {
+    if (!attempt) return
+    setItemError(itemId, undefined)
+    setHintBusy((s) => ({ ...s, [itemId]: true }))
+    try {
+      const hint = await revealQuizHint(attempt.attemptId, itemId, number)
+      setHints((s) => {
+        const next = [...(s[itemId] ?? [])]
+        next[hint.number - 1] = hint.text
+        return { ...s, [itemId]: next }
+      })
+    } catch (e) {
+      setItemError(itemId, errorMessage(e))
+    } finally {
+      setHintBusy((s) => ({ ...s, [itemId]: false }))
     }
   }
 
@@ -370,6 +393,36 @@ export function TakeQuizPage() {
                       <p className="text-xs font-medium text-muted-foreground">Barem — compară-l cu rezolvarea ta</p>
                       <MathContent>{feedback[item.id]!.solution!}</MathContent>
                     </div>
+                  )}
+                </div>
+              )}
+
+              {practice && item.hintCount > 0 && (
+                <div data-testid="item-hints" className="space-y-2">
+                  {(hints[item.id] ?? []).map((text, i) => (
+                    <div
+                      key={i}
+                      data-testid="hint"
+                      className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm"
+                    >
+                      <p className="text-xs font-medium text-amber-800 dark:text-amber-200">
+                        Indiciul {i + 1} din {item.hintCount}
+                      </p>
+                      <MathContent>{text}</MathContent>
+                    </div>
+                  ))}
+                  {(hints[item.id] ?? []).length < item.hintCount && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      data-testid="hint-button"
+                      disabled={hintBusy[item.id]}
+                      onClick={() => askHint(item.id, (hints[item.id] ?? []).length + 1)}
+                    >
+                      {(hints[item.id] ?? []).length === 0 ? 'Vrei un indiciu?' : 'Încă un indiciu'} (
+                      {(hints[item.id] ?? []).length}/{item.hintCount})
+                    </Button>
                   )}
                 </div>
               )}

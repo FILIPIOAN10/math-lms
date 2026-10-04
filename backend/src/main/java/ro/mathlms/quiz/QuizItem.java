@@ -53,6 +53,9 @@ public class QuizItem {
     @Column(columnDefinition = "TEXT")
     private String solution;
 
+    /** The most hints one item may carry. */
+    public static final int MAX_HINTS = 5;
+
     public QuizItem(Quiz quiz, int position, QuizItemType type, String statement,
                     int points, String solution) {
         this.quiz = Objects.requireNonNull(quiz, "quiz");

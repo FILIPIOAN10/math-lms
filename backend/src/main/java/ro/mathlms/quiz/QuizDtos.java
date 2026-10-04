@@ -38,9 +38,10 @@ public final class QuizDtos {
             String statement,
             int points,
             String solution,
-            List<OptionDto> options
+            List<OptionDto> options,
+            List<String> hints // progressive hints in order (the builder view; students get them one at a time)
     ) {
-        public static ItemDto from(QuizItem item, List<QuizOption> options) {
+        public static ItemDto from(QuizItem item, List<QuizOption> options, List<QuizItemHint> hints) {
             return new ItemDto(
                     item.getId(),
                     item.getPosition(),
@@ -48,7 +49,8 @@ public final class QuizDtos {
                     item.getStatement(),
                     item.getPoints(),
                     item.getSolution(),
-                    options.stream().map(OptionDto::from).toList());
+                    options.stream().map(OptionDto::from).toList(),
+                    hints.stream().map(QuizItemHint::getText).toList());
         }
     }
 

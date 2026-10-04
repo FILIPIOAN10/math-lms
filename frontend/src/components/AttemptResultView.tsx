@@ -26,6 +26,11 @@ function ItemResult({ item, index, audience }: { item: ItemResultDto; index: num
           <span className="text-sm text-muted-foreground">{points}</span>
         </div>
         <MathContent>{item.statement}</MathContent>
+        {item.hintsAvailable > 0 && (
+          <p data-testid="hints-used" className="text-xs text-muted-foreground">
+            Indicii folosite: {item.hintsUsed} din {item.hintsAvailable}
+          </p>
+        )}
 
         {item.type === 'SINGLE_CHOICE' ? (
           <div className="space-y-1 text-sm">
@@ -82,6 +87,8 @@ export function AttemptResultView({ result, audience = 'student' }: { result: At
   const practice = result.mode === 'PRACTICE'
   const choiceItems = result.items.filter((i) => i.type === 'SINGLE_CHOICE')
   const choiceCorrect = choiceItems.filter((i) => i.correct).length
+  const hintsUsed = result.items.reduce((sum, i) => sum + i.hintsUsed, 0)
+  const hintsAvailable = result.items.reduce((sum, i) => sum + i.hintsAvailable, 0)
 
   return (
     <>
@@ -95,6 +102,7 @@ export function AttemptResultView({ result, audience = 'student' }: { result: At
             <p data-testid="result-practice" className="text-sm text-muted-foreground">
               Sesiune de practică — fără notă și fără efect asupra progresului.
               {choiceItems.length > 0 && ` Grile corecte: ${choiceCorrect} din ${choiceItems.length}.`}
+              {hintsAvailable > 0 && ` Indicii folosite: ${hintsUsed} din ${hintsAvailable}.`}
             </p>
           ) : result.status === 'GRADED' ? (
             <p data-testid="result-score" className="text-3xl font-semibold">

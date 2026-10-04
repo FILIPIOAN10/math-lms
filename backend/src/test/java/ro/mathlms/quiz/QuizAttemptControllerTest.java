@@ -10,6 +10,7 @@ import org.springframework.web.multipart.MultipartFile;
 import ro.mathlms.quiz.QuizDtos.QuizSummaryDto;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultDto;
 import ro.mathlms.quiz.StudentQuizDtos.AnswerFeedbackDto;
+import ro.mathlms.quiz.StudentQuizDtos.HintDto;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultViewDto;
 import ro.mathlms.quiz.StudentQuizDtos.MyAttemptDto;
 import ro.mathlms.quiz.StudentQuizDtos.StartedAttemptDto;
@@ -53,7 +54,7 @@ class QuizAttemptControllerTest {
 
     @Test
     void startDelegatesWithPrincipalEmail() {
-        StartedAttemptDto dto = new StartedAttemptDto(50L, QuizAttemptStatus.IN_PROGRESS, null, List.of(), null, null, AttemptMode.TEST);
+        StartedAttemptDto dto = new StartedAttemptDto(50L, QuizAttemptStatus.IN_PROGRESS, null, List.of(), null, null, AttemptMode.TEST, List.of());
         when(service.startAttempt(10L, "elev@scoala.ro", AttemptMode.TEST)).thenReturn(dto);
 
         assertThat(controller.start(10L, AttemptMode.TEST, auth)).isEqualTo(dto);
@@ -61,7 +62,7 @@ class QuizAttemptControllerTest {
 
     @Test
     void startPassesThePracticeModeThrough() {
-        StartedAttemptDto dto = new StartedAttemptDto(51L, QuizAttemptStatus.IN_PROGRESS, null, List.of(), null, null, AttemptMode.PRACTICE);
+        StartedAttemptDto dto = new StartedAttemptDto(51L, QuizAttemptStatus.IN_PROGRESS, null, List.of(), null, null, AttemptMode.PRACTICE, List.of());
         when(service.startAttempt(10L, "elev@scoala.ro", AttemptMode.PRACTICE)).thenReturn(dto);
 
         assertThat(controller.start(10L, AttemptMode.PRACTICE, auth)).isEqualTo(dto);
@@ -124,5 +125,13 @@ class QuizAttemptControllerTest {
         when(service.submit(50L, "elev@scoala.ro")).thenReturn(dto);
 
         assertThat(controller.submit(50L, auth)).isEqualTo(dto);
+    }
+
+    @Test
+    void hintDelegatesWithPrincipalEmail() {
+        HintDto hint = new HintDto(1, "indiciul 1", 3);
+        when(service.revealHint(50L, 100L, 1, "elev@scoala.ro")).thenReturn(hint);
+
+        assertThat(controller.hint(50L, 100L, 1, auth)).isEqualTo(hint);
     }
 }

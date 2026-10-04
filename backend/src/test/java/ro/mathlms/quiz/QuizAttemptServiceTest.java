@@ -47,7 +47,7 @@ class QuizAttemptServiceTest {
     private final ResultNotifier resultNotifier = mock(ResultNotifier.class);
     private final QuizAttemptService service = new QuizAttemptService(
             quizRepository, itemRepository, optionRepository,
-            attemptRepository, responseRepository, userRepository,
+            mock(QuizItemHintRepository.class), attemptRepository, responseRepository, userRepository,
             enrollmentRepository, cacheEvictor, resultNotifier, fileService, java.time.Clock.systemUTC(), "uploads/quiz-photos");
 
     private static final String EMAIL = "elev@scoala.ro";

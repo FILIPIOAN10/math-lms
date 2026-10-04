@@ -43,7 +43,7 @@ class QuizAttemptPracticeServiceTest {
     private final AfterCommitCacheEvictor cacheEvictor = mock(AfterCommitCacheEvictor.class);
     private final ResultNotifier resultNotifier = mock(ResultNotifier.class);
     private final QuizAttemptService service = new QuizAttemptService(
-            quizRepository, itemRepository, optionRepository, attemptRepository, responseRepository,
+            quizRepository, itemRepository, optionRepository, mock(QuizItemHintRepository.class), attemptRepository, responseRepository,
             userRepository, mock(EnrollmentRepository.class), cacheEvictor, resultNotifier, fileService,
             Clock.systemUTC(), "uploads/quiz-photos");
 

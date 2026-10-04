@@ -124,4 +124,39 @@ class ItemResponseTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("awardedPoints");
     }
+
+    // --- E3 hints ---
+
+    @Test
+    void noHintIsUsedByDefault() {
+        QuizAttempt attempt = new QuizAttempt(new Quiz("Simulare EN", null),
+                new ro.mathlms.user.User("elev@scoala.ro", "Elev Pop", ro.mathlms.user.Role.STUDENT));
+        QuizItem open = new QuizItem(attempt.getQuiz(), 1, QuizItemType.OPEN, "s", 10, null);
+
+        assertThat(new ItemResponse(attempt, open).getHintsUsed()).isZero();
+    }
+
+    @Test
+    void revealingAHintRecordsHowFarTheStudentGot() {
+        QuizAttempt attempt = new QuizAttempt(new Quiz("Simulare EN", null),
+                new ro.mathlms.user.User("elev@scoala.ro", "Elev Pop", ro.mathlms.user.Role.STUDENT));
+        ItemResponse response = new ItemResponse(attempt,
+                new QuizItem(attempt.getQuiz(), 1, QuizItemType.OPEN, "s", 10, null));
+
+        response.revealHint(1);
+        response.revealHint(3);
+        response.revealHint(2); // asking for an earlier hint again never lowers the count
+
+        assertThat(response.getHintsUsed()).isEqualTo(3);
+    }
+
+    @Test
+    void hintNumbersStartAtOne() {
+        QuizAttempt attempt = new QuizAttempt(new Quiz("Simulare EN", null),
+                new ro.mathlms.user.User("elev@scoala.ro", "Elev Pop", ro.mathlms.user.Role.STUDENT));
+        ItemResponse response = new ItemResponse(attempt,
+                new QuizItem(attempt.getQuiz(), 1, QuizItemType.OPEN, "s", 10, null));
+
+        assertThatThrownBy(() -> response.revealHint(0)).isInstanceOf(IllegalArgumentException.class);
+    }
 }

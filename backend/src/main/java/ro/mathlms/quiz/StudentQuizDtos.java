@@ -28,16 +28,18 @@ public final class StudentQuizDtos {
             QuizItemType type,
             String statement,
             int points,
-            List<StudentOptionDto> options
+            List<StudentOptionDto> options,
+            int hintCount // hints this item has - only ever > 0 in practice mode; a graded test hides even their existence
     ) {
-        public static StudentItemDto from(QuizItem item, List<QuizOption> options) {
+        public static StudentItemDto from(QuizItem item, List<QuizOption> options, int hintCount) {
             return new StudentItemDto(
                     item.getId(),
                     item.getPosition(),
                     item.getType(),
                     item.getStatement(),
                     item.getPoints(),
-                    options.stream().map(StudentOptionDto::from).toList());
+                    options.stream().map(StudentOptionDto::from).toList(),
+                    hintCount);
         }
     }
 
@@ -60,6 +62,14 @@ public final class StudentQuizDtos {
      * would mark), the id of the right option, and the barem. Never produced for a graded TEST.
      */
     public record AnswerFeedbackDto(Boolean correct, Long correctOptionId, String solution) {
+    }
+
+    /** One revealed hint: its number (1-based), its text, and how many hints the item has in all. */
+    public record HintDto(int number, String text, int total) {
+    }
+
+    /** The hints a resumed practice has already revealed for one item, in order. */
+    public record RevealedHintsDto(Long itemId, List<String> hints) {
     }
 
     /**
@@ -90,7 +100,8 @@ public final class StudentQuizDtos {
                                     List<SavedAnswerDto> answers,
                                     Instant deadlineAt, // null = untimed
                                     Instant serverNow,  // the server's clock, so the browser can show the right countdown despite a skewed own clock
-                                    AttemptMode mode
+                                    AttemptMode mode,
+                                    List<RevealedHintsDto> revealedHints // practice only; empty in a graded test
     ) {
     }
 
@@ -152,7 +163,9 @@ public final class StudentQuizDtos {
             String selectedOptionText,
             String correctOptionText,
             String barem,
-            boolean photoUploaded
+            boolean photoUploaded,
+            int hintsUsed,      // practice only; 0 in a graded test
+            int hintsAvailable  // practice only; 0 in a graded test
     ) {}
 
     /** The student's graded attempt: the score plus a per-item breakdown. */

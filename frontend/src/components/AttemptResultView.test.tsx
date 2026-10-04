@@ -15,10 +15,12 @@ const graded: AttemptResultViewDto = {
     {
       position: 1, type: 'SINGLE_CHOICE', statement: 'Alege B', points: 5, awardedPoints: 5, correct: true,
       selectedOptionText: 'Varianta B', correctOptionText: 'Varianta B', barem: null, photoUploaded: false,
+      hintsUsed: 0, hintsAvailable: 0,
     },
     {
       position: 2, type: 'OPEN', statement: 'Rezolvă', points: 10, awardedPoints: 8, correct: null,
       selectedOptionText: null, correctOptionText: null, barem: 'x1 = 2', photoUploaded: true,
+      hintsUsed: 0, hintsAvailable: 0,
     },
   ],
 }
@@ -93,5 +95,32 @@ describe('AttemptResultView', () => {
     render(<AttemptResultView result={graded} />)
 
     expect(screen.queryByTestId('mode-badge')).not.toBeInTheDocument()
+  })
+
+  it('shows how many hints were used per item and in total on a practice result', () => {
+    const practice: AttemptResultViewDto = {
+      ...graded,
+      mode: 'PRACTICE',
+      finalScore: null,
+      items: [
+        { ...graded.items[0], hintsUsed: 1, hintsAvailable: 2 },
+        { ...graded.items[1], hintsUsed: 2, hintsAvailable: 3 },
+      ],
+    }
+
+    render(<AttemptResultView result={practice} />)
+
+    expect(screen.getAllByTestId('hints-used').map((n) => n.textContent)).toEqual([
+      'Indicii folosite: 1 din 2',
+      'Indicii folosite: 2 din 3',
+    ])
+    expect(screen.getByTestId('result-practice')).toHaveTextContent('Indicii folosite: 3 din 5')
+  })
+
+  it('says nothing about hints when the items had none', () => {
+    render(<AttemptResultView result={{ ...graded, mode: 'PRACTICE', finalScore: null }} />)
+
+    expect(screen.queryByTestId('hints-used')).not.toBeInTheDocument()
+    expect(screen.getByTestId('result-practice')).not.toHaveTextContent('Indicii')
   })
 })
