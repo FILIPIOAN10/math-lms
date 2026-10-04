@@ -46,6 +46,16 @@ class SchoolClassControllerTest {
     }
 
     @Test
+    void aParentListsOnlyTheClassesOfTheirChildren() {
+        when(access.isParent(auth)).thenReturn(true);
+        when(enrollmentService.classesOfMyChildren("ana@scoala.ro"))
+                .thenReturn(List.of(new SchoolClass("Clasa copilului", null)));
+
+        assertThat(controller.list(auth)).extracting(SchoolClassDto::name).containsExactly("Clasa copilului");
+        verify(service, never()).list();
+    }
+
+    @Test
     void getMapsToDtoAfterTheAccessCheck() {
         when(service.get(1L)).thenReturn(new SchoolClass("Clasa a 9-a", null));
 

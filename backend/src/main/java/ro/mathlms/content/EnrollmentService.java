@@ -38,6 +38,14 @@ public class EnrollmentService {
                 .toList();
     }
 
+    /** The classes attended by the children linked to this parent — what the parent may browse. */
+    @Transactional(readOnly = true)
+    public List<SchoolClass> classesOfMyChildren(String parentEmail) {
+        User parent = userRepository.findByEmail(parentEmail)
+                .orElseThrow(() -> new ContentNotFoundException("No account for " + parentEmail));
+        return enrollmentRepository.findClassesOfChildrenOf(parent.getId());
+    }
+
     @Transactional
     public Enrollment enroll(Long classId, Long studentId) {
         SchoolClass schoolClass = requireClass(classId);

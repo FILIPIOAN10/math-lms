@@ -26,6 +26,14 @@ public interface EnrollmentRepository extends JpaRepository<Enrollment, Long> {
 
     boolean existsByStudentIdAndSchoolClassId(Long studentId, Long schoolClassId);
 
+    /** Is any student linked to this parent enrolled in the class? (the parent's right to read it) */
+    boolean existsByStudentParentIdAndSchoolClassId(Long parentId, Long schoolClassId);
+
+    /** The classes attended by the children of one parent, each once, ordered by name. */
+    @Query("select distinct sc from Enrollment e join e.schoolClass sc"
+            + " where e.student.parent.id = :parentId order by sc.name")
+    List<SchoolClass> findClassesOfChildrenOf(@Param("parentId") Long parentId);
+
     /** GDPR erasure: drop which classes a student attended (personal, not retained). */
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("delete from Enrollment e where e.student.id = :userId")

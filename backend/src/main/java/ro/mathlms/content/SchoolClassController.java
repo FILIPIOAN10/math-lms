@@ -34,12 +34,20 @@ public class SchoolClassController {
         this.enrollmentService = enrollmentService;
     }
 
-    /** Every class for admins/parents; a student only gets the classes they are enrolled in. */
+    /**
+     * Every class for admins; a student gets the classes they are enrolled in, a parent the classes
+     * their children attend.
+     */
     @GetMapping("/api/classes")
     public List<SchoolClassDto> list(Authentication authentication) {
-        List<SchoolClass> classes = access.isStudent(authentication)
-                ? enrollmentService.myClasses(authentication.getName())
-                : service.list();
+        List<SchoolClass> classes;
+        if (access.isStudent(authentication)) {
+            classes = enrollmentService.myClasses(authentication.getName());
+        } else if (access.isParent(authentication)) {
+            classes = enrollmentService.classesOfMyChildren(authentication.getName());
+        } else {
+            classes = service.list();
+        }
         return classes.stream().map(SchoolClassDto::from).toList();
     }
 

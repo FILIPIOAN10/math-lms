@@ -113,6 +113,23 @@ class EnrollmentServiceTest {
     }
 
     @Test
+    void classesOfMyChildrenAreTheClassesAnyLinkedChildAttends() {
+        User parent = new User("maria@scoala.ro", "Maria Pop", Role.PARENT);
+        when(userRepository.findByEmail("maria@scoala.ro")).thenReturn(Optional.of(parent));
+        when(enrollmentRepository.findClassesOfChildrenOf(any())).thenReturn(List.of(ninth));
+
+        assertThat(service.classesOfMyChildren("maria@scoala.ro")).containsExactly(ninth);
+    }
+
+    @Test
+    void classesOfMyChildrenThrowsWhenTheAccountDoesNotExist() {
+        when(userRepository.findByEmail("fantoma@scoala.ro")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.classesOfMyChildren("fantoma@scoala.ro"))
+                .isInstanceOf(ContentNotFoundException.class);
+    }
+
+    @Test
     void unenrollThrowsWhenMissing() {
         when(enrollmentRepository.existsById(404L)).thenReturn(false);
 

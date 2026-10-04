@@ -63,7 +63,7 @@ docker exec -i mathlms-postgres psql -U mathlms -d mathlms -c \
 Rulează asta înainte de orice commit.
 
 ```bash
-# Backend — 416 teste (necesită Docker pentru Testcontainers)
+# Backend — 425 teste (necesită Docker pentru Testcontainers)
 cd math-lms/backend && ./mvnw test
 
 # Doar suita de conținut (Faza 2)
@@ -175,7 +175,7 @@ Prerechizit: adminul a legat elevul de părinte la `/admin/links`. Buton pe Dash
 - Lista conține DOAR elevii legați de acest cont; fără nimeni legat → „Niciun elev nu este legat încă…”
 - **Vezi testele** → încercările copilului (status, dată, puncte) → **Vezi rezultatul** (aceeași vedere ca elevului, formulată pentru părinte: „Răspunsul elevului”)
 - Părintele nu vede copilul altui părinte: `/api/parent/children/{id}/attempts` pe un id străin → **403**; la fel pentru un attempt străin pus sub id-ul propriului copil și pentru id-uri inexistente (nu se poate „ghici” ce există). Elev/admin pe `/api/parent/**` → 403; părinte neaprobat → 403
-- Un părinte vede deocamdată TOT conținutul (`/content`) — se restrânge la clasele copiilor într-o fază următoare
+- Un părinte vede în `/content` DOAR clasele în care e înscris vreunul dintre copiii lui (`GET /api/classes` îi întoarce doar acelea; cartea/capitolul/exercițiul altei clase → 404). Fără copii legați → „niciun elev legat”; elevul/părintele nu pot ghici id-uri din alte clase
 
 ### Verificare rapidă prin API (ca admin, cu cookie)
 Scrierile (POST/PUT/DELETE, în afară de `/api/auth/**`) cer header-ul `X-XSRF-TOKEN` egal cu cookie-ul

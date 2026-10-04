@@ -8,8 +8,8 @@ import ro.mathlms.user.UserRepository;
 /**
  * Who may READ which part of the content tree (class → book → chapter → exercise).
  *
- * <p>A STUDENT only reads content of the classes they are enrolled in; ADMIN and PARENT are not
- * restricted here (a parent will be narrowed to their children's classes in Phase 5). Every miss is
+ * <p>A STUDENT only reads content of the classes they are enrolled in, a PARENT only the classes one
+ * of their linked children is enrolled in; ADMIN is not restricted. Every miss is
  * a {@link ContentNotFoundException} (404, same as a missing id): a guessed id must not confirm that
  * another class's book or exercise exists. Writes are admin-only and never go through this check.
  */
@@ -17,6 +17,7 @@ import ro.mathlms.user.UserRepository;
 public class ContentAccess {
 
     private static final String STUDENT_AUTHORITY = "ROLE_STUDENT";
+    private static final String PARENT_AUTHORITY = "ROLE_PARENT";
 
     private final UserRepository userRepository;
     private final EnrollmentRepository enrollmentRepository;
@@ -35,18 +36,31 @@ public class ContentAccess {
     }
 
     public boolean isStudent(Authentication authentication) {
+        return hasAuthority(authentication, STUDENT_AUTHORITY);
+    }
+
+    public boolean isParent(Authentication authentication) {
+        return hasAuthority(authentication, PARENT_AUTHORITY);
+    }
+
+    /** Students and parents are limited to "their" classes; admins see everything. */
+    public boolean isRestricted(Authentication authentication) {
+        return isStudent(authentication) || isParent(authentication);
+    }
+
+    private static boolean hasAuthority(Authentication authentication, String wanted) {
         return authentication.getAuthorities().stream()
-                .anyMatch(authority -> STUDENT_AUTHORITY.equals(authority.getAuthority()));
+                .anyMatch(authority -> wanted.equals(authority.getAuthority()));
     }
 
     public void checkClass(Long classId, Authentication authentication) {
-        if (isStudent(authentication)) {
+        if (isRestricted(authentication)) {
             requireEnrolled(classId, authentication, "SchoolClass", classId);
         }
     }
 
     public void checkBook(Long bookId, Authentication authentication) {
-        if (isStudent(authentication)) {
+        if (isRestricted(authentication)) {
             Long classId = bookRepository.findClassIdById(bookId)
                     .orElseThrow(() -> new ContentNotFoundException("Book", bookId));
             requireEnrolled(classId, authentication, "Book", bookId);
@@ -54,7 +68,7 @@ public class ContentAccess {
     }
 
     public void checkChapter(Long chapterId, Authentication authentication) {
-        if (isStudent(authentication)) {
+        if (isRestricted(authentication)) {
             Long classId = chapterRepository.findClassIdById(chapterId)
                     .orElseThrow(() -> new ContentNotFoundException("Chapter", chapterId));
             requireEnrolled(classId, authentication, "Chapter", chapterId);
@@ -62,18 +76,24 @@ public class ContentAccess {
     }
 
     public void checkExercise(Long exerciseId, Authentication authentication) {
-        if (isStudent(authentication)) {
+        if (isRestricted(authentication)) {
             Long classId = exerciseRepository.findClassIdById(exerciseId)
                     .orElseThrow(() -> new ContentNotFoundException("Exercise", exerciseId));
             requireEnrolled(classId, authentication, "Exercise", exerciseId);
         }
     }
 
-    /** Throws "No {what} with id {id}" — identical to a genuinely missing row — unless enrolled. */
+    /**
+     * Throws "No {what} with id {id}" — identical to a genuinely missing row — unless the caller may
+     * read the class: a student must be enrolled in it, a parent must have a child enrolled in it.
+     */
     private void requireEnrolled(Long classId, Authentication authentication, String what, Long id) {
-        User student = userRepository.findByEmail(authentication.getName())
+        User user = userRepository.findByEmail(authentication.getName())
                 .orElseThrow(() -> new ContentNotFoundException(what, id));
-        if (!enrollmentRepository.existsByStudentIdAndSchoolClassId(student.getId(), classId)) {
+        boolean allowed = isStudent(authentication)
+                ? enrollmentRepository.existsByStudentIdAndSchoolClassId(user.getId(), classId)
+                : enrollmentRepository.existsByStudentParentIdAndSchoolClassId(user.getId(), classId);
+        if (!allowed) {
             throw new ContentNotFoundException(what, id);
         }
     }

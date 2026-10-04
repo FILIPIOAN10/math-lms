@@ -65,10 +65,55 @@ class ContentAccessTest {
     }
 
     @Test
-    void adminsAndParentsAreNotRestricted() {
+    void anAdminIsNotRestricted() {
         assertThatCode(() -> access.checkClass(5L, as("prof@scoala.ro", "ROLE_ADMIN"))).doesNotThrowAnyException();
-        assertThatCode(() -> access.checkClass(5L, as("maria@scoala.ro", "ROLE_PARENT"))).doesNotThrowAnyException();
         verifyNoInteractions(userRepository, enrollmentRepository);
+    }
+
+    // --- parent: only the classes their children attend ---
+
+    private final User maria = withId(new User("maria@scoala.ro", "Maria", Role.PARENT), 3L);
+    private final Authentication parent = as("maria@scoala.ro", "ROLE_PARENT");
+
+    private void aChildOfMariaIsEnrolledIn(long classId, boolean enrolled) {
+        when(userRepository.findByEmail("maria@scoala.ro")).thenReturn(Optional.of(maria));
+        when(enrollmentRepository.existsByStudentParentIdAndSchoolClassId(3L, classId)).thenReturn(enrolled);
+    }
+
+    @Test
+    void aParentMayReadAClassOneOfTheirChildrenIsIn() {
+        aChildOfMariaIsEnrolledIn(5L, true);
+
+        assertThatCode(() -> access.checkClass(5L, parent)).doesNotThrowAnyException();
+    }
+
+    @Test
+    void aParentMayNotReadAClassNoChildOfTheirsIsIn() {
+        aChildOfMariaIsEnrolledIn(5L, false);
+
+        assertThatThrownBy(() -> access.checkClass(5L, parent)).isInstanceOf(ContentNotFoundException.class);
+    }
+
+    @Test
+    void aParentReadsBooksChaptersAndExercisesOnlyThroughTheirChildrensClasses() {
+        when(bookRepository.findClassIdById(11L)).thenReturn(Optional.of(5L));
+        when(chapterRepository.findClassIdById(21L)).thenReturn(Optional.of(5L));
+        when(exerciseRepository.findClassIdById(31L)).thenReturn(Optional.of(5L));
+        aChildOfMariaIsEnrolledIn(5L, false);
+
+        assertThatThrownBy(() -> access.checkBook(11L, parent)).isInstanceOf(ContentNotFoundException.class);
+        assertThatThrownBy(() -> access.checkChapter(21L, parent)).isInstanceOf(ContentNotFoundException.class);
+        assertThatThrownBy(() -> access.checkExercise(31L, parent)).isInstanceOf(ContentNotFoundException.class);
+
+        aChildOfMariaIsEnrolledIn(5L, true);
+        assertThatCode(() -> access.checkBook(11L, parent)).doesNotThrowAnyException();
+    }
+
+    @Test
+    void isRestrictedCoversStudentsAndParentsButNotAdmins() {
+        assertThat(access.isRestricted(student)).isTrue();
+        assertThat(access.isRestricted(parent)).isTrue();
+        assertThat(access.isRestricted(as("prof@scoala.ro", "ROLE_ADMIN"))).isFalse();
     }
 
     @Test

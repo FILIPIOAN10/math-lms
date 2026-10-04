@@ -62,6 +62,7 @@ function ExerciseCard({ exercise, index }: { exercise: Exercise; index: number }
 export function ContentBrowserPage() {
   const { user } = useAuth()
   const isStudent = user?.role === 'STUDENT'
+  const isParent = user?.role === 'PARENT'
   const [classes, setClasses] = useState<SchoolClass[]>([])
   const [cls, setCls] = useState<SchoolClass | null>(null)
   const [books, setBooks] = useState<Book[]>([])
@@ -73,7 +74,7 @@ export function ContentBrowserPage() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    // A student sees only the classes they are enrolled in; admins and parents see them all.
+    // Students see their own classes, parents their children's (the server filters /classes by role); admins see all.
     ;(isStudent ? listMyClasses() : listClasses())
       .then(setClasses)
       .catch(() => setError('Nu am putut încărca lista de clase.'))
@@ -202,7 +203,13 @@ export function ContentBrowserPage() {
         {/* Level: classes (root) */}
         {!loading && !error && !cls && (
           <ItemList
-            empty={isStudent ? 'Nu ești înscris în nicio clasă încă. Cere profesorului să te adauge.' : 'Nu există încă nicio clasă.'}
+            empty={
+              isStudent
+                ? 'Nu ești înscris în nicio clasă încă. Cere profesorului să te adauge.'
+                : isParent
+                  ? 'Copiii tăi nu sunt înscriși în nicio clasă încă (sau nu ai niciun elev legat).'
+                  : 'Nu există încă nicio clasă.'
+            }
             items={classes.map((c) => ({ id: c.id, title: c.name, description: c.description, onOpen: () => openClass(c) }))}
           />
         )}

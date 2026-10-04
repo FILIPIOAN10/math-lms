@@ -100,6 +100,28 @@ class EnrollmentRepositoryTest {
     }
 
     @Test
+    void aParentsChildrenClassesAreFoundOnceEachAndOrderedByName() {
+        SchoolClass tenth = schoolClassRepository.save(new SchoolClass("Clasa a 10-a", null));
+        SchoolClass ninth = schoolClassRepository.save(new SchoolClass("Clasa a 9-a", null));
+        SchoolClass eighth = schoolClassRepository.save(new SchoolClass("Clasa a 8-a", null));
+        User maria = userRepository.save(new User("maria@scoala.ro", "Maria", Role.PARENT));
+        User ana = student("ana@scoala.ro");
+        User dan = student("dan@scoala.ro");
+        User outsider = student("alt@scoala.ro");
+        ana.linkParent(maria);
+        dan.linkParent(maria);
+        enrollmentRepository.save(new Enrollment(ana, ninth));
+        enrollmentRepository.save(new Enrollment(dan, ninth)); // same class twice -> listed once
+        enrollmentRepository.save(new Enrollment(dan, tenth));
+        enrollmentRepository.save(new Enrollment(outsider, eighth)); // not Maria's child
+
+        assertThat(enrollmentRepository.findClassesOfChildrenOf(maria.getId()))
+                .extracting(SchoolClass::getName).containsExactly("Clasa a 10-a", "Clasa a 9-a");
+        assertThat(enrollmentRepository.existsByStudentParentIdAndSchoolClassId(maria.getId(), ninth.getId())).isTrue();
+        assertThat(enrollmentRepository.existsByStudentParentIdAndSchoolClassId(maria.getId(), eighth.getId())).isFalse();
+    }
+
+    @Test
     void existsByStudentAndClassReflectsPersistedRows() {
         SchoolClass ninth = schoolClassRepository.save(new SchoolClass("Clasa a 9-a", null));
         User ana = student("ana@scoala.ro");

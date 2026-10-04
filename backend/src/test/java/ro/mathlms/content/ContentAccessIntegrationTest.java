@@ -15,6 +15,7 @@ import ro.mathlms.user.User;
 import ro.mathlms.user.UserRepository;
 
 import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -32,6 +33,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class ContentAccessIntegrationTest {
 
     private static final String ANA = "ana.acces@scoala.ro";
+    private static final String MARIA = "maria.acces@scoala.ro";   // parent of Bob, who is enrolled in "mine"
+    private static final String ION = "ion.acces@scoala.ro";       // parent without any linked child
 
     @Autowired private MockMvc mockMvc;
     @Autowired private UserRepository userRepository;
@@ -63,6 +66,14 @@ class ContentAccessIntegrationTest {
         other = buildTree("Clasa altuia");
         enrollmentRepository.saveAndFlush(
                 new Enrollment(ana, classRepository.getReferenceById(mine.classId())));
+
+        User maria = userRepository.saveAndFlush(new User(MARIA, "Maria Acces", Role.PARENT));
+        userRepository.saveAndFlush(new User(ION, "Ion Acces", Role.PARENT));
+        User bob = new User("bob.acces@scoala.ro", "Bob Acces", Role.STUDENT);
+        bob.linkParent(maria);
+        bob = userRepository.saveAndFlush(bob);
+        enrollmentRepository.saveAndFlush(
+                new Enrollment(bob, classRepository.getReferenceById(mine.classId())));
     }
 
     private void expectEveryReadOfTheTree(Tree tree, int expectedStatus) throws Exception {
@@ -112,9 +123,23 @@ class ContentAccessIntegrationTest {
     }
 
     @Test
-    @WithMockUser(username = "maria@scoala.ro", authorities = {"ROLE_PARENT", "STATUS_ACTIVE"})
-    void aParentIsNotRestrictedYet() throws Exception {
-        // Phase 5 narrows a parent to their children's classes; until then this documents today's rule.
-        expectEveryReadOfTheTree(other, 200);
+    @WithMockUser(username = MARIA, authorities = {"ROLE_PARENT", "STATUS_ACTIVE"})
+    void aParentReadsTheTreeOfTheirChildrensClassOnly() throws Exception {
+        expectEveryReadOfTheTree(mine, 200);
+        expectEveryReadOfTheTree(other, 404);
+        mockMvc.perform(get("/api/classes"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[*].name", hasItem("Clasa mea")))
+                .andExpect(jsonPath("$[*].name", not(hasItem("Clasa altuia"))));
+    }
+
+    @Test
+    @WithMockUser(username = ION, authorities = {"ROLE_PARENT", "STATUS_ACTIVE"})
+    void aParentWithoutChildrenReadsNoClassAtAll() throws Exception {
+        expectEveryReadOfTheTree(mine, 404);
+        expectEveryReadOfTheTree(other, 404);
+        mockMvc.perform(get("/api/classes"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(0)));
     }
 }
