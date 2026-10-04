@@ -19,16 +19,18 @@ public interface QuizAttemptRepository extends JpaRepository<QuizAttempt, Long> 
 
     /** A student's graded attempts, oldest first, with the quiz fetched (its title feeds the progress chart). */
     @EntityGraph(attributePaths = "quiz")
-    List<QuizAttempt> findByStudentIdAndStatusOrderBySubmittedAtAsc(Long studentId, QuizAttemptStatus status);
+    List<QuizAttempt> findByStudentIdAndStatusAndModeOrderBySubmittedAtAsc(
+            Long studentId, QuizAttemptStatus status, AttemptMode mode);
 
     List<QuizAttempt> findByQuizId(Long quizId);
 
     /** Final scores of a quiz's GRADED attempts — the input of the teacher's average and distribution. */
-    @Query("select a.score from QuizAttempt a where a.quiz.id = :quizId and a.status = ro.mathlms.quiz.QuizAttemptStatus.GRADED")
+    @Query("select a.score from QuizAttempt a where a.quiz.id = :quizId and a.status = ro.mathlms.quiz.QuizAttemptStatus.GRADED"
+            + " and a.mode = ro.mathlms.quiz.AttemptMode.TEST") // a practice has no score and is never part of the statistics
     List<Integer> findGradedScoresByQuizId(@Param("quizId") Long quizId);
 
-    Optional<QuizAttempt> findByQuizIdAndStudentIdAndStatus(
-            Long quizId, Long studentId, QuizAttemptStatus status);
+    Optional<QuizAttempt> findByQuizIdAndStudentIdAndStatusAndMode(
+            Long quizId, Long studentId, QuizAttemptStatus status, AttemptMode mode);
 
     /**
      * Loads the attempt with a row lock (SELECT ... FOR UPDATE) held until the transaction ends, so
@@ -48,6 +50,6 @@ public interface QuizAttemptRepository extends JpaRepository<QuizAttempt, Long> 
 
     /** The teacher's grading queue: attempts in one status, with quiz + student fetched up front. */
     @Query("select a from QuizAttempt a join fetch a.quiz join fetch a.student "
-            + "where a.status = :status order by a.submittedAt asc")
+            + "where a.status = :status and a.mode = ro.mathlms.quiz.AttemptMode.TEST order by a.submittedAt asc")
     List<QuizAttempt> findByStatusForGrading(@Param("status") QuizAttemptStatus status);
 }

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { MathContent } from '@/components/MathContent'
@@ -10,6 +10,8 @@ import {
   startQuizAttempt,
   submitQuizAttempt,
   uploadQuizPhoto,
+  type AnswerFeedback,
+  type AttemptMode,
   type StartedAttemptDto,
 } from '@/lib/api'
 import { formatClock, secondsLeft } from '@/lib/countdown'
@@ -28,15 +30,23 @@ const MAX_UPLOAD_BYTES = 8 * 1024 * 1024 // matches spring.servlet.multipart.max
  * A timed quiz shows a countdown, but only as a display: the SERVER holds the deadline and rejects answers
  * after it (HTTP 409). When the countdown reaches zero — or the server says time is up — the page hands the
  * attempt in with whatever was saved in time.
+ *
+ * With {@code ?mode=practice} (only for quizzes the teacher opened for it) the same screen becomes a practice: no
+ * clock, and each answer comes back from the server with its verdict, the right option and the barem. It is never
+ * graded. The server alone decides what to reveal — a graded test returns no feedback at all.
  */
 export function TakeQuizPage() {
   const { id } = useParams<{ id: string }>()
   const quizId = Number(id)
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const mode: AttemptMode = searchParams.get('mode') === 'practice' ? 'PRACTICE' : 'TEST'
+  const practice = mode === 'PRACTICE'
 
   const [attempt, setAttempt] = useState<StartedAttemptDto | null>(null)
   const [selected, setSelected] = useState<Record<number, number>>({})
   const [photos, setPhotos] = useState<Record<number, boolean>>({})
+  const [feedback, setFeedback] = useState<Record<number, AnswerFeedback | undefined>>({}) // practice only
   const [saving, setSaving] = useState<Record<number, boolean>>({})
   const [itemErrors, setItemErrors] = useState<Record<number, string | undefined>>({})
   const [starting, setStarting] = useState(false)
@@ -107,23 +117,26 @@ export function TakeQuizPage() {
     try {
       let data: StartedAttemptDto
       try {
-        data = await startQuizAttempt(quizId)
+        data = await startQuizAttempt(quizId, mode)
       } catch (e) {
         // 409 = a parallel start (double click, second tab) created the attempt first (Q11) — resume it.
         if (e instanceof ApiError && e.status === 409) {
-          data = await startQuizAttempt(quizId)
+          data = await startQuizAttempt(quizId, mode)
         } else {
           throw e
         }
       }
       const restoredChoices: Record<number, number> = {}
       const restoredPhotos: Record<number, boolean> = {}
+      const restoredFeedback: Record<number, AnswerFeedback | undefined> = {}
       for (const answer of data.answers) {
         if (answer.selectedOptionId !== null) restoredChoices[answer.itemId] = answer.selectedOptionId
         if (answer.photoUploaded) restoredPhotos[answer.itemId] = true
+        if (answer.feedback) restoredFeedback[answer.itemId] = answer.feedback
       }
       setSelected(restoredChoices)
       setPhotos(restoredPhotos)
+      setFeedback(restoredFeedback)
       setReceivedAt(Date.now())
       setNow(Date.now())
       setAttempt(data)
@@ -141,7 +154,8 @@ export function TakeQuizPage() {
     setItemError(itemId, undefined)
     setItemBusy(itemId, true)
     try {
-      await saveQuizAnswer(attempt.attemptId, itemId, optionId)
+      const result = await saveQuizAnswer(attempt.attemptId, itemId, optionId)
+      setFeedback((s) => ({ ...s, [itemId]: result ?? undefined })) // null in a graded test: nothing is revealed
     } catch (e) {
       // Roll the radio back so the screen never shows an answer the server does not have.
       setSelected((s) => {
@@ -167,8 +181,9 @@ export function TakeQuizPage() {
         setItemError(itemId, 'Poza e prea mare (maxim 8 MB).')
         return
       }
-      await uploadQuizPhoto(attempt.attemptId, itemId, toSend)
+      const result = await uploadQuizPhoto(attempt.attemptId, itemId, toSend)
       setPhotos((s) => ({ ...s, [itemId]: true }))
+      setFeedback((s) => ({ ...s, [itemId]: result ?? undefined }))
     } catch (e) {
       setItemError(itemId, errorMessage(e))
       if (e instanceof ApiError && e.status === 409) void submitBecauseTimeIsUp()
@@ -183,7 +198,8 @@ export function TakeQuizPage() {
       item.type === 'SINGLE_CHOICE' ? selected[item.id] === undefined : !photos[item.id],
     ).length
     const question =
-      timeUp ? 'Timpul a expirat. Trimiți lucrarea cu răspunsurile salvate?'
+      practice ? 'Închei sesiunea de practică?'
+      : timeUp ? 'Timpul a expirat. Trimiți lucrarea cu răspunsurile salvate?'
       : unanswered > 0
         ? `Ai ${unanswered} subiect(e) fără răspuns. Trimiți lucrarea oricum?`
         : 'Trimiți lucrarea? După trimitere nu mai poți modifica răspunsurile.'
@@ -207,12 +223,18 @@ export function TakeQuizPage() {
         <div className="mx-auto max-w-xl space-y-4 pt-12">
           <Card>
             <CardContent className="space-y-4 py-6 text-center">
-              <h1 className="text-xl font-semibold">Ești gata să începi?</h1>
+              <h1 className="text-xl font-semibold">{practice ? 'Gata de exersat?' : 'Ești gata să începi?'}</h1>
               <p className="text-sm text-muted-foreground">
                 Răspunsurile se salvează automat pe măsură ce lucrezi. Dacă închizi pagina, poți continua
                 de unde ai rămas din „Testele mele”.
               </p>
-              {limitMinutes !== null && (
+              {practice && (
+                <p className="text-sm font-medium" data-testid="quiz-practice-note">
+                  Mod practică: vezi imediat dacă ai răspuns corect și cum se rezolvă. Nu se acordă notă, nu există
+                  cronometru și nu afectează progresul — poți relua cât vrei.
+                </p>
+              )}
+              {!practice && limitMinutes !== null && (
                 <p className="text-sm font-medium" data-testid="quiz-limit-note">
                   ⏱ Testul are limită de timp: {formatMinutes(limitMinutes)}. Cronometrul pornește când apeși „Începe testul”
                   și nu se oprește dacă închizi pagina.
@@ -222,7 +244,7 @@ export function TakeQuizPage() {
               <div className="flex justify-center gap-2">
                 <Link to="/quizzes" className={buttonVariants({ variant: 'outline' })}>Înapoi</Link>
                 <Button onClick={start} disabled={starting} data-testid="quiz-start">
-                  {starting ? 'Se pregătește...' : 'Începe testul'}
+                  {starting ? 'Se pregătește...' : practice ? 'Începe practica' : 'Începe testul'}
                 </Button>
               </div>
             </CardContent>
@@ -250,7 +272,15 @@ export function TakeQuizPage() {
           {timeUp ? 'Timpul a expirat — se trimite lucrarea...' : `⏱ Timp rămas: ${formatClock(timeLeft)}`}
         </div>
       )}
-      <div className={`mx-auto max-w-3xl space-y-4 ${timeLeft !== null ? 'pt-10' : ''}`}>
+      {practice && (
+        <div
+          data-testid="quiz-practice-banner"
+          className="fixed inset-x-0 top-0 z-10 border-b bg-violet-500/15 p-2 text-center text-sm font-semibold text-violet-800 dark:text-violet-200"
+        >
+          Mod practică — răspunsurile se verifică pe loc, fără notă
+        </div>
+      )}
+      <div className={`mx-auto max-w-3xl space-y-4 ${timeLeft !== null || practice ? 'pt-10' : ''}`}>
         <div>
           <h1 className="text-2xl font-semibold">{attempt.quiz.title}</h1>
           {attempt.quiz.description && (
@@ -268,11 +298,21 @@ export function TakeQuizPage() {
 
               {item.type === 'SINGLE_CHOICE' ? (
                 <div className="space-y-2">
-                  {item.options.map((option) => (
+                  {item.options.map((option) => {
+                    const fb = feedback[item.id]
+                    const isRight = fb?.correctOptionId === option.id
+                    const isWrongPick = fb?.correct === false && selected[item.id] === option.id
+                    return (
                     <label
                       key={option.id}
                       className={`flex cursor-pointer items-center gap-3 rounded-lg border p-2 text-sm ${
-                        selected[item.id] === option.id ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted'
+                        isRight
+                          ? 'border-emerald-500 bg-emerald-500/10'
+                          : isWrongPick
+                            ? 'border-destructive bg-destructive/10'
+                            : selected[item.id] === option.id
+                              ? 'border-primary bg-primary/5'
+                              : 'border-border hover:bg-muted'
                       }`}
                     >
                       <input
@@ -284,7 +324,25 @@ export function TakeQuizPage() {
                       />
                       <MathContent className="inline">{option.text}</MathContent>
                     </label>
-                  ))}
+                    )
+                  })}
+                  {feedback[item.id] && (
+                    <div data-testid="item-feedback" className="space-y-2 rounded-lg bg-muted p-3 text-sm">
+                      <p
+                        className={`font-medium ${
+                          feedback[item.id]?.correct ? 'text-emerald-700 dark:text-emerald-300' : 'text-destructive'
+                        }`}
+                      >
+                        {feedback[item.id]?.correct ? '✓ Corect!' : '✗ Greșit — răspunsul corect e marcat cu verde.'}
+                      </p>
+                      {feedback[item.id]?.solution && (
+                        <div>
+                          <p className="text-xs font-medium text-muted-foreground">Rezolvare</p>
+                          <MathContent>{feedback[item.id]!.solution!}</MathContent>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="space-y-2 text-sm">
@@ -307,6 +365,12 @@ export function TakeQuizPage() {
                       ✓ Poză încărcată. Poți alege alta ca să o înlocuiești.
                     </p>
                   )}
+                  {feedback[item.id]?.solution && (
+                    <div data-testid="item-feedback" className="space-y-1 rounded-lg bg-muted p-3">
+                      <p className="text-xs font-medium text-muted-foreground">Barem — compară-l cu rezolvarea ta</p>
+                      <MathContent>{feedback[item.id]!.solution!}</MathContent>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -322,10 +386,10 @@ export function TakeQuizPage() {
       <div className="fixed inset-x-0 bottom-0 border-t bg-background p-3">
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-3">
           <p className="text-sm text-muted-foreground">
-            {answeredCount} / {attempt.quiz.items.length} răspunsuri salvate
+            {answeredCount} / {attempt.quiz.items.length} {practice ? 'subiecte rezolvate' : 'răspunsuri salvate'}
           </p>
           <Button onClick={submit} disabled={submitting} data-testid="quiz-submit">
-            {submitting ? 'Se trimite...' : 'Trimite lucrarea'}
+            {submitting ? 'Se trimite...' : practice ? 'Termină practica' : 'Trimite lucrarea'}
           </Button>
         </div>
       </div>

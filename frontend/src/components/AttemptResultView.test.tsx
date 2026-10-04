@@ -8,6 +8,7 @@ const graded: AttemptResultViewDto = {
   attemptId: 50,
   quizTitle: 'Simulare EN',
   status: 'GRADED',
+  mode: 'TEST',
   finalScore: 13,
   maxScore: 15,
   items: [
@@ -75,5 +76,22 @@ describe('AttemptResultView', () => {
 
     expect(screen.getByText(/Răspunsul tău:/)).toHaveTextContent('✗')
     expect(screen.getByText(/Răspuns corect:/)).toHaveTextContent('Varianta B')
+  })
+
+  it('says a practice is not marked and shows how many choice questions were right, instead of a score', () => {
+    const practice: AttemptResultViewDto = { ...graded, mode: 'PRACTICE', finalScore: null }
+
+    render(<AttemptResultView result={practice} />)
+
+    expect(screen.queryByTestId('result-score')).not.toBeInTheDocument()
+    expect(screen.getByTestId('result-practice')).toHaveTextContent('fără notă')
+    expect(screen.getByTestId('result-practice')).toHaveTextContent('Grile corecte: 1 din 1')
+    expect(screen.getByTestId('mode-badge')).toHaveTextContent('Practică')
+  })
+
+  it('shows no practice badge on a graded test', () => {
+    render(<AttemptResultView result={graded} />)
+
+    expect(screen.queryByTestId('mode-badge')).not.toBeInTheDocument()
   })
 })

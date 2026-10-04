@@ -185,7 +185,7 @@ class QuizAttemptTimerServiceTest {
     void startingATimedQuizReturnsTheDeadlineTheLimitAndTheServerClock() {
         when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(student));
         when(quizRepository.findById(10L)).thenReturn(Optional.of(timedQuiz));
-        when(attemptRepository.findByQuizIdAndStudentIdAndStatus(10L, 1L, QuizAttemptStatus.IN_PROGRESS))
+        when(attemptRepository.findByQuizIdAndStudentIdAndStatusAndMode(10L, 1L, QuizAttemptStatus.IN_PROGRESS, AttemptMode.TEST))
                 .thenReturn(Optional.empty());
         when(attemptRepository.save(any(QuizAttempt.class))).thenAnswer(i -> withId(i.getArgument(0), 51L));
         stubQuizContent();
@@ -202,7 +202,7 @@ class QuizAttemptTimerServiceTest {
         Quiz untimed = timed(withId(new Quiz("Fara limita", null), 11L), null);
         when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(student));
         when(quizRepository.findById(11L)).thenReturn(Optional.of(untimed));
-        when(attemptRepository.findByQuizIdAndStudentIdAndStatus(11L, 1L, QuizAttemptStatus.IN_PROGRESS))
+        when(attemptRepository.findByQuizIdAndStudentIdAndStatusAndMode(11L, 1L, QuizAttemptStatus.IN_PROGRESS, AttemptMode.TEST))
                 .thenReturn(Optional.empty());
         when(attemptRepository.save(any(QuizAttempt.class))).thenAnswer(i -> withId(i.getArgument(0), 52L));
         when(itemRepository.findByQuizIdOrderByPosition(11L)).thenReturn(List.of());
@@ -218,7 +218,7 @@ class QuizAttemptTimerServiceTest {
         QuizAttempt existing = timedAttempt(50L);
         when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(student));
         when(quizRepository.findById(10L)).thenReturn(Optional.of(timedQuiz));
-        when(attemptRepository.findByQuizIdAndStudentIdAndStatus(10L, 1L, QuizAttemptStatus.IN_PROGRESS))
+        when(attemptRepository.findByQuizIdAndStudentIdAndStatusAndMode(10L, 1L, QuizAttemptStatus.IN_PROGRESS, AttemptMode.TEST))
                 .thenReturn(Optional.of(existing));
         when(responseRepository.findByAttemptId(50L)).thenReturn(List.of());
         stubQuizContent();
@@ -238,7 +238,7 @@ class QuizAttemptTimerServiceTest {
         saved.answerSingleChoice(correct);
         when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(student));
         when(quizRepository.findById(10L)).thenReturn(Optional.of(timedQuiz));
-        when(attemptRepository.findByQuizIdAndStudentIdAndStatus(10L, 1L, QuizAttemptStatus.IN_PROGRESS))
+        when(attemptRepository.findByQuizIdAndStudentIdAndStatusAndMode(10L, 1L, QuizAttemptStatus.IN_PROGRESS, AttemptMode.TEST))
                 .thenReturn(Optional.of(expired));
         stubAttempt(expired);
         when(responseRepository.findByAttemptId(50L)).thenReturn(List.of(saved));

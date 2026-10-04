@@ -56,15 +56,29 @@ public final class StudentQuizDtos {
     }
 
     /**
+     * What a PRACTICE answer reveals at once: whether it was right ({@code null} for an open item, which a teacher
+     * would mark), the id of the right option, and the barem. Never produced for a graded TEST.
+     */
+    public record AnswerFeedbackDto(Boolean correct, Long correctOptionId, String solution) {
+    }
+
+    /**
      * What the student already saved on an in-progress attempt, so a resumed page can restore it.
      * Only the student's own choice (option id / "photo sent") — never whether it is correct.
      */
-    public record SavedAnswerDto(Long itemId, Long selectedOptionId, boolean photoUploaded) {
+    public record SavedAnswerDto(Long itemId, Long selectedOptionId, boolean photoUploaded,
+                                 AnswerFeedbackDto feedback // PRACTICE only; always null in a graded TEST
+    ) {
         public static SavedAnswerDto from(ItemResponse response) {
+            return from(response, null);
+        }
+
+        public static SavedAnswerDto from(ItemResponse response, AnswerFeedbackDto feedback) {
             return new SavedAnswerDto(
                     response.getItem().getId(),
                     response.getSelectedOption() == null ? null : response.getSelectedOption().getId(),
-                    response.getImageKey() != null);
+                    response.getImageKey() != null,
+                    feedback);
         }
     }
 
@@ -75,7 +89,8 @@ public final class StudentQuizDtos {
     public record StartedAttemptDto(Long attemptId, QuizAttemptStatus status, StudentQuizDto quiz,
                                     List<SavedAnswerDto> answers,
                                     Instant deadlineAt, // null = untimed
-                                    Instant serverNow   // the server's clock, so the browser can show the right countdown despite a skewed own clock
+                                    Instant serverNow,  // the server's clock, so the browser can show the right countdown despite a skewed own clock
+                                    AttemptMode mode
     ) {
     }
 
@@ -99,11 +114,13 @@ public final class StudentQuizDtos {
             QuizAttemptStatus status,
             Instant startedAt,
             Instant submittedAt,
-            Integer score
+            Integer score,
+            AttemptMode mode
     ) {
         public static MyAttemptDto from(QuizAttempt attempt) {
             return new MyAttemptDto(attempt.getId(), attempt.getQuiz().getId(), attempt.getQuiz().getTitle(),
-                    attempt.getStatus(), attempt.getStartedAt(), attempt.getSubmittedAt(), attempt.getScore());
+                    attempt.getStatus(), attempt.getStartedAt(), attempt.getSubmittedAt(), attempt.getScore(),
+                    attempt.getMode());
         }
     }
 
@@ -145,6 +162,7 @@ public final class StudentQuizDtos {
             QuizAttemptStatus status,
             Integer finalScore,
             int maxScore,
-            List<ItemResultDto> items
+            List<ItemResultDto> items,
+            AttemptMode mode
     ) {}
 }

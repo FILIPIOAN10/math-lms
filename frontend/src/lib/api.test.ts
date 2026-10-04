@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ApiError, createQuiz, listClasses, login } from '@/lib/api'
+import { ApiError, createQuiz, listClasses, login, saveQuizAnswer, startQuizAttempt, uploadQuizPhoto } from '@/lib/api'
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
@@ -44,7 +44,7 @@ describe('API client', () => {
       document.cookie = 'XSRF-TOKEN=token-123'
       fetchMock.mockResolvedValueOnce(json({ id: 1, title: 't', description: null, status: 'DRAFT' }))
 
-      await createQuiz('Test', null, null, null)
+      await createQuiz({ title: 'Test', description: null, schoolClassId: null, timeLimitMinutes: null, practiceAllowed: false })
 
       const headers = fetchMock.mock.calls[0][1].headers as Headers
       expect(headers.get('X-XSRF-TOKEN')).toBe('token-123')
@@ -107,6 +107,42 @@ describe('API client', () => {
       expect(refreshCalls).toBe(1)
       // 3 rejected + 1 refresh + 3 replays
       expect(fetchMock).toHaveBeenCalledTimes(7)
+    })
+  })
+
+  describe('practice mode', () => {
+    it('starts an attempt in the requested mode, a graded test by default', async () => {
+      fetchMock.mockImplementation(() => Promise.resolve(json({ attemptId: 1 }))) // a fresh Response per call
+
+      await startQuizAttempt(7)
+      await startQuizAttempt(7, 'PRACTICE')
+
+      expect(calls(fetchMock)).toEqual([
+        'POST /api/quiz/quizzes/7/attempts?mode=TEST',
+        'POST /api/quiz/quizzes/7/attempts?mode=PRACTICE',
+      ])
+    })
+
+    it('returns the feedback a practice answer comes back with', async () => {
+      const feedback = { correct: false, correctOptionId: 42, solution: 'x = 2' }
+      fetchMock.mockResolvedValueOnce(json(feedback))
+
+      await expect(saveQuizAnswer(5, 6, 7)).resolves.toEqual(feedback)
+    })
+
+    it('returns null for a graded test: the server answers 204 and reveals nothing', async () => {
+      fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }))
+      fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }))
+
+      await expect(saveQuizAnswer(5, 6, 7)).resolves.toBeNull()
+      await expect(uploadQuizPhoto(5, 6, new File(['x'], 'p.jpg', { type: 'image/jpeg' }))).resolves.toBeNull()
+    })
+
+    it('returns the barem a practice photo comes back with', async () => {
+      const feedback = { correct: null, correctOptionId: null, solution: 'barem' }
+      fetchMock.mockResolvedValueOnce(json(feedback))
+
+      await expect(uploadQuizPhoto(5, 6, new File(['x'], 'p.jpg', { type: 'image/jpeg' }))).resolves.toEqual(feedback)
     })
   })
 })

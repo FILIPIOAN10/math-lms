@@ -54,6 +54,10 @@ public class QuizAttempt {
     @Column(name = "submitted_at")
     private Instant submittedAt;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 10)
+    private AttemptMode mode = AttemptMode.TEST;
+
     /**
      * When time runs out, snapshotted from the quiz's limit at start; {@code null} = untimed. The server —
      * never the browser's clock — decides whether an attempt is still open.
@@ -71,6 +75,11 @@ public class QuizAttempt {
 
     /** {@code startedAt} comes from the caller's clock, so the service and its tests share one notion of "now". */
     public QuizAttempt(Quiz quiz, User student, Instant startedAt) {
+        this(quiz, student, startedAt, AttemptMode.TEST);
+    }
+
+    public QuizAttempt(Quiz quiz, User student, Instant startedAt, AttemptMode mode) {
+        this.mode = Objects.requireNonNull(mode, "mode");
         this.quiz = Objects.requireNonNull(quiz, "quiz");
         Objects.requireNonNull(student, "student");
         if (student.getRole() != Role.STUDENT) {
@@ -79,7 +88,7 @@ public class QuizAttempt {
         }
         this.student = student;
         this.startedAt = Objects.requireNonNull(startedAt, "startedAt");
-        if (quiz.getTimeLimitMinutes() != null) {
+        if (mode == AttemptMode.TEST && quiz.getTimeLimitMinutes() != null) { // a practice never has a clock
             this.deadlineAt = startedAt.plus(Duration.ofMinutes(quiz.getTimeLimitMinutes()));
         }
     }
@@ -96,6 +105,17 @@ public class QuizAttempt {
         }
         this.status = QuizAttemptStatus.SUBMITTED;
         this.submittedAt = Instant.now();
+    }
+
+    /** Ends a practice session: GRADED (nothing awaits a teacher) but with no score - practice is never marked. */
+    public void completePractice() {
+        if (mode != AttemptMode.PRACTICE) {
+            throw new IllegalStateException("Only a practice attempt can be completed without a score");
+        }
+        if (status != QuizAttemptStatus.SUBMITTED) {
+            throw new IllegalStateException("Only a submitted attempt can be completed, was " + status);
+        }
+        this.status = QuizAttemptStatus.GRADED;
     }
 
     /** Records the final total once every item is scored. Only valid after submission. */

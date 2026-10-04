@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import ro.mathlms.quiz.QuizDtos.QuizSummaryDto;
+import ro.mathlms.quiz.StudentQuizDtos.AnswerFeedbackDto;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultDto;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultViewDto;
 import ro.mathlms.quiz.StudentQuizDtos.ProgressPointDto;
@@ -20,6 +21,7 @@ import ro.mathlms.quiz.StudentQuizDtos.MyAttemptDto;
 import ro.mathlms.quiz.StudentQuizDtos.StartedAttemptDto;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * The student quiz-taking API, under {@code /api/quiz/...}. Access needs an active account
@@ -41,9 +43,11 @@ public class QuizAttemptController {
         return service.listPublished(auth.getName()).stream().map(QuizSummaryDto::from).toList();
     }
 
+    /** {@code ?mode=PRACTICE} starts a practice (immediate feedback, no grade); the default is the graded test. */
     @PostMapping("/api/quiz/quizzes/{quizId}/attempts")
-    public StartedAttemptDto start(@PathVariable Long quizId, Authentication auth) {
-        return service.startAttempt(quizId, auth.getName());
+    public StartedAttemptDto start(@PathVariable Long quizId,
+                                   @RequestParam(defaultValue = "TEST") AttemptMode mode, Authentication auth) {
+        return service.startAttempt(quizId, auth.getName(), mode);
     }
 
     /** The student's own progress chart data: graded attempts over time. */
@@ -58,17 +62,20 @@ public class QuizAttemptController {
     }
 
     @PutMapping("/api/quiz/attempts/{attemptId}/responses/{itemId}")
-    public ResponseEntity<Void> answer(@PathVariable Long attemptId, @PathVariable Long itemId,
-                                       @Valid @RequestBody AnswerRequest request, Authentication auth) {
-        service.saveResponse(attemptId, itemId, request.optionId(), auth.getName());
-        return ResponseEntity.noContent().build();
+    public ResponseEntity<AnswerFeedbackDto> answer(@PathVariable Long attemptId, @PathVariable Long itemId,
+                                                    @Valid @RequestBody AnswerRequest request, Authentication auth) {
+        return feedbackOrNoContent(service.saveResponse(attemptId, itemId, request.optionId(), auth.getName()));
     }
 
     @PostMapping("/api/quiz/attempts/{attemptId}/responses/{itemId}/photo")
-    public ResponseEntity<Void> uploadPhoto(@PathVariable Long attemptId, @PathVariable Long itemId,
-                                            @RequestParam("file") MultipartFile file, Authentication auth) {
-        service.uploadOpenPhoto(attemptId, itemId, file, auth.getName());
-        return ResponseEntity.noContent().build();
+    public ResponseEntity<AnswerFeedbackDto> uploadPhoto(@PathVariable Long attemptId, @PathVariable Long itemId,
+                                                         @RequestParam("file") MultipartFile file, Authentication auth) {
+        return feedbackOrNoContent(service.uploadOpenPhoto(attemptId, itemId, file, auth.getName()));
+    }
+
+    /** 200 + feedback in a practice, 204 (nothing revealed) in a graded test. */
+    private static ResponseEntity<AnswerFeedbackDto> feedbackOrNoContent(Optional<AnswerFeedbackDto> feedback) {
+        return feedback.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.noContent().build());
     }
 
     @PostMapping("/api/quiz/attempts/{attemptId}/submit")

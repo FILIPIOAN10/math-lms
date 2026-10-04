@@ -55,6 +55,13 @@ public class Quiz {
 
     public static final int MAX_TIME_LIMIT_MINUTES = 600;
 
+    /**
+     * Whether students may also PRACTISE this quiz (immediate feedback, no grade). Off by default: practice shows
+     * the right answers, so the teacher decides which quizzes can double as practice material without spoiling a test.
+     */
+    @Column(name = "practice_allowed", nullable = false)
+    private boolean practiceAllowed;
+
     public Quiz(String title, String description) {
         this.title = requireNonBlank(title, "title");
         this.description = description;
@@ -72,6 +79,10 @@ public class Quiz {
                     "timeLimitMinutes must be between 1 and " + MAX_TIME_LIMIT_MINUTES + ", was " + minutes);
         }
         this.timeLimitMinutes = minutes;
+    }
+
+    public void allowPractice(boolean allowed) {
+        this.practiceAllowed = allowed;
     }
 
     /** Restricts the quiz to one class, or ({@code null}) opens it to every student again. */

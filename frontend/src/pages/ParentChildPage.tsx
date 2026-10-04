@@ -4,6 +4,7 @@ import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { AttemptStatusBadge } from '@/components/AttemptStatusBadge'
 import { ProgressChart } from '@/components/ProgressChart'
+import { AttemptModeBadge } from '@/components/AttemptModeBadge'
 import { getChildAttempts, getChildProgress, type MyAttemptDto, type ProgressPointDto } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
 import { formatDate } from '@/lib/format'
@@ -62,7 +63,7 @@ export function ParentChildPage() {
               <div className="min-w-0 space-y-1">
                 <p className="truncate font-medium">{a.quizTitle}</p>
                 <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                  <AttemptStatusBadge status={a.status} />
+                  {a.mode === 'PRACTICE' ? <AttemptModeBadge mode={a.mode} /> : <AttemptStatusBadge status={a.status} />}
                   <span>{formatDate(a.submittedAt ?? a.startedAt)}</span>
                   {a.score !== null && <span className="text-foreground">{a.score} puncte</span>}
                 </p>

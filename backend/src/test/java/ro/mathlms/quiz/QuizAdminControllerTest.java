@@ -45,10 +45,10 @@ class QuizAdminControllerTest {
 
     @Test
     void createReturns201() {
-        when(service.createQuiz("Simulare EN", "d", null, null)).thenReturn(new Quiz("Simulare EN", "d"));
+        when(service.createQuiz("Simulare EN", "d", null, null, false)).thenReturn(new Quiz("Simulare EN", "d"));
 
         ResponseEntity<QuizSummaryDto> response =
-                controller.create(new QuizRequest("Simulare EN", "d", null, null));
+                controller.create(new QuizRequest("Simulare EN", "d", null, null, null));
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         assertThat(response.getBody()).isNotNull();

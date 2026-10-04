@@ -11,6 +11,7 @@ import ro.mathlms.content.EnrollmentRepository;
 import ro.mathlms.quiz.AdminAttemptDtos.AdminAttemptDetailDto;
 import ro.mathlms.quiz.AdminAttemptDtos.AdminAttemptSummaryDto;
 import ro.mathlms.quiz.AdminAttemptDtos.AdminItemReviewDto;
+import ro.mathlms.quiz.StudentQuizDtos.AnswerFeedbackDto;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultDto;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultViewDto;
 import ro.mathlms.quiz.StudentQuizDtos.ItemResultDto;
@@ -111,25 +112,39 @@ public class QuizAttemptService {
      */
     @Transactional
     public StartedAttemptDto startAttempt(Long quizId, String studentEmail) {
+        return startAttempt(quizId, studentEmail, AttemptMode.TEST);
+    }
+
+    /**
+     * {@link AttemptMode#PRACTICE} needs the quiz to allow it (the teacher's opt-in) and never has a deadline; a
+     * student may have one open practice next to one open test, but resumes the one of the mode asked for.
+     */
+    @Transactional
+    public StartedAttemptDto startAttempt(Long quizId, String studentEmail, AttemptMode mode) {
         User student = requireUser(studentEmail);
         Quiz quiz = quizRepository.findById(quizId)
                 .filter(q -> q.getStatus() == QuizStatus.PUBLISHED)
                 // 404 (not 403) for another class's quiz: a guessed id must not confirm it exists
                 .filter(q -> isVisibleTo(q, student))
                 .orElseThrow(() -> new QuizNotFoundException("Quiz", quizId));
+        if (mode == AttemptMode.PRACTICE && !quiz.isPracticeAllowed()) {
+            throw new InvalidQuizException("Acest quiz nu permite modul practică");
+        }
         Optional<QuizAttempt> open = attemptRepository
-                .findByQuizIdAndStudentIdAndStatus(quizId, student.getId(), QuizAttemptStatus.IN_PROGRESS);
+                .findByQuizIdAndStudentIdAndStatusAndMode(quizId, student.getId(), QuizAttemptStatus.IN_PROGRESS, mode);
         if (open.isPresent() && open.get().isOverdue(Instant.now(clock), SUBMIT_GRACE)) {
             // Time ran out before the expiry job got to it: hand it in now (its saved answers count), then start fresh.
             autoSubmitIfOverdue(open.get().getId());
             open = Optional.empty();
         }
-        QuizAttempt attempt = open.orElseGet(() -> attemptRepository.save(new QuizAttempt(quiz, student, Instant.now(clock))));
+        QuizAttempt attempt = open.orElseGet(() -> attemptRepository.save(new QuizAttempt(quiz, student, Instant.now(clock), mode)));
         List<SavedAnswerDto> answers = responseRepository.findByAttemptId(attempt.getId()).stream()
-                .map(SavedAnswerDto::from)
+                .map(response -> attempt.getMode() == AttemptMode.PRACTICE
+                        ? SavedAnswerDto.from(response, feedbackFor(response.getItem(), response))
+                        : SavedAnswerDto.from(response))
                 .toList();
         return new StartedAttemptDto(attempt.getId(), attempt.getStatus(), studentQuiz(quiz), answers,
-                attempt.getDeadlineAt(), Instant.now(clock));
+                attempt.getDeadlineAt(), Instant.now(clock), attempt.getMode());
     }
 
     /** The student's own attempts, newest first — the "Încercările mele" list. */
@@ -150,7 +165,7 @@ public class QuizAttemptService {
     public List<ProgressPointDto> getProgress(String studentEmail) {
         User student = requireUser(studentEmail);
         List<QuizAttempt> graded = attemptRepository
-                .findByStudentIdAndStatusOrderBySubmittedAtAsc(student.getId(), QuizAttemptStatus.GRADED);
+                .findByStudentIdAndStatusAndModeOrderBySubmittedAtAsc(student.getId(), QuizAttemptStatus.GRADED, AttemptMode.TEST);
         if (graded.isEmpty()) {
             return List.of();
         }
@@ -166,9 +181,12 @@ public class QuizAttemptService {
         }).collect(Collectors.toCollection(ArrayList::new)); // a plain list: it is what the cache stores
     }
 
-    /** Records (or replaces) the student's choice for one SINGLE_CHOICE item. */
+    /**
+     * Records (or replaces) the student's choice for one SINGLE_CHOICE item. In a PRACTICE the answer is marked on
+     * the spot and the feedback returned; in a graded TEST nothing is revealed (empty) and nothing is graded until submit.
+     */
     @Transactional
-    public void saveResponse(Long attemptId, Long itemId, Long optionId, String studentEmail) {
+    public Optional<AnswerFeedbackDto> saveResponse(Long attemptId, Long itemId, Long optionId, String studentEmail) {
         QuizAttempt attempt = requireOwnedInProgress(attemptId, studentEmail);
         requireTimeLeft(attempt);
         QuizItem item = itemRepository.findById(itemId)
@@ -187,15 +205,22 @@ public class QuizAttemptService {
         ItemResponse response = responseRepository.findByAttemptIdAndItemId(attemptId, itemId)
                 .orElseGet(() -> new ItemResponse(attempt, item));
         response.answerSingleChoice(option);
+        if (attempt.getMode() == AttemptMode.PRACTICE) {
+            response.gradeAuto(option.isCorrect(), option.isCorrect() ? item.getPoints() : 0);
+        }
         responseRepository.save(response);
+        return attempt.getMode() == AttemptMode.PRACTICE
+                ? Optional.of(feedbackFor(item, response))
+                : Optional.empty();
     }
 
     /**
      * Stores the uploaded rezolvare photo for one OPEN item and points the response at it. Replacing
-     * an earlier photo deletes the old file. The correct/points stay null — a teacher grades it later.
+     * an earlier photo deletes the old file. The correct/points stay null — a teacher grades it later. In a PRACTICE
+     * the barem comes back to compare with; in a graded TEST nothing does.
      */
     @Transactional
-    public void uploadOpenPhoto(Long attemptId, Long itemId, MultipartFile file, String studentEmail) {
+    public Optional<AnswerFeedbackDto> uploadOpenPhoto(Long attemptId, Long itemId, MultipartFile file, String studentEmail) {
         QuizAttempt attempt = requireOwnedInProgress(attemptId, studentEmail);
         requireTimeLeft(attempt);
         QuizItem item = itemRepository.findById(itemId)
@@ -227,6 +252,9 @@ public class QuizAttemptService {
                 // The new photo is saved; a leftover old file is not worth failing the request.
             }
         }
+        return attempt.getMode() == AttemptMode.PRACTICE
+                ? Optional.of(feedbackFor(item, response))
+                : Optional.empty();
     }
 
     /**
@@ -291,7 +319,9 @@ public class QuizAttemptService {
         }
 
         attempt.submit();
-        if (!hasOpenItems) {
+        if (attempt.getMode() == AttemptMode.PRACTICE) {
+            attempt.completePractice(); // never marked: no score, no cache to drop, nobody to email
+        } else if (!hasOpenItems) {
             attempt.markGraded(autoScore);
             evictGradingCaches(attempt);
         }
@@ -345,7 +375,7 @@ public class QuizAttemptService {
                     selectedText, correctText, item.getSolution(), photoUploaded));
         }
         return new AttemptResultViewDto(attempt.getId(), attempt.getQuiz().getTitle(),
-                attempt.getStatus(), attempt.getScore(), maxScore, itemResults);
+                attempt.getStatus(), attempt.getScore(), maxScore, itemResults, attempt.getMode());
     }
 
     private StudentQuizDto studentQuiz(Quiz quiz) {
@@ -365,6 +395,18 @@ public class QuizAttemptService {
             throw new InvalidQuizException("This attempt is no longer in progress");
         }
         return attempt;
+    }
+
+    /** What a PRACTICE answer reveals: the verdict (SINGLE_CHOICE), the right option's id and the barem. */
+    private AnswerFeedbackDto feedbackFor(QuizItem item, ItemResponse response) {
+        if (item.getType() != QuizItemType.SINGLE_CHOICE) {
+            return new AnswerFeedbackDto(null, null, item.getSolution());
+        }
+        Long correctOptionId = optionRepository.findByItemIdOrderByPosition(item.getId()).stream()
+                .filter(QuizOption::isCorrect)
+                .map(QuizOption::getId)
+                .findFirst().orElse(null);
+        return new AnswerFeedbackDto(response.getCorrect(), correctOptionId, item.getSolution());
     }
 
     private void requireTimeLeft(QuizAttempt attempt) {

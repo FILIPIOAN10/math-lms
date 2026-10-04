@@ -126,8 +126,8 @@ class QuizAttemptRepositoryTest {
 
         assertThat(quizAttemptRepository.findByStudentIdOrderByStartedAtDesc(ana.getId()))
                 .hasSize(2);
-        assertThat(quizAttemptRepository.findByQuizIdAndStudentIdAndStatus(
-                quiz.getId(), ana.getId(), QuizAttemptStatus.IN_PROGRESS))
+        assertThat(quizAttemptRepository.findByQuizIdAndStudentIdAndStatusAndMode(
+                quiz.getId(), ana.getId(), QuizAttemptStatus.IN_PROGRESS, AttemptMode.TEST))
                 .get().extracting(QuizAttempt::getId).isEqualTo(inProgress.getId());
     }
 
@@ -177,7 +177,7 @@ class QuizAttemptRepositoryTest {
         quizAttemptRepository.saveAndFlush(others);
 
         List<QuizAttempt> graded = quizAttemptRepository
-                .findByStudentIdAndStatusOrderBySubmittedAtAsc(ana.getId(), QuizAttemptStatus.GRADED);
+                .findByStudentIdAndStatusAndModeOrderBySubmittedAtAsc(ana.getId(), QuizAttemptStatus.GRADED, AttemptMode.TEST);
 
         assertThat(graded).extracting(QuizAttempt::getScore).containsExactly(5, 9);
     }
@@ -271,5 +271,99 @@ class QuizAttemptRepositoryTest {
         assertThatThrownBy(() -> {
             jdbc.update("update quizzes set time_limit_minutes = 0 where id = ?", quiz.getId());
         }).isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    // --- E2 practice mode ---
+
+    private QuizAttempt gradedTest(Quiz quiz, QuizItem item, QuizOption option, User who, int score) {
+        QuizAttempt attempt = new QuizAttempt(quiz, who);
+        ItemResponse response = new ItemResponse(attempt, item);
+        response.answerSingleChoice(option);
+        response.gradeAuto(true, score);
+        attempt.submit();
+        attempt.markGraded(score);
+        attempt = quizAttemptRepository.save(attempt);
+        itemResponseRepository.save(response);
+        return attempt;
+    }
+
+    private QuizAttempt finishedPractice(Quiz quiz, QuizItem item, QuizOption option, User who) {
+        QuizAttempt attempt = new QuizAttempt(quiz, who, java.time.Instant.now(), AttemptMode.PRACTICE);
+        ItemResponse response = new ItemResponse(attempt, item);
+        response.answerSingleChoice(option);
+        response.gradeAuto(true, 5);
+        attempt.submit();
+        attempt.completePractice();
+        attempt = quizAttemptRepository.save(attempt);
+        itemResponseRepository.save(response);
+        return attempt;
+    }
+
+    @Test
+    void practiceAttemptsNeverReachStatisticsProgressItemStatsOrTheGradingQueue() {
+        Quiz quiz = quizRepository.save(new Quiz("Cu practica", null));
+        QuizItem item = quizItemRepository.save(new QuizItem(quiz, 1, QuizItemType.SINGLE_CHOICE, "s", 5, null));
+        QuizOption right = quizOptionRepository.save(new QuizOption(item, 0, "A", true));
+        User ana = student("ana.practica@t.ro");
+        QuizAttempt test = gradedTest(quiz, item, right, ana, 5);
+        finishedPractice(quiz, item, right, ana);
+        QuizAttempt submittedPractice = new QuizAttempt(quiz, student("bob.practica@t.ro"), java.time.Instant.now(), AttemptMode.PRACTICE);
+        submittedPractice.submit();
+        quizAttemptRepository.save(submittedPractice);
+        quizAttemptRepository.flush();
+
+        // the teacher's statistics: one graded TEST, no null score from the practice
+        assertThat(quizAttemptRepository.findGradedScoresByQuizId(quiz.getId())).containsExactly(5);
+        // per-item stats count the test's answer only
+        assertThat(itemResponseRepository.findItemStatsByQuizId(quiz.getId()))
+                .singleElement().satisfies(stat -> assertThat(stat.answered()).isEqualTo(1L));
+        // the student's progress chart
+        assertThat(quizAttemptRepository.findByStudentIdAndStatusAndModeOrderBySubmittedAtAsc(
+                ana.getId(), QuizAttemptStatus.GRADED, AttemptMode.TEST))
+                .extracting(QuizAttempt::getId).containsExactly(test.getId());
+        // the grading queue
+        assertThat(quizAttemptRepository.findByStatusForGrading(QuizAttemptStatus.SUBMITTED))
+                .extracting(QuizAttempt::getId).doesNotContain(submittedPractice.getId());
+        // ... while "my attempts" still lists both sittings
+        assertThat(quizAttemptRepository.findByStudentIdOrderByStartedAtDesc(ana.getId())).hasSize(2);
+    }
+
+    @Test
+    void oneTestAndOnePracticeCanBeOpenTogetherButNotTwoOfTheSameKind() {
+        Quiz quiz = quizRepository.save(new Quiz("Doua moduri", null));
+        User ana = student("ana.moduri@t.ro");
+        quizAttemptRepository.save(new QuizAttempt(quiz, ana));
+        quizAttemptRepository.save(new QuizAttempt(quiz, ana, java.time.Instant.now(), AttemptMode.PRACTICE));
+        quizAttemptRepository.flush();
+
+        assertThatThrownBy(() -> {
+            quizAttemptRepository.save(new QuizAttempt(quiz, ana, java.time.Instant.now(), AttemptMode.PRACTICE));
+            quizAttemptRepository.flush();
+        }).isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void theDatabaseItselfRefusesAPracticeWithADeadline() {
+        Quiz quiz = quizRepository.save(new Quiz("Fara ceas", null));
+        QuizAttempt practice = quizAttemptRepository.save(
+                new QuizAttempt(quiz, student("ana.ceas@t.ro"), java.time.Instant.now(), AttemptMode.PRACTICE));
+        quizAttemptRepository.flush();
+
+        assertThatThrownBy(() ->
+                jdbc.update("update quiz_attempts set deadline_at = now() where id = ?", practice.getId()))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void practiceAllowedAndTheModeRoundTripThroughTheDatabase() {
+        Quiz quiz = new Quiz("Opt-in", null);
+        quiz.allowPractice(true);
+        quiz = quizRepository.save(quiz);
+        QuizAttempt practice = quizAttemptRepository.save(
+                new QuizAttempt(quiz, student("ana.rt@t.ro"), java.time.Instant.now(), AttemptMode.PRACTICE));
+        quizAttemptRepository.flush();
+
+        assertThat(quizRepository.findById(quiz.getId()).orElseThrow().isPracticeAllowed()).isTrue();
+        assertThat(quizAttemptRepository.findById(practice.getId()).orElseThrow().getMode()).isEqualTo(AttemptMode.PRACTICE);
     }
 }

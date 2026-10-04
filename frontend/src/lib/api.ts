@@ -339,6 +339,8 @@ export async function unenroll(enrollmentId: number): Promise<void> {
 // --- Quiz builder (Faza Q, admin) ---
 
 export type QuizStatus = 'DRAFT' | 'PUBLISHED'
+/** TEST = timed + graded; PRACTICE = immediate feedback, no timer, never graded (the teacher opts a quiz in). */
+export type AttemptMode = 'TEST' | 'PRACTICE'
 export type QuizItemType = 'SINGLE_CHOICE' | 'OPEN'
 
 export interface QuizSummary {
@@ -351,6 +353,8 @@ export interface QuizSummary {
   schoolClassName: string | null
   /** Minutes a student has once an attempt starts; null = untimed. */
   timeLimitMinutes: number | null
+  /** Whether students may also practise this quiz (immediate feedback, no grade). */
+  practiceAllowed: boolean
 }
 
 export interface QuizOptionDto {
@@ -437,24 +441,22 @@ export async function getQuiz(id: number): Promise<QuizDetail> {
   return response.json()
 }
 
-export async function createQuiz(
-  title: string,
-  description: string | null,
-  schoolClassId: number | null,
-  timeLimitMinutes: number | null,
-): Promise<QuizSummary> {
-  const response = await postJson('/admin/quizzes', { title, description, schoolClassId, timeLimitMinutes })
+/** The editable fields of a quiz (items are managed separately). */
+export interface QuizInput {
+  title: string
+  description: string | null
+  schoolClassId: number | null
+  timeLimitMinutes: number | null
+  practiceAllowed: boolean
+}
+
+export async function createQuiz(input: QuizInput): Promise<QuizSummary> {
+  const response = await postJson('/admin/quizzes', input)
   return response.json()
 }
 
-export async function updateQuiz(
-  id: number,
-  title: string,
-  description: string | null,
-  schoolClassId: number | null,
-  timeLimitMinutes: number | null,
-): Promise<QuizSummary> {
-  const response = await putJson(`/admin/quizzes/${id}`, { title, description, schoolClassId, timeLimitMinutes })
+export async function updateQuiz(id: number, input: QuizInput): Promise<QuizSummary> {
+  const response = await putJson(`/admin/quizzes/${id}`, input)
   return response.json()
 }
 
@@ -510,11 +512,23 @@ export interface StudentQuizDetailDto {
   items: StudentItemDto[]
 }
 
+/**
+ * What a PRACTICE answer reveals at once. `correct` is null for an open item (a teacher would mark it); the barem is
+ * `solution`. The server sends this only in practice - a graded test reveals nothing until it is submitted.
+ */
+export interface AnswerFeedback {
+  correct: boolean | null
+  correctOptionId: number | null
+  solution: string | null
+}
+
 /** What the student already saved on a resumed attempt. */
 export interface SavedAnswerDto {
   itemId: number
   selectedOptionId: number | null
   photoUploaded: boolean
+  /** Practice only; null in a graded test. */
+  feedback: AnswerFeedback | null
 }
 
 export interface StartedAttemptDto {
@@ -526,6 +540,7 @@ export interface StartedAttemptDto {
   deadlineAt: string | null
   /** The server's clock at the moment it answered — the countdown is measured from this, not from the browser's clock. */
   serverNow: string
+  mode: AttemptMode
 }
 
 export interface SubmitResultDto {
@@ -544,6 +559,7 @@ export interface MyAttemptDto {
   startedAt: string
   submittedAt: string | null
   score: number | null
+  mode: AttemptMode
 }
 
 /** One point of the progress chart: a graded attempt as points and as a percent of the quiz's max. */
@@ -577,6 +593,7 @@ export interface AttemptResultViewDto {
   finalScore: number | null
   maxScore: number
   items: ItemResultDto[]
+  mode: AttemptMode
 }
 
 // ----- Parent (Phase 5): read-only view of one's own children -----
@@ -622,24 +639,35 @@ export async function getMyAttempts(): Promise<MyAttemptDto[]> {
   return response.json()
 }
 
-/** Starts a new attempt, or resumes the one already in progress for this quiz. */
-export async function startQuizAttempt(quizId: number): Promise<StartedAttemptDto> {
-  const response = await postJson(`/quiz/quizzes/${quizId}/attempts`, {})
+/** Starts a new attempt, or resumes the one already in progress for this quiz in the given mode. */
+export async function startQuizAttempt(quizId: number, mode: AttemptMode = 'TEST'): Promise<StartedAttemptDto> {
+  const response = await postJson(`/quiz/quizzes/${quizId}/attempts?mode=${mode}`, {})
   return response.json()
 }
 
-export async function saveQuizAnswer(attemptId: number, itemId: number, optionId: number): Promise<void> {
-  await putJson(`/quiz/attempts/${attemptId}/responses/${itemId}`, { optionId })
+/** 200 + feedback in a practice, 204 (null) in a graded test. */
+async function feedbackOrNull(response: Response): Promise<AnswerFeedback | null> {
+  return response.status === 204 ? null : response.json()
 }
 
-export async function uploadQuizPhoto(attemptId: number, itemId: number, file: File): Promise<void> {
+export async function saveQuizAnswer(
+  attemptId: number,
+  itemId: number,
+  optionId: number,
+): Promise<AnswerFeedback | null> {
+  return feedbackOrNull(await putJson(`/quiz/attempts/${attemptId}/responses/${itemId}`, { optionId }))
+}
+
+export async function uploadQuizPhoto(attemptId: number, itemId: number, file: File): Promise<AnswerFeedback | null> {
   const formData = new FormData()
   formData.append('file', file)
   // No Content-Type header: the browser sets multipart/form-data with the boundary itself.
-  await apiFetch(`/quiz/attempts/${attemptId}/responses/${itemId}/photo`, {
-    method: 'POST',
-    body: formData,
-  })
+  return feedbackOrNull(
+    await apiFetch(`/quiz/attempts/${attemptId}/responses/${itemId}/photo`, {
+      method: 'POST',
+      body: formData,
+    }),
+  )
 }
 
 export async function submitQuizAttempt(attemptId: number): Promise<SubmitResultDto> {

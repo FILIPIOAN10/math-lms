@@ -128,7 +128,7 @@ class QuizAttemptServiceTest {
     void progressListsGradedAttemptsWithThePercentOfTheQuizsMaxScore() {
         QuizAttempt first = gradedAttempt(50L, quiz, 13);
         when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(student));
-        when(attemptRepository.findByStudentIdAndStatusOrderBySubmittedAtAsc(1L, QuizAttemptStatus.GRADED))
+        when(attemptRepository.findByStudentIdAndStatusAndModeOrderBySubmittedAtAsc(1L, QuizAttemptStatus.GRADED, AttemptMode.TEST))
                 .thenReturn(List.of(first));
         when(itemRepository.sumPointsByQuiz(List.of(10L))).thenReturn(List.of(new QuizMaxScore(10L, 15L)));
 
@@ -146,7 +146,7 @@ class QuizAttemptServiceTest {
     @Test
     void progressIsEmptyAndSkipsTheScoreLookupWhenNothingIsGradedYet() {
         when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(student));
-        when(attemptRepository.findByStudentIdAndStatusOrderBySubmittedAtAsc(1L, QuizAttemptStatus.GRADED))
+        when(attemptRepository.findByStudentIdAndStatusAndModeOrderBySubmittedAtAsc(1L, QuizAttemptStatus.GRADED, AttemptMode.TEST))
                 .thenReturn(List.of());
 
         assertThat(service.getProgress(EMAIL)).isEmpty();
@@ -157,7 +157,7 @@ class QuizAttemptServiceTest {
     void aQuizWithoutPointsGivesZeroPercentInsteadOfDividingByZero() {
         QuizAttempt zero = gradedAttempt(51L, quiz, 0);
         when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(student));
-        when(attemptRepository.findByStudentIdAndStatusOrderBySubmittedAtAsc(1L, QuizAttemptStatus.GRADED))
+        when(attemptRepository.findByStudentIdAndStatusAndModeOrderBySubmittedAtAsc(1L, QuizAttemptStatus.GRADED, AttemptMode.TEST))
                 .thenReturn(List.of(zero));
         when(itemRepository.sumPointsByQuiz(List.of(10L))).thenReturn(List.of());
 
@@ -216,7 +216,7 @@ class QuizAttemptServiceTest {
         when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(student));
         when(quizRepository.findById(12L)).thenReturn(Optional.of(mine));
         when(enrollmentRepository.existsByStudentIdAndSchoolClassId(1L, 5L)).thenReturn(true);
-        when(attemptRepository.findByQuizIdAndStudentIdAndStatus(12L, 1L, QuizAttemptStatus.IN_PROGRESS))
+        when(attemptRepository.findByQuizIdAndStudentIdAndStatusAndMode(12L, 1L, QuizAttemptStatus.IN_PROGRESS, AttemptMode.TEST))
                 .thenReturn(Optional.empty());
         when(attemptRepository.save(any(QuizAttempt.class))).thenAnswer(i -> withId(i.getArgument(0), 60L));
         when(itemRepository.findByQuizIdOrderByPosition(12L)).thenReturn(List.of());
@@ -244,7 +244,7 @@ class QuizAttemptServiceTest {
         QuizAttempt existing = attempt(50L, student);
         when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(student));
         when(quizRepository.findById(10L)).thenReturn(Optional.of(quiz));
-        when(attemptRepository.findByQuizIdAndStudentIdAndStatus(10L, 1L, QuizAttemptStatus.IN_PROGRESS))
+        when(attemptRepository.findByQuizIdAndStudentIdAndStatusAndMode(10L, 1L, QuizAttemptStatus.IN_PROGRESS, AttemptMode.TEST))
                 .thenReturn(Optional.of(existing));
         when(itemRepository.findByQuizIdOrderByPosition(10L)).thenReturn(List.of(item));
         when(optionRepository.findByItemIdOrderByPosition(100L)).thenReturn(List.of(a));
@@ -262,7 +262,7 @@ class QuizAttemptServiceTest {
     void startCreatesAttemptWhenNoneInProgress() {
         when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(student));
         when(quizRepository.findById(10L)).thenReturn(Optional.of(quiz));
-        when(attemptRepository.findByQuizIdAndStudentIdAndStatus(10L, 1L, QuizAttemptStatus.IN_PROGRESS))
+        when(attemptRepository.findByQuizIdAndStudentIdAndStatusAndMode(10L, 1L, QuizAttemptStatus.IN_PROGRESS, AttemptMode.TEST))
                 .thenReturn(Optional.empty());
         when(attemptRepository.save(any(QuizAttempt.class))).thenAnswer(i -> withId(i.getArgument(0), 51L));
         when(itemRepository.findByQuizIdOrderByPosition(10L)).thenReturn(List.of());
@@ -698,7 +698,7 @@ class QuizAttemptServiceTest {
         r2.answerOpen("poza.jpg");
         when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(student));
         when(quizRepository.findById(10L)).thenReturn(Optional.of(quiz));
-        when(attemptRepository.findByQuizIdAndStudentIdAndStatus(10L, 1L, QuizAttemptStatus.IN_PROGRESS))
+        when(attemptRepository.findByQuizIdAndStudentIdAndStatusAndMode(10L, 1L, QuizAttemptStatus.IN_PROGRESS, AttemptMode.TEST))
                 .thenReturn(Optional.of(existing));
         when(itemRepository.findByQuizIdOrderByPosition(10L)).thenReturn(List.of(grila, deschis));
         when(responseRepository.findByAttemptId(50L)).thenReturn(List.of(r1, r2));

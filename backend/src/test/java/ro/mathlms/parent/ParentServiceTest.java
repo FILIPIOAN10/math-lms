@@ -3,6 +3,7 @@ package ro.mathlms.parent;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 import ro.mathlms.quiz.QuizAttemptService;
+import ro.mathlms.quiz.AttemptMode;
 import ro.mathlms.quiz.QuizAttemptStatus;
 import ro.mathlms.quiz.StudentQuizDtos;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultViewDto;
@@ -41,7 +42,7 @@ class ParentServiceTest {
     }
 
     private MyAttemptDto attempt(long id) {
-        return new MyAttemptDto(id, 10L, "Simulare EN", QuizAttemptStatus.GRADED, Instant.now(), Instant.now(), 13);
+        return new MyAttemptDto(id, 10L, "Simulare EN", QuizAttemptStatus.GRADED, Instant.now(), Instant.now(), 13, AttemptMode.TEST);
     }
 
     // --- children ---

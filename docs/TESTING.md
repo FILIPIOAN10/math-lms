@@ -179,6 +179,23 @@ Verificare rapidă fără să aștepți: pornește o încercare, apoi
 → un `PUT …/responses/…` dă 409, iar în ≤ ~30–45 s încercarea devine GRADED/SUBMITTED fără nicio acțiune.
 Config (opțional): `app.quiz.expiry-job.enabled` (true), `.interval-ms` (30000), `.initial-delay-ms` (20000).
 
+### 11b. Mod practică (E2) — `/admin/quizzes`, apoi `/quizzes`
+**Ca admin:** în dialogul quiz-ului bifează **Permite practică** (implicit nebifat). Lista arată „· practică permisă”. Practica *dezvăluie* răspunsurile,
+de aceea e opt-in per quiz: bifeaz-o doar pentru materiale de exersare, nu pentru un test care trebuie să rămână corect.
+**Ca elev:** pe quiz-urile bifate apare lângă **Începe** butonul **Exersează** (sau **Continuă practica**).
+- pagina de start: „Mod practică … nu se acordă notă, nu există cronometru”; bandă violet „Mod practică” sus; **niciun cronometru**, chiar dacă quiz-ul are limită
+- bifezi o variantă → imediat „✓ Corect!” / „✗ Greșit”, varianta corectă conturată verde, greșeala roșie, plus **Rezolvarea** (baremul) randată cu KaTeX; poți schimba răspunsul și feedback-ul se actualizează
+- subiect deschis → după poză apare baremul „compară-l cu rezolvarea ta” (nu există verdict automat)
+- **Termină practica** → pagina de rezultat: insigna „Practică”, „fără notă”, „Grile corecte: n din m” — fără scor
+- reîncarci pagina → „Continuă practica” → răspunsurile și feedback-ul revin
+- un test cronometrat și o practică pot fi deschise simultan pe același quiz; fiecare mod își reia propria încercare
+- practica **nu apare** în graficul de progres (elev/părinte), în statisticile profesorului, în coada de corectură și nu trimite emailuri
+- în **testul** notat nimic nu s-a schimbat: răspunsul se salvează (204, fără corp), niciun feedback până la trimitere
+- pe un quiz fără opt-in: `POST /api/quiz/quizzes/{id}/attempts?mode=PRACTICE` → 400 „Acest quiz nu permite modul practică”
+
+Verificare rapidă prin API (ca elev, cu cookie): practică → `PUT …/responses/…` răspunde `200 {"correct":false,"correctOptionId":…,"solution":"…"}`;
+test → `204` fără corp.
+
 ### 12. Profesor — corectură (`/admin/grading`, ca admin)
 Buton pe Dashboard: **Corectură**.
 - „De corectat” → **Corectează** → grilele (corectate automat), poza elevului (click = mărime completă), baremul

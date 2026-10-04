@@ -135,4 +135,57 @@ class QuizAttemptTest {
         assertThat(attempt.isOverdue(deadline.plusSeconds(30), grace)).isFalse();   // exactly at the edge: still allowed
         assertThat(attempt.isOverdue(deadline.plusSeconds(31), grace)).isTrue();
     }
+
+    // --- practice mode ---
+
+    @Test
+    void anAttemptIsATestByDefault() {
+        assertThat(new QuizAttempt(quiz, student).getMode()).isEqualTo(AttemptMode.TEST);
+    }
+
+    @Test
+    void aPracticeAttemptHasNoDeadlineEvenOnATimedQuiz() {
+        quiz.changeTimeLimit(45);
+
+        QuizAttempt practice = new QuizAttempt(quiz, student, Instant.now(), AttemptMode.PRACTICE);
+
+        assertThat(practice.getMode()).isEqualTo(AttemptMode.PRACTICE);
+        assertThat(practice.getDeadlineAt()).isNull();
+        assertThat(practice.isOverdue(Instant.now().plus(Duration.ofDays(30)), Duration.ZERO)).isFalse();
+    }
+
+    @Test
+    void aTestAttemptStillGetsItsDeadline() {
+        quiz.changeTimeLimit(45);
+
+        QuizAttempt test = new QuizAttempt(quiz, student, Instant.now(), AttemptMode.TEST);
+
+        assertThat(test.getDeadlineAt()).isNotNull();
+    }
+
+    @Test
+    void finishingAPracticeEndsItGradedButWithoutAScore() {
+        QuizAttempt practice = new QuizAttempt(quiz, student, Instant.now(), AttemptMode.PRACTICE);
+        practice.submit();
+
+        practice.completePractice();
+
+        assertThat(practice.getStatus()).isEqualTo(QuizAttemptStatus.GRADED);
+        assertThat(practice.getScore()).isNull(); // practice is never marked: "fara nota"
+    }
+
+    @Test
+    void onlyASubmittedPracticeCanBeCompleted() {
+        QuizAttempt practice = new QuizAttempt(quiz, student, Instant.now(), AttemptMode.PRACTICE);
+
+        assertThatThrownBy(practice::completePractice).isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void aTestAttemptCannotBeCompletedAsPractice() {
+        QuizAttempt test = new QuizAttempt(quiz, student);
+        test.submit();
+
+        assertThatThrownBy(test::completePractice).isInstanceOf(IllegalStateException.class);
+    }
 }

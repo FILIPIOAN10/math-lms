@@ -18,7 +18,8 @@ public interface ItemResponseRepository extends JpaRepository<ItemResponse, Long
     @Query("select new ro.mathlms.quiz.ItemStat(r.item.id, count(r),"
             + " sum(case when r.correct = true then 1L else 0L end), sum(r.awardedPoints))"
             + " from ItemResponse r where r.attempt.quiz.id = :quizId"
-            + " and r.attempt.status = ro.mathlms.quiz.QuizAttemptStatus.GRADED group by r.item.id")
+            + " and r.attempt.status = ro.mathlms.quiz.QuizAttemptStatus.GRADED"
+            + " and r.attempt.mode = ro.mathlms.quiz.AttemptMode.TEST group by r.item.id")
     List<ItemStat> findItemStatsByQuizId(@Param("quizId") Long quizId);
 
     /** Storage keys of every rezolvare photo a student uploaded — used by GDPR erasure to delete the files. */

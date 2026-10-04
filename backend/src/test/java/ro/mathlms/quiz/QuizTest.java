@@ -85,4 +85,22 @@ class QuizTest {
         quiz.changeTimeLimit(1);
         quiz.changeTimeLimit(600);
     }
+
+    // --- practice mode ---
+
+    @Test
+    void practiceIsNotAllowedByDefault() {
+        assertThat(new Quiz("Simulare EN", null).isPracticeAllowed()).isFalse();
+    }
+
+    @Test
+    void theTeacherCanAllowAndForbidPractice() {
+        Quiz quiz = new Quiz("Simulare EN", null);
+
+        quiz.allowPractice(true);
+        assertThat(quiz.isPracticeAllowed()).isTrue();
+
+        quiz.allowPractice(false);
+        assertThat(quiz.isPracticeAllowed()).isFalse();
+    }
 }

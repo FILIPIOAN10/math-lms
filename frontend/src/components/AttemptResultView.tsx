@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { AttemptModeBadge } from '@/components/AttemptModeBadge'
 import { AttemptStatusBadge } from '@/components/AttemptStatusBadge'
 import { MathContent } from '@/components/MathContent'
 import { type AttemptResultViewDto, type ItemResultDto } from '@/lib/api'
@@ -78,6 +79,9 @@ function ItemResult({ item, index, audience }: { item: ItemResultDto; index: num
  */
 export function AttemptResultView({ result, audience = 'student' }: { result: AttemptResultViewDto; audience?: ResultAudience }) {
   const pointsSoFar = result.items.reduce((sum, i) => sum + (i.awardedPoints ?? 0), 0)
+  const practice = result.mode === 'PRACTICE'
+  const choiceItems = result.items.filter((i) => i.type === 'SINGLE_CHOICE')
+  const choiceCorrect = choiceItems.filter((i) => i.correct).length
 
   return (
     <>
@@ -85,9 +89,14 @@ export function AttemptResultView({ result, audience = 'student' }: { result: At
         <CardContent className="space-y-2 py-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h1 className="text-xl font-semibold">{result.quizTitle}</h1>
-            <AttemptStatusBadge status={result.status} />
+            {practice ? <AttemptModeBadge mode={result.mode} /> : <AttemptStatusBadge status={result.status} />}
           </div>
-          {result.status === 'GRADED' ? (
+          {practice ? (
+            <p data-testid="result-practice" className="text-sm text-muted-foreground">
+              Sesiune de practică — fără notă și fără efect asupra progresului.
+              {choiceItems.length > 0 && ` Grile corecte: ${choiceCorrect} din ${choiceItems.length}.`}
+            </p>
+          ) : result.status === 'GRADED' ? (
             <p data-testid="result-score" className="text-3xl font-semibold">
               {result.finalScore} <span className="text-base text-muted-foreground">/ {result.maxScore} puncte</span>
             </p>

@@ -23,6 +23,7 @@ import {
   type QuizItemDto,
   type QuizItemType,
   type QuizSummary,
+  type QuizInput,
   type SchoolClass,
 } from '@/lib/api'
 
@@ -43,6 +44,7 @@ function QuizDialog({
   initialDescription,
   initialClassId,
   initialTimeLimit,
+  initialPracticeAllowed,
   classes,
   onSubmit,
 }: {
@@ -52,18 +54,15 @@ function QuizDialog({
   initialDescription: string
   initialClassId: number | null
   initialTimeLimit: number | null
+  initialPracticeAllowed: boolean
   classes: SchoolClass[]
-  onSubmit: (
-    title: string,
-    description: string | null,
-    schoolClassId: number | null,
-    timeLimitMinutes: number | null,
-  ) => Promise<void>
+  onSubmit: (input: QuizInput) => Promise<void>
 }) {
   const [title, setTitle] = useState(initialTitle)
   const [description, setDescription] = useState(initialDescription)
   const [classId, setClassId] = useState(initialClassId === null ? '' : String(initialClassId))
   const [timeLimit, setTimeLimit] = useState(initialTimeLimit === null ? '' : String(initialTimeLimit))
+  const [practiceAllowed, setPracticeAllowed] = useState(initialPracticeAllowed)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -72,12 +71,13 @@ function QuizDialog({
     setError(null)
     setBusy(true)
     try {
-      await onSubmit(
-        title.trim(),
-        description.trim() || null,
-        classId === '' ? null : Number(classId),
-        timeLimit.trim() === '' ? null : Number(timeLimit),
-      )
+      await onSubmit({
+        title: title.trim(),
+        description: description.trim() || null,
+        schoolClassId: classId === '' ? null : Number(classId),
+        timeLimitMinutes: timeLimit.trim() === '' ? null : Number(timeLimit),
+        practiceAllowed,
+      })
       onClose()
     } catch (err) {
       setError(errorMessage(err))
@@ -125,6 +125,22 @@ function QuizDialog({
           <p className="text-xs text-muted-foreground">
             Cronometrul pornește când elevul începe testul, iar serverul respinge răspunsurile după expirare.
             Încercările deja începute își păstrează timpul inițial.
+          </p>
+        </div>
+        <div className="flex flex-col gap-1">
+          <label htmlFor="qpractice" className="flex items-center gap-2 text-sm font-medium">
+            <input
+              id="qpractice"
+              type="checkbox"
+              checked={practiceAllowed}
+              onChange={(e) => setPracticeAllowed(e.target.checked)}
+            />
+            Permite practică
+          </label>
+          <p className="text-xs text-muted-foreground">
+            Elevii pot exersa quiz-ul fără notă, cu răspunsul corect afișat imediat după fiecare subiect, fără cronometru
+            și fără efect asupra progresului sau statisticilor. Atenție: practica dezvăluie răspunsurile — bifeaz-o
+            doar pentru quiz-uri care pot servi ca material de exersare.
           </p>
         </div>
         {error && <p className="text-sm text-destructive">{error}</p>}
@@ -444,6 +460,7 @@ export function AdminQuizzesPage() {
                       <p className="truncate text-xs text-muted-foreground" data-testid="quiz-audience">
                         {q.schoolClassName ? `Clasa: ${q.schoolClassName}` : 'Toți elevii'}
                         {q.timeLimitMinutes !== null && ` · ⏱ ${q.timeLimitMinutes} min`}
+                        {q.practiceAllowed && ' · practică permisă'}
                       </p>
                       {q.description && <p className="truncate text-sm text-muted-foreground">{q.description}</p>}
                     </div>
@@ -471,12 +488,13 @@ export function AdminQuizzesPage() {
           initialDescription={quizDialog.item?.description ?? ''}
           initialClassId={quizDialog.item?.schoolClassId ?? null}
           initialTimeLimit={quizDialog.item?.timeLimitMinutes ?? null}
+          initialPracticeAllowed={quizDialog.item?.practiceAllowed ?? false}
           classes={classes}
-          onSubmit={async (title, desc, schoolClassId, timeLimitMinutes) => {
+          onSubmit={async (input) => {
             if (quizDialog.item) {
-              await updateQuiz(quizDialog.item.id, title, desc, schoolClassId, timeLimitMinutes)
+              await updateQuiz(quizDialog.item.id, input)
             } else {
-              await createQuiz(title, desc, schoolClassId, timeLimitMinutes)
+              await createQuiz(input)
             }
             await reloadList()
           }}

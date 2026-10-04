@@ -10,6 +10,7 @@ public record QuizRequest(
         @NotBlank @Size(max = 200) String title,
         @Size(max = 1000) String description,
         Long schoolClassId, // optional: null = every student may take the quiz
-        @Min(1) @Max(Quiz.MAX_TIME_LIMIT_MINUTES) Integer timeLimitMinutes // optional: null = untimed
+        @Min(1) @Max(Quiz.MAX_TIME_LIMIT_MINUTES) Integer timeLimitMinutes, // optional: null = untimed
+        Boolean practiceAllowed // optional: null/false = students cannot practise this quiz
 ) {
 }

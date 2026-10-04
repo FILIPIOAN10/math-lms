@@ -9,10 +9,12 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.multipart.MultipartFile;
 import ro.mathlms.quiz.QuizDtos.QuizSummaryDto;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultDto;
+import ro.mathlms.quiz.StudentQuizDtos.AnswerFeedbackDto;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultViewDto;
 import ro.mathlms.quiz.StudentQuizDtos.MyAttemptDto;
 import ro.mathlms.quiz.StudentQuizDtos.StartedAttemptDto;
 
+import java.util.Optional;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -51,16 +53,24 @@ class QuizAttemptControllerTest {
 
     @Test
     void startDelegatesWithPrincipalEmail() {
-        StartedAttemptDto dto = new StartedAttemptDto(50L, QuizAttemptStatus.IN_PROGRESS, null, List.of(), null, null);
-        when(service.startAttempt(10L, "elev@scoala.ro")).thenReturn(dto);
+        StartedAttemptDto dto = new StartedAttemptDto(50L, QuizAttemptStatus.IN_PROGRESS, null, List.of(), null, null, AttemptMode.TEST);
+        when(service.startAttempt(10L, "elev@scoala.ro", AttemptMode.TEST)).thenReturn(dto);
 
-        assertThat(controller.start(10L, auth)).isEqualTo(dto);
+        assertThat(controller.start(10L, AttemptMode.TEST, auth)).isEqualTo(dto);
+    }
+
+    @Test
+    void startPassesThePracticeModeThrough() {
+        StartedAttemptDto dto = new StartedAttemptDto(51L, QuizAttemptStatus.IN_PROGRESS, null, List.of(), null, null, AttemptMode.PRACTICE);
+        when(service.startAttempt(10L, "elev@scoala.ro", AttemptMode.PRACTICE)).thenReturn(dto);
+
+        assertThat(controller.start(10L, AttemptMode.PRACTICE, auth)).isEqualTo(dto);
     }
 
     @Test
     void myAttemptsDelegatesWithPrincipalEmail() {
         List<MyAttemptDto> mine = List.of(new MyAttemptDto(
-                50L, 10L, "Simulare EN", QuizAttemptStatus.GRADED, null, null, 7));
+                50L, 10L, "Simulare EN", QuizAttemptStatus.GRADED, null, null, 7, AttemptMode.TEST));
         when(service.listMyAttempts("elev@scoala.ro")).thenReturn(mine);
 
         assertThat(controller.myAttempts(auth)).isEqualTo(mine);
@@ -68,18 +78,31 @@ class QuizAttemptControllerTest {
 
     @Test
     void answerReturns204AndDelegatesOption() {
-        ResponseEntity<Void> response =
+        ResponseEntity<AnswerFeedbackDto> response =
                 controller.answer(50L, 100L, new AnswerRequest(1000L), auth);
 
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT); // a graded test reveals nothing
+        assertThat(response.getBody()).isNull();
         verify(service).saveResponse(50L, 100L, 1000L, "elev@scoala.ro");
+    }
+
+    @Test
+    void aPracticeAnswerReturns200WithTheFeedback() {
+        AnswerFeedbackDto feedback = new AnswerFeedbackDto(true, 1000L, "barem");
+        when(service.saveResponse(50L, 100L, 1000L, "elev@scoala.ro")).thenReturn(Optional.of(feedback));
+
+        ResponseEntity<AnswerFeedbackDto> response =
+                controller.answer(50L, 100L, new AnswerRequest(1000L), auth);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isEqualTo(feedback);
     }
 
     @Test
     void uploadPhotoReturns204AndDelegates() {
         MultipartFile file = new MockMultipartFile("file", "r.jpg", "image/jpeg", "bytes".getBytes());
 
-        ResponseEntity<Void> response = controller.uploadPhoto(50L, 101L, file, auth);
+        ResponseEntity<AnswerFeedbackDto> response = controller.uploadPhoto(50L, 101L, file, auth);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
         verify(service).uploadOpenPhoto(50L, 101L, file, "elev@scoala.ro");
@@ -88,7 +111,7 @@ class QuizAttemptControllerTest {
     @Test
     void resultDelegatesToService() {
         AttemptResultViewDto view = new AttemptResultViewDto(
-                50L, "Simulare EN", QuizAttemptStatus.GRADED, 5, 35, List.of());
+                50L, "Simulare EN", QuizAttemptStatus.GRADED, 5, 35, List.of(), AttemptMode.TEST);
         when(service.getResult(50L, "elev@scoala.ro")).thenReturn(view);
 
         assertThat(controller.result(50L, auth)).isEqualTo(view);

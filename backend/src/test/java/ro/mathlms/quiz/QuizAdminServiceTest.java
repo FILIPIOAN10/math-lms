@@ -46,7 +46,7 @@ class QuizAdminServiceTest {
     void createQuizWithoutClassIsForEveryone() {
         when(quizRepository.save(any(Quiz.class))).thenAnswer(i -> i.getArgument(0));
 
-        Quiz created = service.createQuiz("Simulare EN", "d", null, null);
+        Quiz created = service.createQuiz("Simulare EN", "d", null, null, false);
 
         assertThat(created.getSchoolClass()).isNull();
         verify(schoolClassRepository, never()).findById(any());
@@ -57,7 +57,7 @@ class QuizAdminServiceTest {
         when(schoolClassRepository.findById(5L)).thenReturn(Optional.of(ninth));
         when(quizRepository.save(any(Quiz.class))).thenAnswer(i -> i.getArgument(0));
 
-        Quiz created = service.createQuiz("Simulare EN", "d", 5L, null);
+        Quiz created = service.createQuiz("Simulare EN", "d", 5L, null, false);
 
         assertThat(created.getSchoolClass()).isSameAs(ninth);
     }
@@ -66,7 +66,7 @@ class QuizAdminServiceTest {
     void createQuizRejectsAnUnknownClass() {
         when(schoolClassRepository.findById(404L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.createQuiz("Simulare EN", "d", 404L, null))
+        assertThatThrownBy(() -> service.createQuiz("Simulare EN", "d", 404L, null, false))
                 .isInstanceOf(QuizNotFoundException.class);
         verify(quizRepository, never()).save(any());
     }
@@ -77,8 +77,8 @@ class QuizAdminServiceTest {
         when(schoolClassRepository.findById(5L)).thenReturn(Optional.of(ninth));
         when(quizRepository.save(any(Quiz.class))).thenAnswer(i -> i.getArgument(0));
 
-        assertThat(service.updateQuiz(1L, "Nou", "d", 5L, null).getSchoolClass()).isSameAs(ninth);
-        assertThat(service.updateQuiz(1L, "Nou", "d", null, null).getSchoolClass()).isNull();
+        assertThat(service.updateQuiz(1L, "Nou", "d", 5L, null, false).getSchoolClass()).isSameAs(ninth);
+        assertThat(service.updateQuiz(1L, "Nou", "d", null, null, false).getSchoolClass()).isNull();
     }
 
     @Test
@@ -175,7 +175,7 @@ class QuizAdminServiceTest {
     void createQuizStoresTheTimeLimit() {
         when(quizRepository.save(any(Quiz.class))).thenAnswer(i -> i.getArgument(0));
 
-        Quiz created = service.createQuiz("Simulare EN", "d", null, 45);
+        Quiz created = service.createQuiz("Simulare EN", "d", null, 45, false);
 
         assertThat(created.getTimeLimitMinutes()).isEqualTo(45);
     }
@@ -185,15 +185,32 @@ class QuizAdminServiceTest {
         when(quizRepository.findById(1L)).thenReturn(Optional.of(quiz));
         when(quizRepository.save(any(Quiz.class))).thenAnswer(i -> i.getArgument(0));
 
-        assertThat(service.updateQuiz(1L, "Nou", "d", null, 30).getTimeLimitMinutes()).isEqualTo(30);
-        assertThat(service.updateQuiz(1L, "Nou", "d", null, null).getTimeLimitMinutes()).isNull();
+        assertThat(service.updateQuiz(1L, "Nou", "d", null, 30, false).getTimeLimitMinutes()).isEqualTo(30);
+        assertThat(service.updateQuiz(1L, "Nou", "d", null, null, false).getTimeLimitMinutes()).isNull();
     }
 
     @Test
     void anOutOfRangeTimeLimitIsRejectedAndNothingIsSaved() {
-        assertThatThrownBy(() -> service.createQuiz("Simulare EN", "d", null, 0))
+        assertThatThrownBy(() -> service.createQuiz("Simulare EN", "d", null, 0, false))
                 .isInstanceOf(IllegalArgumentException.class);
 
         verify(quizRepository, never()).save(any());
+    }
+
+    @Test
+    void aNewQuizDoesNotAllowPracticeUnlessTheTeacherTicksIt() {
+        when(quizRepository.save(any(Quiz.class))).thenAnswer(i -> i.getArgument(0));
+
+        assertThat(service.createQuiz("Simulare EN", "d", null, null, false).isPracticeAllowed()).isFalse();
+        assertThat(service.createQuiz("Simulare EN", "d", null, null, true).isPracticeAllowed()).isTrue();
+    }
+
+    @Test
+    void updateQuizCanTurnPracticeOnAndOff() {
+        when(quizRepository.findById(1L)).thenReturn(Optional.of(quiz));
+        when(quizRepository.save(any(Quiz.class))).thenAnswer(i -> i.getArgument(0));
+
+        assertThat(service.updateQuiz(1L, "Nou", "d", null, null, true).isPracticeAllowed()).isTrue();
+        assertThat(service.updateQuiz(1L, "Nou", "d", null, null, false).isPracticeAllowed()).isFalse();
     }
 }

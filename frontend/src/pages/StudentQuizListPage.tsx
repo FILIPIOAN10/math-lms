@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { AttemptModeBadge } from '@/components/AttemptModeBadge'
 import { AttemptStatusBadge } from '@/components/AttemptStatusBadge'
 import { getMyAttempts, getStudentQuizzes, type MyAttemptDto, type QuizSummary } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
@@ -34,9 +35,10 @@ export function StudentQuizListPage() {
     }
   }, [])
 
-  const inProgressQuizIds = new Set(
-    attempts.filter((a) => a.status === 'IN_PROGRESS').map((a) => a.quizId),
-  )
+  const openQuizIds = (mode: 'TEST' | 'PRACTICE') =>
+    new Set(attempts.filter((a) => a.status === 'IN_PROGRESS' && a.mode === mode).map((a) => a.quizId))
+  const inProgressTests = openQuizIds('TEST')
+  const inProgressPractices = openQuizIds('PRACTICE')
 
   return (
     <div className="min-h-screen bg-muted p-4">
@@ -72,9 +74,20 @@ export function StudentQuizListPage() {
                           </p>
                         )}
                       </div>
-                      <Link to={`/quizzes/${q.id}/take`} data-testid="quiz-open" className={buttonVariants({ size: 'sm' })}>
-                        {inProgressQuizIds.has(q.id) ? 'Continuă' : 'Începe'}
-                      </Link>
+                      <div className="flex shrink-0 gap-2">
+                        {q.practiceAllowed && (
+                          <Link
+                            to={`/quizzes/${q.id}/take?mode=practice`}
+                            data-testid="quiz-practice"
+                            className={buttonVariants({ size: 'sm', variant: 'outline' })}
+                          >
+                            {inProgressPractices.has(q.id) ? 'Continuă practica' : 'Exersează'}
+                          </Link>
+                        )}
+                        <Link to={`/quizzes/${q.id}/take`} data-testid="quiz-open" className={buttonVariants({ size: 'sm' })}>
+                          {inProgressTests.has(q.id) ? 'Continuă' : 'Începe'}
+                        </Link>
+                      </div>
                     </CardContent>
                   </Card>
                 ))
@@ -92,13 +105,16 @@ export function StudentQuizListPage() {
                       <div className="min-w-0 space-y-1">
                         <p className="truncate font-medium">{a.quizTitle}</p>
                         <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                          <AttemptStatusBadge status={a.status} />
+                          {a.mode === 'PRACTICE' ? <AttemptModeBadge mode={a.mode} /> : <AttemptStatusBadge status={a.status} />}
                           <span>{formatDate(a.submittedAt ?? a.startedAt)}</span>
                           {a.score !== null && <span className="text-foreground">{a.score} puncte</span>}
                         </p>
                       </div>
                       {a.status === 'IN_PROGRESS' ? (
-                        <Link to={`/quizzes/${a.quizId}/take`} className={buttonVariants({ size: 'sm', variant: 'secondary' })}>
+                        <Link
+                          to={`/quizzes/${a.quizId}/take${a.mode === 'PRACTICE' ? '?mode=practice' : ''}`}
+                          className={buttonVariants({ size: 'sm', variant: 'secondary' })}
+                        >
                           Continuă
                         </Link>
                       ) : (
