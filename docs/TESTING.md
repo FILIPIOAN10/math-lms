@@ -70,10 +70,10 @@ cd math-lms/backend && ./mvnw test
 ./mvnw -Dtest='ro.mathlms.content.*' test
 
 # Frontend — `npm run build` include `tsc -b`, deci prinde și erorile de tipuri
-cd math-lms/frontend && npm run build
+cd math-lms/frontend && npm test && npm run build
 ```
 
-Nu există runner de teste FE (fără vitest) — regula tests-first e doar pentru Java.
+Frontend: **Vitest + Testing Library** (`npm test`, 28 teste): clientul API (header CSRF doar pe scrieri, refresh silențios la 401 cu o singură rotație pentru cereri paralele, fără refresh la login greșit), `ProgressChart`, `AttemptResultView` (formulare elev/părinte, bareme), `RoleRoute` (toate redirecturile), mesajele de eroare ale `LoginPage` (401/403/429). Rulează și în CI. Fluxurile cap-coadă rămân în suita E2E (Selenium).
 
 La finalul suitei backend poate apărea `Surefire is going to kill self fork JVM` — e inofensiv
 (build-ul rămâne SUCCESS): testele de repository își pornesc fiecare propriul container Postgres,
