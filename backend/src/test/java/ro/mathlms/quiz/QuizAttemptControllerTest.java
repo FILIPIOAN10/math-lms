@@ -31,9 +31,9 @@ class QuizAttemptControllerTest {
     void listMapsPublishedToSummaries() {
         Quiz published = new Quiz("Simulare EN", "d");
         published.publish();
-        when(service.listPublished()).thenReturn(List.of(published));
+        when(service.listPublished("elev@scoala.ro")).thenReturn(List.of(published));
 
-        List<QuizSummaryDto> result = controller.list();
+        List<QuizSummaryDto> result = controller.list(auth);
 
         assertThat(result).singleElement().satisfies(dto -> {
             assertThat(dto.title()).isEqualTo("Simulare EN");

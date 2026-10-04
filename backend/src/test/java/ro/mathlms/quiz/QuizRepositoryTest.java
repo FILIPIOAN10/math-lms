@@ -8,6 +8,8 @@ import org.springframework.boot.testcontainers.service.connection.ServiceConnect
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import ro.mathlms.content.SchoolClass;
+import ro.mathlms.content.SchoolClassRepository;
 
 import java.util.List;
 
@@ -27,6 +29,9 @@ class QuizRepositoryTest {
     private QuizRepository quizRepository;
 
     @Autowired
+    private SchoolClassRepository schoolClassRepository;
+
+    @Autowired
     private QuizItemRepository quizItemRepository;
 
     @Autowired
@@ -43,6 +48,40 @@ class QuizRepositoryTest {
         List<Quiz> result = quizRepository.findByStatusOrderByTitle(QuizStatus.PUBLISHED);
 
         assertThat(result).extracting(Quiz::getTitle).containsExactly("Publicat");
+    }
+
+    private Quiz publishedQuiz(String title, SchoolClass schoolClass) {
+        Quiz quiz = new Quiz(title, null);
+        quiz.assignToClass(schoolClass);
+        quiz.publish();
+        return quizRepository.save(quiz);
+    }
+
+    @Test
+    void quizzesForEveryoneAreThoseWithoutAClass() {
+        SchoolClass ninth = schoolClassRepository.save(new SchoolClass("Clasa a 9-a", null));
+        publishedQuiz("Pentru toți", null);
+        publishedQuiz("Doar clasa a 9-a", ninth);
+
+        List<Quiz> result = quizRepository.findByStatusAndSchoolClassIsNullOrderByTitle(QuizStatus.PUBLISHED);
+
+        assertThat(result).extracting(Quiz::getTitle).containsExactly("Pentru toți");
+    }
+
+    @Test
+    void visibleToClassesIncludesQuizzesForEveryoneAndForThoseClassesOnly() {
+        SchoolClass ninth = schoolClassRepository.save(new SchoolClass("Clasa a 9-a", null));
+        SchoolClass tenth = schoolClassRepository.save(new SchoolClass("Clasa a 10-a", null));
+        publishedQuiz("C - pentru toți", null);
+        publishedQuiz("A - clasa a 9-a", ninth);
+        publishedQuiz("B - clasa a 10-a", tenth);
+        Quiz draftForNinth = new Quiz("D - ciornă a 9-a", null);
+        draftForNinth.assignToClass(ninth);
+        quizRepository.save(draftForNinth);
+
+        List<Quiz> result = quizRepository.findVisibleToClasses(QuizStatus.PUBLISHED, List.of(ninth.getId()));
+
+        assertThat(result).extracting(Quiz::getTitle).containsExactly("A - clasa a 9-a", "C - pentru toți");
     }
 
     @Test

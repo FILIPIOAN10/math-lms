@@ -2,6 +2,8 @@ package ro.mathlms.quiz;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import ro.mathlms.content.SchoolClass;
+import ro.mathlms.content.SchoolClassRepository;
 import ro.mathlms.quiz.QuizDtos.ItemDto;
 import ro.mathlms.quiz.QuizDtos.QuizDetailDto;
 
@@ -14,12 +16,14 @@ public class QuizAdminService {
     private final QuizRepository quizRepository;
     private final QuizItemRepository itemRepository;
     private final QuizOptionRepository optionRepository;
+    private final SchoolClassRepository schoolClassRepository;
 
     public QuizAdminService(QuizRepository quizRepository, QuizItemRepository itemRepository,
-                            QuizOptionRepository optionRepository) {
+                            QuizOptionRepository optionRepository, SchoolClassRepository schoolClassRepository) {
         this.quizRepository = quizRepository;
         this.itemRepository = itemRepository;
         this.optionRepository = optionRepository;
+        this.schoolClassRepository = schoolClassRepository;
     }
 
     // --- quiz-level ---
@@ -41,16 +45,28 @@ public class QuizAdminService {
         return QuizDetailDto.of(quiz, items);
     }
 
+    /** {@code schoolClassId} {@code null} = a quiz for every student. */
     @Transactional
-    public Quiz createQuiz(String title, String description) {
-        return quizRepository.save(new Quiz(title, description));
+    public Quiz createQuiz(String title, String description, Long schoolClassId) {
+        Quiz quiz = new Quiz(title, description);
+        quiz.assignToClass(findClass(schoolClassId));
+        return quizRepository.save(quiz);
     }
 
     @Transactional
-    public Quiz updateQuiz(Long id, String title, String description) {
+    public Quiz updateQuiz(Long id, String title, String description, Long schoolClassId) {
         Quiz quiz = getQuiz(id);
         quiz.update(title, description);
+        quiz.assignToClass(findClass(schoolClassId));
         return quizRepository.save(quiz);
+    }
+
+    private SchoolClass findClass(Long schoolClassId) {
+        if (schoolClassId == null) {
+            return null;
+        }
+        return schoolClassRepository.findById(schoolClassId)
+                .orElseThrow(() -> new QuizNotFoundException("SchoolClass", schoolClassId));
     }
 
     @Transactional

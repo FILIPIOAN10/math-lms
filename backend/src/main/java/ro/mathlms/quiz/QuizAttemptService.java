@@ -4,6 +4,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import ro.mathlms.content.EnrollmentRepository;
 import ro.mathlms.quiz.AdminAttemptDtos.AdminAttemptDetailDto;
 import ro.mathlms.quiz.AdminAttemptDtos.AdminAttemptSummaryDto;
 import ro.mathlms.quiz.AdminAttemptDtos.AdminItemReviewDto;
@@ -43,13 +44,14 @@ public class QuizAttemptService {
     private final QuizAttemptRepository attemptRepository;
     private final ItemResponseRepository responseRepository;
     private final UserRepository userRepository;
+    private final EnrollmentRepository enrollmentRepository;
     private final FileService fileService;
     private final String quizPhotosDir;
 
     public QuizAttemptService(QuizRepository quizRepository, QuizItemRepository itemRepository,
                               QuizOptionRepository optionRepository, QuizAttemptRepository attemptRepository,
                               ItemResponseRepository responseRepository, UserRepository userRepository,
-                              FileService fileService,
+                              EnrollmentRepository enrollmentRepository, FileService fileService,
                               @Value("${app.storage.quiz-photos-dir}") String quizPhotosDir) {
         this.quizRepository = quizRepository;
         this.itemRepository = itemRepository;
@@ -57,13 +59,29 @@ public class QuizAttemptService {
         this.attemptRepository = attemptRepository;
         this.responseRepository = responseRepository;
         this.userRepository = userRepository;
+        this.enrollmentRepository = enrollmentRepository;
         this.fileService = fileService;
         this.quizPhotosDir = quizPhotosDir;
     }
 
-    /** Published quizzes a student may take. */
-    public List<Quiz> listPublished() {
-        return quizRepository.findByStatusOrderByTitle(QuizStatus.PUBLISHED);
+    /**
+     * Published quizzes this student may take: the ones for every student plus the ones assigned
+     * to a class they are enrolled in (a student with no classes sees only the first group).
+     */
+    @Transactional(readOnly = true)
+    public List<Quiz> listPublished(String studentEmail) {
+        User student = requireUser(studentEmail);
+        List<Long> classIds = enrollmentRepository.findClassIdsByStudentId(student.getId());
+        if (classIds.isEmpty()) {
+            return quizRepository.findByStatusAndSchoolClassIsNullOrderByTitle(QuizStatus.PUBLISHED);
+        }
+        return quizRepository.findVisibleToClasses(QuizStatus.PUBLISHED, classIds);
+    }
+
+    /** A quiz is open to everyone unless assigned to a class — then only to that class's students. */
+    private boolean isVisibleTo(Quiz quiz, User student) {
+        return quiz.getSchoolClass() == null
+                || enrollmentRepository.existsByStudentIdAndSchoolClassId(student.getId(), quiz.getSchoolClass().getId());
     }
 
     /**
@@ -75,6 +93,8 @@ public class QuizAttemptService {
         User student = requireUser(studentEmail);
         Quiz quiz = quizRepository.findById(quizId)
                 .filter(q -> q.getStatus() == QuizStatus.PUBLISHED)
+                // 404 (not 403) for another class's quiz: a guessed id must not confirm it exists
+                .filter(q -> isVisibleTo(q, student))
                 .orElseThrow(() -> new QuizNotFoundException("Quiz", quizId));
         QuizAttempt attempt = attemptRepository
                 .findByQuizIdAndStudentIdAndStatus(quizId, student.getId(), QuizAttemptStatus.IN_PROGRESS)

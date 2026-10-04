@@ -13,6 +13,7 @@ import {
   deleteQuiz,
   deleteQuizItem,
   getQuiz,
+  listClasses,
   listQuizzes,
   setQuizPublished,
   updateQuiz,
@@ -22,6 +23,7 @@ import {
   type QuizItemDto,
   type QuizItemType,
   type QuizSummary,
+  type SchoolClass,
 } from '@/lib/api'
 
 const selectClass =
@@ -39,16 +41,21 @@ function QuizDialog({
   onClose,
   initialTitle,
   initialDescription,
+  initialClassId,
+  classes,
   onSubmit,
 }: {
   open: boolean
   onClose: () => void
   initialTitle: string
   initialDescription: string
-  onSubmit: (title: string, description: string | null) => Promise<void>
+  initialClassId: number | null
+  classes: SchoolClass[]
+  onSubmit: (title: string, description: string | null, schoolClassId: number | null) => Promise<void>
 }) {
   const [title, setTitle] = useState(initialTitle)
   const [description, setDescription] = useState(initialDescription)
+  const [classId, setClassId] = useState(initialClassId === null ? '' : String(initialClassId))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -57,7 +64,7 @@ function QuizDialog({
     setError(null)
     setBusy(true)
     try {
-      await onSubmit(title.trim(), description.trim() || null)
+      await onSubmit(title.trim(), description.trim() || null, classId === '' ? null : Number(classId))
       onClose()
     } catch (err) {
       setError(errorMessage(err))
@@ -76,6 +83,18 @@ function QuizDialog({
         <div className="flex flex-col gap-2">
           <Label htmlFor="qdesc">Descriere (opțional)</Label>
           <Textarea id="qdesc" value={description} onChange={(e) => setDescription(e.target.value)} />
+        </div>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="qclass">Pentru clasa</Label>
+          <select id="qclass" className={selectClass} value={classId} onChange={(e) => setClassId(e.target.value)}>
+            <option value="">Toți elevii</option>
+            {classes.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+          <p className="text-xs text-muted-foreground">
+            „Toți elevii” = orice elev activ îl vede. Altfel, doar elevii înscriși în clasa aleasă.
+          </p>
         </div>
         {error && <p className="text-sm text-destructive">{error}</p>}
         <div className="flex justify-end gap-2">
@@ -249,6 +268,7 @@ function ItemDialog({
 
 export function AdminQuizzesPage() {
   const [quizzes, setQuizzes] = useState<QuizSummary[]>([])
+  const [classes, setClasses] = useState<SchoolClass[]>([])
   const [quiz, setQuiz] = useState<QuizDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -260,6 +280,9 @@ export function AdminQuizzesPage() {
       .then(setQuizzes)
       .catch((e) => setError(errorMessage(e)))
       .finally(() => setLoading(false))
+    listClasses()
+      .then(setClasses)
+      .catch((e) => setError(errorMessage(e)))
   }, [])
 
   const reloadList = () => listQuizzes().then(setQuizzes)
@@ -387,6 +410,9 @@ export function AdminQuizzesPage() {
                           {q.status === 'PUBLISHED' ? 'Publicat' : 'Ciornă'}
                         </span>
                       </p>
+                      <p className="truncate text-xs text-muted-foreground" data-testid="quiz-audience">
+                        {q.schoolClassName ? `Clasa: ${q.schoolClassName}` : 'Toți elevii'}
+                      </p>
                       {q.description && <p className="truncate text-sm text-muted-foreground">{q.description}</p>}
                     </div>
                     <div className="flex shrink-0 gap-2">
@@ -409,11 +435,13 @@ export function AdminQuizzesPage() {
           onClose={() => setQuizDialog(null)}
           initialTitle={quizDialog.item?.title ?? ''}
           initialDescription={quizDialog.item?.description ?? ''}
-          onSubmit={async (title, desc) => {
+          initialClassId={quizDialog.item?.schoolClassId ?? null}
+          classes={classes}
+          onSubmit={async (title, desc, schoolClassId) => {
             if (quizDialog.item) {
-              await updateQuiz(quizDialog.item.id, title, desc)
+              await updateQuiz(quizDialog.item.id, title, desc, schoolClassId)
             } else {
-              await createQuiz(title, desc)
+              await createQuiz(title, desc, schoolClassId)
             }
             await reloadList()
           }}

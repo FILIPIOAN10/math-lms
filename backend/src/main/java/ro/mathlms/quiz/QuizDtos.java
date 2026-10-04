@@ -1,5 +1,7 @@
 package ro.mathlms.quiz;
 
+import ro.mathlms.content.SchoolClass;
+
 import java.util.List;
 
 /** Response DTOs for the admin quiz-builder. Grouped in one file as they are small and related. */
@@ -9,9 +11,13 @@ public final class QuizDtos {
     }
 
     /** A quiz in a list (no items). */
-    public record QuizSummaryDto(Long id, String title, String description, QuizStatus status) {
+    public record QuizSummaryDto(Long id, String title, String description, QuizStatus status,
+                                 Long schoolClassId, String schoolClassName) {
         public static QuizSummaryDto from(Quiz quiz) {
-            return new QuizSummaryDto(quiz.getId(), quiz.getTitle(), quiz.getDescription(), quiz.getStatus());
+            SchoolClass schoolClass = quiz.getSchoolClass(); // null = for every student
+            return new QuizSummaryDto(quiz.getId(), quiz.getTitle(), quiz.getDescription(), quiz.getStatus(),
+                    schoolClass == null ? null : schoolClass.getId(),
+                    schoolClass == null ? null : schoolClass.getName());
         }
     }
 

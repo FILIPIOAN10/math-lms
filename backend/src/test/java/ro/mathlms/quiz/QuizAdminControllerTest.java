@@ -3,6 +3,7 @@ package ro.mathlms.quiz;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import ro.mathlms.content.SchoolClass;
 import ro.mathlms.quiz.QuizDtos.ItemDto;
 import ro.mathlms.quiz.QuizDtos.QuizSummaryDto;
 
@@ -31,11 +32,23 @@ class QuizAdminControllerTest {
     }
 
     @Test
+    void summaryTellsWhichClassTheQuizIsFor() {
+        Quiz forNinth = new Quiz("Simulare EN", "d");
+        forNinth.assignToClass(new SchoolClass("Clasa a 9-a", null));
+        when(service.listQuizzes()).thenReturn(List.of(forNinth, new Quiz("Pentru toți", null)));
+
+        List<QuizSummaryDto> result = controller.list();
+
+        assertThat(result).extracting(QuizSummaryDto::schoolClassName)
+                .containsExactly("Clasa a 9-a", null);
+    }
+
+    @Test
     void createReturns201() {
-        when(service.createQuiz("Simulare EN", "d")).thenReturn(new Quiz("Simulare EN", "d"));
+        when(service.createQuiz("Simulare EN", "d", null)).thenReturn(new Quiz("Simulare EN", "d"));
 
         ResponseEntity<QuizSummaryDto> response =
-                controller.create(new QuizRequest("Simulare EN", "d"));
+                controller.create(new QuizRequest("Simulare EN", "d", null));
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         assertThat(response.getBody()).isNotNull();

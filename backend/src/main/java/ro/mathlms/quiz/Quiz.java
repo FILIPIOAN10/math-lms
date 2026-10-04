@@ -6,11 +6,15 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import ro.mathlms.content.SchoolClass;
 
 /**
  * An assessment (e.g. "Simulare EN – Varianta 3") authored directly by an admin: it holds
@@ -37,6 +41,11 @@ public class Quiz {
     @Column(nullable = false, length = 20)
     private QuizStatus status = QuizStatus.DRAFT;
 
+    /** The one class this quiz is for; {@code null} = every student may take it. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "school_class_id")
+    private SchoolClass schoolClass;
+
     public Quiz(String title, String description) {
         this.title = requireNonBlank(title, "title");
         this.description = description;
@@ -45,6 +54,11 @@ public class Quiz {
     public void update(String title, String description) {
         this.title = requireNonBlank(title, "title");
         this.description = description;
+    }
+
+    /** Restricts the quiz to one class, or ({@code null}) opens it to every student again. */
+    public void assignToClass(SchoolClass schoolClass) {
+        this.schoolClass = schoolClass;
     }
 
     /** Makes the quiz visible to students. Idempotent-safe: publishing a published quiz is a no-op. */

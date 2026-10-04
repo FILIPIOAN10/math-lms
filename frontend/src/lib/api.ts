@@ -346,6 +346,9 @@ export interface QuizSummary {
   title: string
   description: string | null
   status: QuizStatus
+  /** The one class this quiz is for; null = every student may take it. */
+  schoolClassId: number | null
+  schoolClassName: string | null
 }
 
 export interface QuizOptionDto {
@@ -398,13 +401,22 @@ export async function getQuiz(id: number): Promise<QuizDetail> {
   return response.json()
 }
 
-export async function createQuiz(title: string, description: string | null): Promise<QuizSummary> {
-  const response = await postJson('/admin/quizzes', { title, description })
+export async function createQuiz(
+  title: string,
+  description: string | null,
+  schoolClassId: number | null,
+): Promise<QuizSummary> {
+  const response = await postJson('/admin/quizzes', { title, description, schoolClassId })
   return response.json()
 }
 
-export async function updateQuiz(id: number, title: string, description: string | null): Promise<QuizSummary> {
-  const response = await putJson(`/admin/quizzes/${id}`, { title, description })
+export async function updateQuiz(
+  id: number,
+  title: string,
+  description: string | null,
+  schoolClassId: number | null,
+): Promise<QuizSummary> {
+  const response = await putJson(`/admin/quizzes/${id}`, { title, description, schoolClassId })
   return response.json()
 }
 

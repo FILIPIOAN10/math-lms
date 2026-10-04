@@ -13,6 +13,7 @@ import ro.mathlms.TestcontainersConfiguration;
 
 import java.util.List;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -55,7 +56,7 @@ class QuizAttemptSecurityTest {
     @Test
     @WithMockUser(authorities = {"STATUS_ACTIVE", "ROLE_STUDENT"})
     void activeStudentCanListQuizzes() throws Exception {
-        when(service.listPublished()).thenReturn(List.of());
+        when(service.listPublished(any())).thenReturn(List.of());
         mockMvc.perform(get("/api/quiz/quizzes")).andExpect(status().isOk());
     }
 }

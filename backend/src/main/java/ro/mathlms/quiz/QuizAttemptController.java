@@ -36,8 +36,8 @@ public class QuizAttemptController {
     }
 
     @GetMapping("/api/quiz/quizzes")
-    public List<QuizSummaryDto> list() {
-        return service.listPublished().stream().map(QuizSummaryDto::from).toList();
+    public List<QuizSummaryDto> list(Authentication auth) {
+        return service.listPublished(auth.getName()).stream().map(QuizSummaryDto::from).toList();
     }
 
     @PostMapping("/api/quiz/quizzes/{quizId}/attempts")

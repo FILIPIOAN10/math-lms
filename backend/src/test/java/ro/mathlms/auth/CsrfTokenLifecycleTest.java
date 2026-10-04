@@ -49,7 +49,8 @@ class CsrfTokenLifecycleTest {
     void authenticatedReadLeavesTheCsrfCookieAlone() {
         User student = User.registerGoogle("g-student", "elev@example.com", "Elev", Role.STUDENT);
 
-        ResponseEntity<String> response = rest.exchange("/api/quiz/quizzes", HttpMethod.GET,
+        // Any authenticated read will do; /api/classes needs no account row (the JWT user is not persisted here)
+        ResponseEntity<String> response = rest.exchange("/api/classes", HttpMethod.GET,
                 new HttpEntity<>(withSessionAndCsrfCookie(student)), String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);

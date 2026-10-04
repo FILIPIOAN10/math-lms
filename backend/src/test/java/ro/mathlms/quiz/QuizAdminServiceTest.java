@@ -1,6 +1,8 @@
 package ro.mathlms.quiz;
 
 import org.junit.jupiter.api.Test;
+import ro.mathlms.content.SchoolClass;
+import ro.mathlms.content.SchoolClassRepository;
 import ro.mathlms.quiz.QuizDtos.ItemDto;
 
 import java.util.List;
@@ -19,10 +21,51 @@ class QuizAdminServiceTest {
     private final QuizRepository quizRepository = mock(QuizRepository.class);
     private final QuizItemRepository itemRepository = mock(QuizItemRepository.class);
     private final QuizOptionRepository optionRepository = mock(QuizOptionRepository.class);
+    private final SchoolClassRepository schoolClassRepository = mock(SchoolClassRepository.class);
     private final QuizAdminService service =
-            new QuizAdminService(quizRepository, itemRepository, optionRepository);
+            new QuizAdminService(quizRepository, itemRepository, optionRepository, schoolClassRepository);
 
     private final Quiz quiz = new Quiz("Simulare EN", null);
+    private final SchoolClass ninth = new SchoolClass("Clasa a 9-a", null);
+
+    @Test
+    void createQuizWithoutClassIsForEveryone() {
+        when(quizRepository.save(any(Quiz.class))).thenAnswer(i -> i.getArgument(0));
+
+        Quiz created = service.createQuiz("Simulare EN", "d", null);
+
+        assertThat(created.getSchoolClass()).isNull();
+        verify(schoolClassRepository, never()).findById(any());
+    }
+
+    @Test
+    void createQuizAssignsTheChosenClass() {
+        when(schoolClassRepository.findById(5L)).thenReturn(Optional.of(ninth));
+        when(quizRepository.save(any(Quiz.class))).thenAnswer(i -> i.getArgument(0));
+
+        Quiz created = service.createQuiz("Simulare EN", "d", 5L);
+
+        assertThat(created.getSchoolClass()).isSameAs(ninth);
+    }
+
+    @Test
+    void createQuizRejectsAnUnknownClass() {
+        when(schoolClassRepository.findById(404L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.createQuiz("Simulare EN", "d", 404L))
+                .isInstanceOf(QuizNotFoundException.class);
+        verify(quizRepository, never()).save(any());
+    }
+
+    @Test
+    void updateQuizCanMoveItToAnotherClassAndBackToEveryone() {
+        when(quizRepository.findById(1L)).thenReturn(Optional.of(quiz));
+        when(schoolClassRepository.findById(5L)).thenReturn(Optional.of(ninth));
+        when(quizRepository.save(any(Quiz.class))).thenAnswer(i -> i.getArgument(0));
+
+        assertThat(service.updateQuiz(1L, "Nou", "d", 5L).getSchoolClass()).isSameAs(ninth);
+        assertThat(service.updateQuiz(1L, "Nou", "d", null).getSchoolClass()).isNull();
+    }
 
     @Test
     void getQuizThrowsWhenMissing() {

@@ -40,13 +40,14 @@ public class QuizAdminController {
 
     @PostMapping("/api/admin/quizzes")
     public ResponseEntity<QuizSummaryDto> create(@Valid @RequestBody QuizRequest request) {
-        Quiz created = service.createQuiz(request.title(), request.description());
+        Quiz created = service.createQuiz(request.title(), request.description(), request.schoolClassId());
         return ResponseEntity.status(HttpStatus.CREATED).body(QuizSummaryDto.from(created));
     }
 
     @PutMapping("/api/admin/quizzes/{id}")
     public QuizSummaryDto update(@PathVariable Long id, @Valid @RequestBody QuizRequest request) {
-        return QuizSummaryDto.from(service.updateQuiz(id, request.title(), request.description()));
+        return QuizSummaryDto.from(
+                service.updateQuiz(id, request.title(), request.description(), request.schoolClassId()));
     }
 
     @PostMapping("/api/admin/quizzes/{id}/publish")

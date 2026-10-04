@@ -1,6 +1,7 @@
 package ro.mathlms.quiz;
 
 import org.junit.jupiter.api.Test;
+import ro.mathlms.content.SchoolClass;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -14,6 +15,20 @@ class QuizTest {
         assertThat(quiz.getTitle()).isEqualTo("Simulare EN");
         assertThat(quiz.getDescription()).isEqualTo("Varianta 3");
         assertThat(quiz.getStatus()).isEqualTo(QuizStatus.DRAFT);
+    }
+
+    @Test
+    void isForEveryoneUntilAssignedToAClass() {
+        Quiz quiz = new Quiz("Simulare EN", null);
+        SchoolClass ninth = new SchoolClass("Clasa a 9-a", null);
+
+        assertThat(quiz.getSchoolClass()).isNull();
+
+        quiz.assignToClass(ninth);
+        assertThat(quiz.getSchoolClass()).isSameAs(ninth);
+
+        quiz.assignToClass(null);
+        assertThat(quiz.getSchoolClass()).isNull();
     }
 
     @Test

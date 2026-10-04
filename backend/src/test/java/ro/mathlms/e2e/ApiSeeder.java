@@ -10,6 +10,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -35,10 +36,38 @@ final class ApiSeeder {
         send("GET", "/api/auth/me", null); // any response after login carries the XSRF-TOKEN cookie
     }
 
-    /** One 5-point single-choice item (correct = "Varianta B") + one 10-point open item, then publishes. */
+    long createClass(String name) {
+        return send("POST", "/api/admin/classes", Map.of("name", name)).get("id").asLong();
+    }
+
+    void enroll(long classId, String studentEmail) {
+        long studentId = -1;
+        for (JsonNode student : send("GET", "/api/admin/users?role=STUDENT", null)) {
+            if (student.get("email").asText().equals(studentEmail)) {
+                studentId = student.get("id").asLong();
+            }
+        }
+        if (studentId < 0) {
+            throw new IllegalStateException("No STUDENT account " + studentEmail);
+        }
+        send("POST", "/api/admin/classes/" + classId + "/enrollments", Map.of("studentId", studentId));
+    }
+
+    /** A quiz for every student. */
     long createPublishedQuiz(String title) {
-        long quizId = send("POST", "/api/admin/quizzes",
-                Map.of("title", title, "description", "creat de testul E2E")).get("id").asLong();
+        return createPublishedQuiz(title, null);
+    }
+
+    /**
+     * One 5-point single-choice item (correct = "Varianta B") + one 10-point open item, then publishes.
+     * {@code schoolClassId} null = visible to every student, otherwise only to that class.
+     */
+    long createPublishedQuiz(String title, Long schoolClassId) {
+        Map<String, Object> quiz = new HashMap<>();
+        quiz.put("title", title);
+        quiz.put("description", "creat de testul E2E");
+        quiz.put("schoolClassId", schoolClassId);
+        long quizId = send("POST", "/api/admin/quizzes", quiz).get("id").asLong();
 
         send("POST", "/api/admin/quizzes/" + quizId + "/items", Map.of(
                 "type", "SINGLE_CHOICE",

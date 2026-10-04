@@ -5,6 +5,8 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.multipart.MultipartFile;
+import ro.mathlms.content.EnrollmentRepository;
+import ro.mathlms.content.SchoolClass;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultDto;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultViewDto;
 import ro.mathlms.quiz.AdminAttemptDtos.AdminAttemptDetailDto;
@@ -38,10 +40,11 @@ class QuizAttemptServiceTest {
     private final ItemResponseRepository responseRepository = mock(ItemResponseRepository.class);
     private final UserRepository userRepository = mock(UserRepository.class);
     private final FileService fileService = mock(FileService.class);
+    private final EnrollmentRepository enrollmentRepository = mock(EnrollmentRepository.class);
     private final QuizAttemptService service = new QuizAttemptService(
             quizRepository, itemRepository, optionRepository,
             attemptRepository, responseRepository, userRepository,
-            fileService, "uploads/quiz-photos");
+            enrollmentRepository, fileService, "uploads/quiz-photos");
 
     private static final String EMAIL = "elev@scoala.ro";
 
@@ -72,6 +75,63 @@ class QuizAttemptServiceTest {
 
     private QuizAttempt attempt(long id, User owner) {
         return withId(new QuizAttempt(quiz, owner), id);
+    }
+
+    // --- class visibility (Step 2.4b) ---
+
+    private Quiz assignedTo(Quiz target, long classId) {
+        target.assignToClass(withId(new SchoolClass("Clasa " + classId, null), classId));
+        return target;
+    }
+
+    @Test
+    void listPublishedForAStudentWithoutClassesOnlyShowsQuizzesForEveryone() {
+        when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(student));
+        when(enrollmentRepository.findClassIdsByStudentId(1L)).thenReturn(List.of());
+        when(quizRepository.findByStatusAndSchoolClassIsNullOrderByTitle(QuizStatus.PUBLISHED))
+                .thenReturn(List.of(quiz));
+
+        assertThat(service.listPublished(EMAIL)).containsExactly(quiz);
+        verify(quizRepository, never()).findVisibleToClasses(any(), any());
+    }
+
+    @Test
+    void listPublishedForAnEnrolledStudentAlsoShowsTheirClassQuizzes() {
+        Quiz forTheirClass = assignedTo(published(withId(new Quiz("Clasa mea", null), 12L)), 5L);
+        when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(student));
+        when(enrollmentRepository.findClassIdsByStudentId(1L)).thenReturn(List.of(5L));
+        when(quizRepository.findVisibleToClasses(QuizStatus.PUBLISHED, List.of(5L)))
+                .thenReturn(List.of(quiz, forTheirClass));
+
+        assertThat(service.listPublished(EMAIL)).containsExactly(quiz, forTheirClass);
+        verify(quizRepository, never()).findByStatusAndSchoolClassIsNullOrderByTitle(any());
+    }
+
+    @Test
+    void startRejectsAQuizOfAClassTheStudentIsNotIn() {
+        Quiz otherClass = assignedTo(published(withId(new Quiz("Alta clasă", null), 13L)), 9L);
+        when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(student));
+        when(quizRepository.findById(13L)).thenReturn(Optional.of(otherClass));
+        when(enrollmentRepository.existsByStudentIdAndSchoolClassId(1L, 9L)).thenReturn(false);
+
+        // 404, not 403: a guessed quiz id must not confirm that the quiz exists
+        assertThatThrownBy(() -> service.startAttempt(13L, EMAIL))
+                .isInstanceOf(QuizNotFoundException.class);
+        verify(attemptRepository, never()).save(any());
+    }
+
+    @Test
+    void startAllowsAQuizOfAClassTheStudentIsIn() {
+        Quiz mine = assignedTo(published(withId(new Quiz("Clasa mea", null), 12L)), 5L);
+        when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(student));
+        when(quizRepository.findById(12L)).thenReturn(Optional.of(mine));
+        when(enrollmentRepository.existsByStudentIdAndSchoolClassId(1L, 5L)).thenReturn(true);
+        when(attemptRepository.findByQuizIdAndStudentIdAndStatus(12L, 1L, QuizAttemptStatus.IN_PROGRESS))
+                .thenReturn(Optional.empty());
+        when(attemptRepository.save(any(QuizAttempt.class))).thenAnswer(i -> withId(i.getArgument(0), 60L));
+        when(itemRepository.findByQuizIdOrderByPosition(12L)).thenReturn(List.of());
+
+        assertThat(service.startAttempt(12L, EMAIL).attemptId()).isEqualTo(60L);
     }
 
     // --- startAttempt ---
