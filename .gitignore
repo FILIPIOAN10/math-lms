@@ -29,3 +29,8 @@ ROADMAP.md
 # Prometheus scrape token (Phase 6.3)
 monitoring/secrets/*
 !monitoring/secrets/.gitkeep
+
+# Production environment (secrets)
+.env.prod
+.env.prod.*
+!.env.prod.example

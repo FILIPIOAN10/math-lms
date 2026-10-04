@@ -1,0 +1,140 @@
+# Whole production stack from one command (Phase 6.5):
+#
+#   cp .env.prod.example .env.prod      # fill in EVERY value (see comments inside)
+#   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+#   docker compose -f docker-compose.prod.yml --env-file .env.prod --profile monitoring up -d   # + Prometheus/Grafana/Alertmanager
+#
+# Only nginx (frontend) is published. Postgres, Redis and the backend live on the private network;
+# Prometheus/Grafana/Alertmanager (profile "monitoring") are bound to 127.0.0.1 — reach them over an SSH tunnel.
+# HTTPS: terminate TLS in front (Caddy / Traefik / a cloud load balancer), forward to this nginx and set
+# X-Forwarded-Proto. COOKIE_SECURE=true REQUIRES https, otherwise the browser drops the login cookie.
+name: mathlms-prod
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-mathlms}
+      POSTGRES_USER: ${POSTGRES_USER:-mathlms}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.prod}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mathlms} -d ${POSTGRES_DB:-mathlms}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # Refresh-token sessions + caches + rate-limit counters live here: password-protected, never published.
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:?set REDIS_PASSWORD in .env.prod}"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" --no-auth-warning ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+
+  backend:
+    # BACKEND_IMAGE (set by the deploy workflow) pulls a released image; unset = build from ./backend.
+    image: ${BACKEND_IMAGE:-mathlms-backend:local}
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-mathlms}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-mathlms}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      ADMIN_EMAILS: ${ADMIN_EMAILS}
+      ALLOWED_EMAILS: ${ALLOWED_EMAILS:-}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env.prod}
+      JWT_EXPIRATION_MINUTES: ${JWT_EXPIRATION_MINUTES:-60}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:?set FRONTEND_BASE_URL (the public https URL) in .env.prod}
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      NOTIFY_RESULT_READY: ${NOTIFY_RESULT_READY:-false}
+      METRICS_TOKEN: ${METRICS_TOKEN:-}
+      RATE_LIMIT_ENABLED: ${RATE_LIMIT_ENABLED:-true}
+      RATE_LIMIT_TRUST_XFF: "true"          # nginx (the only way in) sets X-Forwarded-For
+      SECURITY_LOG_LEVEL: ${SECURITY_LOG_LEVEL:-INFO}
+    volumes:
+      # Student solution photos: lose this volume and the photos are gone (see backup, step 6.7).
+      - uploads:/app/uploads
+
+  frontend:
+    image: ${FRONTEND_IMAGE:-mathlms-frontend:local}
+    build: ./frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${HTTP_PORT:-80}:80"
+
+  # ---- monitoring (opt-in: --profile monitoring) ----
+  prometheus:
+    profiles: ["monitoring"]
+    image: prom/prometheus:v3.1.0
+    restart: unless-stopped
+    volumes:
+      - ./monitoring/prometheus.prod.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/alert-rules.yml:/etc/prometheus/alert-rules.yml:ro
+      - ./monitoring/secrets/metrics-token:/etc/prometheus/secrets/metrics-token:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.retention.time=15d'
+    ports:
+      - "127.0.0.1:9090:9090"
+    depends_on:
+      - backend
+
+  alertmanager:
+    profiles: ["monitoring"]
+    image: prom/alertmanager:v0.28.0
+    restart: unless-stopped
+    volumes:
+      - ./monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    ports:
+      - "127.0.0.1:9093:9093"
+
+  grafana:
+    profiles: ["monitoring"]
+    image: grafana/grafana:11.4.0
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}   # set GRAFANA_PASSWORD in .env.prod (bound to 127.0.0.1 only)
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      - prometheus
+
+volumes:
+  pgdata:
+  redisdata:
+  uploads:
+  prometheus-data:
+  grafana-data:

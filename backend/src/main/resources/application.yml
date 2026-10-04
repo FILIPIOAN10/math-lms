@@ -74,6 +74,11 @@ management:
       # buckets for http.server.requests so Prometheus can compute p95 latency
       percentiles-histogram:
         http.server.requests: true
+  health:
+    # An SMTP outage must NOT make the app "unhealthy": mail is queued in the outbox and retried (Phase 5.6), so the
+    # service is fine without it. With the check on, a missing/slow mail server took the whole backend out of rotation.
+    mail:
+      enabled: false
   endpoint:
     health:
       show-details: when-authorized
