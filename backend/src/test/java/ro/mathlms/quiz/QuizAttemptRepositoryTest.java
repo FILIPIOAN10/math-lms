@@ -150,4 +150,47 @@ class QuizAttemptRepositoryTest {
 
         assertThat(again.getId()).isNotNull();
     }
+
+    @Test
+    void gradedAttemptsOfAStudentComeOldestFirstAndOnlyTheirOwn() {
+        Quiz quiz = quizRepository.save(new Quiz("Simulare EN", null));
+        User ana = student("ana@scoala.ro");
+        User dan = student("dan@scoala.ro");
+        quizAttemptRepository.save(new QuizAttempt(quiz, ana)); // still in progress
+        QuizAttempt submittedOnly = new QuizAttempt(quiz, ana);
+        submittedOnly.submit();
+        quizAttemptRepository.save(submittedOnly);
+        QuizAttempt first = new QuizAttempt(quiz, ana);
+        first.submit();
+        first.markGraded(5);
+        quizAttemptRepository.saveAndFlush(first);
+        QuizAttempt second = new QuizAttempt(quiz, ana);
+        second.submit();
+        second.markGraded(9);
+        quizAttemptRepository.saveAndFlush(second);
+        QuizAttempt others = new QuizAttempt(quiz, dan);
+        others.submit();
+        others.markGraded(1);
+        quizAttemptRepository.saveAndFlush(others);
+
+        List<QuizAttempt> graded = quizAttemptRepository
+                .findByStudentIdAndStatusOrderBySubmittedAtAsc(ana.getId(), QuizAttemptStatus.GRADED);
+
+        assertThat(graded).extracting(QuizAttempt::getScore).containsExactly(5, 9);
+    }
+
+    @Test
+    void sumsTheItemPointsOfEachQuizInOneQuery() {
+        Quiz simulare = quizRepository.save(new Quiz("Simulare EN", null));
+        Quiz empty = quizRepository.save(new Quiz("Fara subiecte", null));
+        quizItemRepository.save(new QuizItem(simulare, 1, QuizItemType.SINGLE_CHOICE, "s1", 5, null));
+        quizItemRepository.save(new QuizItem(simulare, 2, QuizItemType.OPEN, "s2", 10, "barem"));
+
+        List<QuizMaxScore> totals = quizItemRepository.sumPointsByQuiz(List.of(simulare.getId(), empty.getId()));
+
+        assertThat(totals).singleElement().satisfies(total -> {
+            assertThat(total.quizId()).isEqualTo(simulare.getId());
+            assertThat(total.maxScore()).isEqualTo(15L);
+        });
+    }
 }

@@ -15,6 +15,7 @@ import org.springframework.web.multipart.MultipartFile;
 import ro.mathlms.quiz.QuizDtos.QuizSummaryDto;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultDto;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultViewDto;
+import ro.mathlms.quiz.StudentQuizDtos.ProgressPointDto;
 import ro.mathlms.quiz.StudentQuizDtos.MyAttemptDto;
 import ro.mathlms.quiz.StudentQuizDtos.StartedAttemptDto;
 
@@ -43,6 +44,12 @@ public class QuizAttemptController {
     @PostMapping("/api/quiz/quizzes/{quizId}/attempts")
     public StartedAttemptDto start(@PathVariable Long quizId, Authentication auth) {
         return service.startAttempt(quizId, auth.getName());
+    }
+
+    /** The student's own progress chart data: graded attempts over time. */
+    @GetMapping("/api/quiz/progress")
+    public List<ProgressPointDto> progress(Authentication auth) {
+        return service.getProgress(auth.getName());
     }
 
     @GetMapping("/api/quiz/attempts")

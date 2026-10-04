@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 import ro.mathlms.quiz.QuizAttemptService;
 import ro.mathlms.quiz.QuizAttemptStatus;
+import ro.mathlms.quiz.StudentQuizDtos;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultViewDto;
 import ro.mathlms.quiz.StudentQuizDtos.MyAttemptDto;
 import ro.mathlms.user.Role;
@@ -88,6 +89,29 @@ class ParentServiceTest {
         assertThatThrownBy(() -> service.childAttempts(PARENT_EMAIL, 99L))
                 .isInstanceOf(ParentAccessException.class);
         verify(quizAttemptService, never()).listMyAttempts(anyString());
+    }
+
+    // --- progress ---
+
+    @Test
+    void anOwnChildsProgressIsLoadedThroughTheChildsOwnEmail() {
+        StudentQuizDtos.ProgressPointDto point =
+                new StudentQuizDtos.ProgressPointDto(50L, 10L, "Simulare EN", Instant.now(), 13, 15, 87);
+        when(userRepository.findByEmail(PARENT_EMAIL)).thenReturn(Optional.of(parent));
+        when(userRepository.findByIdAndParentId(2L, 1L)).thenReturn(Optional.of(child));
+        when(quizAttemptService.getProgress(CHILD_EMAIL)).thenReturn(List.of(point));
+
+        assertThat(service.childProgress(PARENT_EMAIL, 2L)).containsExactly(point);
+    }
+
+    @Test
+    void someoneElsesChildsProgressIsRefused() {
+        when(userRepository.findByEmail(PARENT_EMAIL)).thenReturn(Optional.of(parent));
+        when(userRepository.findByIdAndParentId(99L, 1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.childProgress(PARENT_EMAIL, 99L))
+                .isInstanceOf(ParentAccessException.class);
+        verify(quizAttemptService, never()).getProgress(anyString());
     }
 
     // --- result ---

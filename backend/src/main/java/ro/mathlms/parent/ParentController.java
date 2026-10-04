@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.RestController;
 import ro.mathlms.parent.ParentDtos.ChildDto;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultViewDto;
 import ro.mathlms.quiz.StudentQuizDtos.MyAttemptDto;
+import ro.mathlms.quiz.StudentQuizDtos.ProgressPointDto;
 
 import java.util.List;
 
@@ -30,6 +31,11 @@ public class ParentController {
     @GetMapping("/api/parent/children/{studentId}/attempts")
     public List<MyAttemptDto> attempts(@PathVariable Long studentId, Authentication auth) {
         return service.childAttempts(auth.getName(), studentId);
+    }
+
+    @GetMapping("/api/parent/children/{studentId}/progress")
+    public List<ProgressPointDto> progress(@PathVariable Long studentId, Authentication auth) {
+        return service.childProgress(auth.getName(), studentId);
     }
 
     @GetMapping("/api/parent/children/{studentId}/attempts/{attemptId}/result")

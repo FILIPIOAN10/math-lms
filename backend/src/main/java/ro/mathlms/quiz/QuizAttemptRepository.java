@@ -16,6 +16,10 @@ public interface QuizAttemptRepository extends JpaRepository<QuizAttempt, Long> 
     @EntityGraph(attributePaths = "quiz")
     List<QuizAttempt> findByStudentIdOrderByStartedAtDesc(Long studentId);
 
+    /** A student's graded attempts, oldest first, with the quiz fetched (its title feeds the progress chart). */
+    @EntityGraph(attributePaths = "quiz")
+    List<QuizAttempt> findByStudentIdAndStatusOrderBySubmittedAtAsc(Long studentId, QuizAttemptStatus status);
+
     List<QuizAttempt> findByQuizId(Long quizId);
 
     Optional<QuizAttempt> findByQuizIdAndStudentIdAndStatus(

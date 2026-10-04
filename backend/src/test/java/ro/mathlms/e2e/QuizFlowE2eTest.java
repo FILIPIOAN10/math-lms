@@ -1,6 +1,8 @@
 package ro.mathlms.e2e;
 
 import org.junit.jupiter.api.Test;
+import org.openqa.selenium.By;
+import org.openqa.selenium.support.ui.ExpectedConditions;
 
 import javax.imageio.ImageIO;
 import java.awt.Color;
@@ -55,6 +57,12 @@ class QuizFlowE2eTest extends E2eBase {
         login(STUDENT, PASSWORD);
         driver.get(resultUrl);
         assertThat(result.finalScore()).contains("13").contains("15");
+
+        // ...and the graded attempt now shows on the student's progress page: 13 / 15 = 87 %
+        open("/progress");
+        wait.until(ExpectedConditions.textToBePresentInElementLocated(
+                By.cssSelector("[data-testid='progress-chart']"), quizTitle));
+        assertThat(byTestId("progress-chart").getText()).contains("13 / 15").contains("87%");
     }
 
     /** A small generated PNG standing in for the photographed solution (no binary file in the repo). */

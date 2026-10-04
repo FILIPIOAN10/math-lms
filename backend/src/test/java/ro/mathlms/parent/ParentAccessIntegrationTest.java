@@ -97,6 +97,23 @@ class ParentAccessIntegrationTest {
                 .andExpect(jsonPath("$.quizTitle").value("Simulare EN"));
     }
 
+    @Test
+    @WithMockUser(username = MARIA, authorities = {"ROLE_PARENT", "STATUS_ACTIVE"})
+    void aParentSeesTheirChildsProgress() throws Exception {
+        mockMvc.perform(get("/api/parent/children/" + ana.getId() + "/progress"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].quizTitle").value("Simulare EN"))
+                .andExpect(jsonPath("$[0].score").value(7));
+    }
+
+    @Test
+    @WithMockUser(username = MARIA, authorities = {"ROLE_PARENT", "STATUS_ACTIVE"})
+    void aParentCannotReadAnotherChildsProgress() throws Exception {
+        mockMvc.perform(get("/api/parent/children/" + dan.getId() + "/progress"))
+                .andExpect(status().isForbidden());
+    }
+
     // --- ... and nobody else's ---
 
     @Test

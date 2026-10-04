@@ -74,6 +74,18 @@ public final class StudentQuizDtos {
                                     List<SavedAnswerDto> answers) {
     }
 
+    /** One point of the progress chart: how a graded attempt went, as points and as a percent of the quiz's max. */
+    public record ProgressPointDto(
+            Long attemptId,
+            Long quizId,
+            String quizTitle,
+            Instant submittedAt,
+            int score,
+            int maxScore,
+            int percent
+    ) {
+    }
+
     /** One row of the student's own attempt history ("Încercările mele"). */
     public record MyAttemptDto(
             Long attemptId,

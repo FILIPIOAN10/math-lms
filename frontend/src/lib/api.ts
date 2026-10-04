@@ -502,6 +502,17 @@ export interface MyAttemptDto {
   score: number | null
 }
 
+/** One point of the progress chart: a graded attempt as points and as a percent of the quiz's max. */
+export interface ProgressPointDto {
+  attemptId: number
+  quizId: number
+  quizTitle: string
+  submittedAt: string
+  score: number
+  maxScore: number
+  percent: number
+}
+
 export interface ItemResultDto {
   position: number
   type: QuizItemType
@@ -537,6 +548,11 @@ export async function listMyChildren(): Promise<ChildDto[]> {
   return response.json()
 }
 
+export async function getChildProgress(childId: number): Promise<ProgressPointDto[]> {
+  const response = await apiFetch(`/parent/children/${childId}/progress`)
+  return response.json()
+}
+
 export async function getChildAttempts(childId: number): Promise<MyAttemptDto[]> {
   const response = await apiFetch(`/parent/children/${childId}/attempts`)
   return response.json()
@@ -549,6 +565,11 @@ export async function getChildAttemptResult(childId: number, attemptId: number):
 
 export async function getStudentQuizzes(): Promise<QuizSummary[]> {
   const response = await apiFetch('/quiz/quizzes')
+  return response.json()
+}
+
+export async function getMyProgress(): Promise<ProgressPointDto[]> {
+  const response = await apiFetch('/quiz/progress')
   return response.json()
 }
 

@@ -3,7 +3,8 @@ import { Link, useParams } from 'react-router-dom'
 import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { AttemptStatusBadge } from '@/components/AttemptStatusBadge'
-import { getChildAttempts, type MyAttemptDto } from '@/lib/api'
+import { ProgressChart } from '@/components/ProgressChart'
+import { getChildAttempts, getChildProgress, type MyAttemptDto, type ProgressPointDto } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
 import { formatDate } from '@/lib/format'
 
@@ -11,12 +12,18 @@ import { formatDate } from '@/lib/format'
 export function ParentChildPage() {
   const { childId } = useParams<{ childId: string }>()
   const [attempts, setAttempts] = useState<MyAttemptDto[] | null>(null)
+  const [progress, setProgress] = useState<ProgressPointDto[] | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
-    getChildAttempts(Number(childId))
-      .then((a) => !cancelled && setAttempts(a))
+    Promise.all([getChildAttempts(Number(childId)), getChildProgress(Number(childId))])
+      .then(([a, p]) => {
+        if (!cancelled) {
+          setAttempts(a)
+          setProgress(p)
+        }
+      })
       .catch((e) => !cancelled && setError(errorMessage(e)))
     return () => {
       cancelled = true
@@ -37,6 +44,14 @@ export function ParentChildPage() {
 
         {error && <p className="text-sm text-destructive">{error}</p>}
         {!attempts && !error && <p className="text-muted-foreground">Se încarcă...</p>}
+        {progress && (
+          <Card>
+            <CardContent className="space-y-2 py-4">
+              <h2 className="font-medium">Progres în timp</h2>
+              <ProgressChart points={progress} />
+            </CardContent>
+          </Card>
+        )}
         {attempts && attempts.length === 0 && (
           <p className="text-sm text-muted-foreground">Copilul nu a dat încă niciun test.</p>
         )}

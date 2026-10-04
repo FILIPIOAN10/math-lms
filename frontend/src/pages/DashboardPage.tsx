@@ -29,9 +29,14 @@ export function DashboardPage() {
                 Conținut
               </Link>
               {user.role === 'STUDENT' && (
-                <Link to="/quizzes" className={buttonVariants({ variant: 'default' })}>
-                  Testele mele
-                </Link>
+                <>
+                  <Link to="/quizzes" className={buttonVariants({ variant: 'default' })}>
+                    Testele mele
+                  </Link>
+                  <Link to="/progress" data-testid="my-progress" className={buttonVariants({ variant: 'default' })}>
+                    Progresul meu
+                  </Link>
+                </>
               )}
               {user.role === 'PARENT' && (
                 <Link to="/parent" data-testid="my-children" className={buttonVariants({ variant: 'default' })}>

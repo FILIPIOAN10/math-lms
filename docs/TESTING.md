@@ -63,7 +63,7 @@ docker exec -i mathlms-postgres psql -U mathlms -d mathlms -c \
 Rulează asta înainte de orice commit.
 
 ```bash
-# Backend — 425 teste (necesită Docker pentru Testcontainers)
+# Backend — 435 teste (necesită Docker pentru Testcontainers)
 cd math-lms/backend && ./mvnw test
 
 # Doar suita de conținut (Faza 2)
@@ -96,6 +96,7 @@ backend `:8080`, Vite `:5173`) și a conturilor seed din secțiunea B. Sunt excl
   un quiz cu încercări nu poate fi șters).
 - `LoginE2eTest`: login admin/elev + logout real prin UI.
 - `QuizVisibilityE2eTest`: quiz asignat unei clase → invizibil elevului neînscris, apare după înscriere.
+- `QuizFlowE2eTest` verifică și `/progress`: după notare apare `13 / 15 (87%)`.
 - `ParentE2eTest`: adminul leagă elevul de părinte, elevul predă un test → părintele (`parinte@mathlms.local`) îl vede la „Copiii mei” → elev → rezultat.
 - Parametri opționali: `-De2e.baseUrl=…` (implicit `http://localhost:5173`), `-De2e.apiUrl=…` (`http://localhost:8080`).
 - Selectorii sunt atributele `data-testid` din frontend; Page Objects în `backend/src/test/java/ro/mathlms/e2e/`.
@@ -169,6 +170,11 @@ Buton pe Dashboard: **Corectură**.
 - punctaj peste valoarea subiectului → eroare; punctaj valid → **Salvează punctajul** → „✓ notat cu X p”
 - **Finalizează nota** se deblochează când toate subiectele deschise au punctaj → lucrarea trece la „Notate”
 - ca elev, rezultatul arată acum nota finală (`X / max puncte`)
+
+### 13a. Progres în timp (`/progress` pentru elev; pe pagina copilului pentru părinte)
+Buton pe Dashboard (elev): **Progresul meu**. Graficul arată doar testele **notate** (`GRADED`), cele mai vechi primele, procent din punctajul maxim al fiecărui test; sub grafic, același lucru ca tabel (Test · Data · Nota `13 / 15 (87%)`).
+- API: elev `GET /api/quiz/progress`; părinte `GET /api/parent/children/{id}/progress` (copil străin → 403, ca restul API-ului de părinte)
+- Fără teste notate → „Nu există încă teste notate…”. Punctajul maxim vine dintr-un singur query agregat pe toate quiz-urile implicate
 
 ### 13. Părinte — copiii mei (`/parent`, ca `parinte@mathlms.local`)
 Prerechizit: adminul a legat elevul de părinte la `/admin/links`. Buton pe Dashboard: **Copiii mei**.

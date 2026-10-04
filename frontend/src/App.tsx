@@ -19,6 +19,7 @@ import { StudentQuizListPage } from '@/pages/StudentQuizListPage'
 import { TakeQuizPage } from '@/pages/TakeQuizPage'
 import { AttemptResultPage } from '@/pages/AttemptResultPage'
 import { AdminGradingPage } from '@/pages/AdminGradingPage'
+import { StudentProgressPage } from '@/pages/StudentProgressPage'
 import { ParentChildrenPage } from '@/pages/ParentChildrenPage'
 import { ParentChildPage } from '@/pages/ParentChildPage'
 import { ParentAttemptResultPage } from '@/pages/ParentAttemptResultPage'
@@ -99,6 +100,14 @@ function App() {
             element={
               <RoleRoute role="STUDENT">
                 <StudentQuizListPage />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/progress"
+            element={
+              <RoleRoute role="STUDENT">
+                <StudentProgressPage />
               </RoleRoute>
             }
           />

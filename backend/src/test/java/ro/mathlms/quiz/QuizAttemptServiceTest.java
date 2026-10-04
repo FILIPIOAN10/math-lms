@@ -77,6 +77,58 @@ class QuizAttemptServiceTest {
         return withId(new QuizAttempt(quiz, owner), id);
     }
 
+    // --- progress over time (Phase 5.3) ---
+
+    private QuizAttempt gradedAttempt(long id, Quiz forQuiz, int score) {
+        QuizAttempt graded = withId(new QuizAttempt(forQuiz, student), id);
+        graded.submit();
+        graded.markGraded(score);
+        return graded;
+    }
+
+    @Test
+    void progressListsGradedAttemptsWithThePercentOfTheQuizsMaxScore() {
+        QuizAttempt first = gradedAttempt(50L, quiz, 13);
+        when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(student));
+        when(attemptRepository.findByStudentIdAndStatusOrderBySubmittedAtAsc(1L, QuizAttemptStatus.GRADED))
+                .thenReturn(List.of(first));
+        when(itemRepository.sumPointsByQuiz(List.of(10L))).thenReturn(List.of(new QuizMaxScore(10L, 15L)));
+
+        List<StudentQuizDtos.ProgressPointDto> progress = service.getProgress(EMAIL);
+
+        assertThat(progress).singleElement().satisfies(point -> {
+            assertThat(point.attemptId()).isEqualTo(50L);
+            assertThat(point.quizTitle()).isEqualTo("Simulare EN");
+            assertThat(point.score()).isEqualTo(13);
+            assertThat(point.maxScore()).isEqualTo(15);
+            assertThat(point.percent()).isEqualTo(87); // 86.67 rounded
+        });
+    }
+
+    @Test
+    void progressIsEmptyAndSkipsTheScoreLookupWhenNothingIsGradedYet() {
+        when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(student));
+        when(attemptRepository.findByStudentIdAndStatusOrderBySubmittedAtAsc(1L, QuizAttemptStatus.GRADED))
+                .thenReturn(List.of());
+
+        assertThat(service.getProgress(EMAIL)).isEmpty();
+        verify(itemRepository, never()).sumPointsByQuiz(any());
+    }
+
+    @Test
+    void aQuizWithoutPointsGivesZeroPercentInsteadOfDividingByZero() {
+        QuizAttempt zero = gradedAttempt(51L, quiz, 0);
+        when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(student));
+        when(attemptRepository.findByStudentIdAndStatusOrderBySubmittedAtAsc(1L, QuizAttemptStatus.GRADED))
+                .thenReturn(List.of(zero));
+        when(itemRepository.sumPointsByQuiz(List.of(10L))).thenReturn(List.of());
+
+        assertThat(service.getProgress(EMAIL)).singleElement().satisfies(point -> {
+            assertThat(point.maxScore()).isZero();
+            assertThat(point.percent()).isZero();
+        });
+    }
+
     // --- class visibility (Step 2.4b) ---
 
     private Quiz assignedTo(Quiz target, long classId) {

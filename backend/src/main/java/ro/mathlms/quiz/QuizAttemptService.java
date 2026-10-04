@@ -12,6 +12,7 @@ import ro.mathlms.quiz.StudentQuizDtos.AttemptResultDto;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultViewDto;
 import ro.mathlms.quiz.StudentQuizDtos.ItemResultDto;
 import ro.mathlms.quiz.StudentQuizDtos.MyAttemptDto;
+import ro.mathlms.quiz.StudentQuizDtos.ProgressPointDto;
 import ro.mathlms.quiz.StudentQuizDtos.SavedAnswerDto;
 import ro.mathlms.quiz.StudentQuizDtos.StartedAttemptDto;
 import ro.mathlms.quiz.StudentQuizDtos.StudentItemDto;
@@ -112,6 +113,30 @@ public class QuizAttemptService {
         return attemptRepository.findByStudentIdOrderByStartedAtDesc(student.getId()).stream()
                 .map(MyAttemptDto::from)
                 .toList();
+    }
+
+    /**
+     * The student's graded attempts over time, oldest first, each with its percent of the quiz's maximum
+     * score. The maximums come from one aggregate query for all the quizzes involved.
+     */
+    @Transactional(readOnly = true)
+    public List<ProgressPointDto> getProgress(String studentEmail) {
+        User student = requireUser(studentEmail);
+        List<QuizAttempt> graded = attemptRepository
+                .findByStudentIdAndStatusOrderBySubmittedAtAsc(student.getId(), QuizAttemptStatus.GRADED);
+        if (graded.isEmpty()) {
+            return List.of();
+        }
+        List<Long> quizIds = graded.stream().map(a -> a.getQuiz().getId()).distinct().toList();
+        Map<Long, Long> maxByQuiz = itemRepository.sumPointsByQuiz(quizIds).stream()
+                .collect(Collectors.toMap(QuizMaxScore::quizId, QuizMaxScore::maxScore));
+        return graded.stream().map(attempt -> {
+            int max = maxByQuiz.getOrDefault(attempt.getQuiz().getId(), 0L).intValue();
+            int score = attempt.getScore() == null ? 0 : attempt.getScore();
+            int percent = max == 0 ? 0 : Math.round(score * 100f / max);
+            return new ProgressPointDto(attempt.getId(), attempt.getQuiz().getId(), attempt.getQuiz().getTitle(),
+                    attempt.getSubmittedAt(), score, max, percent);
+        }).toList();
     }
 
     /** Records (or replaces) the student's choice for one SINGLE_CHOICE item. */

@@ -4,6 +4,7 @@ import org.springframework.stereotype.Service;
 import ro.mathlms.quiz.QuizAttemptService;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultViewDto;
 import ro.mathlms.quiz.StudentQuizDtos.MyAttemptDto;
+import ro.mathlms.quiz.StudentQuizDtos.ProgressPointDto;
 import ro.mathlms.user.User;
 import ro.mathlms.user.UserRepository;
 
@@ -32,6 +33,11 @@ public class ParentService {
     public List<MyAttemptDto> childAttempts(String parentEmail, Long studentId) {
         User child = requireOwnChild(parentEmail, studentId);
         return quizAttemptService.listMyAttempts(child.getEmail());
+    }
+
+    public List<ProgressPointDto> childProgress(String parentEmail, Long studentId) {
+        User child = requireOwnChild(parentEmail, studentId);
+        return quizAttemptService.getProgress(child.getEmail());
     }
 
     /**

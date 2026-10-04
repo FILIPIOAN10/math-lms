@@ -42,6 +42,14 @@ class QuizAttemptControllerTest {
     }
 
     @Test
+    void progressDelegatesWithPrincipalEmail() {
+        when(service.getProgress("elev@scoala.ro")).thenReturn(List.of());
+
+        assertThat(controller.progress(auth)).isEmpty();
+        verify(service).getProgress("elev@scoala.ro");
+    }
+
+    @Test
     void startDelegatesWithPrincipalEmail() {
         StartedAttemptDto dto = new StartedAttemptDto(50L, QuizAttemptStatus.IN_PROGRESS, null, List.of());
         when(service.startAttempt(10L, "elev@scoala.ro")).thenReturn(dto);
