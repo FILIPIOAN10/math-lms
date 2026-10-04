@@ -63,7 +63,7 @@ docker exec -i mathlms-postgres psql -U mathlms -d mathlms -c \
 Rulează asta înainte de orice commit.
 
 ```bash
-# Backend — 516 teste (necesită Docker pentru Testcontainers)
+# Backend — 518 teste (necesită Docker pentru Testcontainers)
 cd math-lms/backend && ./mvnw test
 
 # Doar suita de conținut (Faza 2)
@@ -171,9 +171,19 @@ Buton pe Dashboard: **Corectură**.
 - **Finalizează nota** se deblochează când toate subiectele deschise au punctaj → lucrarea trece la „Notate”
 - ca elev, rezultatul arată acum nota finală (`X / max puncte`)
 
+### 12h. Stack-ul de producție (Docker) — `docs/DEPLOY.md`
+`docker-compose.prod.yml`: nginx (singurul port publicat) + backend + Postgres + Redis (+ profil `monitoring`). Imaginile: `backend/Dockerfile` (Maven → JRE alpine, utilizator non-root, healthcheck pe `/actuator/health`) și `frontend/Dockerfile` (Vite → nginx, proxy `/api` + `/oauth2` + `/login/oauth2`, `/actuator` → 404, aceleași headere de securitate ca API-ul).
+- **Pornire de test pe calculatorul tău** (fără să atingi dev-ul; folosește volume separate `mathlms-prod_*`): scrie un `.env.prod.test` cu valori de probă (vezi `.env.prod.example`; `HTTP_PORT=8088`, `COOKIE_SECURE=false`, `RATE_LIMIT_ENABLED=false`) și rulează `docker compose -f docker-compose.prod.yml --env-file .env.prod.test --profile monitoring up -d --build`; la final `... down -v`
+- **Seed conturi de test** (doar pentru acest test, niciodată în producție reală): `docker compose -f docker-compose.prod.yml --env-file .env.prod.test exec -T postgres psql -U mathlms -d mathlms < deploy/e2e-seed.sql`
+- **E2E în Chrome împotriva stack-ului de producție** (verifică și CSP-ul real): `cd backend && ./mvnw test -Dgroups=e2e -DexcludedGroups= -De2e.baseUrl=http://localhost:8088 -De2e.apiUrl=http://localhost:8088` — cele 5 teste trec (login, flux quiz cu poză, părinte, vizibilitate pe clasă)
+- **Backup + restore** (testat): `ENV_FILE=.env.prod.test ./deploy/backup.sh ./bk` (pg_dump + poze, verifică ambele fișiere) → strici datele → `ENV_FILE=.env.prod.test ./deploy/restore.sh bk/db-….dump bk/uploads-….tar.gz --yes` → numele, răspunsurile, nota și poza revin; aplicația repornește singură
+- **Rate limiting prin nginx**: cu `RATE_LIMIT_ENABLED=true`, 7 login-uri greșite cu `X-Forwarded-For: 203.0.113.5` → `401×5` apoi `429`; alt client (`203.0.113.9`) are găleata lui. `/actuator/*` prin nginx → 404
+- **Verificări rapide**: `curl -i http://localhost:8088/` (SPA + headere), `.../quizzes` (fallback SPA), `.../api/auth/me` → 401, `.../healthz` → `ok`; Prometheus http://localhost:9090/targets → `math-lms` **UP**
+- **Descoperit la testare**: `/actuator/health` devenea `DOWN` când SMTP nu era configurat/disponibil (indicatorul de mail) și containerul era marcat nesănătos — dezactivat (`management.health.mail.enabled=false`; emailurile oricum merg prin outbox cu reîncercări). Testat de `HealthIndicatorsTest`
+
 ### 12g. Observabilitate (Prometheus + Grafana + Alertmanager) — `monitoring/README.md`
 `/actuator/prometheus` (Micrometer) cere header-ul `Authorization: Bearer <METRICS_TOKEN>`; fără token → 401, utilizator logat oarecare → 403, token nesetat → blocat pentru toți. `/actuator/health` și `/info` rămân publice. Metrici proprii: `security_failed_logins_total`, `rate_limit_blocked_total{rule}`, `outbox_events{status="pending|dead"}` (dead = un email de rezultat care nu va mai pleca fără om).
-- **După adăugarea dependenței `micrometer-registry-prometheus` backend-ul trebuie repornit complet** (`Ctrl+C`, `.\mvnw.cmd spring-boot:run`); restartul automat devtools nu încarcă jar-uri noi (până atunci `/actuator/prometheus` dă 404)
+- **Backend-ul de dezvoltare trebuie repornit complet o dată** (`Ctrl+C`, `.\mvnw.cmd spring-boot:run`) pentru că am adăugat dependența `micrometer-registry-prometheus`; restartul automat devtools nu încarcă jar-uri noi (până atunci `/actuator/prometheus` dă 404 pe dev). Pe stack-ul Docker de producție e deja verificat: ținta Prometheus `math-lms` = UP
 - Pornire stack (local): token în `backend/.env` (`METRICS_TOKEN=`) ȘI în `monitoring/secrets/metrics-token` (același șir, gitignorat) → `docker compose -f docker-compose.monitoring.yml up -d`. Prometheus http://localhost:9090 → **Status → Targets: `math-lms` = UP**; Grafana http://localhost:3000 (admin/admin) → „Math LMS — Service Overview"; Alertmanager http://localhost:9093
 - 9 alerte: BackendDown, HighErrorRate, HighLatencyP95, DatabaseConnectionPoolHigh, JVMHeapUsageHigh (doar heap: celelalte pool-uri au max=-1), FailedLoginBruteForce, RateLimitSpike, OutboxDeadLetters, OutboxBacklog. Validate cu `promtool check rules` / `check config` și `amtool check-config`
 - Test: `PrometheusEndpointIntegrationTest` (token, serii: `jvm_memory_used_bytes`, `hikaricp_connections_active`, `http_server_requests_seconds_bucket`, `security_failed_logins_total`, `outbox_events`)
