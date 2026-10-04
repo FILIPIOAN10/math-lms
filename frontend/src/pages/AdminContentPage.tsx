@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
+import { MathContent } from '@/components/MathContent'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog } from '@/components/ui/dialog'
@@ -410,7 +411,7 @@ export function AdminContentPage() {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <p className="line-clamp-2 text-sm text-muted-foreground">{ex.statement}</p>
+                    <MathContent className="text-sm text-muted-foreground">{ex.statement}</MathContent>
                   </CardContent>
                 </Card>
               ))}
