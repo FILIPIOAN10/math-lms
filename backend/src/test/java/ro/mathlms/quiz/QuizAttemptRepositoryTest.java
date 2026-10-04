@@ -193,4 +193,42 @@ class QuizAttemptRepositoryTest {
             assertThat(total.maxScore()).isEqualTo(15L);
         });
     }
+
+    @Test
+    void gradedScoresAndPerItemStatsOfAQuiz() {
+        Quiz quiz = quizRepository.save(new Quiz("Simulare EN", null));
+        QuizItem grila = quizItemRepository.save(new QuizItem(quiz, 1, QuizItemType.SINGLE_CHOICE, "g", 5, null));
+        QuizOption right = quizOptionRepository.save(new QuizOption(grila, 0, "4", true));
+        QuizOption wrong = quizOptionRepository.save(new QuizOption(grila, 1, "5", false));
+        QuizItem deschis = quizItemRepository.save(new QuizItem(quiz, 2, QuizItemType.OPEN, "d", 10, "barem"));
+
+        gradedAttempt(quiz, student("ana@scoala.ro"), grila, right, deschis, 8, 13);
+        gradedAttempt(quiz, student("dan@scoala.ro"), grila, wrong, deschis, 4, 4);
+        quizAttemptRepository.saveAndFlush(new QuizAttempt(quiz, student("inprogress@scoala.ro"))); // ignored
+
+        assertThat(quizAttemptRepository.findGradedScoresByQuizId(quiz.getId())).containsExactlyInAnyOrder(13, 4);
+
+        List<ItemStat> stats = itemResponseRepository.findItemStatsByQuizId(quiz.getId());
+        ItemStat grilaStat = stats.stream().filter(s -> s.itemId().equals(grila.getId())).findFirst().orElseThrow();
+        ItemStat deschisStat = stats.stream().filter(s -> s.itemId().equals(deschis.getId())).findFirst().orElseThrow();
+        assertThat(grilaStat.answered()).isEqualTo(2L);
+        assertThat(grilaStat.correct()).isEqualTo(1L);
+        assertThat(deschisStat.totalPoints()).isEqualTo(12L); // 8 + 4
+    }
+
+    private void gradedAttempt(Quiz quiz, User student, QuizItem grila, QuizOption chosen, QuizItem deschis,
+                               int openPoints, int score) {
+        QuizAttempt attempt = quizAttemptRepository.save(new QuizAttempt(quiz, student));
+        ItemResponse r1 = new ItemResponse(attempt, grila);
+        r1.answerSingleChoice(chosen);
+        r1.gradeAuto(chosen.isCorrect(), chosen.isCorrect() ? 5 : 0);
+        ItemResponse r2 = new ItemResponse(attempt, deschis);
+        r2.answerOpen("uploads/x.jpg");
+        r2.gradeManual(openPoints);
+        itemResponseRepository.save(r1);
+        itemResponseRepository.save(r2);
+        attempt.submit();
+        attempt.markGraded(score);
+        quizAttemptRepository.saveAndFlush(attempt);
+    }
 }

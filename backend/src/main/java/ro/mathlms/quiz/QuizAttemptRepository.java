@@ -22,6 +22,10 @@ public interface QuizAttemptRepository extends JpaRepository<QuizAttempt, Long> 
 
     List<QuizAttempt> findByQuizId(Long quizId);
 
+    /** Final scores of a quiz's GRADED attempts — the input of the teacher's average and distribution. */
+    @Query("select a.score from QuizAttempt a where a.quiz.id = :quizId and a.status = ro.mathlms.quiz.QuizAttemptStatus.GRADED")
+    List<Integer> findGradedScoresByQuizId(@Param("quizId") Long quizId);
+
     Optional<QuizAttempt> findByQuizIdAndStudentIdAndStatus(
             Long quizId, Long studentId, QuizAttemptStatus status);
 

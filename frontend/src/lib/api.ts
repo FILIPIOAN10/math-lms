@@ -396,6 +396,40 @@ export async function listQuizzes(): Promise<QuizSummary[]> {
   return response.json()
 }
 
+// ----- Teacher analytics (Phase 5.4) -----
+
+export interface QuizStatsBucket {
+  label: string
+  count: number
+}
+
+export interface QuizItemStat {
+  itemId: number
+  position: number
+  type: QuizItemType
+  statement: string
+  points: number
+  /** 0..1, only for single-choice items; null until something is graded. */
+  correctRate: number | null
+  averagePoints: number | null
+}
+
+export interface QuizStatsDto {
+  quizId: number
+  title: string
+  gradedAttempts: number
+  maxScore: number
+  averageScore: number | null
+  averagePercent: number | null
+  distribution: QuizStatsBucket[]
+  items: QuizItemStat[]
+}
+
+export async function getQuizStats(quizId: number): Promise<QuizStatsDto> {
+  const response = await apiFetch(`/admin/quizzes/${quizId}/stats`)
+  return response.json()
+}
+
 export async function getQuiz(id: number): Promise<QuizDetail> {
   const response = await apiFetch(`/admin/quizzes/${id}`)
   return response.json()

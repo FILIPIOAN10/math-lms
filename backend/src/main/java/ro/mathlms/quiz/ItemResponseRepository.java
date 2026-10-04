@@ -14,6 +14,13 @@ public interface ItemResponseRepository extends JpaRepository<ItemResponse, Long
 
     Optional<ItemResponse> findByAttemptIdAndItemId(Long attemptId, Long itemId);
 
+    /** Per-item aggregates over the GRADED attempts of a quiz, in one query (see {@link ItemStat}). */
+    @Query("select new ro.mathlms.quiz.ItemStat(r.item.id, count(r),"
+            + " sum(case when r.correct = true then 1L else 0L end), sum(r.awardedPoints))"
+            + " from ItemResponse r where r.attempt.quiz.id = :quizId"
+            + " and r.attempt.status = ro.mathlms.quiz.QuizAttemptStatus.GRADED group by r.item.id")
+    List<ItemStat> findItemStatsByQuizId(@Param("quizId") Long quizId);
+
     /** Storage keys of every rezolvare photo a student uploaded — used by GDPR erasure to delete the files. */
     @Query("select r.imageKey from ItemResponse r"
             + " where r.attempt.student.id = :userId and r.imageKey is not null")

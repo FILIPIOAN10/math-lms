@@ -63,7 +63,7 @@ docker exec -i mathlms-postgres psql -U mathlms -d mathlms -c \
 Rulează asta înainte de orice commit.
 
 ```bash
-# Backend — 435 teste (necesită Docker pentru Testcontainers)
+# Backend — 445 teste (necesită Docker pentru Testcontainers)
 cd math-lms/backend && ./mvnw test
 
 # Doar suita de conținut (Faza 2)
@@ -96,7 +96,7 @@ backend `:8080`, Vite `:5173`) și a conturilor seed din secțiunea B. Sunt excl
   un quiz cu încercări nu poate fi șters).
 - `LoginE2eTest`: login admin/elev + logout real prin UI.
 - `QuizVisibilityE2eTest`: quiz asignat unei clase → invizibil elevului neînscris, apare după înscriere.
-- `QuizFlowE2eTest` verifică și `/progress`: după notare apare `13 / 15 (87%)`.
+- `QuizFlowE2eTest` verifică și statisticile profesorului (media `13.0 / 15 p (87%)`) și `/progress` al elevului (`13 / 15 (87%)`).
 - `ParentE2eTest`: adminul leagă elevul de părinte, elevul predă un test → părintele (`parinte@mathlms.local`) îl vede la „Copiii mei” → elev → rezultat.
 - Parametri opționali: `-De2e.baseUrl=…` (implicit `http://localhost:5173`), `-De2e.apiUrl=…` (`http://localhost:8080`).
 - Selectorii sunt atributele `data-testid` din frontend; Page Objects în `backend/src/test/java/ro/mathlms/e2e/`.
@@ -170,6 +170,13 @@ Buton pe Dashboard: **Corectură**.
 - punctaj peste valoarea subiectului → eroare; punctaj valid → **Salvează punctajul** → „✓ notat cu X p”
 - **Finalizează nota** se deblochează când toate subiectele deschise au punctaj → lucrarea trece la „Notate”
 - ca elev, rezultatul arată acum nota finală (`X / max puncte`)
+
+### 12b. Profesor — statistici pe quiz (`/admin/quizzes/:id/stats`, ca admin)
+Buton **Statistici** pe fiecare quiz din `/admin/quizzes`. Doar lucrările **notate** (`GRADED`) contează.
+- **Lucrări notate**, **Media** (`13.0 / 15 p (87%)`), **Distribuția notelor** pe 5 intervale de câte 20% (bare), apoi **Pe subiecte**
+- La grile: % de elevi care au răspuns corect (o grilă lăsată necompletată contează greșit); subiectul cu cel mai mic procent e marcat „cel mai greu” (când sunt ≥2 grile cu date). La subiectele deschise: punctajul mediu
+- Fără nicio lucrare notată → „Niciun elev nu a fost notat încă…”; elev/părinte pe `GET /api/admin/quizzes/{id}/stats` → 403; quiz inexistent → 404
+- Calcul: două query-uri agregate pe tot quiz-ul (`findGradedScoresByQuizId`, `findItemStatsByQuizId`), nu câte unul per lucrare
 
 ### 13a. Progres în timp (`/progress` pentru elev; pe pagina copilului pentru părinte)
 Buton pe Dashboard (elev): **Progresul meu**. Graficul arată doar testele **notate** (`GRADED`), cele mai vechi primele, procent din punctajul maxim al fiecărui test; sub grafic, același lucru ca tabel (Test · Data · Nota `13 / 15 (87%)`).

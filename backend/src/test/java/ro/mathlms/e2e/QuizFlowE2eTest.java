@@ -29,7 +29,7 @@ class QuizFlowE2eTest extends E2eBase {
         String quizTitle = "E2E flow " + System.currentTimeMillis();
         ApiSeeder api = new ApiSeeder(API_URL);
         api.login(ADMIN, PASSWORD);
-        api.createPublishedQuiz(quizTitle);
+        long quizId = api.createPublishedQuiz(quizTitle);
 
         // Student takes the quiz
         login(STUDENT, PASSWORD);
@@ -51,6 +51,12 @@ class QuizFlowE2eTest extends E2eBase {
         grading.openAttempt(STUDENT_NAME, quizTitle);
         grading.givePoints(8);
         grading.finalizeGrade();
+
+        // The teacher's statistics page now counts that one graded attempt: average 13.0 / 15 p (87 %)
+        open("/admin/quizzes/" + quizId + "/stats");
+        wait.until(ExpectedConditions.textToBePresentInElementLocated(
+                By.cssSelector("[data-testid='stats-graded']"), "1"));
+        assertThat(byTestId("stats-average").getText()).contains("13.0").contains("15").contains("87%");
 
         // Student sees the final score
         logout();

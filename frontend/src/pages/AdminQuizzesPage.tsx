@@ -417,6 +417,8 @@ export function AdminQuizzesPage() {
                     </div>
                     <div className="flex shrink-0 gap-2">
                       <Button size="xs" variant="outline" onClick={() => openBuilder(q.id)}>Deschide</Button>
+                      <Link to={`/admin/quizzes/${q.id}/stats`} data-testid="quiz-stats"
+                            className={buttonVariants({ size: 'xs', variant: 'outline' })}>Statistici</Link>
                       <Button size="xs" variant="secondary" onClick={() => togglePublish(q)}>{q.status === 'PUBLISHED' ? 'Depublică' : 'Publică'}</Button>
                       <Button size="xs" variant="outline" onClick={() => setQuizDialog({ item: q })}>Editează</Button>
                       <Button size="xs" variant="destructive" onClick={() => removeQuiz(q)}>Șterge</Button>

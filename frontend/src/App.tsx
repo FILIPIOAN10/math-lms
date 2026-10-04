@@ -19,6 +19,7 @@ import { StudentQuizListPage } from '@/pages/StudentQuizListPage'
 import { TakeQuizPage } from '@/pages/TakeQuizPage'
 import { AttemptResultPage } from '@/pages/AttemptResultPage'
 import { AdminGradingPage } from '@/pages/AdminGradingPage'
+import { AdminQuizStatsPage } from '@/pages/AdminQuizStatsPage'
 import { StudentProgressPage } from '@/pages/StudentProgressPage'
 import { ParentChildrenPage } from '@/pages/ParentChildrenPage'
 import { ParentChildPage } from '@/pages/ParentChildPage'
@@ -84,6 +85,14 @@ function App() {
             element={
               <AdminRoute>
                 <AdminQuizzesPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/quizzes/:quizId/stats"
+            element={
+              <AdminRoute>
+                <AdminQuizStatsPage />
               </AdminRoute>
             }
           />
