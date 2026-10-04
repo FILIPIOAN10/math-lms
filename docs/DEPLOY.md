@@ -98,3 +98,36 @@ completează `monitoring/alertmanager.yml` (exemplu comentat în fișier).
 - [ ] Backup-ul rulează zilnic **și** a fost testată o restaurare
 - [ ] `/actuator/prometheus` NU e accesibil din exterior (`curl https://<domeniu>/actuator/prometheus` → 404)
 - [ ] GitHub: branch protection pe `main` (CI verde obligatoriu), secrete de deploy puse doar pe mediul `production`
+
+## 7. Setup rapid pe un server nou (`deploy/server-setup.sh`)
+
+Automatizează §1, §2 și §4: instalează Docker + Compose (Debian/Ubuntu), creează utilizatorul de deploy și îi autorizează cheia
+publică, copiază fișierele în `/opt/math-lms`, **validează `.env.prod`** (refuză dacă lipsesc Google/ADMIN_EMAILS/URL-ul public sau
+`JWT_SECRET` e prea scurt), scrie tokenul Prometheus, face `docker login ghcr.io`, instalează cron-ul zilnic de backup și, opțional,
+pornește totul + Caddy (HTTPS automat). E idempotent: îl poți rula din nou după ce corectezi `.env.prod`.
+
+De pe calculatorul tău (Git Bash, din `math-lms/`):
+
+```bash
+# 1. O singură dată: cheia cu care GitHub Actions intră pe server. Partea PRIVATĂ merge în secretul DEPLOY_SSH_KEY, cea publică pe server.
+ssh-keygen -t ed25519 -f deploy_key -N "" -C "github-actions-math-lms"
+
+# 2. Trimite fișierele (fără monitoring/secrets = tokenul de DEV) și .env.prod (completat, gitignorat)
+tar czf - --exclude=monitoring/secrets docker-compose.prod.yml deploy monitoring \
+  | ssh USER@SERVER "rm -rf ~/mathlms-setup && mkdir ~/mathlms-setup && tar xzf - -C ~/mathlms-setup"
+scp .env.prod USER@SERVER:~/mathlms-setup/.env.prod
+
+# 3. Rulează setup-ul (tokenul GHCR = Personal access token cu doar read:packages; citește-l fără să rămână în istoric)
+read -s -p "GHCR token: " GHCR_TOKEN; echo
+ssh -t USER@SERVER "sudo DOMAIN=mathlms.exemplu.ro DEPLOY_USER=deploy DEPLOY_PUBKEY='$(cat deploy_key.pub)' \
+  GHCR_USER=filipioan10 GHCR_TOKEN='$GHCR_TOKEN' BACKUP_REMOTE=user@alt-server:/backups/math-lms \
+  bash ~/mathlms-setup/deploy/server-setup.sh --start"
+```
+
+Înainte de pasul 3: înregistrarea DNS `A` a domeniului trebuie să arate spre server și porturile 80/443 să fie deschise (Caddy cere certificatul
+singur). Cu `DOMAIN`, scriptul pune `HTTP_PORT=8080` + `HTTP_BIND=127.0.0.1` în `.env.prod`, deci portul HTTP simplu nu e accesibil din exterior.
+Ce rămâne manual: Google redirect URI, secretele GitHub (`DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY` = conținutul lui `deploy_key`), cheia SSH
+pentru `BACKUP_REMOTE`, SMTP real și testarea unei restaurări.
+
+> Verificat într-un container Ubuntu cu `docker` simulat (validare, copiere, utilizator + cheie, cron, Caddyfile, re-rulare); instalarea reală a Docker
+> și emiterea certificatului nu au putut fi încercate fără un server real — la prima rulare urmărește output-ul.
