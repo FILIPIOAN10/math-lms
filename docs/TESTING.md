@@ -63,7 +63,7 @@ docker exec -i mathlms-postgres psql -U mathlms -d mathlms -c \
 Rulează asta înainte de orice commit.
 
 ```bash
-# Backend — 483 teste (necesită Docker pentru Testcontainers)
+# Backend — 500 teste (necesită Docker pentru Testcontainers)
 cd math-lms/backend && ./mvnw test
 
 # Doar suita de conținut (Faza 2)
@@ -170,6 +170,14 @@ Buton pe Dashboard: **Corectură**.
 - punctaj peste valoarea subiectului → eroare; punctaj valid → **Salvează punctajul** → „✓ notat cu X p”
 - **Finalizează nota** se deblochează când toate subiectele deschise au punctaj → lucrarea trece la „Notate”
 - ca elev, rezultatul arată acum nota finală (`X / max puncte`)
+
+### 12e. Rate limiting (429 + Retry-After)
+Filtru Redis cu fereastră fixă, regulile în `RateLimitConfig` (prima care se potrivește câștigă): `POST /api/auth/login` **5/min/IP**, `forgot-password` 3/15 min, `reset-password` 5/15 min, `register` 5/oră, `refresh` 30/min (SPA-ul îl apelează la fiecare 401), upload poză **20/min/utilizator**. Peste limită → `429` + `Retry-After` + `X-RateLimit-Limit/Remaining`, corp text românesc; cererea nici nu ajunge la logica de login.
+- INCR+EXPIRE într-un singur script Lua (atomic). **Fail-open**: Redis căzut = nicio limitare, nu 500
+- `RATE_LIMIT_ENABLED` (implicit `true`). **În `backend/.env`-ul de dezvoltare e `false`** — suita E2E se loghează de zeci de ori/minut de la același IP. Pentru a vedea limitarea live: scoate linia / pune `true`, repornește backend-ul și rulează de 6 ori `curl -s -o /dev/null -w "%{http_code}
+" -H "Content-Type: application/json" -d '{"email":"x@y.ro","password":"z"}' http://localhost:8080/api/auth/login` → 401×5 apoi **429**. Cheile: `docker exec mathlms-redis redis-cli --scan --pattern "rate_limit:*"`
+- `RATE_LIMIT_TRUST_XFF`: `true` DOAR în spatele nginx-ului tău (care setează `X-Forwarded-For`); altfel oricine își poate falsifica găleata, iar în spatele unui proxy cu `false` toți utilizatorii împart aceeași găleată
+- Pagina de login arată „Prea multe încercări…” la 429. Testele rulează cu limitele oprite (`src/test/resources/application.properties`); `RateLimitIntegrationTest` le pornește: a 6-a încercare de login de la aceeași adresă → 429, altă adresă neafectată
 
 ### 12d. Email „rezultatul e gata” (outbox tranzacțional)
 Când o lucrare devine `GRADED` (finalizare de profesor SAU auto-corectare la submit) se pun în tabela `outbox_event` — **în aceeași tranzacție cu nota** — câte un eveniment `RESULT_READY_EMAIL` pe destinatar: unul pentru elev și, dacă adminul a legat un părinte, unul pentru părinte. Un dispatcher (`@Scheduled`, la 5 s) le trimite cu `FOR UPDATE SKIP LOCKED`; eșec SMTP → reîncercare cu backoff exponențial (30 s, 60 s, 120 s … max 1 h), după 8 încercări `DEAD` (necesită om). Payload = doar ids (fără date personale → GDPR curat); un eveniment per destinatar ca o reîncercare să nu retrimită cuiva care a primit deja.

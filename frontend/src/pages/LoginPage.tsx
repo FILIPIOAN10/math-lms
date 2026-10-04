@@ -14,6 +14,9 @@ function loginErrorMessage(error: unknown): string {
     if (error.status === 401) {
       return 'Email sau parolă greșite.'
     }
+    if (error.status === 429) {
+      return 'Prea multe încercări. Așteaptă un minut și încearcă din nou.'
+    }
     if (error.status === 403) {
       switch (error.body) {
         case 'EMAIL_NOT_VERIFIED':

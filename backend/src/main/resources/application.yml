@@ -103,6 +103,15 @@ app:
   storage:
     quiz-photos-dir: ${QUIZ_PHOTOS_DIR:uploads/quiz-photos}
 
+# Rate limiting (Phase 6.1): per-endpoint fixed windows in Redis, rules in RateLimitConfig.
+rate:
+  limit:
+    # false = no limits at all (local E2E logs in dozens of times a minute). Keep true in production.
+    enabled: ${RATE_LIMIT_ENABLED:true}
+    # true ONLY behind a reverse proxy you control that sets X-Forwarded-For (nginx in the prod compose);
+    # otherwise every client could forge its own bucket. Behind nginx with this false, everyone shares one bucket.
+    trust-x-forwarded-for: ${RATE_LIMIT_TRUST_XFF:false}
+
 # Storage provider selector for the FileService seam (local | s3). Local is the default.
 file:
   storage:
