@@ -20,11 +20,19 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.security.web.authentication.session.NullAuthenticatedSessionStrategy;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
+import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
 
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
 public class SecurityConfig {
+
+    /**
+     * No inline script, no foreign origins. {@code style-src 'unsafe-inline'} because KaTeX positions formulas with
+     * inline styles; {@code img-src} allows data:/blob: for the resized solution photo preview.
+     */
+    static final String CONTENT_SECURITY_POLICY = "default-src 'self'; img-src 'self' data: blob:; "
+            + "style-src 'self' 'unsafe-inline'; font-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'";
 
     /** BCrypt hashing for local (email/password) accounts. */
     @Bean
@@ -66,6 +74,15 @@ public class SecurityConfig {
                                 "/oauth2/**", "/login/**"))
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                // Response hardening (Phase 6.2). The API only returns JSON/images, so the CSP is strict. The SPA's
+                // own HTML is served by nginx in production, which sends the same set (see deploy/nginx.conf).
+                // HSTS is only emitted on HTTPS requests; X-Content-Type-Options: nosniff is on by default.
+                .headers(headers -> headers
+                        .contentSecurityPolicy(csp -> csp.policyDirectives(CONTENT_SECURITY_POLICY))
+                        .referrerPolicy(referrer -> referrer.policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
+                        .httpStrictTransportSecurity(hsts -> hsts.includeSubDomains(true).maxAgeInSeconds(31_536_000))
+                        .frameOptions(frame -> frame.deny())
+                        .permissionsPolicyHeader(permissions -> permissions.policy("geolocation=(), microphone=(), payment=()")))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/health").permitAll()
                         // Boot renders denials by forwarding to /error. That ERROR dispatch re-enters

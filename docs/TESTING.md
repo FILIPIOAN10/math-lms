@@ -63,7 +63,7 @@ docker exec -i mathlms-postgres psql -U mathlms -d mathlms -c \
 Rulează asta înainte de orice commit.
 
 ```bash
-# Backend — 500 teste (necesită Docker pentru Testcontainers)
+# Backend — 504 teste (necesită Docker pentru Testcontainers)
 cd math-lms/backend && ./mvnw test
 
 # Doar suita de conținut (Faza 2)
@@ -170,6 +170,11 @@ Buton pe Dashboard: **Corectură**.
 - punctaj peste valoarea subiectului → eroare; punctaj valid → **Salvează punctajul** → „✓ notat cu X p”
 - **Finalizează nota** se deblochează când toate subiectele deschise au punctaj → lucrarea trece la „Notate”
 - ca elev, rezultatul arată acum nota finală (`X / max puncte`)
+
+### 12f. Headere de securitate
+Fiecare răspuns al API-ului poartă: `Content-Security-Policy` (`default-src 'self'`; `style-src 'self' 'unsafe-inline'` pentru KaTeX; `img-src 'self' data: blob:` pentru previzualizarea pozei; `frame-ancestors 'none'`), `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` (fără geolocation/microfon/plăți; camera rămâne permisă pentru poza rezolvării) și `Strict-Transport-Security` (1 an) **doar pe HTTPS**.
+- Verificare: `curl -s -D - -o /dev/null http://localhost:8080/actuator/health` (HSTS apare doar în spatele TLS)
+- HTML-ul SPA-ului îl servește nginx în producție, care trimite același set (`deploy/nginx.conf`, Pasul 6.4); serverul Vite de dezvoltare nu pune CSP
 
 ### 12e. Rate limiting (429 + Retry-After)
 Filtru Redis cu fereastră fixă, regulile în `RateLimitConfig` (prima care se potrivește câștigă): `POST /api/auth/login` **5/min/IP**, `forgot-password` 3/15 min, `reset-password` 5/15 min, `register` 5/oră, `refresh` 30/min (SPA-ul îl apelează la fiecare 401), upload poză **20/min/utilizator**. Peste limită → `429` + `Retry-After` + `X-RateLimit-Limit/Remaining`, corp text românesc; cererea nici nu ajunge la logica de login.
