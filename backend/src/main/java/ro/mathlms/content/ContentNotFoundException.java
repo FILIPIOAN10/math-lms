@@ -5,4 +5,8 @@ public class ContentNotFoundException extends RuntimeException {
     public ContentNotFoundException(String what, Long id) {
         super("No " + what + " with id " + id);
     }
+
+    public ContentNotFoundException(String message) {
+        super(message);
+    }
 }

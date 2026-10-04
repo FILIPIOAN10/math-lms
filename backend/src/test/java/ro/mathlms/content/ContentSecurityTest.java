@@ -36,6 +36,37 @@ class ContentSecurityTest {
     @MockitoBean
     private SchoolClassService schoolClassService;
 
+    @MockitoBean
+    private EnrollmentService enrollmentService;
+
+    @Test
+    @WithAnonymousUser
+    void anonymousCannotReadMyClasses() throws Exception {
+        mockMvc.perform(get("/api/me/classes"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @WithMockUser(username = "pending", authorities = {"ROLE_STUDENT"})
+    void nonActiveAccountCannotReadMyClasses() throws Exception {
+        mockMvc.perform(get("/api/me/classes"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(username = "ana", authorities = {"ROLE_STUDENT", "STATUS_ACTIVE"})
+    void activeStudentCanReadMyClasses() throws Exception {
+        mockMvc.perform(get("/api/me/classes"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser(username = "admin", authorities = {"ROLE_ADMIN", "STATUS_ACTIVE"})
+    void adminHasNoClassesOfTheirOwn() throws Exception {
+        mockMvc.perform(get("/api/me/classes"))
+                .andExpect(status().isForbidden());
+    }
+
     @Test
     @WithAnonymousUser
     void anonymousCannotReadClasses() throws Exception {

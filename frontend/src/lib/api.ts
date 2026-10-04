@@ -225,6 +225,12 @@ export async function listClasses(): Promise<SchoolClass[]> {
   return response.json()
 }
 
+/** The classes the logged-in STUDENT is enrolled in (everyone else uses listClasses). */
+export async function listMyClasses(): Promise<SchoolClass[]> {
+  const response = await apiFetch('/me/classes')
+  return response.json()
+}
+
 export async function listBooks(classId: number): Promise<Book[]> {
   const response = await apiFetch(`/classes/${classId}/books`)
   return response.json()

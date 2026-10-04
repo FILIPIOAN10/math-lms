@@ -72,6 +72,34 @@ class EnrollmentRepositoryTest {
     }
 
     @Test
+    void studentsClassesComeBackOrderedByNameAndOnlyTheirOwn() {
+        SchoolClass tenth = schoolClassRepository.save(new SchoolClass("Clasa a 10-a", null));
+        SchoolClass ninth = schoolClassRepository.save(new SchoolClass("Clasa a 9-a", null));
+        SchoolClass eighth = schoolClassRepository.save(new SchoolClass("Clasa a 8-a", null));
+        User ana = student("ana@scoala.ro");
+        User dan = student("dan@scoala.ro");
+        enrollmentRepository.save(new Enrollment(ana, tenth));
+        enrollmentRepository.save(new Enrollment(ana, ninth));
+        enrollmentRepository.save(new Enrollment(dan, eighth));
+
+        List<Enrollment> anaClasses = enrollmentRepository.findByStudentIdFetchClass(ana.getId());
+
+        assertThat(anaClasses).extracting(e -> e.getSchoolClass().getName())
+                .containsExactly("Clasa a 10-a", "Clasa a 9-a");
+    }
+
+    @Test
+    void classIdsOfAStudentAreEmptyWhenNotEnrolledAnywhere() {
+        SchoolClass ninth = schoolClassRepository.save(new SchoolClass("Clasa a 9-a", null));
+        User ana = student("ana@scoala.ro");
+        User dan = student("dan@scoala.ro");
+        enrollmentRepository.save(new Enrollment(ana, ninth));
+
+        assertThat(enrollmentRepository.findClassIdsByStudentId(ana.getId())).containsExactly(ninth.getId());
+        assertThat(enrollmentRepository.findClassIdsByStudentId(dan.getId())).isEmpty();
+    }
+
+    @Test
     void existsByStudentAndClassReflectsPersistedRows() {
         SchoolClass ninth = schoolClassRepository.save(new SchoolClass("Clasa a 9-a", null));
         User ana = student("ana@scoala.ro");

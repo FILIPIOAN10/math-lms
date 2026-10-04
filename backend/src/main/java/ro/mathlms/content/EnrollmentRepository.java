@@ -12,6 +12,18 @@ public interface EnrollmentRepository extends JpaRepository<Enrollment, Long> {
 
     List<Enrollment> findByStudentId(Long studentId);
 
+    /**
+     * A student's enrollments with the class eagerly fetched (open-in-view is off, so the DTO
+     * mapping after the transaction closes must not trigger lazy loads). Ordered by class name.
+     */
+    @Query("select e from Enrollment e join fetch e.schoolClass"
+            + " where e.student.id = :studentId order by e.schoolClass.name")
+    List<Enrollment> findByStudentIdFetchClass(@Param("studentId") Long studentId);
+
+    /** Just the ids of the classes a student attends — cheap input for visibility checks. */
+    @Query("select e.schoolClass.id from Enrollment e where e.student.id = :studentId")
+    List<Long> findClassIdsByStudentId(@Param("studentId") Long studentId);
+
     boolean existsByStudentIdAndSchoolClassId(Long studentId, Long schoolClassId);
 
     /** GDPR erasure: drop which classes a student attended (personal, not retained). */

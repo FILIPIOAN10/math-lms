@@ -3,11 +3,13 @@ import { Link } from 'react-router-dom'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { MathContent } from '@/components/MathContent'
+import { useAuth } from '@/context/AuthContext'
 import {
   listBooks,
   listChapters,
   listClasses,
   listExercises,
+  listMyClasses,
   type Book,
   type Chapter,
   type Difficulty,
@@ -58,6 +60,8 @@ function ExerciseCard({ exercise, index }: { exercise: Exercise; index: number }
 }
 
 export function ContentBrowserPage() {
+  const { user } = useAuth()
+  const isStudent = user?.role === 'STUDENT'
   const [classes, setClasses] = useState<SchoolClass[]>([])
   const [cls, setCls] = useState<SchoolClass | null>(null)
   const [books, setBooks] = useState<Book[]>([])
@@ -69,11 +73,12 @@ export function ContentBrowserPage() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    listClasses()
+    // A student sees only the classes they are enrolled in; admins and parents see them all.
+    ;(isStudent ? listMyClasses() : listClasses())
       .then(setClasses)
       .catch(() => setError('Nu am putut încărca lista de clase.'))
       .finally(() => setLoading(false))
-  }, [])
+  }, [isStudent])
 
   async function load<T>(promise: Promise<T>, apply: (value: T) => void) {
     setError(null)
@@ -197,7 +202,7 @@ export function ContentBrowserPage() {
         {/* Level: classes (root) */}
         {!loading && !error && !cls && (
           <ItemList
-            empty="Nu există încă nicio clasă."
+            empty={isStudent ? 'Nu ești înscris în nicio clasă încă. Cere profesorului să te adauge.' : 'Nu există încă nicio clasă.'}
             items={classes.map((c) => ({ id: c.id, title: c.name, description: c.description, onOpen: () => openClass(c) }))}
           />
         )}

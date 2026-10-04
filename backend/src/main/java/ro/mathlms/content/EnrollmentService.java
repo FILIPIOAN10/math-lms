@@ -28,6 +28,16 @@ public class EnrollmentService {
         return enrollmentRepository.findBySchoolClassIdFetchStudent(classId);
     }
 
+    /** The classes the logged-in student attends, ordered by name — what the student may browse. */
+    @Transactional(readOnly = true)
+    public List<SchoolClass> myClasses(String studentEmail) {
+        User student = userRepository.findByEmail(studentEmail)
+                .orElseThrow(() -> new ContentNotFoundException("No account for " + studentEmail));
+        return enrollmentRepository.findByStudentIdFetchClass(student.getId()).stream()
+                .map(Enrollment::getSchoolClass)
+                .toList();
+    }
+
     @Transactional
     public Enrollment enroll(Long classId, Long studentId) {
         SchoolClass schoolClass = requireClass(classId);

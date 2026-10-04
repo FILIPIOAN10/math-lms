@@ -5,6 +5,7 @@ import ro.mathlms.user.Role;
 import ro.mathlms.user.User;
 import ro.mathlms.user.UserRepository;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -79,6 +80,36 @@ class EnrollmentServiceTest {
         assertThatThrownBy(() -> service.enroll(1L, 2L))
                 .isInstanceOf(IllegalStateException.class);
         verify(enrollmentRepository, never()).save(any());
+    }
+
+    @Test
+    void myClassesReturnsOnlyTheClassesOfTheStudentWithThatEmail() {
+        User student = new User("elev@scoala.ro", "Ana Pop", Role.STUDENT);
+        SchoolClass tenth = new SchoolClass("Clasa a 10-a", null);
+        when(userRepository.findByEmail("elev@scoala.ro")).thenReturn(Optional.of(student));
+        when(enrollmentRepository.findByStudentIdFetchClass(any()))
+                .thenReturn(List.of(new Enrollment(student, ninth), new Enrollment(student, tenth)));
+
+        List<SchoolClass> classes = service.myClasses("elev@scoala.ro");
+
+        assertThat(classes).containsExactly(ninth, tenth);
+    }
+
+    @Test
+    void myClassesIsEmptyForAStudentWithoutEnrollments() {
+        User student = new User("elev@scoala.ro", "Ana Pop", Role.STUDENT);
+        when(userRepository.findByEmail("elev@scoala.ro")).thenReturn(Optional.of(student));
+        when(enrollmentRepository.findByStudentIdFetchClass(any())).thenReturn(List.of());
+
+        assertThat(service.myClasses("elev@scoala.ro")).isEmpty();
+    }
+
+    @Test
+    void myClassesThrowsWhenTheAccountDoesNotExist() {
+        when(userRepository.findByEmail("fantoma@scoala.ro")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.myClasses("fantoma@scoala.ro"))
+                .isInstanceOf(ContentNotFoundException.class);
     }
 
     @Test

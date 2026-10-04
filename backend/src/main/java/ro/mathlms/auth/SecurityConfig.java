@@ -88,7 +88,7 @@ public class SecurityConfig {
                         // writes live under /api/admin/** above and need ADMIN.
                         .requestMatchers(HttpMethod.GET, "/api/classes/**", "/api/books/**",
                                 "/api/chapters/**", "/api/exercises/**").hasAuthority("STATUS_ACTIVE")
-                        .requestMatchers("/api/quiz/**", "/api/content/**").hasAuthority("STATUS_ACTIVE")
+                        .requestMatchers("/api/quiz/**", "/api/content/**", "/api/me/**").hasAuthority("STATUS_ACTIVE")
                         .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth2 -> oauth2
