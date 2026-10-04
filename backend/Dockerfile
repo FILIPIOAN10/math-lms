@@ -11,6 +11,8 @@ COPY src ./src
 RUN --mount=type=cache,target=/root/.m2 mvn -B -q -DskipTests package && mv target/backend-*.jar /build/app.jar
 
 FROM eclipse-temurin:21-jre-alpine
+# OS security fixes published since the base image was built.
+RUN apk upgrade --no-cache
 RUN addgroup -S app && adduser -S app -G app \
     && mkdir -p /app/uploads && chown -R app:app /app
 WORKDIR /app

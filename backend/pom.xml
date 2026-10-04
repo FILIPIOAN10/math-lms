@@ -16,6 +16,11 @@
 
 	<properties>
 		<java.version>21</java.version>
+		<!-- Security overrides (Trivy, 2026-10-04): the versions Spring Boot 3.5.16 manages have CVEs that are fixed upstream.
+		     Remove each override once the Boot parent ships these versions or newer. -->
+		<jackson-bom.version>2.21.7</jackson-bom.version>   <!-- jackson-core/databind DoS (CVE-2026-89407/89425/68497/91776/91777) -->
+		<netty.version>4.1.137.Final</netty.version>        <!-- netty-handler SNI bypass (CRITICAL CVE-2026-75595), netty-codec bzip2 loop -->
+		<tomcat.version>10.1.60</tomcat.version>            <!-- tomcat auth/constraint bypasses (CVE-2026-65182/65905/68525): fixed from 10.1.58; 10.1.58 was never published, 10.1.60 is the newest -->
 		<!-- Testele @Tag("e2e") (Selenium, Step Q12) sunt excluse implicit: au nevoie de stack-ul
 		     pornit (backend :8080 + Vite :5173) si de Chrome. Rulare:
 		     ./mvnw test -Dgroups=e2e -DexcludedGroups= -->
