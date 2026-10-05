@@ -48,6 +48,20 @@ public interface QuizAttemptRepository extends JpaRepository<QuizAttempt, Long> 
             + "and a.deadlineAt is not null and a.deadlineAt < :cutoff order by a.deadlineAt")
     List<Long> findOverdueIds(@Param("cutoff") Instant cutoff);
 
+    /**
+     * The graded-TEST attempts of the given students at one quiz, started at or after {@code since}, with the student
+     * loaded - the input of the homework progress (a practice or an attempt from before the assignment never counts).
+     */
+    @Query("select a from QuizAttempt a join fetch a.student where a.quiz.id = :quizId and a.student.id in :studentIds"
+            + " and a.mode = ro.mathlms.quiz.AttemptMode.TEST and a.startedAt >= :since")
+    List<QuizAttempt> findForAssignment(@Param("quizId") Long quizId,
+                                        @Param("studentIds") java.util.Collection<Long> studentIds,
+                                        @Param("since") Instant since);
+
+    /** One student's attempts at several quizzes, quiz loaded - what their homework list is built from. */
+    @EntityGraph(attributePaths = "quiz")
+    List<QuizAttempt> findByStudentIdAndQuizIdIn(Long studentId, java.util.Collection<Long> quizIds);
+
     /** The teacher's grading queue: attempts in one status, with quiz + student fetched up front. */
     @Query("select a from QuizAttempt a join fetch a.quiz join fetch a.student "
             + "where a.status = :status and a.mode = ro.mathlms.quiz.AttemptMode.TEST order by a.submittedAt asc")

@@ -207,6 +207,19 @@ test → `204` fără corp.
 - **în testul notat** nu există indicii: ecranul nu primește nici numărul lor (`hintCount` = 0) și `PUT …/hints/1` pe o încercare de test → 400 „doar în modul practică”
 - ștergerea unui subiect/quiz șterge și indiciile lui; modificarea subiectului înlocuiește lista de indicii
 
+### 11d. Teme cu termen limită (E7) — `/admin/assignments`, apoi `/quizzes`
+**Ca admin:** pe Dashboard → **Teme** → **Dă o temă**: alegi un quiz **publicat**, o clasă și un termen (data+ora ta locală). Lista arată, per temă, „Predate 3/12 · cu întârziere 1 · în lucru 2 · neîncepute 6”.
+**Stare** deschide tabelul pe elevi (neînceput / în lucru / predat în corectare / predat și notat, când a predat, nota); **Termen** mută termenul; **Șterge** scoate tema.
+- reguli: quiz-ul trebuie publicat; un quiz destinat altei clase nu poate fi dat acestei clase; termenul trebuie să fie în viitor (altfel 400); același quiz nu se dă de două ori aceleiași clase (409 — modifică termenul)
+- **Termenul e „moale”**: după el elevul poate preda în continuare, dar predarea apare „cu întârziere”; nu se blochează nimic
+- progresul **nu se stochează**, e dedus din încercările elevului: contează doar un **test** (nu o practică) pornit după crearea temei; prima predare e cea care contează (o reluare ulterioară nu face o predare la timp „întârziată”)
+- **Ca elev** (înscris în clasa respectivă): pe `/quizzes`, secțiunea **Teme** deasupra „Teste disponibile”, cele nepredate întâi, după termen: insigna „De făcut / În lucru / Termen depășit / Predată / Predată cu întârziere”, „Termen: … (peste 3 zile)”, butonul **Începe / Continuă / Vezi rezultatul**
+- ștergerea quiz-ului sau a clasei șterge și temele lui (CASCADE)
+- **Reamintire pe email** (implicit OPRITĂ: `NOTIFY_ASSIGNMENT_REMINDER=true`, cere SMTP real): cu ≤ 24 h înainte de termen, **o singură dată per temă**, fiecare elev care n-a predat primește un email cu linkul testului; mutarea termenului reîarmează reamintirea. Verificare: `select event_type, status from outbox_event where event_type='ASSIGNMENT_REMINDER_EMAIL'`.
+  Config (opțional): `app.assignments.reminder-lead-hours` (24), `.reminder-interval-ms` (900000 = 15 min).
+
+Verificare rapidă prin API (ca admin): `POST /api/admin/assignments {"quizId":…,"schoolClassId":…,"dueAt":"2026-10-12T15:00:00Z"}` → 201 cu rezumatul; ca elev: `GET /api/quiz/assignments`.
+
 ### 12. Profesor — corectură (`/admin/grading`, ca admin)
 Buton pe Dashboard: **Corectură**.
 - „De corectat” → **Corectează** → grilele (corectate automat), poza elevului (click = mărime completă), baremul

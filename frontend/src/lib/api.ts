@@ -770,3 +770,90 @@ export async function finalizeGrading(attemptId: number): Promise<void> {
 export function attemptPhotoUrl(attemptId: number, itemId: number): string {
   return `/api/admin/quiz/attempts/${attemptId}/responses/${itemId}/photo`
 }
+
+// ---------- Homework (E7) ----------
+
+export type AssignmentState = 'NOT_STARTED' | 'IN_PROGRESS' | 'SUBMITTED' | 'GRADED'
+
+/** One assignment as the teacher's list shows it, with how the class is doing. */
+export interface AssignmentSummary {
+  id: number
+  quizId: number
+  quizTitle: string
+  schoolClassId: number
+  schoolClassName: string
+  dueAt: string
+  overdue: boolean
+  enrolled: number
+  /** Handed in, on time or late. */
+  done: number
+  /** Of those, handed in after the deadline. */
+  late: number
+  inProgress: number
+  notStarted: number
+}
+
+/** One student's row in the teacher's per-assignment status. */
+export interface AssignmentStudentStatus {
+  studentId: number
+  fullName: string
+  state: AssignmentState
+  submittedAt: string | null
+  late: boolean
+  score: number | null
+  attemptId: number | null
+}
+
+/** One assignment as a student sees it. */
+export interface StudentAssignment {
+  assignmentId: number
+  quizId: number
+  quizTitle: string
+  schoolClassName: string
+  dueAt: string
+  state: AssignmentState
+  /** Handed in after the deadline. */
+  late: boolean
+  /** Deadline passed and not handed in yet. */
+  overdue: boolean
+  /** The open attempt to continue, or the handed-in one whose result to read. */
+  attemptId: number | null
+  timeLimitMinutes: number | null
+}
+
+export interface AssignmentInput {
+  quizId: number
+  schoolClassId: number
+  /** ISO instant. */
+  dueAt: string
+}
+
+export async function listAssignments(): Promise<AssignmentSummary[]> {
+  const response = await apiFetch('/admin/assignments')
+  return response.json()
+}
+
+export async function createAssignment(input: AssignmentInput): Promise<AssignmentSummary> {
+  const response = await postJson('/admin/assignments', input)
+  return response.json()
+}
+
+/** Moves the deadline; the quiz and class of an assignment never change. */
+export async function rescheduleAssignment(id: number, dueAt: string): Promise<AssignmentSummary> {
+  const response = await putJson(`/admin/assignments/${id}`, { dueAt })
+  return response.json()
+}
+
+export async function deleteAssignment(id: number): Promise<void> {
+  await del(`/admin/assignments/${id}`)
+}
+
+export async function getAssignmentStatus(id: number): Promise<AssignmentStudentStatus[]> {
+  const response = await apiFetch(`/admin/assignments/${id}/status`)
+  return response.json()
+}
+
+export async function getMyAssignments(): Promise<StudentAssignment[]> {
+  const response = await apiFetch('/quiz/assignments')
+  return response.json()
+}

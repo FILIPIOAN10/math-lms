@@ -57,4 +57,18 @@ class EmailServiceTest {
         assertThat(sent.getTo()).containsExactly("ana@scoala.ro");
         assertThat(sent.getText()).contains(FRONTEND + "/login");
     }
+
+    @Test
+    void assignmentReminderNamesTheQuizTheDeadlineInSchoolTimeAndLinksToIt() {
+        // 2026-10-06 10:00 UTC is 13:00 in Bucharest (summer time until the last Sunday of October)
+        service.sendAssignmentReminder("ana@scoala.ro", "Ana Pop", "Simulare EN",
+                java.time.Instant.parse("2026-10-06T10:00:00Z"), 10L);
+
+        SimpleMailMessage sent = captureSentMessage();
+        assertThat(sent.getTo()).containsExactly("ana@scoala.ro");
+        assertThat(sent.getSubject()).contains("Simulare EN");
+        assertThat(sent.getText()).contains("Ana Pop").contains("Simulare EN")
+                .contains("6 octombrie 2026").contains("13:00")
+                .contains(FRONTEND + "/quizzes/10/take");
+    }
 }

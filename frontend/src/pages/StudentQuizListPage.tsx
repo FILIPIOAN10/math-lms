@@ -2,9 +2,17 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { AssignmentsSection } from '@/components/AssignmentsSection'
 import { AttemptModeBadge } from '@/components/AttemptModeBadge'
 import { AttemptStatusBadge } from '@/components/AttemptStatusBadge'
-import { getMyAttempts, getStudentQuizzes, type MyAttemptDto, type QuizSummary } from '@/lib/api'
+import {
+  getMyAssignments,
+  getMyAttempts,
+  getStudentQuizzes,
+  type MyAttemptDto,
+  type QuizSummary,
+  type StudentAssignment,
+} from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
 import { formatMinutes } from '@/lib/format'
 
@@ -16,16 +24,18 @@ function formatDate(iso: string | null): string {
 export function StudentQuizListPage() {
   const [quizzes, setQuizzes] = useState<QuizSummary[]>([])
   const [attempts, setAttempts] = useState<MyAttemptDto[]>([])
+  const [assignments, setAssignments] = useState<StudentAssignment[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
-    Promise.all([getStudentQuizzes(), getMyAttempts()])
-      .then(([q, a]) => {
+    Promise.all([getStudentQuizzes(), getMyAttempts(), getMyAssignments()])
+      .then(([q, a, hw]) => {
         if (!cancelled) {
           setQuizzes(q)
           setAttempts(a)
+          setAssignments(hw)
         }
       })
       .catch((e) => !cancelled && setError(errorMessage(e)))
@@ -53,6 +63,8 @@ export function StudentQuizListPage() {
 
         {!loading && (
           <>
+            <AssignmentsSection assignments={assignments} />
+
             <section className="space-y-2">
               <h2 className="font-medium">Teste disponibile</h2>
               {quizzes.length === 0 ? (

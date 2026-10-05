@@ -94,7 +94,7 @@ completează `monitoring/alertmanager.yml` (exemplu comentat în fișier).
 - [ ] Redirect URI-ul Google de producție în Google Console; `FRONTEND_BASE_URL` = URL-ul public (linkurile din emailuri)
 - [ ] `POSTGRES_PASSWORD`, `REDIS_PASSWORD`, `GRAFANA_PASSWORD` puternice și diferite
 - [ ] `SECURITY_LOG_LEVEL=INFO` (implicit); `RATE_LIMIT_ENABLED=true`
-- [ ] SMTP real (`SMTP_*`) înainte de `NOTIFY_RESULT_READY=true`
+- [ ] SMTP real (`SMTP_*`) înainte de `NOTIFY_RESULT_READY=true` și `NOTIFY_ASSIGNMENT_REMINDER=true`
 - [ ] Backup-ul rulează zilnic **și** a fost testată o restaurare
 - [ ] `/actuator/prometheus` NU e accesibil din exterior (`curl https://<domeniu>/actuator/prometheus` → 404)
 - [ ] GitHub: branch protection pe `main` (CI verde obligatoriu), secrete de deploy puse doar pe mediul `production`

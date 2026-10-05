@@ -80,6 +80,20 @@ public class EmailService {
                         + frontendBaseUrl + "/parent/children/" + studentId + "/attempts/" + attemptId);
     }
 
+    /** The school's time zone: deadlines are shown in the teacher's and students' local time, not in UTC. */
+    private static final java.time.ZoneId SCHOOL_ZONE = java.time.ZoneId.of("Europe/Bucharest");
+    private static final java.time.format.DateTimeFormatter DUE_FORMAT =
+            java.time.format.DateTimeFormatter.ofPattern("d MMMM yyyy 'la' HH:mm", java.util.Locale.forLanguageTag("ro"));
+
+    public void sendAssignmentReminder(String email, String studentName, String quizTitle,
+                                       java.time.Instant dueAt, Long quizId) {
+        send(email, "Temă de făcut: „" + quizTitle + "”",
+                "Salut, " + studentName + "!\n\n"
+                        + "Tema „" + quizTitle + "” are termen " + DUE_FORMAT.format(dueAt.atZone(SCHOOL_ZONE)) + ".\n"
+                        + "Nu ai predat-o încă. O poți face aici:\n"
+                        + frontendBaseUrl + "/quizzes/" + quizId + "/take");
+    }
+
     private static String percent(int score, int maxScore) {
         return maxScore == 0 ? "" : " (" + Math.round(score * 100f / maxScore) + "%)";
     }

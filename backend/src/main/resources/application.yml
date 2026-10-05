@@ -115,6 +115,10 @@ app:
   notifications:
     result-ready:
       enabled: ${NOTIFY_RESULT_READY:false}
+    # "Homework due soon" reminder (E7): one email per student who has not handed in, once per assignment, queued
+    # ~24 h before the deadline. OFF by default for the same reason; set NOTIFY_ASSIGNMENT_REMINDER=true where SMTP is real.
+    assignment-reminder:
+      enabled: ${NOTIFY_ASSIGNMENT_REMINDER:false}
   # File storage: local filesystem now, S3/MinIO drop-in later (see FileService seam).
   storage:
     quiz-photos-dir: ${QUIZ_PHOTOS_DIR:uploads/quiz-photos}

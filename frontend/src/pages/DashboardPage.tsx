@@ -51,6 +51,9 @@ export function DashboardPage() {
                   <Link to="/admin/quizzes" className={buttonVariants({ variant: 'secondary' })}>
                     Quiz-uri
                   </Link>
+                  <Link to="/admin/assignments" data-testid="admin-assignments" className={buttonVariants({ variant: 'secondary' })}>
+                    Teme
+                  </Link>
                   <Link to="/admin/grading" className={buttonVariants({ variant: 'secondary' })}>
                     Corectură
                   </Link>
