@@ -33,7 +33,9 @@ class ParentE2eTest extends E2eBase {
         wait.until(ExpectedConditions.elementToBeClickable(By.xpath(
                 "//*[@data-testid='child-attempt'][contains(normalize-space(.), '" + quizTitle + "')]//a"))).click();
 
-        wait.until(ExpectedConditions.textToBePresentInElementLocated(By.tagName("body"), quizTitle));
-        assertThat(driver.getPageSource()).contains("Răspunsul elevului");
+        // Wait for text only the result page has: the child's page already lists the quiz title, and the result page
+        // is lazy-loaded, so it can appear a moment after the click.
+        wait.until(ExpectedConditions.textToBePresentInElementLocated(By.tagName("body"), "Răspunsul elevului"));
+        assertThat(driver.findElement(By.tagName("body")).getText()).contains(quizTitle);
     }
 }

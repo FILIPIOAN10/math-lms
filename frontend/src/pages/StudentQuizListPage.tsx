@@ -51,11 +51,10 @@ export function StudentQuizListPage() {
   const inProgressPractices = openQuizIds('PRACTICE')
 
   return (
-    <div className="min-h-screen bg-muted p-4">
+    <div className="p-4">
       <div className="mx-auto max-w-3xl space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-semibold">Testele mele</h1>
-          <Link to="/" className={buttonVariants({ variant: 'outline', size: 'sm' })}>Acasă</Link>
         </div>
 
         {error && <p className="text-sm text-destructive">{error}</p>}

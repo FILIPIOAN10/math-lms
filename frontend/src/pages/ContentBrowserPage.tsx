@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { Button, buttonVariants } from '@/components/ui/button'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { MathContent } from '@/components/MathContent'
 import { useAuth } from '@/context/AuthContext'
@@ -133,7 +132,7 @@ export function ContentBrowserPage() {
   }
 
   return (
-    <div className="min-h-screen bg-muted p-4">
+    <div className="p-4">
       <div className="mx-auto max-w-3xl space-y-4">
         <div className="flex items-center justify-between">
           <nav className="flex flex-wrap items-center gap-1 text-sm text-muted-foreground">
@@ -163,9 +162,6 @@ export function ContentBrowserPage() {
               </>
             )}
           </nav>
-          <Link to="/" className={buttonVariants({ variant: 'outline', size: 'sm' })}>
-            Acasă
-          </Link>
         </div>
 
         {loading && <p className="text-muted-foreground">Se încarcă...</p>}

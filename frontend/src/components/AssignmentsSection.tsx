@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -17,14 +17,23 @@ const TONES: Record<BadgeTone, string> = {
  * The student's homework: quizzes their teacher assigned to their class with a deadline. The deadline is soft - an
  * overdue assignment can still be done, it is only flagged. The list arrives ordered (not done first, soonest first).
  */
-export function AssignmentsSection({ assignments, nowMs }: { assignments: StudentAssignment[]; nowMs?: number }) {
+export function AssignmentsSection({
+  assignments,
+  nowMs,
+  title = 'Teme',
+}: {
+  assignments: StudentAssignment[]
+  nowMs?: number
+  title?: string
+}) {
   const [loadedAt] = useState(() => Date.now()) // "now" is fixed when the list is shown; a test can pass its own
+  const headingId = useId()
   const now = nowMs ?? loadedAt
   if (assignments.length === 0) return null
 
   return (
-    <section className="space-y-2" data-testid="assignments">
-      <h2 className="font-medium">Teme</h2>
+    <section className="space-y-2" data-testid="assignments" aria-labelledby={headingId}>
+      <h2 id={headingId} className="font-medium">{title}</h2>
       {assignments.map((a) => {
         const badge = assignmentBadge(a)
         const done = a.state === 'SUBMITTED' || a.state === 'GRADED'

@@ -2,13 +2,11 @@ import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   Card,
-  CardAction,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { useAuth } from '@/context/AuthContext'
 import {
   approveUser,
   listPendingUsers,
@@ -20,7 +18,6 @@ import {
 const ROLE_OPTIONS: Role[] = ['STUDENT', 'PARENT', 'ADMIN']
 
 export function AdminPendingPage() {
-  const { logout } = useAuth()
   const [pending, setPending] = useState<PendingUser[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -85,7 +82,7 @@ export function AdminPendingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-muted p-4">
+    <div className="p-4">
       <div className="mx-auto max-w-4xl">
         <Card>
           <CardHeader>
@@ -93,11 +90,6 @@ export function AdminPendingPage() {
             <CardDescription>
               Aprobă sau respinge conturile care și-au confirmat emailul și așteaptă decizia ta.
             </CardDescription>
-            <CardAction>
-              <Button variant="outline" size="sm" onClick={logout}>
-                Logout
-              </Button>
-            </CardAction>
           </CardHeader>
           <CardContent className="space-y-4">
             {loading && <p className="text-muted-foreground">Se încarcă...</p>}

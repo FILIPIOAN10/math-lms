@@ -1,7 +1,6 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
-import { Link } from 'react-router-dom'
 import { MathContent } from '@/components/MathContent'
-import { Button, buttonVariants } from '@/components/ui/button'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -392,7 +391,7 @@ export function AdminContentPage() {
   const closeDialog = () => setDialog(null)
 
   return (
-    <div className="min-h-screen bg-muted p-4">
+    <div className="p-4">
       <div className="mx-auto max-w-3xl space-y-4">
         {/* breadcrumb + home */}
         <div className="flex items-center justify-between">
@@ -404,7 +403,6 @@ export function AdminContentPage() {
             {book && (<><span>/</span><button className="hover:text-foreground hover:underline" onClick={() => setChapter(null)}>{book.title}</button></>)}
             {chapter && (<><span>/</span><span className="text-foreground">{chapter.title}</span></>)}
           </nav>
-          <Link to="/" className={buttonVariants({ variant: 'outline', size: 'sm' })}>Acasă</Link>
         </div>
 
         {error && <p className="text-sm text-destructive">{error}</p>}

@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider, useAuth } from '@/context/AuthContext'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { AdminRoute } from '@/components/AdminRoute'
+import { AppShell } from '@/components/AppShell'
 import { RoleRoute } from '@/components/RoleRoute'
 import { LoginPage } from '@/pages/LoginPage'
 import { DashboardPage } from '@/pages/DashboardPage'
@@ -54,86 +55,7 @@ function App() {
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/verify-email" element={<VerifyEmailPage />} />
           <Route path="/pending" element={<PendingPage />} />
-          <Route
-            path="/admin/pending"
-            element={
-              <AdminRoute>
-                <AdminPendingPage />
-              </AdminRoute>
-            }
-          />
-          <Route
-            path="/admin/links"
-            element={
-              <AdminRoute>
-                <AdminLinksPage />
-              </AdminRoute>
-            }
-          />
-          <Route
-            path="/content"
-            element={
-              <ProtectedRoute>
-                <ContentBrowserPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin/content"
-            element={
-              <AdminRoute>
-                <AdminContentPage />
-              </AdminRoute>
-            }
-          />
-          <Route
-            path="/admin/quizzes"
-            element={
-              <AdminRoute>
-                <AdminQuizzesPage />
-              </AdminRoute>
-            }
-          />
-          <Route
-            path="/admin/assignments"
-            element={
-              <AdminRoute>
-                <AdminAssignmentsPage />
-              </AdminRoute>
-            }
-          />
-          <Route
-            path="/admin/quizzes/:quizId/stats"
-            element={
-              <AdminRoute>
-                <AdminQuizStatsPage />
-              </AdminRoute>
-            }
-          />
-          <Route
-            path="/admin/grading"
-            element={
-              <AdminRoute>
-                <AdminGradingPage />
-              </AdminRoute>
-            }
-          />
-          <Route
-            path="/quizzes"
-            element={
-              <RoleRoute role="STUDENT">
-                <StudentQuizListPage />
-              </RoleRoute>
-            }
-          />
-          <Route
-            path="/progress"
-            element={
-              <RoleRoute role="STUDENT">
-                <StudentProgressPage />
-              </RoleRoute>
-            }
-          />
+          {/* Taking a test has no app header: its timer is pinned to the top and nothing should pull the student away. */}
           <Route
             path="/quizzes/:id/take"
             element={
@@ -142,46 +64,128 @@ function App() {
               </RoleRoute>
             }
           />
-          <Route
-            path="/quizzes/attempts/:attemptId/result"
-            element={
-              <RoleRoute role="STUDENT">
-                <AttemptResultPage />
-              </RoleRoute>
-            }
-          />
-          <Route
-            path="/parent"
-            element={
-              <RoleRoute role="PARENT">
-                <ParentChildrenPage />
-              </RoleRoute>
-            }
-          />
-          <Route
-            path="/parent/children/:childId"
-            element={
-              <RoleRoute role="PARENT">
-                <ParentChildPage />
-              </RoleRoute>
-            }
-          />
-          <Route
-            path="/parent/children/:childId/attempts/:attemptId"
-            element={
-              <RoleRoute role="PARENT">
-                <ParentAttemptResultPage />
-              </RoleRoute>
-            }
-          />
-          <Route
-            path="/"
-            element={
-              <ProtectedRoute>
-                <DashboardPage />
-              </ProtectedRoute>
-            }
-          />
+          <Route element={<AppShell />}>
+            <Route
+              path="/admin/pending"
+              element={
+                <AdminRoute>
+                  <AdminPendingPage />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/links"
+              element={
+                <AdminRoute>
+                  <AdminLinksPage />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/content"
+              element={
+                <ProtectedRoute>
+                  <ContentBrowserPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/content"
+              element={
+                <AdminRoute>
+                  <AdminContentPage />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/quizzes"
+              element={
+                <AdminRoute>
+                  <AdminQuizzesPage />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/assignments"
+              element={
+                <AdminRoute>
+                  <AdminAssignmentsPage />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/quizzes/:quizId/stats"
+              element={
+                <AdminRoute>
+                  <AdminQuizStatsPage />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/grading"
+              element={
+                <AdminRoute>
+                  <AdminGradingPage />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/quizzes"
+              element={
+                <RoleRoute role="STUDENT">
+                  <StudentQuizListPage />
+                </RoleRoute>
+              }
+            />
+            <Route
+              path="/progress"
+              element={
+                <RoleRoute role="STUDENT">
+                  <StudentProgressPage />
+                </RoleRoute>
+              }
+            />
+            <Route
+              path="/quizzes/attempts/:attemptId/result"
+              element={
+                <RoleRoute role="STUDENT">
+                  <AttemptResultPage />
+                </RoleRoute>
+              }
+            />
+            <Route
+              path="/parent"
+              element={
+                <RoleRoute role="PARENT">
+                  <ParentChildrenPage />
+                </RoleRoute>
+              }
+            />
+            <Route
+              path="/parent/children/:childId"
+              element={
+                <RoleRoute role="PARENT">
+                  <ParentChildPage />
+                </RoleRoute>
+              }
+            />
+            <Route
+              path="/parent/children/:childId/attempts/:attemptId"
+              element={
+                <RoleRoute role="PARENT">
+                  <ParentAttemptResultPage />
+                </RoleRoute>
+              }
+            />
+            <Route
+              path="/"
+              element={
+                <ProtectedRoute>
+                  <DashboardPage />
+                </ProtectedRoute>
+              }
+            />
+          </Route>
         </Routes>
         </Suspense>
       </AuthProvider>

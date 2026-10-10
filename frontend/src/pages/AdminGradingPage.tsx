@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { Button, buttonVariants } from '@/components/ui/button'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { AttemptStatusBadge } from '@/components/AttemptStatusBadge'
@@ -168,7 +167,7 @@ export function AdminGradingPage() {
   const pointsSoFar = detail?.items.reduce((sum, i) => sum + (i.awardedPoints ?? 0), 0) ?? 0
 
   return (
-    <div className="min-h-screen bg-muted p-4">
+    <div className="p-4">
       <div className="mx-auto max-w-3xl space-y-4">
         <div className="flex items-center justify-between">
           <nav className="flex items-center gap-1 text-sm text-muted-foreground">
@@ -182,7 +181,6 @@ export function AdminGradingPage() {
               </>
             )}
           </nav>
-          <Link to="/" className={buttonVariants({ variant: 'outline', size: 'sm' })}>Acasă</Link>
         </div>
 
         {error && <p className="text-sm text-destructive">{error}</p>}

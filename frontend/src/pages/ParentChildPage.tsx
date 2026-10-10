@@ -32,13 +32,12 @@ export function ParentChildPage() {
   }, [childId])
 
   return (
-    <div className="min-h-screen bg-muted p-4">
+    <div className="p-4">
       <div className="mx-auto max-w-3xl space-y-4">
         <div className="flex items-center justify-between">
           <Link to="/parent" className="text-sm text-muted-foreground hover:text-foreground hover:underline">
             ← Copiii mei
           </Link>
-          <Link to="/" className={buttonVariants({ variant: 'outline', size: 'sm' })}>Acasă</Link>
         </div>
 
         <h1 className="text-xl font-semibold">Testele copilului</h1>

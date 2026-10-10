@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { MathContent } from '@/components/MathContent'
 import { getQuizStats, type QuizStatsDto } from '@/lib/api'
@@ -37,13 +36,12 @@ export function AdminQuizStatsPage() {
   const hardest = rated.length > 1 ? rated.reduce((a, b) => ((b.correctRate ?? 1) < (a.correctRate ?? 1) ? b : a)) : null
 
   return (
-    <div className="min-h-screen bg-muted p-4">
+    <div className="p-4">
       <div className="mx-auto max-w-3xl space-y-4">
         <div className="flex items-center justify-between">
           <Link to="/admin/quizzes" className="text-sm text-muted-foreground hover:text-foreground hover:underline">
             ← Quiz-uri
           </Link>
-          <Link to="/" className={buttonVariants({ variant: 'outline', size: 'sm' })}>Acasă</Link>
         </div>
 
         {error && <p className="text-sm text-destructive">{error}</p>}

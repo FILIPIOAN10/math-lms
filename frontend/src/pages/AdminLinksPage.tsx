@@ -71,7 +71,7 @@ export function AdminLinksPage() {
   }
 
   return (
-    <div className="min-h-screen bg-muted p-4">
+    <div className="p-4">
       <div className="mx-auto max-w-4xl space-y-4">
         <InviteLinkCard />
         <Card>

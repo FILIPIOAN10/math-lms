@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { ProgressChart } from '@/components/ProgressChart'
 import { getMyProgress, type ProgressPointDto } from '@/lib/api'
@@ -22,13 +21,12 @@ export function StudentProgressPage() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-muted p-4">
+    <div className="p-4">
       <div className="mx-auto max-w-3xl space-y-4">
         <div className="flex items-center justify-between">
           <Link to="/quizzes" className="text-sm text-muted-foreground hover:text-foreground hover:underline">
             ← Testele mele
           </Link>
-          <Link to="/" className={buttonVariants({ variant: 'outline', size: 'sm' })}>Acasă</Link>
         </div>
 
         <h1 className="text-2xl font-semibold">Progresul meu</h1>

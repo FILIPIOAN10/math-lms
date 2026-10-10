@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { buttonVariants } from '@/components/ui/button'
 import { AttemptResultView } from '@/components/AttemptResultView'
 import { getChildAttemptResult, type AttemptResultViewDto } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
@@ -22,7 +21,7 @@ export function ParentAttemptResultPage() {
   }, [childId, attemptId])
 
   return (
-    <div className="min-h-screen bg-muted p-4">
+    <div className="p-4">
       <div className="mx-auto max-w-3xl space-y-4">
         <div className="flex items-center justify-between">
           <Link
@@ -31,7 +30,6 @@ export function ParentAttemptResultPage() {
           >
             ← Testele copilului
           </Link>
-          <Link to="/" className={buttonVariants({ variant: 'outline', size: 'sm' })}>Acasă</Link>
         </div>
 
         {error && <p className="text-sm text-destructive">{error}</p>}

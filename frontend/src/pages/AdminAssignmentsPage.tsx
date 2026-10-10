@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
-import { Button, buttonVariants } from '@/components/ui/button'
+import { useSearchParams } from 'react-router-dom'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Dialog } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -183,13 +183,12 @@ export function AdminAssignmentsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-muted p-4">
+    <div className="p-4">
       <div className="mx-auto max-w-3xl space-y-4">
         <div className="flex items-center justify-between gap-2">
           <h1 className="text-2xl font-semibold">Teme</h1>
           <div className="flex gap-2">
             <Button onClick={() => setCreating(true)} data-testid="assignment-new">Dă o temă</Button>
-            <Link to="/" className={buttonVariants({ variant: 'outline' })}>Acasă</Link>
           </div>
         </div>
         <p className="text-sm text-muted-foreground">
