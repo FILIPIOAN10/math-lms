@@ -17,6 +17,7 @@ import { errorMessage } from '@/lib/errors'
 import { formatMinutes } from '@/lib/format'
 import { scoreLine } from '@/lib/grades'
 import { todoAssignments } from '@/lib/home'
+import { PageHeader } from '@/components/PageHeader'
 
 function formatDate(iso: string | null): string {
   return iso ? new Date(iso).toLocaleString('ro-RO', { dateStyle: 'medium', timeStyle: 'short' }) : '—'
@@ -64,9 +65,7 @@ export function StudentQuizListPage() {
   return (
     <div className="p-4">
       <div className="mx-auto max-w-3xl space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold">Testele mele</h1>
-        </div>
+        <PageHeader title="Testele mele" description="Temele, testele pe care le poți da și ce ai dat până acum." />
 
         {error && <p className="text-sm text-destructive">{error}</p>}
         {loading && <p className="text-muted-foreground">Se încarcă...</p>}

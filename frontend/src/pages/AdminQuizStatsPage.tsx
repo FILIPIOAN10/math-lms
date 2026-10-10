@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
 import { MathContent } from '@/components/MathContent'
 import { getQuizStats, type QuizStatsDto } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
+import { PageHeader } from '@/components/PageHeader'
 
 /** A horizontal bar: `fraction` (0..1) of the track is filled. Plain divs on theme colors. */
 function Bar({ fraction }: { fraction: number }) {
@@ -38,18 +39,22 @@ export function AdminQuizStatsPage() {
   return (
     <div className="p-4">
       <div className="mx-auto max-w-3xl space-y-4">
-        <div className="flex items-center justify-between">
-          <Link to="/admin/quizzes" className="text-sm text-muted-foreground hover:text-foreground hover:underline">
-            ← Quiz-uri
-          </Link>
-        </div>
+        <PageHeader
+          title={stats?.title ?? 'Statistici'}
+          description={stats ? 'Statisticile testului, din lucrările notate.' : undefined}
+          documentTitle={stats ? `Statistici · ${stats.title}` : 'Statistici'}
+          breadcrumbs={[
+            { label: 'Quiz-uri', to: '/admin/quizzes' },
+            ...(stats ? [{ label: stats.title, to: `/admin/quizzes/${quizId}` }] : []),
+            { label: 'Statistici' },
+          ]}
+        />
 
         {error && <p className="text-sm text-destructive">{error}</p>}
         {!stats && !error && <p className="text-muted-foreground">Se încarcă...</p>}
 
         {stats && (
           <>
-            <h1 className="text-2xl font-semibold">{stats.title}</h1>
 
             {stats.gradedAttempts === 0 ? (
               <p className="text-sm text-muted-foreground" data-testid="stats-empty">

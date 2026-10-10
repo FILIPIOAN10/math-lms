@@ -35,6 +35,8 @@ import {
   type Exercise,
   type SchoolClass,
 } from '@/lib/api'
+import { PageHeader } from '@/components/PageHeader'
+import { useConfirm } from '@/components/useConfirm'
 
 const DIFFICULTIES: Difficulty[] = ['EASY', 'MEDIUM', 'HARD']
 const selectClass =
@@ -320,6 +322,7 @@ type Dialogs =
   | null
 
 export function AdminContentPage() {
+  const { confirm, dialog: confirmDialog } = useConfirm()
   const [classes, setClasses] = useState<SchoolClass[]>([])
   const [cls, setCls] = useState<SchoolClass | null>(null)
   const [books, setBooks] = useState<Book[]>([])
@@ -378,7 +381,7 @@ export function AdminContentPage() {
   }
 
   async function removeWithConfirm(label: string, run: () => Promise<void>, reload: () => Promise<unknown>) {
-    if (!window.confirm(`Sigur ștergi ${label}?`)) return
+    if (!(await confirm({ title: `Ștergi ${label}?`, confirmLabel: 'Șterge', destructive: true }))) return
     setError(null)
     try {
       await run()
@@ -393,33 +396,32 @@ export function AdminContentPage() {
   return (
     <div className="p-4">
       <div className="mx-auto max-w-3xl space-y-4">
-        {/* breadcrumb + home */}
-        <div className="flex items-center justify-between">
-          <nav className="flex flex-wrap items-center gap-1 text-sm text-muted-foreground">
-            <button className="hover:text-foreground hover:underline" onClick={() => { setCls(null); setBook(null); setChapter(null) }}>
-              Conținut
-            </button>
-            {cls && (<><span>/</span><button className="hover:text-foreground hover:underline" onClick={() => { setBook(null); setChapter(null) }}>{cls.name}</button></>)}
-            {book && (<><span>/</span><button className="hover:text-foreground hover:underline" onClick={() => setChapter(null)}>{book.title}</button></>)}
-            {chapter && (<><span>/</span><span className="text-foreground">{chapter.title}</span></>)}
-          </nav>
-        </div>
+        {confirmDialog}
+        <PageHeader
+          title={chapter?.title ?? book?.title ?? cls?.name ?? 'Conținut'}
+          description={
+            chapter ? 'Exercițiile capitolului.'
+              : book ? 'Capitolele cărții.'
+                : cls ? 'Cărțile clasei.'
+                  : 'Clasele, cu cărțile, capitolele și exercițiile lor. Deschide o clasă ca să-i adaugi cărți.'
+          }
+          breadcrumbs={cls ? [
+            { label: 'Conținut', onClick: () => { setCls(null); setBook(null); setChapter(null) } },
+            { label: cls.name, onClick: () => { setBook(null); setChapter(null) } },
+            ...(book ? [{ label: book.title, onClick: () => setChapter(null) }] : []),
+            ...(chapter ? [{ label: chapter.title }] : []),
+          ] : undefined}
+          actions={
+            <>
+              {!cls && <Button onClick={() => setDialog({ kind: 'class', item: null })}>Adaugă clasă</Button>}
+              {cls && !book && <Button onClick={() => setDialog({ kind: 'book', item: null })}>Adaugă carte</Button>}
+              {book && !chapter && <Button onClick={() => setDialog({ kind: 'chapter', item: null })}>Adaugă capitol</Button>}
+              {chapter && <Button onClick={() => setDialog({ kind: 'exercise', item: null })}>Adaugă exercițiu</Button>}
+            </>
+          }
+        />
 
         {error && <p className="text-sm text-destructive">{error}</p>}
-
-        {/* Where you are + the main action for this level, side by side, so the button is where the eye already is */}
-        <div className="flex flex-wrap items-end justify-between gap-2">
-          <div>
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">
-              {chapter ? 'Capitol · exerciții' : book ? 'Carte · capitole' : cls ? 'Clasă · cărți' : 'Clase'}
-            </p>
-            <h1 className="text-2xl font-semibold">{chapter?.title ?? book?.title ?? cls?.name ?? 'Conținut'}</h1>
-          </div>
-          {!cls && <Button onClick={() => setDialog({ kind: 'class', item: null })}>Adaugă clasă</Button>}
-          {cls && !book && <Button onClick={() => setDialog({ kind: 'book', item: null })}>Adaugă carte</Button>}
-          {book && !chapter && <Button onClick={() => setDialog({ kind: 'chapter', item: null })}>Adaugă capitol</Button>}
-          {chapter && <Button onClick={() => setDialog({ kind: 'exercise', item: null })}>Adaugă exercițiu</Button>}
-        </div>
 
         {loading && <p className="text-muted-foreground">Se încarcă...</p>}
 

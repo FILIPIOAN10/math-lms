@@ -114,6 +114,14 @@ function App() {
               }
             />
             <Route
+              path="/admin/quizzes/:quizId"
+              element={
+                <AdminRoute>
+                  <AdminQuizzesPage />
+                </AdminRoute>
+              }
+            />
+            <Route
               path="/admin/quizzes/:quizId/stats"
               element={
                 <AdminRoute>

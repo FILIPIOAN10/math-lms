@@ -3,11 +3,13 @@ import { Link, useParams } from 'react-router-dom'
 import { AttemptResultView } from '@/components/AttemptResultView'
 import { getChildAttemptResult, type AttemptResultViewDto } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
+import { usePageTitle } from '@/lib/usePageTitle'
 
 /** A child's result as the parent sees it — same view as the student's, worded for the parent. */
 export function ParentAttemptResultPage() {
   const { childId, attemptId } = useParams<{ childId: string; attemptId: string }>()
   const [result, setResult] = useState<AttemptResultViewDto | null>(null)
+  usePageTitle(result ? `Rezultat · ${result.quizTitle}` : 'Rezultat')
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {

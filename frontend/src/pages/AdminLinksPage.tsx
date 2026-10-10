@@ -11,8 +11,10 @@ import {
 } from '@/components/ui/card'
 import { InviteLinkCard } from '@/components/InviteLinkCard'
 import { listActiveUsers, linkParent, type AdminUserSummary } from '@/lib/api'
+import { usePageTitle } from '@/lib/usePageTitle'
 
 export function AdminLinksPage() {
+  usePageTitle('Invitații și părinți')
   const [students, setStudents] = useState<AdminUserSummary[]>([])
   const [parents, setParents] = useState<AdminUserSummary[]>([])
   const [loading, setLoading] = useState(true)

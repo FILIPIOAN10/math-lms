@@ -5,8 +5,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { forgotPassword } from '@/lib/api'
+import { usePageTitle } from '@/lib/usePageTitle'
 
 export function ForgotPasswordPage() {
+  usePageTitle('Ai uitat parola')
   const [email, setEmail] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [sent, setSent] = useState(false)

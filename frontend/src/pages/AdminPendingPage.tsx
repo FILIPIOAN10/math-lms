@@ -14,10 +14,12 @@ import {
   type PendingUser,
   type Role,
 } from '@/lib/api'
+import { usePageTitle } from '@/lib/usePageTitle'
 
 const ROLE_OPTIONS: Role[] = ['STUDENT', 'PARENT', 'ADMIN']
 
 export function AdminPendingPage() {
+  usePageTitle('Conturi în așteptare')
   const [pending, setPending] = useState<PendingUser[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)

@@ -27,6 +27,7 @@ import { formatDate, formatMinutes, roCount } from '@/lib/format'
 import { todoAssignments } from '@/lib/home'
 import { shrinkImage } from '@/lib/image'
 import { cn } from '@/lib/utils'
+import { usePageTitle } from '@/lib/usePageTitle'
 
 const MAX_UPLOAD_BYTES = 8 * 1024 * 1024 // matches spring.servlet.multipart.max-file-size
 
@@ -101,6 +102,7 @@ export function TakeQuizPage() {
   const [receivedAt, setReceivedAt] = useState(0)
   const [now, setNow] = useState(() => Date.now())
   const autoSubmitted = useRef(false)
+  usePageTitle(attempt?.quiz.title ?? preview?.title ?? (practice ? 'Exersare' : 'Test'))
   const jumpTarget = useRef<HTMLElement | null>(null) // where "Mergi la subiectul N" sends focus once the dialog closes
 
   useEffect(() => {

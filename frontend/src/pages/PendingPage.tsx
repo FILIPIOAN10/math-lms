@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useAuth } from '@/context/AuthContext'
 import type { AccountStatus } from '@/lib/api'
+import { usePageTitle } from '@/lib/usePageTitle'
 
 const MESSAGES: Record<Exclude<AccountStatus, 'ACTIVE'>, { title: string; description: string }> = {
   PENDING_VERIFICATION: {
@@ -23,6 +24,7 @@ const MESSAGES: Record<Exclude<AccountStatus, 'ACTIVE'>, { title: string; descri
 }
 
 export function PendingPage() {
+  usePageTitle('Cont în așteptare')
   const { user, loading, logout } = useAuth()
 
   if (loading) {

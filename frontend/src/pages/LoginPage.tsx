@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useAuth } from '@/context/AuthContext'
 import { ApiError } from '@/lib/api'
+import { usePageTitle } from '@/lib/usePageTitle'
 
 /** Turns a failed login into a message that is safe to show the user. */
 function loginErrorMessage(error: unknown): string {
@@ -119,6 +120,7 @@ function PasswordTab() {
 }
 
 export function LoginPage() {
+  usePageTitle('Autentificare')
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted p-4">
       <Card className="w-full max-w-sm">

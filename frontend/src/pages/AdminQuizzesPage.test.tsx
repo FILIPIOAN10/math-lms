@@ -1,0 +1,139 @@
+import { render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { AdminQuizzesPage } from '@/pages/AdminQuizzesPage'
+import type { QuizDetail, QuizSummary } from '@/lib/api'
+
+const api = vi.hoisted(() => ({
+  listQuizzes: vi.fn(),
+  listClasses: vi.fn(),
+  getQuiz: vi.fn(),
+  setQuizPublished: vi.fn(),
+  copyQuiz: vi.fn(),
+  deleteQuiz: vi.fn(),
+  deleteQuizItem: vi.fn(),
+}))
+vi.mock('@/lib/api', async (original) => ({ ...(await original<typeof import('@/lib/api')>()), ...api }))
+
+const summary = (id: number, title: string, status: QuizSummary['status'] = 'PUBLISHED'): QuizSummary => ({
+  id, title, description: null, status, schoolClassId: null, schoolClassName: null, timeLimitMinutes: null,
+  practiceAllowed: false,
+})
+const detail = (over: Partial<QuizDetail> = {}): QuizDetail => ({
+  ...summary(7, 'Simulare EN'),
+  items: [{
+    id: 70, position: 0, type: 'SINGLE_CHOICE', statement: 'Cât face 2+2?', points: 2, solution: null, hints: [],
+    options: [{ id: 700, position: 0, text: '4', correct: true }, { id: 701, position: 1, text: '5', correct: false }],
+  }],
+  ...over,
+} as QuizDetail)
+
+function Where() {
+  return <p data-testid="where">{useLocation().pathname}</p>
+}
+
+function renderAt(path: string) {
+  return render(
+    <MemoryRouter initialEntries={[path]}>
+      <Routes>
+        <Route path="/admin/quizzes" element={<><AdminQuizzesPage /><Where /></>} />
+        <Route path="/admin/quizzes/:quizId" element={<><AdminQuizzesPage /><Where /></>} />
+        <Route path="/admin/quizzes/:quizId/stats" element={<p>statistici</p>} />
+        <Route path="/admin/assignments" element={<p>teme</p>} />
+      </Routes>
+    </MemoryRouter>,
+  )
+}
+
+const row = async (title: string) =>
+  (await screen.findAllByTestId('quiz-row')).find((r) => within(r).queryByText(title) !== null)!
+
+describe('AdminQuizzesPage', () => {
+  beforeEach(() => {
+    Object.values(api).forEach((fn) => fn.mockReset())
+    api.listQuizzes.mockResolvedValue([summary(7, 'Simulare EN'), summary(8, 'Ciornă nouă', 'DRAFT')])
+    api.listClasses.mockResolvedValue([])
+    api.getQuiz.mockResolvedValue(detail())
+  })
+
+  it('names the page and the browser tab', async () => {
+    renderAt('/admin/quizzes')
+    expect(await screen.findByRole('heading', { level: 1, name: 'Quiz-uri' })).toBeInTheDocument()
+    expect(document.title).toBe('Quiz-uri · Math LMS')
+  })
+
+  it('shows one main action per quiz and keeps the rest in a menu', async () => {
+    renderAt('/admin/quizzes')
+
+    const published = await row('Simulare EN')
+    expect(within(published).getByRole('link', { name: 'Simulare EN' })).toHaveAttribute('href', '/admin/quizzes/7')
+    expect(within(published).getByRole('link', { name: 'Dă ca temă' })).toHaveAttribute('href', '/admin/assignments?quizId=7')
+    expect(within(published).queryByRole('button', { name: 'Șterge' })).not.toBeInTheDocument()
+
+    const draft = await row('Ciornă nouă')
+    expect(within(draft).getByRole('button', { name: 'Publică' })).toBeInTheDocument()
+    expect(within(draft).queryByRole('link', { name: 'Dă ca temă' })).not.toBeInTheDocument()
+  })
+
+  it('offers the other actions in the menu, deleting last', async () => {
+    renderAt('/admin/quizzes')
+    await userEvent.click(within(await row('Simulare EN')).getByRole('button', { name: 'Mai multe acțiuni pentru Simulare EN' }))
+
+    const items = (await screen.findAllByRole('menuitem')).map((i) => i.textContent)
+    expect(items).toEqual(['Statistici', 'Editează detaliile', 'Copiază', 'Depublică', 'Șterge'])
+  })
+
+  it('asks in a dialog before deleting, and deletes only on yes', async () => {
+    api.deleteQuiz.mockResolvedValue(undefined)
+    renderAt('/admin/quizzes')
+    const open = async () => {
+      await userEvent.click(within(await row('Simulare EN')).getByRole('button', { name: 'Mai multe acțiuni pentru Simulare EN' }))
+      await userEvent.click(await screen.findByRole('menuitem', { name: 'Șterge' }))
+      return screen.findByRole('dialog', { name: 'Ștergi quiz-ul „Simulare EN”?' })
+    }
+
+    await userEvent.click(within(await open()).getByRole('button', { name: 'Anulează' }))
+    expect(api.deleteQuiz).not.toHaveBeenCalled()
+
+    await userEvent.click(within(await open()).getByRole('button', { name: 'Șterge' }))
+    await waitFor(() => expect(api.deleteQuiz).toHaveBeenCalledWith(7))
+  })
+
+  it('opens the editor at its own address', async () => {
+    renderAt('/admin/quizzes')
+    await userEvent.click(within(await row('Simulare EN')).getByRole('link', { name: 'Simulare EN' }))
+
+    expect(await screen.findByText('Cât face 2+2?')).toBeInTheDocument()
+    expect(screen.getByTestId('where')).toHaveTextContent('/admin/quizzes/7')
+  })
+
+  it('loads the editor straight from the address, so refresh and Back work', async () => {
+    renderAt('/admin/quizzes/7')
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Simulare EN' })).toBeInTheDocument()
+    expect(api.getQuiz).toHaveBeenCalledWith(7)
+    const trail = screen.getByRole('navigation', { name: 'Unde ești' })
+    expect(within(trail).getByRole('link', { name: 'Quiz-uri' })).toHaveAttribute('href', '/admin/quizzes')
+  })
+
+  it('says so when the quiz in the address does not exist', async () => {
+    const { ApiError } = await import('@/lib/api')
+    api.getQuiz.mockRejectedValue(new ApiError(404, 'Quiz 99 not found'))
+    renderAt('/admin/quizzes/99')
+
+    expect(await screen.findByText('Quiz 99 not found')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Înapoi la quiz-uri' })).toHaveAttribute('href', '/admin/quizzes')
+  })
+
+  it('asks in a dialog before deleting an item', async () => {
+    api.deleteQuizItem.mockResolvedValue(undefined)
+    renderAt('/admin/quizzes/7')
+    await screen.findByText('Cât face 2+2?')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Șterge subiectul 1' }))
+    await userEvent.click(within(await screen.findByRole('dialog', { name: 'Ștergi subiectul 1?' })).getByRole('button', { name: 'Șterge' }))
+
+    await waitFor(() => expect(api.deleteQuizItem).toHaveBeenCalledWith(70))
+  })
+})

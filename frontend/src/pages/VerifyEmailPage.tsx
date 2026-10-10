@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { verifyEmail } from '@/lib/api'
+import { usePageTitle } from '@/lib/usePageTitle'
 
 type VerifyState = 'verifying' | 'success' | 'error'
 
@@ -81,6 +82,7 @@ function VerifyResult({ token }: { token: string }) {
 }
 
 export function VerifyEmailPage() {
+  usePageTitle('Confirmare email')
   const [searchParams] = useSearchParams()
   const token = searchParams.get('token')
 

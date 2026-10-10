@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent, type KeyboardEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Dialog } from '@/components/ui/dialog'
@@ -8,6 +8,9 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { ImportItemsDialog } from '@/components/ImportItemsDialog'
 import { MathContent } from '@/components/MathContent'
+import { PageHeader } from '@/components/PageHeader'
+import { RowMenu } from '@/components/RowMenu'
+import { useConfirm } from '@/components/useConfirm'
 import {
   addQuizItem,
   copyQuiz,
@@ -407,10 +410,28 @@ export function ItemDialog({
 
 // ---------- Page ----------
 
+const statusBadge = (status: QuizSummary['status']) =>
+  `rounded-md px-1.5 py-0.5 text-xs font-medium whitespace-nowrap ${
+    status === 'PUBLISHED'
+      ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+      : 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
+  }`
+
+/**
+ * The teacher's quizzes. The list (`/admin/quizzes`) shows each quiz with ONE main action - "Dă ca temă" once it is
+ * published, "Publică" while it is a draft - and the rest in a "⋯" menu. The builder has its own address
+ * (`/admin/quizzes/:quizId`), so Back, refresh and a bookmark all land on the same quiz.
+ */
 export function AdminQuizzesPage() {
+  const { quizId: quizIdParam } = useParams<{ quizId?: string }>()
+  const quizId = quizIdParam === undefined ? null : Number(quizIdParam)
+  const navigate = useNavigate()
+  const { confirm, dialog: confirmDialog } = useConfirm()
+
   const [quizzes, setQuizzes] = useState<QuizSummary[]>([])
   const [classes, setClasses] = useState<SchoolClass[]>([])
-  const [quiz, setQuiz] = useState<QuizDetail | null>(null)
+  const [loadedQuiz, setQuiz] = useState<QuizDetail | null>(null)
+  const [loadError, setLoadError] = useState<{ id: number; message: string } | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [quizDialog, setQuizDialog] = useState<{ item: QuizSummary | null } | null>(null)
@@ -427,17 +448,24 @@ export function AdminQuizzesPage() {
       .catch((e) => setError(errorMessage(e)))
   }, [])
 
+  // The builder follows the address. What is shown is derived from it, so a quiz loaded for an earlier address never
+  // flashes up while the next one loads.
+  useEffect(() => {
+    if (quizId === null) return
+    let cancelled = false
+    getQuiz(quizId)
+      .then((q) => !cancelled && setQuiz(q))
+      .catch((e) => !cancelled && setLoadError({ id: quizId, message: errorMessage(e) }))
+    return () => {
+      cancelled = true
+    }
+  }, [quizId])
+  const quiz = loadedQuiz !== null && loadedQuiz.id === quizId ? loadedQuiz : null
+  const quizError = loadError !== null && loadError.id === quizId && quiz === null ? loadError.message : null
+
   const reloadList = () => listQuizzes().then(setQuizzes)
   const reloadQuiz = (id: number) => getQuiz(id).then(setQuiz)
-
-  async function openBuilder(id: number) {
-    setError(null)
-    try {
-      setQuiz(await getQuiz(id))
-    } catch (e) {
-      setError(errorMessage(e))
-    }
-  }
+  const openBuilder = (id: number) => navigate(`/admin/quizzes/${id}`)
 
   async function togglePublish(q: QuizSummary | QuizDetail) {
     setError(null)
@@ -456,14 +484,20 @@ export function AdminQuizzesPage() {
     try {
       const copy = await copyQuiz(q.id)
       await reloadList()
-      await openBuilder(copy.id)
+      openBuilder(copy.id)
     } catch (e) {
       setError(errorMessage(e))
     }
   }
 
   async function removeQuiz(q: QuizSummary) {
-    if (!window.confirm(`Sigur ștergi quiz-ul „${q.title}"?`)) return
+    const yes = await confirm({
+      title: `Ștergi quiz-ul „${q.title}”?`,
+      body: 'Se șterg și subiectele lui. Un quiz pe care l-au dat deja elevii nu se poate șterge — depublică-l.',
+      confirmLabel: 'Șterge',
+      destructive: true,
+    })
+    if (!yes) return
     setError(null)
     try {
       await deleteQuiz(q.id)
@@ -473,8 +507,10 @@ export function AdminQuizzesPage() {
     }
   }
 
-  async function removeItem(item: QuizItemDto) {
-    if (!quiz || !window.confirm('Sigur ștergi acest subiect?')) return
+  async function removeItem(item: QuizItemDto, number: number) {
+    if (!quiz) return
+    const yes = await confirm({ title: `Ștergi subiectul ${number}?`, confirmLabel: 'Șterge', destructive: true })
+    if (!yes) return
     setError(null)
     try {
       await deleteQuizItem(item.id)
@@ -487,89 +523,105 @@ export function AdminQuizzesPage() {
   return (
     <div className="p-4">
       <div className="mx-auto max-w-3xl space-y-4">
-        <div className="flex items-center justify-between">
-          <nav className="flex items-center gap-1 text-sm text-muted-foreground">
-            <button className="hover:text-foreground hover:underline" onClick={() => setQuiz(null)}>Quiz-uri</button>
-            {quiz && (<><span>/</span><span className="text-foreground">{quiz.title}</span></>)}
-          </nav>
-        </div>
+        {quizId !== null ? (
+          /* ----- Builder ----- */
+          quizError ? (
+            <>
+              <PageHeader title="Quiz" breadcrumbs={[{ label: 'Quiz-uri', to: '/admin/quizzes' }, { label: 'Quiz' }]} />
+              <p className="text-sm text-destructive">{quizError}</p>
+              <Link to="/admin/quizzes" className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+                Înapoi la quiz-uri
+              </Link>
+            </>
+          ) : !quiz ? (
+            <p className="text-muted-foreground">Se încarcă...</p>
+          ) : (
+            <div className="space-y-4">
+              <PageHeader
+                title={quiz.title}
+                breadcrumbs={[{ label: 'Quiz-uri', to: '/admin/quizzes' }, { label: quiz.title }]}
+                description={
+                  <span className="flex flex-wrap items-center gap-2">
+                    <span className={statusBadge(quiz.status)}>{quiz.status === 'PUBLISHED' ? 'Publicat' : 'Ciornă'}</span>
+                    <span data-testid="quiz-total">
+                      {roCount(quiz.items.length, 'subiect', 'subiecte')} · Total: {quiz.items.reduce((sum, item) => sum + item.points, 0)} p
+                    </span>
+                  </span>
+                }
+                actions={
+                  <>
+                    <Button size="sm" variant="outline" onClick={() => togglePublish(quiz)}
+                            disabled={quiz.status !== 'PUBLISHED' && quiz.items.length === 0}
+                            title={quiz.items.length === 0 ? 'Adaugă cel puțin un subiect înainte să publici' : undefined}>
+                      {quiz.status === 'PUBLISHED' ? 'Depublică' : 'Publică'}
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => setImporting(true)}>Importă din text</Button>
+                    <Button size="sm" onClick={() => setItemDialog({ item: null })}>Adaugă subiect</Button>
+                  </>
+                }
+              />
 
-        {error && <p className="text-sm text-destructive">{error}</p>}
+              {error && <p className="text-sm text-destructive">{error}</p>}
 
-        {/* Builder mode */}
-        {quiz ? (
-          <div className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <span className={`rounded-md px-2 py-0.5 text-xs font-medium ${quiz.status === 'PUBLISHED' ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' : 'bg-amber-500/15 text-amber-700 dark:text-amber-300'}`}>
-                  {quiz.status === 'PUBLISHED' ? 'Publicat' : 'Ciornă'}
-                </span>
-                <span className="text-sm text-muted-foreground" data-testid="quiz-total">
-                  {roCount(quiz.items.length, 'subiect', 'subiecte')} · Total: {quiz.items.reduce((sum, item) => sum + item.points, 0)} p
-                </span>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Button size="sm" variant="outline" onClick={() => togglePublish(quiz)}
-                        disabled={quiz.status !== 'PUBLISHED' && quiz.items.length === 0}
-                        title={quiz.items.length === 0 ? 'Adaugă cel puțin un subiect înainte să publici' : undefined}>
-                  {quiz.status === 'PUBLISHED' ? 'Depublică' : 'Publică'}
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => setImporting(true)}>Importă din text</Button>
-                <Button size="sm" onClick={() => setItemDialog({ item: null })}>Adaugă subiect</Button>
-              </div>
-            </div>
-
-            {quiz.items.length === 0 ? (
-              <p className="text-muted-foreground">Niciun subiect încă. Adaugă primul.</p>
-            ) : (
-              <div className="space-y-2">
-                {quiz.items.map((item, i) => (
-                  <Card key={item.id}>
-                    <CardContent className="space-y-2 py-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="text-sm font-medium">
-                          {i + 1}. {item.type === 'SINGLE_CHOICE' ? 'Grilă' : 'Deschis'} · {item.points} p
-                        </p>
-                        <div className="flex shrink-0 gap-2">
-                          <Button size="xs" variant="outline" onClick={() => setItemDialog({ item })}>Editează</Button>
-                          <Button size="xs" variant="destructive" onClick={() => removeItem(item)}>Șterge</Button>
+              {quiz.items.length === 0 ? (
+                <p className="text-muted-foreground">Niciun subiect încă. Adaugă primul.</p>
+              ) : (
+                <div className="space-y-2">
+                  {quiz.items.map((item, i) => (
+                    <Card key={item.id}>
+                      <CardContent className="space-y-2 py-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="text-sm font-medium">
+                            {i + 1}. {item.type === 'SINGLE_CHOICE' ? 'Grilă' : 'Deschis'} · {item.points} p
+                          </p>
+                          <div className="flex shrink-0 gap-2">
+                            <Button size="xs" variant="outline" onClick={() => setItemDialog({ item })} aria-label={`Editează subiectul ${i + 1}`}>
+                              Editează
+                            </Button>
+                            <Button size="xs" variant="destructive" onClick={() => removeItem(item, i + 1)} aria-label={`Șterge subiectul ${i + 1}`}>
+                              Șterge
+                            </Button>
+                          </div>
                         </div>
-                      </div>
-                      <MathContent className="text-sm">{item.statement}</MathContent>
-                      {item.type === 'SINGLE_CHOICE' && (
-                        <ul className="space-y-1 text-sm">
-                          {item.options.map((o) => (
-                            <li key={o.id} className={o.correct ? 'font-medium text-emerald-700 dark:text-emerald-300' : ''}>
-                              {o.correct ? '✓ ' : '• '}
-                              <MathContent inline>{o.text}</MathContent>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </div>
-        ) : (
-          /* List mode */
-          <>
-            <div className="flex justify-end">
-              <Button size="sm" onClick={() => setQuizDialog({ item: null })}>Adaugă quiz</Button>
+                        <MathContent className="text-sm">{item.statement}</MathContent>
+                        {item.type === 'SINGLE_CHOICE' && (
+                          <ul className="space-y-1 text-sm">
+                            {item.options.map((o) => (
+                              <li key={o.id} className={o.correct ? 'font-medium text-emerald-700 dark:text-emerald-300' : ''}>
+                                {o.correct ? '✓ ' : '• '}
+                                <MathContent inline>{o.text}</MathContent>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
             </div>
+          )
+        ) : (
+          /* ----- List ----- */
+          <>
+            <PageHeader
+              title="Quiz-uri"
+              description="Creează teste, publică-le și dă-le ca temă. Deschide un quiz ca să-i adaugi subiecte."
+              actions={<Button size="sm" onClick={() => setQuizDialog({ item: null })}>Adaugă quiz</Button>}
+            />
+            {error && <p className="text-sm text-destructive">{error}</p>}
             {loading && <p className="text-muted-foreground">Se încarcă...</p>}
             {!loading && quizzes.length === 0 && <p className="text-muted-foreground">Niciun quiz. Adaugă primul.</p>}
             <div className="space-y-2">
               {quizzes.map((q) => (
                 <Card key={q.id}>
-                  <CardContent className="flex items-center justify-between gap-3 py-3">
-                    <div className="min-w-0">
-                      <p className="truncate font-medium">
-                        {q.title}{' '}
-                        <span className={`ml-1 rounded px-1.5 py-0.5 text-xs ${q.status === 'PUBLISHED' ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' : 'bg-amber-500/15 text-amber-700 dark:text-amber-300'}`}>
-                          {q.status === 'PUBLISHED' ? 'Publicat' : 'Ciornă'}
-                        </span>
+                  <CardContent data-testid="quiz-row" className="flex items-center justify-between gap-3 py-3">
+                    <div className="min-w-0 space-y-0.5">
+                      <p className="flex min-w-0 items-center gap-2">
+                        <Link to={`/admin/quizzes/${q.id}`} className="truncate font-medium hover:underline">
+                          {q.title}
+                        </Link>
+                        <span className={statusBadge(q.status)}>{q.status === 'PUBLISHED' ? 'Publicat' : 'Ciornă'}</span>
                       </p>
                       <p className="truncate text-xs text-muted-foreground" data-testid="quiz-audience">
                         {q.schoolClassName ? `Clasa: ${q.schoolClassName}` : 'Toți elevii'}
@@ -578,19 +630,24 @@ export function AdminQuizzesPage() {
                       </p>
                       {q.description && <p className="truncate text-sm text-muted-foreground">{q.description}</p>}
                     </div>
-                    <div className="flex flex-wrap justify-end gap-2">
-                      <Button size="xs" variant="outline" onClick={() => openBuilder(q.id)}>Deschide</Button>
-                      <Link to={`/admin/quizzes/${q.id}/stats`} data-testid="quiz-stats"
-                            className={buttonVariants({ size: 'xs', variant: 'outline' })}>Statistici</Link>
-                      <Button size="xs" variant="secondary" onClick={() => togglePublish(q)}>{q.status === 'PUBLISHED' ? 'Depublică' : 'Publică'}</Button>
-                      {q.status === 'PUBLISHED' && (
-                        <Link to={`/admin/assignments?quizId=${q.id}`} className={buttonVariants({ size: 'xs', variant: 'outline' })}>
+                    <div className="flex shrink-0 items-center gap-2">
+                      {q.status === 'PUBLISHED' ? (
+                        <Link to={`/admin/assignments?quizId=${q.id}`} className={buttonVariants({ size: 'sm', variant: 'outline' })}>
                           Dă ca temă
                         </Link>
+                      ) : (
+                        <Button size="sm" variant="outline" onClick={() => togglePublish(q)}>Publică</Button>
                       )}
-                      <Button size="xs" variant="outline" onClick={() => setQuizDialog({ item: q })}>Editează</Button>
-                      <Button size="xs" variant="outline" onClick={() => duplicate(q)}>Copiază</Button>
-                      <Button size="xs" variant="destructive" onClick={() => removeQuiz(q)}>Șterge</Button>
+                      <RowMenu
+                        label={`Mai multe acțiuni pentru ${q.title}`}
+                        items={[
+                          { label: 'Statistici', to: `/admin/quizzes/${q.id}/stats`, testId: 'quiz-stats' },
+                          { label: 'Editează detaliile', onClick: () => setQuizDialog({ item: q }) },
+                          { label: 'Copiază', onClick: () => void duplicate(q) },
+                          ...(q.status === 'PUBLISHED' ? [{ label: 'Depublică', onClick: () => void togglePublish(q) }] : []),
+                          { label: 'Șterge', onClick: () => void removeQuiz(q), destructive: true },
+                        ]}
+                      />
                     </div>
                   </CardContent>
                 </Card>
@@ -599,6 +656,8 @@ export function AdminQuizzesPage() {
           </>
         )}
       </div>
+
+      {confirmDialog}
 
       {quizDialog && (
         <QuizDialog
@@ -617,7 +676,7 @@ export function AdminQuizzesPage() {
             } else {
               const created = await createQuiz(input)
               await reloadList()
-              await openBuilder(created.id) // a new quiz has no items yet: go straight to adding them
+              openBuilder(created.id) // a new quiz has no items yet: go straight to adding them
             }
           }}
         />

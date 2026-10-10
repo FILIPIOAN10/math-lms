@@ -38,7 +38,7 @@ export function ConfirmDialog({
         <Button variant="outline" onClick={onCancel}>
           {cancelLabel}
         </Button>
-        <Button variant={destructive ? 'destructive' : 'default'} onClick={onConfirm}>
+        <Button variant={destructive ? 'destructive' : 'default'} onClick={onConfirm} data-testid="confirm-yes">
           {confirmLabel}
         </Button>
       </div>

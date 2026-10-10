@@ -2,6 +2,7 @@ import { ParentHome } from '@/components/home/ParentHome'
 import { StudentHome } from '@/components/home/StudentHome'
 import { TeacherHome } from '@/components/home/TeacherHome'
 import { useAuth } from '@/context/AuthContext'
+import { usePageTitle } from '@/lib/usePageTitle'
 
 const SUBTITLES = {
   STUDENT: 'Iată ce ai de făcut.',
@@ -11,6 +12,7 @@ const SUBTITLES = {
 
 /** The start page: a greeting, then the home of the signed-in role. The navigation lives in the app shell. */
 export function DashboardPage() {
+  usePageTitle('Acasă')
   const { user } = useAuth()
 
   if (!user?.role) {

@@ -15,6 +15,7 @@ import {
   type Exercise,
   type SchoolClass,
 } from '@/lib/api'
+import { PageHeader } from '@/components/PageHeader'
 
 const DIFFICULTY_STYLE: Record<Difficulty, { label: string; className: string }> = {
   EASY: { label: 'Ușor', className: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' },
@@ -134,35 +135,16 @@ export function ContentBrowserPage() {
   return (
     <div className="p-4">
       <div className="mx-auto max-w-3xl space-y-4">
-        <div className="flex items-center justify-between">
-          <nav className="flex flex-wrap items-center gap-1 text-sm text-muted-foreground">
-            <button className="hover:text-foreground hover:underline" onClick={goRoot}>
-              Clase
-            </button>
-            {cls && (
-              <>
-                <span>/</span>
-                <button className="hover:text-foreground hover:underline" onClick={goClass}>
-                  {cls.name}
-                </button>
-              </>
-            )}
-            {book && (
-              <>
-                <span>/</span>
-                <button className="hover:text-foreground hover:underline" onClick={goBook}>
-                  {book.title}
-                </button>
-              </>
-            )}
-            {chapter && (
-              <>
-                <span>/</span>
-                <span className="text-foreground">{chapter.title}</span>
-              </>
-            )}
-          </nav>
-        </div>
+        <PageHeader
+          title={chapter?.title ?? book?.title ?? cls?.name ?? 'Conținut'}
+          description={chapter ? 'Exercițiile capitolului.' : book ? 'Capitolele cărții.' : cls ? 'Cărțile clasei.' : 'Clasele tale.'}
+          breadcrumbs={cls ? [
+            { label: 'Clase', onClick: goRoot },
+            { label: cls.name, onClick: goClass },
+            ...(book ? [{ label: book.title, onClick: goBook }] : []),
+            ...(chapter ? [{ label: chapter.title }] : []),
+          ] : undefined}
+        />
 
         {loading && <p className="text-muted-foreground">Se încarcă...</p>}
         {!loading && error && <p className="text-sm text-destructive">{error}</p>}

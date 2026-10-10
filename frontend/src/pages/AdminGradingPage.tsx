@@ -20,6 +20,7 @@ import {
 } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
 import { scoreLine } from '@/lib/grades'
+import { PageHeader } from '@/components/PageHeader'
 
 /** Same limit as the server (V20 columns). */
 const MAX_COMMENT = 2000
@@ -248,19 +249,14 @@ export function AdminGradingPage() {
   return (
     <div className="p-4">
       <div className="mx-auto max-w-3xl space-y-4">
-        <div className="flex items-center justify-between">
-          <nav className="flex items-center gap-1 text-sm text-muted-foreground">
-            <button className="hover:text-foreground hover:underline" onClick={() => setDetail(null)}>
-              Corectură
-            </button>
-            {detail && (
-              <>
-                <span>/</span>
-                <span className="text-foreground">{detail.studentName} — {detail.quizTitle}</span>
-              </>
-            )}
-          </nav>
-        </div>
+        <PageHeader
+          title={detail ? `${detail.studentName} — ${detail.quizTitle}` : 'Corectură'}
+          description={detail ? undefined : 'Lucrările predate, cu subiectele care așteaptă nota ta.'}
+          breadcrumbs={detail ? [
+            { label: 'Corectură', onClick: () => setDetail(null) },
+            { label: `${detail.studentName} — ${detail.quizTitle}` },
+          ] : undefined}
+        />
 
         {error && <p className="text-sm text-destructive">{error}</p>}
 
@@ -348,7 +344,7 @@ export function AdminGradingPage() {
           /* ----- The queue ----- */
           <>
             <div className="flex items-center justify-between gap-2">
-              <h1 className="text-xl font-semibold">Lucrări</h1>
+              <h2 className="font-medium">Lucrări</h2>
               <select
                 className={selectClass}
                 value={filter}

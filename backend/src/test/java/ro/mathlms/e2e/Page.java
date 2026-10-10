@@ -25,9 +25,9 @@ abstract class Page {
         return wait.until(ExpectedConditions.visibilityOfElementLocated(testId(id)));
     }
 
-    /** window.confirm() popups: wait for it, then press OK. */
+    /** The app's confirm dialog (ConfirmDialog - it replaced window.confirm): wait for it, then press its "yes". */
     protected void acceptConfirm() {
-        wait.until(ExpectedConditions.alertIsPresent()).accept();
+        wait.until(ExpectedConditions.elementToBeClickable(testId("confirm-yes"))).click();
     }
 
     protected void waitForBodyText(String text) {

@@ -23,6 +23,8 @@ import {
 import { dueCountdown, isoToLocalInput, localInputToIso } from '@/lib/assignments'
 import { errorMessage } from '@/lib/errors'
 import { formatDate } from '@/lib/format'
+import { PageHeader } from '@/components/PageHeader'
+import { useConfirm } from '@/components/useConfirm'
 
 const selectClass =
   'h-9 rounded-lg border border-border bg-background px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50'
@@ -127,6 +129,7 @@ export function AssignmentDialog({
 
 /** The teacher's homework page: assign a quiz to a class with a deadline, see who handed in, move or remove it. */
 export function AdminAssignmentsPage() {
+  const { confirm, dialog: confirmDialog } = useConfirm()
   const [assignments, setAssignments] = useState<AssignmentSummary[]>([])
   const [quizzes, setQuizzes] = useState<QuizSummary[]>([])
   const [classes, setClasses] = useState<SchoolClass[]>([])
@@ -171,7 +174,13 @@ export function AdminAssignmentsPage() {
   }
 
   async function remove(a: AssignmentSummary) {
-    if (!window.confirm(`Sigur ștergi tema „${a.quizTitle}” pentru ${a.schoolClassName}?`)) return
+    const yes = await confirm({
+      title: `Ștergi tema „${a.quizTitle}”?`,
+      body: `Tema dispare pentru ${a.schoolClassName}. Lucrările deja predate rămân.`,
+      confirmLabel: 'Șterge',
+      destructive: true,
+    })
+    if (!yes) return
     setError(null)
     try {
       await deleteAssignment(a.id)
@@ -185,15 +194,12 @@ export function AdminAssignmentsPage() {
   return (
     <div className="p-4">
       <div className="mx-auto max-w-3xl space-y-4">
-        <div className="flex items-center justify-between gap-2">
-          <h1 className="text-2xl font-semibold">Teme</h1>
-          <div className="flex gap-2">
-            <Button onClick={() => setCreating(true)} data-testid="assignment-new">Dă o temă</Button>
-          </div>
-        </div>
-        <p className="text-sm text-muted-foreground">
-          Dai un quiz publicat unei clase, cu un termen. Vezi cine a predat, cine întârzie și cine nu a început.
-        </p>
+        {confirmDialog}
+        <PageHeader
+          title="Teme"
+          description="Dai un quiz publicat unei clase, cu un termen. Vezi cine a predat, cine întârzie și cine nu a început."
+          actions={<Button onClick={() => setCreating(true)} data-testid="assignment-new">Dă o temă</Button>}
+        />
 
         {error && <p className="text-sm text-destructive">{error}</p>}
         {loading && <p className="text-muted-foreground">Se încarcă...</p>}

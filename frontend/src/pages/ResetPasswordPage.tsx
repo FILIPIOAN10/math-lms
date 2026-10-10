@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ApiError, resetPassword } from '@/lib/api'
+import { usePageTitle } from '@/lib/usePageTitle'
 
 /** Turns a failed reset into a message safe to show the user. */
 function resetErrorMessage(error: unknown): string {
@@ -137,6 +138,7 @@ function ResetForm({ token }: { token: string }) {
 }
 
 export function ResetPasswordPage() {
+  usePageTitle('Parolă nouă')
   const [searchParams] = useSearchParams()
   const token = searchParams.get('token')
 

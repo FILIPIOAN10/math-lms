@@ -4,6 +4,7 @@ import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { listMyChildren, type ChildDto } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
+import { PageHeader } from '@/components/PageHeader'
 
 /** The parent's home: the students an admin linked to this account. */
 export function ParentChildrenPage() {
@@ -23,9 +24,7 @@ export function ParentChildrenPage() {
   return (
     <div className="p-4">
       <div className="mx-auto max-w-3xl space-y-4">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold">Copiii mei</h1>
-        </div>
+        <PageHeader title="Copiii mei" description="Testele și progresul fiecărui copil legat de contul tău." />
 
         {error && <p className="text-sm text-destructive">{error}</p>}
         {!children && !error && <p className="text-muted-foreground">Se încarcă...</p>}

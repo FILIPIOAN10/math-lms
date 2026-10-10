@@ -3,11 +3,13 @@ import { Link, useParams } from 'react-router-dom'
 import { AttemptResultView } from '@/components/AttemptResultView'
 import { getAttemptResult, type AttemptResultViewDto } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
+import { usePageTitle } from '@/lib/usePageTitle'
 
 /** The student's own result (Q8 backend): score, per-item right/wrong, and the barem after submit. */
 export function AttemptResultPage() {
   const { attemptId } = useParams<{ attemptId: string }>()
   const [result, setResult] = useState<AttemptResultViewDto | null>(null)
+  usePageTitle(result ? `Rezultat · ${result.quizTitle}` : 'Rezultat')
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {

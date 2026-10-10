@@ -9,6 +9,7 @@ import { getChildAttempts, getChildProgress, type MyAttemptDto, type ProgressPoi
 import { errorMessage } from '@/lib/errors'
 import { scoreLine } from '@/lib/grades'
 import { formatDate } from '@/lib/format'
+import { PageHeader } from '@/components/PageHeader'
 
 /** One child's attempts (read-only). A child that is not yours answers 403, shown as the error. */
 export function ParentChildPage() {
@@ -35,13 +36,10 @@ export function ParentChildPage() {
   return (
     <div className="p-4">
       <div className="mx-auto max-w-3xl space-y-4">
-        <div className="flex items-center justify-between">
-          <Link to="/parent" className="text-sm text-muted-foreground hover:text-foreground hover:underline">
-            ← Copiii mei
-          </Link>
-        </div>
-
-        <h1 className="text-xl font-semibold">Testele copilului</h1>
+        <PageHeader
+          title="Testele copilului"
+          breadcrumbs={[{ label: 'Copiii mei', to: '/parent' }, { label: 'Testele copilului' }]}
+        />
 
         {error && <p className="text-sm text-destructive">{error}</p>}
         {!attempts && !error && <p className="text-muted-foreground">Se încarcă...</p>}

@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ApiError, register } from '@/lib/api'
+import { usePageTitle } from '@/lib/usePageTitle'
 
 /** Turns a failed registration into a message safe to show the user. */
 function registerErrorMessage(error: unknown): string {
@@ -163,6 +164,7 @@ function RegisterForm({ inviteToken }: { inviteToken: string }) {
 }
 
 export function RegisterPage() {
+  usePageTitle('Creează-ți contul')
   const [searchParams] = useSearchParams()
   const inviteToken = searchParams.get('token')
 
