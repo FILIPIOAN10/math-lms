@@ -139,6 +139,18 @@ describe('TakeQuizPage', () => {
   })
 
   describe('graded test (default)', () => {
+    it('shows a conflict on an untimed test instead of handing the paper in', async () => {
+      api.startQuizAttempt.mockResolvedValue(started('TEST'))
+      api.saveQuizAnswer.mockRejectedValue(new ApiError(409, 'Elementul e încă folosit sau intră în conflict cu unul existent.'))
+      renderPage('')
+      await begin('Începe testul')
+
+      await userEvent.click(screen.getByLabelText('Varianta A'))
+
+      expect(await screen.findByText(/încă folosit/)).toBeInTheDocument()
+      expect(api.submitQuizAttempt).not.toHaveBeenCalled()
+    })
+
     it('starts in TEST mode and never shows feedback: the server answers 204', async () => {
       api.startQuizAttempt.mockResolvedValue(started('TEST'))
       api.saveQuizAnswer.mockResolvedValue(null)

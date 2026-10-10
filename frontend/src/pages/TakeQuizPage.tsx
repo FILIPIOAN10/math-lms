@@ -82,6 +82,15 @@ export function TakeQuizPage() {
     : null
   const timeUp = timeLeft === 0
 
+  /**
+   * A 409 on an answer means "time is up" only for a timed attempt whose countdown has run out. Any other conflict
+   * (e.g. the same answer saved twice at once from two tabs) is shown on the item and the student keeps working.
+   */
+  function isTimeUpConflict(e: unknown): boolean {
+    return e instanceof ApiError && e.status === 409 && attempt?.deadlineAt != null
+      && secondsLeft(attempt.deadlineAt, attempt.serverNow, receivedAt, Date.now()) === 0
+  }
+
   /** Hands in what was saved, without asking: time is up. Tried once; if it fails the manual button remains. */
   async function submitBecauseTimeIsUp() {
     if (!attempt || autoSubmitted.current) return
@@ -188,7 +197,7 @@ export function TakeQuizPage() {
         return next
       })
       setItemError(itemId, errorMessage(e))
-      if (e instanceof ApiError && e.status === 409) void submitBecauseTimeIsUp() // the server says time is up
+      if (isTimeUpConflict(e)) void submitBecauseTimeIsUp() // the server says time is up
     } finally {
       setItemBusy(itemId, false)
     }
@@ -209,7 +218,7 @@ export function TakeQuizPage() {
       setFeedback((s) => ({ ...s, [itemId]: result ?? undefined }))
     } catch (e) {
       setItemError(itemId, errorMessage(e))
-      if (e instanceof ApiError && e.status === 409) void submitBecauseTimeIsUp()
+      if (isTimeUpConflict(e)) void submitBecauseTimeIsUp()
     } finally {
       setItemBusy(itemId, false)
     }

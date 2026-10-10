@@ -1,30 +1,34 @@
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider, useAuth } from '@/context/AuthContext'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { AdminRoute } from '@/components/AdminRoute'
 import { RoleRoute } from '@/components/RoleRoute'
 import { LoginPage } from '@/pages/LoginPage'
-import { RegisterPage } from '@/pages/RegisterPage'
-import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage'
-import { ResetPasswordPage } from '@/pages/ResetPasswordPage'
-import { VerifyEmailPage } from '@/pages/VerifyEmailPage'
-import { PendingPage } from '@/pages/PendingPage'
-import { AdminPendingPage } from '@/pages/AdminPendingPage'
-import { AdminLinksPage } from '@/pages/AdminLinksPage'
-import { AdminContentPage } from '@/pages/AdminContentPage'
-import { AdminQuizzesPage } from '@/pages/AdminQuizzesPage'
-import { AdminAssignmentsPage } from '@/pages/AdminAssignmentsPage'
-import { ContentBrowserPage } from '@/pages/ContentBrowserPage'
 import { DashboardPage } from '@/pages/DashboardPage'
-import { StudentQuizListPage } from '@/pages/StudentQuizListPage'
-import { TakeQuizPage } from '@/pages/TakeQuizPage'
-import { AttemptResultPage } from '@/pages/AttemptResultPage'
-import { AdminGradingPage } from '@/pages/AdminGradingPage'
-import { AdminQuizStatsPage } from '@/pages/AdminQuizStatsPage'
-import { StudentProgressPage } from '@/pages/StudentProgressPage'
-import { ParentChildrenPage } from '@/pages/ParentChildrenPage'
-import { ParentChildPage } from '@/pages/ParentChildPage'
-import { ParentAttemptResultPage } from '@/pages/ParentAttemptResultPage'
+
+// Every other page is its own chunk, downloaded the first time it is opened:
+// a student on a phone never downloads the admin pages.
+const RegisterPage = lazy(() => import('@/pages/RegisterPage').then((m) => ({ default: m.RegisterPage })))
+const ForgotPasswordPage = lazy(() => import('@/pages/ForgotPasswordPage').then((m) => ({ default: m.ForgotPasswordPage })))
+const ResetPasswordPage = lazy(() => import('@/pages/ResetPasswordPage').then((m) => ({ default: m.ResetPasswordPage })))
+const VerifyEmailPage = lazy(() => import('@/pages/VerifyEmailPage').then((m) => ({ default: m.VerifyEmailPage })))
+const PendingPage = lazy(() => import('@/pages/PendingPage').then((m) => ({ default: m.PendingPage })))
+const AdminPendingPage = lazy(() => import('@/pages/AdminPendingPage').then((m) => ({ default: m.AdminPendingPage })))
+const AdminLinksPage = lazy(() => import('@/pages/AdminLinksPage').then((m) => ({ default: m.AdminLinksPage })))
+const AdminContentPage = lazy(() => import('@/pages/AdminContentPage').then((m) => ({ default: m.AdminContentPage })))
+const AdminQuizzesPage = lazy(() => import('@/pages/AdminQuizzesPage').then((m) => ({ default: m.AdminQuizzesPage })))
+const AdminAssignmentsPage = lazy(() => import('@/pages/AdminAssignmentsPage').then((m) => ({ default: m.AdminAssignmentsPage })))
+const ContentBrowserPage = lazy(() => import('@/pages/ContentBrowserPage').then((m) => ({ default: m.ContentBrowserPage })))
+const StudentQuizListPage = lazy(() => import('@/pages/StudentQuizListPage').then((m) => ({ default: m.StudentQuizListPage })))
+const TakeQuizPage = lazy(() => import('@/pages/TakeQuizPage').then((m) => ({ default: m.TakeQuizPage })))
+const AttemptResultPage = lazy(() => import('@/pages/AttemptResultPage').then((m) => ({ default: m.AttemptResultPage })))
+const AdminGradingPage = lazy(() => import('@/pages/AdminGradingPage').then((m) => ({ default: m.AdminGradingPage })))
+const AdminQuizStatsPage = lazy(() => import('@/pages/AdminQuizStatsPage').then((m) => ({ default: m.AdminQuizStatsPage })))
+const StudentProgressPage = lazy(() => import('@/pages/StudentProgressPage').then((m) => ({ default: m.StudentProgressPage })))
+const ParentChildrenPage = lazy(() => import('@/pages/ParentChildrenPage').then((m) => ({ default: m.ParentChildrenPage })))
+const ParentChildPage = lazy(() => import('@/pages/ParentChildPage').then((m) => ({ default: m.ParentChildPage })))
+const ParentAttemptResultPage = lazy(() => import('@/pages/ParentAttemptResultPage').then((m) => ({ default: m.ParentAttemptResultPage })))
 
 function LoginRoute() {
   const { user, loading } = useAuth()
@@ -42,7 +46,8 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <Routes>
+        <Suspense fallback={<p className="p-4 text-muted-foreground">Se încarcă...</p>}>
+          <Routes>
           <Route path="/login" element={<LoginRoute />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
@@ -178,6 +183,7 @@ function App() {
             }
           />
         </Routes>
+        </Suspense>
       </AuthProvider>
     </BrowserRouter>
   )
