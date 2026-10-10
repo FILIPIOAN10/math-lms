@@ -40,6 +40,7 @@ describe('AccountPage', () => {
   beforeEach(() => {
     Object.values(api).forEach((fn) => fn.mockReset())
     auth.logout.mockReset()
+    auth.logout.mockResolvedValue(undefined)
     api.getAccount.mockResolvedValue(account())
     api.listSessions.mockResolvedValue([session('s1', true), session('s2', false, 'Safari pe iPhone')])
   })
