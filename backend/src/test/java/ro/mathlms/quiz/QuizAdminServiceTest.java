@@ -2,6 +2,7 @@ package ro.mathlms.quiz;
 
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.test.util.ReflectionTestUtils;
 import ro.mathlms.cache.AfterCommitCacheEvictor;
 import ro.mathlms.cache.CacheNames;
 import ro.mathlms.content.SchoolClass;
@@ -313,5 +314,139 @@ class QuizAdminServiceTest {
         service.deleteQuiz(1L);
 
         verify(quizRepository).delete(quiz);
+    }
+
+    // --- M2: moving a quiz that is homework for another class ---
+
+    private final SchoolClass tenth = new SchoolClass("Clasa a 10-a", null);
+
+    @Test
+    void movingAQuizToAnotherClassIsRefusedWhileItIsHomeworkForADifferentClass() {
+        when(quizRepository.findById(1L)).thenReturn(Optional.of(quiz));
+        when(schoolClassRepository.findById(6L)).thenReturn(Optional.of(tenth));
+        when(quizRepository.findAssignedClassNamesOtherThan(1L, 6L)).thenReturn(List.of("Clasa a 9-a"));
+
+        assertThatThrownBy(() -> service.updateQuiz(1L, "Simulare EN", null, 6L, null, false))
+                .isInstanceOf(QuizInUseException.class)
+                .hasMessageContaining("temă pentru Clasa a 9-a")
+                .hasMessageContaining("Clasa a 10-a");
+        verify(quizRepository, never()).save(any(Quiz.class));
+    }
+
+    @Test
+    void aQuizThatIsHomeworkCanStillBeOpenedToEveryoneOrKeptOnItsOwnClass() {
+        when(quizRepository.findById(1L)).thenReturn(Optional.of(quiz));
+        when(schoolClassRepository.findById(5L)).thenReturn(Optional.of(ninth));
+        when(quizRepository.findAssignedClassNamesOtherThan(1L, 5L)).thenReturn(List.of());
+
+        service.updateQuiz(1L, "Simulare EN", null, null, null, false);
+        service.updateQuiz(1L, "Simulare EN", null, 5L, null, false);
+
+        verify(quizRepository, org.mockito.Mockito.times(2)).save(quiz);
+    }
+
+    // --- M3: a quiz students already took keeps its scoring ---
+
+    private QuizItem lockedChoiceItem() {
+        ReflectionTestUtils.setField(quiz, "id", 1L);
+        QuizItem item = new QuizItem(quiz, 1, QuizItemType.SINGLE_CHOICE, "Cât e $2+2$?", 2, null);
+        ReflectionTestUtils.setField(item, "id", 7L);
+        when(itemRepository.findById(7L)).thenReturn(Optional.of(item));
+        when(quizRepository.findById(1L)).thenReturn(Optional.of(quiz));
+        when(quizRepository.countAttempts(1L)).thenReturn(2L);
+        when(optionRepository.findByItemIdOrderByPosition(7L)).thenReturn(List.of(
+                new QuizOption(item, 0, "$4$", true), new QuizOption(item, 1, "$5$", false)));
+        return item;
+    }
+
+    @Test
+    void noItemCanBeAddedOnceStudentsHaveAttempts() {
+        when(quizRepository.findById(1L)).thenReturn(Optional.of(quiz));
+        ReflectionTestUtils.setField(quiz, "id", 1L);
+        when(quizRepository.countAttempts(1L)).thenReturn(2L);
+
+        assertThatThrownBy(() -> service.addItem(1L, new ItemRequest(QuizItemType.OPEN, 2, "Demonstrează", 3, null, null)))
+                .isInstanceOf(QuizInUseException.class)
+                .hasMessageContaining("2 încercări")
+                .hasMessageContaining("nu mai poți adăuga");
+        verify(itemRepository, never()).save(any(QuizItem.class));
+    }
+
+    @Test
+    void noItemCanBeDeletedOnceStudentsHaveAttempts() {
+        lockedChoiceItem();
+
+        assertThatThrownBy(() -> service.deleteItem(7L))
+                .isInstanceOf(QuizInUseException.class)
+                .hasMessageContaining("nu mai poți șterge");
+        verify(itemRepository, never()).delete(any(QuizItem.class));
+    }
+
+    @Test
+    void theScoringOfATakenItemCannotChange() {
+        lockedChoiceItem();
+        List<OptionRequest> same = List.of(new OptionRequest(0, "$4$", true), new OptionRequest(1, "$5$", false));
+
+        assertThatThrownBy(() -> service.updateItem(7L, new ItemRequest(QuizItemType.SINGLE_CHOICE, 1, "Cât e $2+2$?", 5, null, same)))
+                .as("points").isInstanceOf(QuizInUseException.class).hasMessageContaining("doar textele");
+        assertThatThrownBy(() -> service.updateItem(7L, new ItemRequest(QuizItemType.SINGLE_CHOICE, 1, "Cât e $2+2$?", 2, null,
+                List.of(new OptionRequest(0, "$4$", false), new OptionRequest(1, "$5$", true)))))
+                .as("correct option").isInstanceOf(QuizInUseException.class);
+        assertThatThrownBy(() -> service.updateItem(7L, new ItemRequest(QuizItemType.SINGLE_CHOICE, 1, "Cât e $2+2$?", 2, null,
+                List.of(new OptionRequest(0, "$4$", true), new OptionRequest(1, "$5$", false), new OptionRequest(2, "$6$", false)))))
+                .as("option count").isInstanceOf(QuizInUseException.class);
+        verify(optionRepository, never()).deleteByItemId(any());
+    }
+
+    @Test
+    void theTextsOfATakenItemCanStillBeCorrectedInPlace() {
+        QuizItem item = lockedChoiceItem();
+        when(hintRepository.save(any(QuizItemHint.class))).thenAnswer(i -> i.getArgument(0));
+
+        ItemDto dto = service.updateItem(7L, new ItemRequest(QuizItemType.SINGLE_CHOICE, 1, "Cât face $2+2$?", 2, "$2+2=4$",
+                List.of(new OptionRequest(0, "$4$ (patru)", true), new OptionRequest(1, "$5$", false)), List.of("Numără pe degete.")));
+
+        assertThat(item.getStatement()).isEqualTo("Cât face $2+2$?");
+        assertThat(dto.options()).extracting(QuizDtos.OptionDto::text).containsExactly("$4$ (patru)", "$5$");
+        verify(optionRepository, never()).deleteByItemId(any()); // the students' chosen options must keep existing
+    }
+
+    // --- M4: an empty quiz cannot reach the students ---
+
+    @Test
+    void aQuizWithoutItemsCannotBePublished() {
+        ReflectionTestUtils.setField(quiz, "id", 1L);
+        when(quizRepository.findById(1L)).thenReturn(Optional.of(quiz));
+        when(itemRepository.countByQuizId(1L)).thenReturn(0L);
+
+        assertThatThrownBy(() -> service.setPublished(1L, true))
+                .isInstanceOf(InvalidQuizException.class)
+                .hasMessageContaining("cel puțin un subiect");
+        assertThat(quiz.getStatus()).isEqualTo(QuizStatus.DRAFT);
+    }
+
+    @Test
+    void aQuizWithItemsIsPublished() {
+        ReflectionTestUtils.setField(quiz, "id", 1L);
+        when(quizRepository.findById(1L)).thenReturn(Optional.of(quiz));
+        when(itemRepository.countByQuizId(1L)).thenReturn(3L);
+
+        service.setPublished(1L, true);
+
+        assertThat(quiz.getStatus()).isEqualTo(QuizStatus.PUBLISHED);
+    }
+
+    @Test
+    void theLastItemOfAPublishedQuizCannotBeDeleted() {
+        ReflectionTestUtils.setField(quiz, "id", 1L);
+        quiz.publish();
+        QuizItem only = new QuizItem(quiz, 1, QuizItemType.OPEN, "Demonstrează", 3, null);
+        when(itemRepository.findById(7L)).thenReturn(Optional.of(only));
+        when(itemRepository.countByQuizId(1L)).thenReturn(1L);
+
+        assertThatThrownBy(() -> service.deleteItem(7L))
+                .isInstanceOf(InvalidQuizException.class)
+                .hasMessageContaining("Depublică");
+        verify(itemRepository, never()).delete(any(QuizItem.class));
     }
 }

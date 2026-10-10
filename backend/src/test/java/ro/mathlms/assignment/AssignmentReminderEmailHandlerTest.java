@@ -32,6 +32,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 class AssignmentReminderEmailHandlerTest {
@@ -47,7 +48,7 @@ class AssignmentReminderEmailHandlerTest {
             codec, assignmentRepository, userRepository, enrollmentRepository, attemptRepository, emailService,
             Clock.fixed(now, ZoneOffset.UTC));
 
-    private final Quiz quiz = withId(new Quiz("Simulare EN", null), 10L);
+    private final Quiz quiz = published(withId(new Quiz("Simulare EN", null), 10L));
     private final SchoolClass ninth = withId(new SchoolClass("Clasa a 9-a", null), 5L);
     private final User ana = withId(new User("ana@scoala.ro", "Ana Pop", Role.STUDENT), 2L);
     private final Assignment assignment =
@@ -56,6 +57,11 @@ class AssignmentReminderEmailHandlerTest {
     private static <T> T withId(T entity, long id) {
         ReflectionTestUtils.setField(entity, "id", id);
         return entity;
+    }
+
+    private static Quiz published(Quiz quiz) {
+        quiz.publish();
+        return quiz;
     }
 
     private String payload() {
@@ -129,5 +135,15 @@ class AssignmentReminderEmailHandlerTest {
                 .sendAssignmentReminder(eq("ana@scoala.ro"), anyString(), anyString(), any(), anyLong());
 
         assertThatThrownBy(() -> handler.handle(payload())).hasMessageContaining("smtp down");
+    }
+
+    @Test
+    void staysSilentWhenTheQuizWasUnpublishedAfterTheReminderWasQueued() {
+        stubAll();
+        quiz.unpublish();
+
+        handler.handle(payload());
+
+        verifyNoInteractions(emailService);
     }
 }

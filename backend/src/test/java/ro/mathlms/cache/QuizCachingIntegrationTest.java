@@ -7,9 +7,11 @@ import org.springframework.cache.CacheManager;
 import org.springframework.context.annotation.Import;
 import ro.mathlms.TestcontainersConfiguration;
 import ro.mathlms.quiz.ItemRequest;
+import ro.mathlms.quiz.OptionRequest;
 import ro.mathlms.quiz.Quiz;
 import ro.mathlms.quiz.QuizAdminService;
 import ro.mathlms.quiz.QuizAttemptService;
+import ro.mathlms.quiz.QuizInUseException;
 import ro.mathlms.quiz.QuizItem;
 import ro.mathlms.quiz.QuizItemRepository;
 import ro.mathlms.quiz.QuizItemType;
@@ -22,7 +24,10 @@ import ro.mathlms.user.Role;
 import ro.mathlms.user.User;
 import ro.mathlms.user.UserRepository;
 
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Phase 5.5 on real Redis + Postgres: the aggregates are cached, and the cache is evicted AFTER the
@@ -77,10 +82,17 @@ class QuizCachingIntegrationTest {
         assertThat(attemptService.getProgress(email)).singleElement()
                 .satisfies(point -> assertThat(point.percent()).isEqualTo(100));
 
-        // editing the quiz changes its max score: both caches are dropped as a whole
+        // a taken quiz keeps its scoring (adding an item would re-grade the attempt above)...
+        Long quizId = quiz.getId();
+        assertThatThrownBy(() -> adminService.addItem(quizId, new ItemRequest(QuizItemType.OPEN, 2, "deschis", 5, null, null)))
+                .isInstanceOf(QuizInUseException.class);
+        // ...but its texts can still be corrected, and any item edit drops both caches as a whole
         assertThat(cached(CacheNames.QUIZ_STATS, quiz.getId())).isNotNull();
-        adminService.addItem(quiz.getId(), new ItemRequest(QuizItemType.OPEN, 2, "deschis", 5, null, null));
+        adminService.updateItem(item.getId(), new ItemRequest(QuizItemType.SINGLE_CHOICE, 1, "s (corectat)", 5, null,
+                List.of(new OptionRequest(0, "A", true), new OptionRequest(1, "B", false))));
         assertThat(cached(CacheNames.QUIZ_STATS, quiz.getId())).isNull();
         assertThat(cached(CacheNames.PROGRESS, email)).isNull();
+        assertThat(attemptService.getProgress(email)).singleElement()
+                .satisfies(point -> assertThat(point.percent()).isEqualTo(100)); // the old grade is untouched
     }
 }

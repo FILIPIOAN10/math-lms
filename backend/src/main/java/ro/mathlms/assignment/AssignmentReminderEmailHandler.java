@@ -9,6 +9,7 @@ import ro.mathlms.outbox.OutboxEventTypes;
 import ro.mathlms.outbox.OutboxHandler;
 import ro.mathlms.outbox.OutboxPayloadCodec;
 import ro.mathlms.quiz.QuizAttemptRepository;
+import ro.mathlms.quiz.QuizStatus;
 import ro.mathlms.user.User;
 import ro.mathlms.user.UserRepository;
 
@@ -18,7 +19,7 @@ import java.util.List;
 
 /**
  * Sends one "homework due soon" email. Re-reads the current state at send time and stays silent when there is nothing to
- * tell any more: the assignment is gone, its deadline has passed, the student is erased or left the class, or has handed
+ * tell any more: the assignment is gone, its quiz was unpublished, its deadline has passed, the student is erased or left the class, or has handed
  * in since the reminder was queued. A mail failure throws, so the dispatcher backs off and retries.
  */
 @Component
@@ -58,6 +59,7 @@ public class AssignmentReminderEmailHandler implements OutboxHandler {
         User student = userRepository.findById(event.studentId()).orElse(null);
         if (assignment == null || student == null || student.isErased()
                 || !enrollmentRepository.existsByStudentIdAndSchoolClassId(student.getId(), assignment.getSchoolClass().getId())
+                || assignment.getQuiz().getStatus() != QuizStatus.PUBLISHED
                 || assignment.isOverdue(Instant.now(clock))) {
             log.info("Reminder for assignment {} / student {} skipped: nothing left to remind",
                     event.assignmentId(), event.studentId());

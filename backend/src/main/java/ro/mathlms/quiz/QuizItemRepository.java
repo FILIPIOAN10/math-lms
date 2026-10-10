@@ -8,6 +8,9 @@ import java.util.Collection;
 import java.util.List;
 
 public interface QuizItemRepository extends JpaRepository<QuizItem, Long> {
+
+    long countByQuizId(Long quizId);
+
     List<QuizItem> findByQuizIdOrderByPosition(Long quizId);
 
     /**

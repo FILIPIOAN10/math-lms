@@ -75,8 +75,17 @@ public class QuizAdminService {
     public Quiz updateQuiz(Long id, String title, String description, Long schoolClassId, Integer timeLimitMinutes,
                            boolean practiceAllowed) {
         Quiz quiz = getQuiz(id);
+        SchoolClass target = findClass(schoolClassId);
+        if (target != null) {
+            List<String> stranded = quizRepository.findAssignedClassNamesOtherThan(id, schoolClassId);
+            if (!stranded.isEmpty()) {
+                throw new QuizInUseException("Quiz-ul „" + quiz.getTitle() + "” e temă pentru " + String.join(", ", stranded)
+                        + ": dacă îl rezervi pentru " + target.getName() + ", elevii de acolo nu-l mai pot deschide. "
+                        + "Șterge întâi tema din pagina Teme sau lasă quiz-ul la „Toți elevii”.");
+            }
+        }
         quiz.update(title, description);
-        quiz.assignToClass(findClass(schoolClassId));
+        quiz.assignToClass(target);
         quiz.changeTimeLimit(timeLimitMinutes); // attempts already running keep their own deadline
         quiz.allowPractice(practiceAllowed);    // practice already in progress simply finishes; no new one can start
         return quizRepository.save(quiz);
@@ -94,6 +103,9 @@ public class QuizAdminService {
     public Quiz setPublished(Long id, boolean published) {
         Quiz quiz = getQuiz(id);
         if (published) {
+            if (itemRepository.countByQuizId(id) == 0) {
+                throw new InvalidQuizException("Adaugă cel puțin un subiect înainte să publici quiz-ul.");
+            }
             quiz.publish();
         } else {
             quiz.unpublish();
@@ -129,6 +141,7 @@ public class QuizAdminService {
     @Transactional
     public ItemDto addItem(Long quizId, ItemRequest request) {
         Quiz quiz = getQuiz(quizId);
+        requireNotTaken(quiz, "nu mai poți adăuga subiecte");
         requireValidHints(request.hints()); // before anything is written
         QuizItem item = itemRepository.save(new QuizItem(
                 quiz, request.position(), request.type(), request.statement(),
@@ -146,11 +159,20 @@ public class QuizAdminService {
             throw new InvalidQuizException("The item type cannot be changed");
         }
         requireValidHints(request.hints());
-        item.update(request.position(), request.statement(), request.points(), request.solution());
-        itemRepository.save(item);
-        // Replace options wholesale for a single-choice item.
-        optionRepository.deleteByItemId(itemId);
-        List<QuizOption> options = saveOptionsIfSingleChoice(item, request);
+        boolean taken = quizRepository.countAttempts(item.getQuiz().getId()) > 0;
+        List<QuizOption> options;
+        if (taken) {
+            // Students' answers point at these options and their grades at these points: only texts may change.
+            options = correctTextsInPlace(item, request);
+            item.update(request.position(), request.statement(), item.getPoints(), request.solution());
+            itemRepository.save(item);
+        } else {
+            item.update(request.position(), request.statement(), request.points(), request.solution());
+            itemRepository.save(item);
+            // Replace options wholesale for a single-choice item.
+            optionRepository.deleteByItemId(itemId);
+            options = saveOptionsIfSingleChoice(item, request);
+        }
         hintRepository.deleteByItemId(itemId); // hints are replaced wholesale too
         List<QuizItemHint> hints = saveHints(item, request.hints());
         dropScoreCaches();
@@ -160,10 +182,58 @@ public class QuizAdminService {
     @Transactional
     public void deleteItem(Long itemId) {
         QuizItem item = getItem(itemId);
+        Quiz quiz = item.getQuiz();
+        requireNotTaken(quiz, "nu mai poți șterge subiecte");
+        if (quiz.getStatus() == QuizStatus.PUBLISHED && itemRepository.countByQuizId(quiz.getId()) <= 1) {
+            throw new InvalidQuizException("Acesta e ultimul subiect al unui quiz publicat: apasă întâi „Depublică”, "
+                    + "altfel elevii ar vedea un quiz gol.");
+        }
         optionRepository.deleteByItemId(itemId);
         hintRepository.deleteByItemId(itemId);
         itemRepository.delete(item);
         dropScoreCaches();
+    }
+
+    /**
+     * Once students have attempts, the quiz's items and points are frozen: the max score is computed from the current
+     * items, so adding or removing one would silently re-grade every past attempt (and answers reference the items).
+     */
+    private void requireNotTaken(Quiz quiz, String refused) {
+        long attempts = quizRepository.countAttempts(quiz.getId());
+        if (attempts > 0) {
+            throw new QuizInUseException("Quiz-ul „" + quiz.getTitle() + "” a fost deja dat de elevi ("
+                    + RoCount.of(attempts, "încercare", "încercări") + "): " + refused
+                    + ", s-ar schimba punctajul maxim și notele lor. Pentru o variantă modificată fă un quiz nou.");
+        }
+    }
+
+    /** On a taken item: same points, same options in the same order with the same right one — only the texts change. */
+    private List<QuizOption> correctTextsInPlace(QuizItem item, ItemRequest request) {
+        String refusal = "Quiz-ul „" + item.getQuiz().getTitle() + "” a fost deja dat de elevi: la acest subiect poți "
+                + "corecta doar textele (enunț, variante, rezolvare, indicii) — punctajul, numărul de variante și "
+                + "varianta corectă nu se mai pot schimba.";
+        if (request.points() != item.getPoints()) {
+            throw new QuizInUseException(refusal);
+        }
+        if (item.getType() != QuizItemType.SINGLE_CHOICE) {
+            return List.of();
+        }
+        List<QuizOption> existing = optionRepository.findByItemIdOrderByPosition(item.getId());
+        List<OptionRequest> requested = request.options() == null ? List.of()
+                : request.options().stream().sorted(java.util.Comparator.comparingInt(OptionRequest::position)).toList();
+        if (requested.size() != existing.size()) {
+            throw new QuizInUseException(refusal);
+        }
+        for (int i = 0; i < existing.size(); i++) {
+            if (existing.get(i).isCorrect() != requested.get(i).correct()) {
+                throw new QuizInUseException(refusal);
+            }
+        }
+        for (int i = 0; i < existing.size(); i++) {
+            existing.get(i).changeText(requested.get(i).text());
+            optionRepository.save(existing.get(i));
+        }
+        return existing;
     }
 
     private static void requireValidHints(List<String> hints) {

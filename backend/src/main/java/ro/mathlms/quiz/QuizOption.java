@@ -50,6 +50,11 @@ public class QuizOption {
         this.correct = correct;
     }
 
+    /** Fixes a typo in the choice without touching which one is correct (safe on a quiz students already took). */
+    public void changeText(String text) {
+        this.text = requireNonBlank(text, "text");
+    }
+
     private static String requireNonBlank(String value, String field) {
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException(field + " must not be blank");

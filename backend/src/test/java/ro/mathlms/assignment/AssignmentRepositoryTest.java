@@ -47,8 +47,11 @@ class AssignmentRepositoryTest {
 
     private final Instant now = Instant.now();
 
+    /** Published, like every quiz that can be handed out as homework. */
     private Quiz quiz(String title) {
-        return quizRepository.save(new Quiz(title, null));
+        Quiz quiz = new Quiz(title, null);
+        quiz.publish();
+        return quizRepository.save(quiz);
     }
 
     private SchoolClass schoolClass(String name) {
@@ -115,12 +118,15 @@ class AssignmentRepositoryTest {
         Assignment reminded = new Assignment(quiz("Deja"), cls, now.plus(Duration.ofHours(5)), now);
         reminded.markReminderSent(now);
         reminded = assignmentRepository.save(reminded);
+        Quiz pulled = quiz("Retras");
+        pulled.unpublish();
+        Assignment unpublished = assignmentRepository.save(new Assignment(pulled, cls, now.plus(Duration.ofHours(3)), now));
         assignmentRepository.flush();
 
         List<Long> ids = assignmentRepository.findIdsDueForReminder(from, until);
 
         assertThat(ids).contains(inside.getId(), edge.getId())
-                .doesNotContain(tooFar.getId(), passed.getId(), reminded.getId());
+                .doesNotContain(tooFar.getId(), passed.getId(), reminded.getId(), unpublished.getId());
         assertThat(ids.indexOf(inside.getId())).isLessThan(ids.indexOf(edge.getId())); // soonest first
     }
 
@@ -174,5 +180,21 @@ class AssignmentRepositoryTest {
         assertThat(found).extracting(QuizAttempt::getId).containsExactlyInAnyOrder(a2.getId(), a3.getId())
                 .doesNotContain(a1.getId());
         assertThat(found.get(0).getQuiz().getTitle()).isNotNull(); // quiz loaded by the entity graph
+    }
+
+    @Test
+    void theClassesAQuizIsHomeworkForCanBeListedExceptOne() {
+        Quiz quiz = quiz("Teza");
+        SchoolClass ninth = schoolClass("Clasa a 9-a");
+        SchoolClass tenth = schoolClass("Clasa a 10-a");
+        SchoolClass eleventh = schoolClass("Clasa a 11-a");
+        assignmentRepository.save(new Assignment(quiz, ninth, now.plus(Duration.ofDays(1)), now));
+        assignmentRepository.save(new Assignment(quiz, eleventh, now.plus(Duration.ofDays(1)), now));
+        assignmentRepository.flush();
+
+        assertThat(quizRepository.findAssignedClassNamesOtherThan(quiz.getId(), tenth.getId()))
+                .containsExactly("Clasa a 11-a", "Clasa a 9-a");
+        assertThat(quizRepository.findAssignedClassNamesOtherThan(quiz.getId(), ninth.getId()))
+                .containsExactly("Clasa a 11-a");
     }
 }

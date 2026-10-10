@@ -140,7 +140,10 @@ public class AssignmentService {
         if (classIds.isEmpty()) {
             return List.of();
         }
-        List<Assignment> assignments = assignmentRepository.findBySchoolClassIdsFetched(classIds);
+        // An unpublished quiz cannot be started, so its homework is hidden until it is published again.
+        List<Assignment> assignments = assignmentRepository.findBySchoolClassIdsFetched(classIds).stream()
+                .filter(a -> a.getQuiz().getStatus() == QuizStatus.PUBLISHED)
+                .toList();
         List<Long> quizIds = assignments.stream().map(a -> a.getQuiz().getId()).distinct().toList();
         Map<Long, List<QuizAttempt>> attemptsByQuiz = attemptRepository.findByStudentIdAndQuizIdIn(student.getId(), quizIds)
                 .stream().collect(Collectors.groupingBy(a -> a.getQuiz().getId()));
@@ -181,6 +184,7 @@ public class AssignmentService {
         Assignment assignment = assignmentRepository.findByIdForUpdate(id).orElse(null);
         Instant now = Instant.now(clock);
         if (assignment == null || assignment.getReminderSentAt() != null
+                || assignment.getQuiz().getStatus() != QuizStatus.PUBLISHED // not marked: a republish still reminds
                 || !assignment.getDueAt().isAfter(now)
                 || assignment.getDueAt().isAfter(now.plus(Duration.ofHours(reminderLeadHours)))) {
             return;

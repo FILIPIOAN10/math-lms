@@ -31,8 +31,8 @@ public interface AssignmentRepository extends JpaRepository<Assignment, Long> {
     @Query("select a from Assignment a where a.id = :id")
     Optional<Assignment> findByIdForUpdate(@Param("id") Long id);
 
-    /** Assignments still waiting for their reminder whose deadline falls in {@code (now, until]}. */
+    /** Assignments of a published quiz still waiting for their reminder whose deadline falls in {@code (now, until]}. */
     @Query("select a.id from Assignment a where a.reminderSentAt is null and a.dueAt > :now and a.dueAt <= :until"
-            + " order by a.dueAt")
+            + " and a.quiz.status = ro.mathlms.quiz.QuizStatus.PUBLISHED order by a.dueAt")
     List<Long> findIdsDueForReminder(@Param("now") Instant now, @Param("until") Instant until);
 }

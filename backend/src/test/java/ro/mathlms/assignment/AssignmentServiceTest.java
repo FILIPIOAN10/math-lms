@@ -430,4 +430,32 @@ class AssignmentServiceTest {
         verify(publisher, never()).publish(any(), any());
         assertThat(assignment.getReminderSentAt()).isEqualTo(clock.now);
     }
+
+    // --- M1: homework of an unpublished quiz ---
+
+    @Test
+    void aStudentDoesNotSeeHomeworkWhoseQuizWasUnpublished() {
+        User ana = student(1L, "Ana Pop");
+        Quiz pulled = withId(new Quiz("Retras", null), 11L); // a draft: published once, then pulled back
+        Assignment visible = assignment(1L);
+        Assignment hidden = withId(new Assignment(pulled, ninth, due, clock.now), 2L);
+        when(userRepository.findByEmail(ana.getEmail())).thenReturn(Optional.of(ana));
+        when(enrollmentRepository.findClassIdsByStudentId(1L)).thenReturn(List.of(5L));
+        when(assignmentRepository.findBySchoolClassIdsFetched(List.of(5L))).thenReturn(List.of(visible, hidden));
+
+        assertThat(service.myAssignments(ana.getEmail()))
+                .extracting(StudentAssignmentDto::quizTitle).containsExactly("Simulare EN");
+    }
+
+    @Test
+    void noReminderIsQueuedWhileTheQuizIsUnpublishedAndTheAssignmentStaysUnreminded() {
+        Quiz pulled = withId(new Quiz("Retras", null), 11L);
+        Assignment assignment = withId(new Assignment(pulled, ninth, clock.now.plus(Duration.ofHours(20)), clock.now), 1L);
+        when(assignmentRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(assignment));
+
+        service.queueReminders(1L);
+
+        verify(publisher, never()).publish(any(), any());
+        assertThat(assignment.getReminderSentAt()).isNull(); // republishing it later still gets the reminder out
+    }
 }
