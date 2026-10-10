@@ -311,7 +311,9 @@ test → `204` fără corp.
 - progresul **nu se stochează**, e dedus din încercările elevului: contează doar un **test** (nu o practică) pornit după crearea temei; prima predare e cea care contează (o reluare ulterioară nu face o predare la timp „întârziată”)
 - **Ca elev** (înscris în clasa respectivă): pe `/quizzes`, secțiunea **Teme** deasupra „Teste disponibile”, cele nepredate întâi, după termen: insigna „De făcut / În lucru / Termen depășit / Predată / Predată cu întârziere”, „Termen: … (peste 3 zile)”, butonul **Începe / Continuă / Vezi rezultatul**
 - ștergerea quiz-ului sau a clasei șterge și temele lui (CASCADE)
-- **Reamintire pe email** (implicit OPRITĂ: `NOTIFY_ASSIGNMENT_REMINDER=true`, cere SMTP real): cu ≤ 24 h înainte de termen, **o singură dată per temă**, fiecare elev care n-a predat primește un email cu linkul testului; mutarea termenului reîarmează reamintirea. Verificare: `select event_type, status from outbox_event where event_type='ASSIGNMENT_REMINDER_EMAIL'`.
+- **Reamintire pe email** (implicit OPRITĂ: `NOTIFY_ASSIGNMENT_REMINDER=true`, cere SMTP real): cu ≤ 24 h înainte de termen, **o singură dată per temă**, fiecare elev care n-a predat primește un email cu linkul testului; mutarea termenului reîarmează reamintirea.
+  **Părintele legat de elev primește și el o copie** („Ana are de predat tema …”, cu linkul spre pagina copilului), doar dacă copilul n-a predat
+  nici la momentul trimiterii; `NOTIFY_ASSIGNMENT_REMINDER_PARENTS=false` = doar elevii. Un părinte dezlegat/șters între timp nu primește nimic. Verificare: `select event_type, status from outbox_event where event_type='ASSIGNMENT_REMINDER_EMAIL'`.
   Config (opțional): `app.assignments.reminder-lead-hours` (24), `.reminder-interval-ms` (900000 = 15 min).
 
 Verificare rapidă prin API (ca admin): `POST /api/admin/assignments {"quizId":…,"schoolClassId":…,"dueAt":"2026-10-12T15:00:00Z"}` → 201 cu rezumatul; ca elev: `GET /api/quiz/assignments`.
@@ -394,7 +396,11 @@ Buton pe Dashboard (elev): **Progresul meu**. Graficul arată doar testele **not
 ### 13. Părinte — copiii mei (`/parent`, ca `parinte@mathlms.local`)
 Prerechizit: adminul a legat elevul de părinte la `/admin/links`. Din bara de sus: **Copiii mei**.
 - Lista conține DOAR elevii legați de acest cont; fără nimeni legat → „Niciun elev nu este legat încă…”
-- **Vezi testele** → încercările copilului (status, dată, „x / max p · nota n”) → **Vezi rezultatul** (aceeași vedere ca elevului, formulată pentru părinte: „Răspunsul elevului”), **cu comentariile profesorului, dar fără poza** (nu există endpoint de părinte pentru poze)
+- pe **Acasă**, cardul fiecărui copil arată „2 teme de predat · 1 cu termenul depășit” (sau „Nicio temă de predat.”)
+- **Vezi testele** (pagina copilului, titlul = numele copilului) → secțiunea **Teme**: temele clasei cu insigna (De făcut / În lucru / Termen depășit /
+  Predată / Predată cu întârziere) și termenul — **fără** butoane Începe/Continuă (părintele nu dă testul); la cele predate **Vezi rezultatul**.
+  API: `GET /api/parent/children/{id}/assignments` (copil străin → 403)
+- apoi încercările copilului (status, dată, „x / max p · nota n”) → **Vezi rezultatul** (aceeași vedere ca elevului, formulată pentru părinte: „Răspunsul elevului”), **cu comentariile profesorului, dar fără poza** (nu există endpoint de părinte pentru poze)
 - Părintele nu vede copilul altui părinte: `/api/parent/children/{id}/attempts` pe un id străin → **403**; la fel pentru un attempt străin pus sub id-ul propriului copil și pentru id-uri inexistente (nu se poate „ghici” ce există). Elev/admin pe `/api/parent/**` → 403; părinte neaprobat → 403
 - Un părinte vede în `/content` DOAR clasele în care e înscris vreunul dintre copiii lui (`GET /api/classes` îi întoarce doar acelea; cartea/capitolul/exercițiul altei clase → 404). Fără copii legați → „niciun elev legat”; elevul/părintele nu pot ghici id-uri din alte clase
 

@@ -5,29 +5,49 @@ import { Card, CardContent } from '@/components/ui/card'
 import { AttemptStatusBadge } from '@/components/AttemptStatusBadge'
 import { ProgressChart } from '@/components/ProgressChart'
 import { AttemptModeBadge } from '@/components/AttemptModeBadge'
-import { getChildAttempts, getChildProgress, type MyAttemptDto, type ProgressPointDto } from '@/lib/api'
+import { AssignmentsSection } from '@/components/AssignmentsSection'
+import {
+  getChildAssignments,
+  getChildAttempts,
+  getChildProgress,
+  listMyChildren,
+  type MyAttemptDto,
+  type ProgressPointDto,
+  type StudentAssignment,
+} from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
 import { scoreLine } from '@/lib/grades'
 import { formatDate } from '@/lib/format'
 import { PageHeader } from '@/components/PageHeader'
 
-/** One child's attempts (read-only). A child that is not yours answers 403, shown as the error. */
+/**
+ * One child, read-only: their homework (what is due, overdue, handed in), progress chart and attempts. A child that is
+ * not yours answers 403, shown as the error.
+ */
 export function ParentChildPage() {
   const { childId } = useParams<{ childId: string }>()
   const [attempts, setAttempts] = useState<MyAttemptDto[] | null>(null)
   const [progress, setProgress] = useState<ProgressPointDto[] | null>(null)
+  const [assignments, setAssignments] = useState<StudentAssignment[] | null>(null)
+  const [childName, setChildName] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
-    Promise.all([getChildAttempts(Number(childId)), getChildProgress(Number(childId))])
-      .then(([a, p]) => {
+    const id = Number(childId)
+    Promise.all([getChildAttempts(id), getChildProgress(id), getChildAssignments(id)])
+      .then(([a, p, hw]) => {
         if (!cancelled) {
           setAttempts(a)
           setProgress(p)
+          setAssignments(hw)
         }
       })
       .catch((e) => !cancelled && setError(errorMessage(e)))
+    // Only for the title: the page still works without the name.
+    listMyChildren()
+      .then((children) => !cancelled && setChildName(children.find((c) => c.id === id)?.fullName ?? null))
+      .catch(() => undefined)
     return () => {
       cancelled = true
     }
@@ -37,12 +57,21 @@ export function ParentChildPage() {
     <div className="p-4">
       <div className="mx-auto max-w-3xl space-y-4">
         <PageHeader
-          title="Testele copilului"
-          breadcrumbs={[{ label: 'Copiii mei', to: '/parent' }, { label: 'Testele copilului' }]}
+          title={childName ?? 'Copilul meu'}
+          description="Temele, progresul și testele date."
+          breadcrumbs={[{ label: 'Copiii mei', to: '/parent' }, { label: childName ?? 'Copilul meu' }]}
         />
 
         {error && <p className="text-sm text-destructive">{error}</p>}
         {!attempts && !error && <p className="text-muted-foreground">Se încarcă...</p>}
+        {assignments && (
+          <AssignmentsSection
+            assignments={assignments}
+            childId={Number(childId)}
+            title="Teme"
+            emptyText="Nicio temă dată clasei copilului."
+          />
+        )}
         {progress && (
           <Card>
             <CardContent className="space-y-2 py-4">

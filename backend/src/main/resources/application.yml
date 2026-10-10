@@ -119,6 +119,9 @@ app:
     # ~24 h before the deadline. OFF by default for the same reason; set NOTIFY_ASSIGNMENT_REMINDER=true where SMTP is real.
     assignment-reminder:
       enabled: ${NOTIFY_ASSIGNMENT_REMINDER:false}
+  # While that reminder is on, a student's linked parent gets their own copy too; false = students only.
+  assignments:
+    remind-parents: ${NOTIFY_ASSIGNMENT_REMINDER_PARENTS:true}
   # File storage: local filesystem now, S3/MinIO drop-in later (see FileService seam).
   storage:
     quiz-photos-dir: ${QUIZ_PHOTOS_DIR:uploads/quiz-photos}

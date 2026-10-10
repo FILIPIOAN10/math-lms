@@ -62,7 +62,7 @@ class AssignmentServiceTest {
     private final SettableClock clock = new SettableClock();
     private final AssignmentService service = new AssignmentService(
             assignmentRepository, quizRepository, schoolClassRepository, enrollmentRepository,
-            attemptRepository, userRepository, publisher, clock, 24);
+            attemptRepository, userRepository, publisher, clock, 24, true);
 
     private final SchoolClass ninth = withId(new SchoolClass("Clasa a 9-a", null), 5L);
     private final Quiz quiz = published(withId(new Quiz("Simulare EN", null), 10L));
@@ -457,5 +457,50 @@ class AssignmentServiceTest {
 
         verify(publisher, never()).publish(any(), any());
         assertThat(assignment.getReminderSentAt()).isNull(); // republishing it later still gets the reminder out
+    }
+
+    // --- reminders for parents ---
+
+    private Assignment dueSoonWithRoster(User... students) {
+        Assignment assignment = withId(new Assignment(quiz, ninth, clock.now.plus(Duration.ofHours(20)), clock.now), 1L);
+        when(assignmentRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(assignment));
+        when(enrollmentRepository.findBySchoolClassIdFetchStudent(5L))
+                .thenReturn(java.util.Arrays.stream(students).map(s -> new Enrollment(s, ninth)).toList());
+        when(attemptRepository.findForAssignment(eq(10L), any(), eq(assignment.getCreatedAt()))).thenReturn(List.of());
+        return assignment;
+    }
+
+    private User withParent(User child, long parentId) {
+        User parent = withId(new User("parinte" + parentId + "@scoala.ro", "Parinte " + parentId, Role.PARENT), parentId);
+        child.linkParent(parent);
+        return child;
+    }
+
+    @Test
+    void theLinkedParentOfAStudentWhoHasNotHandedInIsRemindedToo() {
+        User ana = withParent(student(1L, "Ana Pop"), 50L);
+        User bob = student(2L, "Bob Ionescu"); // no parent linked
+        dueSoonWithRoster(ana, bob);
+
+        service.queueReminders(1L);
+
+        ArgumentCaptor<Object> payloads = ArgumentCaptor.forClass(Object.class);
+        verify(publisher, times(3)).publish(eq(OutboxEventTypes.ASSIGNMENT_REMINDER_EMAIL), payloads.capture());
+        assertThat(payloads.getAllValues()).containsExactly(
+                new AssignmentReminderPayload(1L, 1L),
+                new AssignmentReminderPayload(1L, 1L, AssignmentReminderPayload.Recipient.PARENT),
+                new AssignmentReminderPayload(1L, 2L));
+    }
+
+    @Test
+    void parentsAreLeftOutWhenTheSettingIsOff() {
+        AssignmentService withoutParents = new AssignmentService(
+                assignmentRepository, quizRepository, schoolClassRepository, enrollmentRepository,
+                attemptRepository, userRepository, publisher, clock, 24, false);
+        dueSoonWithRoster(withParent(student(1L, "Ana Pop"), 50L));
+
+        withoutParents.queueReminders(1L);
+
+        verify(publisher, times(1)).publish(OutboxEventTypes.ASSIGNMENT_REMINDER_EMAIL, new AssignmentReminderPayload(1L, 1L));
     }
 }

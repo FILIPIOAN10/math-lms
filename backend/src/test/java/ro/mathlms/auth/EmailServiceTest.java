@@ -71,4 +71,17 @@ class EmailServiceTest {
                 .contains("6 octombrie 2026").contains("13:00")
                 .contains(FRONTEND + "/quizzes/10/take");
     }
+
+    @Test
+    void parentAssignmentReminderNamesTheChildTheQuizTheDeadlineAndLinksToTheChild() {
+        service.sendAssignmentReminderToParent("maria@scoala.ro", "Ana Pop", "Simulare EN",
+                java.time.Instant.parse("2026-10-06T10:00:00Z"), 2L);
+
+        SimpleMailMessage sent = captureSentMessage();
+        assertThat(sent.getTo()).containsExactly("maria@scoala.ro");
+        assertThat(sent.getSubject()).contains("Ana Pop").contains("Simulare EN");
+        assertThat(sent.getText()).contains("Ana Pop").contains("Simulare EN")
+                .contains("6 octombrie 2026").contains("13:00")
+                .contains(FRONTEND + "/parent/children/2");
+    }
 }

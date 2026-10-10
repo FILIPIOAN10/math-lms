@@ -16,24 +16,33 @@ const TONES: Record<BadgeTone, string> = {
 /**
  * The student's homework: quizzes their teacher assigned to their class with a deadline. The deadline is soft - an
  * overdue assignment can still be done, it is only flagged. The list arrives ordered (not done first, soonest first).
+ *
+ * With `childId` it is the parent's read-only view of that child's homework: no buttons to start or continue, and a
+ * handed-in one links to the parent's page for the result. `emptyText` shows a line instead of hiding an empty list.
  */
 export function AssignmentsSection({
   assignments,
   nowMs,
   title = 'Teme',
+  childId,
+  emptyText,
 }: {
   assignments: StudentAssignment[]
   nowMs?: number
   title?: string
+  childId?: number
+  emptyText?: string
 }) {
   const [loadedAt] = useState(() => Date.now()) // "now" is fixed when the list is shown; a test can pass its own
   const headingId = useId()
   const now = nowMs ?? loadedAt
-  if (assignments.length === 0) return null
+  if (assignments.length === 0 && !emptyText) return null
+  const parentView = childId !== undefined
 
   return (
     <section className="space-y-2" data-testid="assignments" aria-labelledby={headingId}>
       <h2 id={headingId} className="font-medium">{title}</h2>
+      {assignments.length === 0 && <p className="text-sm text-muted-foreground">{emptyText}</p>}
       {assignments.map((a) => {
         const badge = assignmentBadge(a)
         const done = a.state === 'SUBMITTED' || a.state === 'GRADED'
@@ -52,12 +61,12 @@ export function AssignmentsSection({
               </div>
               {done && a.attemptId !== null ? (
                 <Link
-                  to={`/quizzes/attempts/${a.attemptId}/result`}
+                  to={parentView ? `/parent/children/${childId}/attempts/${a.attemptId}` : `/quizzes/attempts/${a.attemptId}/result`}
                   className={buttonVariants({ size: 'sm', variant: 'outline' })}
                 >
                   Vezi rezultatul
                 </Link>
-              ) : (
+              ) : parentView ? null : (
                 <Link to={`/quizzes/${a.quizId}/take`} className={buttonVariants({ size: 'sm' })}>
                   {a.state === 'IN_PROGRESS' ? 'Continuă' : 'Începe'}
                 </Link>

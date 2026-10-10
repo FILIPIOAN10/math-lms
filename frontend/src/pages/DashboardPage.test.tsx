@@ -25,6 +25,7 @@ const api = vi.hoisted(() => ({
   listMyChildren: vi.fn(),
   getChildAttempts: vi.fn(),
   getChildProgress: vi.fn(),
+  getChildAssignments: vi.fn(),
 }))
 vi.mock('@/lib/api', async (original) => ({ ...(await original<typeof import('@/lib/api')>()), ...api }))
 
@@ -204,6 +205,32 @@ describe('DashboardPage — teacher', () => {
 describe('DashboardPage — parent', () => {
   beforeEach(() => {
     auth.value = { user: user({ role: 'PARENT', fullName: 'Maria Parinte' }), loading: false }
+    api.getChildAssignments.mockResolvedValue([])
+  })
+
+  it("says how much homework each child still has to hand in, and what is overdue", async () => {
+    api.listMyChildren.mockResolvedValue([
+      { id: 4, fullName: 'Ana Student', email: 'ana@x.ro' },
+      { id: 5, fullName: 'Radu Nou', email: 'radu@x.ro' },
+    ])
+    api.getChildProgress.mockResolvedValue([])
+    api.getChildAttempts.mockResolvedValue([])
+    api.getChildAssignments.mockImplementation(async (id: number) =>
+      id === 4
+        ? [
+            { ...homework(1, 'Fracții', 'NOT_STARTED'), overdue: true },
+            homework(2, 'Ecuații', 'IN_PROGRESS'),
+            homework(3, 'Predată', 'GRADED'),
+          ]
+        : [],
+    )
+    renderHome()
+
+    const cards = await screen.findAllByTestId('child-card')
+    expect(within(cards[0]).getByTestId('child-homework')).toHaveTextContent('2 teme de predat')
+    expect(within(cards[0]).getByTestId('child-homework')).toHaveTextContent('1 cu termenul depășit')
+    expect(within(cards[1]).getByTestId('child-homework')).toHaveTextContent('Nicio temă de predat')
+    expect(api.getChildAssignments).toHaveBeenCalledWith(4)
   })
 
   it('shows each child with their latest grade and what waits for the teacher', async () => {

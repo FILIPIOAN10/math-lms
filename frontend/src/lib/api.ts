@@ -733,6 +733,12 @@ export async function getChildAttempts(childId: number): Promise<MyAttemptDto[]>
   return response.json()
 }
 
+/** The child's homework, exactly as the child sees it (a child that is not yours answers 403). */
+export async function getChildAssignments(childId: number): Promise<StudentAssignment[]> {
+  const response = await apiFetch(`/parent/children/${childId}/assignments`)
+  return response.json()
+}
+
 export async function getChildAttemptResult(childId: number, attemptId: number): Promise<AttemptResultViewDto> {
   const response = await apiFetch(`/parent/children/${childId}/attempts/${attemptId}/result`)
   return response.json()

@@ -20,7 +20,7 @@ import java.util.List;
 /**
  * Sends one "homework due soon" email. Re-reads the current state at send time and stays silent when there is nothing to
  * tell any more: the assignment is gone, its quiz was unpublished, its deadline has passed, the student is erased or left the class, or has handed
- * in since the reminder was queued. A mail failure throws, so the dispatcher backs off and retries.
+ * in since the reminder was queued. A parent's copy also needs a parent still linked (and not erased) at send time. A mail failure throws, so the dispatcher backs off and retries.
  */
 @Component
 public class AssignmentReminderEmailHandler implements OutboxHandler {
@@ -69,6 +69,18 @@ public class AssignmentReminderEmailHandler implements OutboxHandler {
                 assignment.getQuiz().getId(), List.of(student.getId()), assignment.getCreatedAt())).isDone();
         if (done) {
             log.info("Reminder for assignment {} / student {} skipped: already handed in", event.assignmentId(), event.studentId());
+            return;
+        }
+        if (event.forParent()) {
+            // The parent at send time: an unlinked or erased parent gets nothing.
+            User parent = student.getParent();
+            if (parent == null || parent.isErased()) {
+                log.info("Parent reminder for assignment {} / student {} skipped: no parent linked",
+                        event.assignmentId(), event.studentId());
+                return;
+            }
+            emailService.sendAssignmentReminderToParent(parent.getEmail(), student.getFullName(),
+                    assignment.getQuiz().getTitle(), assignment.getDueAt(), student.getId());
             return;
         }
         emailService.sendAssignmentReminder(student.getEmail(), student.getFullName(), assignment.getQuiz().getTitle(),

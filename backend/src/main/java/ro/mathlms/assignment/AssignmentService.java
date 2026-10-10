@@ -48,12 +48,14 @@ public class AssignmentService {
     private final OutboxEventPublisher publisher;
     private final Clock clock;
     private final int reminderLeadHours;
+    private final boolean remindParents;
 
     public AssignmentService(AssignmentRepository assignmentRepository, QuizRepository quizRepository,
                              SchoolClassRepository schoolClassRepository, EnrollmentRepository enrollmentRepository,
                              QuizAttemptRepository attemptRepository, UserRepository userRepository,
                              OutboxEventPublisher publisher, Clock clock,
-                             @Value("${app.assignments.reminder-lead-hours:24}") int reminderLeadHours) {
+                             @Value("${app.assignments.reminder-lead-hours:24}") int reminderLeadHours,
+                             @Value("${app.assignments.remind-parents:true}") boolean remindParents) {
         this.assignmentRepository = assignmentRepository;
         this.quizRepository = quizRepository;
         this.schoolClassRepository = schoolClassRepository;
@@ -63,6 +65,7 @@ public class AssignmentService {
         this.publisher = publisher;
         this.clock = clock;
         this.reminderLeadHours = reminderLeadHours;
+        this.remindParents = remindParents;
     }
 
     // ---------------------------------------------------------------- teacher: manage
@@ -175,7 +178,8 @@ public class AssignmentService {
     }
 
     /**
-     * Queues one reminder per student who has not handed in, inside this transaction (so the outbox rows commit with the
+     * Queues one reminder per student who has not handed in - and one for that student's linked parent, unless
+     * {@code app.assignments.remind-parents=false} - inside this transaction (so the outbox rows commit with the
      * "reminder sent" mark). Re-checked under the row lock: a second run, another instance, an assignment moved out of the
      * window or one already reminded is a no-op. An assignment with nobody pending is still marked, so it is not retried.
      */
@@ -195,6 +199,10 @@ public class AssignmentService {
             if (!progress.get(student.getId()).isDone()) {
                 publisher.publish(OutboxEventTypes.ASSIGNMENT_REMINDER_EMAIL,
                         new AssignmentReminderPayload(assignment.getId(), student.getId()));
+                if (remindParents && student.getParent() != null && !student.getParent().isErased()) {
+                    publisher.publish(OutboxEventTypes.ASSIGNMENT_REMINDER_EMAIL, new AssignmentReminderPayload(
+                            assignment.getId(), student.getId(), AssignmentReminderPayload.Recipient.PARENT));
+                }
             }
         }
         assignment.markReminderSent(now);

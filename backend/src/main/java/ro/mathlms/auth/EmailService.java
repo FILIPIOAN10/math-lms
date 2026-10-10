@@ -94,6 +94,17 @@ public class EmailService {
                         + frontendBaseUrl + "/quizzes/" + quizId + "/take");
     }
 
+    /** The parent's copy: the child has not handed in yet; the link opens the child's page (homework + results). */
+    public void sendAssignmentReminderToParent(String email, String studentName, String quizTitle,
+                                               java.time.Instant dueAt, Long studentId) {
+        send(email, studentName + " are de predat tema „" + quizTitle + "”",
+                "Bună!\n\n"
+                        + studentName + " are tema „" + quizTitle + "” cu termen "
+                        + DUE_FORMAT.format(dueAt.atZone(SCHOOL_ZONE)) + ".\n"
+                        + "Nu a predat-o încă. Temele și rezultatele copilului sunt aici:\n"
+                        + frontendBaseUrl + "/parent/children/" + studentId);
+    }
+
     private static String percent(int score, int maxScore) {
         return maxScore == 0 ? "" : " (" + Math.round(score * 100f / maxScore) + "%)";
     }

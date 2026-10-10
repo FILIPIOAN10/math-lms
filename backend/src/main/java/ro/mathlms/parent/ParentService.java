@@ -1,6 +1,8 @@
 package ro.mathlms.parent;
 
 import org.springframework.stereotype.Service;
+import ro.mathlms.assignment.AssignmentDtos.StudentAssignmentDto;
+import ro.mathlms.assignment.AssignmentService;
 import ro.mathlms.quiz.QuizAttemptService;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultViewDto;
 import ro.mathlms.quiz.StudentQuizDtos.MyAttemptDto;
@@ -20,8 +22,10 @@ public class ParentService {
 
     private final UserRepository userRepository;
     private final QuizAttemptService quizAttemptService;
+    private final AssignmentService assignmentService;
 
-    public ParentService(UserRepository userRepository, QuizAttemptService quizAttemptService) {
+    public ParentService(UserRepository userRepository, QuizAttemptService quizAttemptService, AssignmentService assignmentService) {
+        this.assignmentService = assignmentService;
         this.userRepository = userRepository;
         this.quizAttemptService = quizAttemptService;
     }
@@ -33,6 +37,12 @@ public class ParentService {
     public List<MyAttemptDto> childAttempts(String parentEmail, Long studentId) {
         User child = requireOwnChild(parentEmail, studentId);
         return quizAttemptService.listMyAttempts(child.getEmail());
+    }
+
+    /** The child's homework, exactly as the child sees it (the same derived progress, not done first). */
+    public List<StudentAssignmentDto> childAssignments(String parentEmail, Long studentId) {
+        User child = requireOwnChild(parentEmail, studentId);
+        return assignmentService.myAssignments(child.getEmail());
     }
 
     public List<ProgressPointDto> childProgress(String parentEmail, Long studentId) {

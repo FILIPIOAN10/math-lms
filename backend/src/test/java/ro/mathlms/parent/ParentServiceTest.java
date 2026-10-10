@@ -31,7 +31,8 @@ class ParentServiceTest {
 
     private final UserRepository userRepository = mock(UserRepository.class);
     private final QuizAttemptService quizAttemptService = mock(QuizAttemptService.class);
-    private final ParentService service = new ParentService(userRepository, quizAttemptService);
+    private final ro.mathlms.assignment.AssignmentService assignmentService = mock(ro.mathlms.assignment.AssignmentService.class);
+    private final ParentService service = new ParentService(userRepository, quizAttemptService, assignmentService);
 
     private final User parent = withId(new User(PARENT_EMAIL, "Maria Pop", Role.PARENT), 1L);
     private final User child = withId(new User(CHILD_EMAIL, "Ana Pop", Role.STUDENT), 2L);
@@ -137,5 +138,27 @@ class ParentServiceTest {
         assertThatThrownBy(() -> service.childResult(PARENT_EMAIL, 2L, 777L))
                 .isInstanceOf(ParentAccessException.class);
         verify(quizAttemptService, never()).getResult(org.mockito.ArgumentMatchers.anyLong(), anyString());
+    }
+
+    // --- homework ---
+
+    @Test
+    void anOwnChildsHomeworkIsLoadedThroughTheChildsOwnEmail() {
+        when(userRepository.findByEmail(PARENT_EMAIL)).thenReturn(Optional.of(parent));
+        when(userRepository.findByIdAndParentId(2L, 1L)).thenReturn(Optional.of(child));
+        when(assignmentService.myAssignments(CHILD_EMAIL)).thenReturn(List.of());
+
+        assertThat(service.childAssignments(PARENT_EMAIL, 2L)).isEmpty();
+        verify(assignmentService).myAssignments(CHILD_EMAIL);
+    }
+
+    @Test
+    void someoneElsesChildsHomeworkIsRefused() {
+        when(userRepository.findByEmail(PARENT_EMAIL)).thenReturn(Optional.of(parent));
+        when(userRepository.findByIdAndParentId(9L, 1L)).thenReturn(Optional.empty());
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.childAssignments(PARENT_EMAIL, 9L))
+                .isInstanceOf(ParentAccessException.class);
+        org.mockito.Mockito.verifyNoInteractions(assignmentService);
     }
 }

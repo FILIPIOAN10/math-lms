@@ -146,4 +146,58 @@ class AssignmentReminderEmailHandlerTest {
 
         verifyNoInteractions(emailService);
     }
+
+    // --- the parent's copy ---
+
+    private String parentPayload() {
+        return codec.serialize(new AssignmentReminderPayload(1L, 2L, AssignmentReminderPayload.Recipient.PARENT));
+    }
+
+    @Test
+    void emailsTheLinkedParentForAParentReminder() {
+        stubAll();
+        User maria = withId(new User("maria@scoala.ro", "Maria Pop", Role.PARENT), 7L);
+        ana.linkParent(maria);
+
+        handler.handle(parentPayload());
+
+        verify(emailService).sendAssignmentReminderToParent("maria@scoala.ro", "Ana Pop", "Simulare EN",
+                assignment.getDueAt(), 2L);
+        verify(emailService, never()).sendAssignmentReminder(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void staysSilentWhenTheChildHasNoParentAnyMoreOrTheParentWasErased() {
+        stubAll();
+        handler.handle(parentPayload()); // never linked (or unlinked since)
+
+        User gone = withId(new User("x@scoala.ro", "Sters", Role.PARENT), 7L);
+        ReflectionTestUtils.setField(gone, "erased", true);
+        ana.linkParent(gone);
+        handler.handle(parentPayload());
+
+        verifyNoInteractions(emailService);
+    }
+
+    @Test
+    void aParentIsNotRemindedOfHomeworkTheChildHasAlreadyHandedIn() {
+        stubAll();
+        ana.linkParent(withId(new User("maria@scoala.ro", "Maria Pop", Role.PARENT), 7L));
+        QuizAttempt done = new QuizAttempt(quiz, ana, now.minus(Duration.ofDays(1)), AttemptMode.TEST);
+        done.submit();
+        when(attemptRepository.findForAssignment(10L, List.of(2L), assignment.getCreatedAt())).thenReturn(List.of(done));
+
+        handler.handle(parentPayload());
+
+        verifyNoInteractions(emailService);
+    }
+
+    @Test
+    void aReminderQueuedBeforeParentsExistedStillGoesToTheStudent() {
+        stubAll();
+
+        handler.handle("{\"assignmentId\":1,\"studentId\":2}"); // a row written by the previous version
+
+        verify(emailService).sendAssignmentReminder("ana@scoala.ro", "Ana Pop", "Simulare EN", assignment.getDueAt(), 10L);
+    }
 }

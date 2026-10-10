@@ -4,6 +4,7 @@ import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { HomeEmpty } from '@/components/home/HomeBits'
 import {
+  getChildAssignments,
   getChildAttempts,
   getChildProgress,
   listMyChildren,
@@ -13,12 +14,15 @@ import {
 import { errorMessage } from '@/lib/errors'
 import { formatDate, roCount } from '@/lib/format'
 import { formatGrade, romanianGrade } from '@/lib/grades'
-import { latestGrade } from '@/lib/home'
+import { latestGrade, todoAssignments } from '@/lib/home'
 
 interface ChildOverview {
   child: ChildDto
   latest: ProgressPointDto | null
   awaiting: number
+  /** Homework still to hand in, and how much of it is past its deadline. */
+  homeworkToDo: number
+  homeworkOverdue: number
 }
 
 /** The parent's start page: one card per child with the latest grade and what waits for the teacher. */
@@ -32,11 +36,18 @@ export function ParentHome() {
       .then((children) =>
         Promise.all(
           children.map(async (child) => {
-            const [attempts, progress] = await Promise.all([getChildAttempts(child.id), getChildProgress(child.id)])
+            const [attempts, progress, homework] = await Promise.all([
+              getChildAttempts(child.id),
+              getChildProgress(child.id),
+              getChildAssignments(child.id),
+            ])
+            const todo = todoAssignments(homework)
             return {
               child,
               latest: latestGrade(progress),
               awaiting: attempts.filter((a) => a.mode === 'TEST' && a.status === 'SUBMITTED').length,
+              homeworkToDo: todo.length,
+              homeworkOverdue: todo.filter((a) => a.overdue).length,
             }
           }),
         ),
@@ -61,7 +72,7 @@ export function ParentHome() {
 
   return (
     <div className="space-y-3">
-      {overviews.map(({ child, latest, awaiting }) => (
+      {overviews.map(({ child, latest, awaiting, homeworkToDo, homeworkOverdue }) => (
         <Card key={child.id} data-testid="child-card">
           <CardContent className="space-y-3 py-4">
             <div className="flex items-center justify-between gap-3">
@@ -70,6 +81,18 @@ export function ParentHome() {
                 Vezi detalii
               </Link>
             </div>
+            <p data-testid="child-homework" className="text-sm">
+              {homeworkToDo === 0 ? (
+                <span className="text-muted-foreground">Nicio temă de predat.</span>
+              ) : (
+                <>
+                  <span className="font-medium">{roCount(homeworkToDo, 'temă', 'teme')} de predat</span>
+                  {homeworkOverdue > 0 && (
+                    <span className="font-medium text-destructive"> · {homeworkOverdue} cu termenul depășit</span>
+                  )}
+                </>
+              )}
+            </p>
             <div className="grid gap-3 sm:grid-cols-[2fr_1fr]">
               <div>
                 <p className="text-xs font-medium text-muted-foreground">Ultima notă</p>
