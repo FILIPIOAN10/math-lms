@@ -462,6 +462,8 @@ describe('TakeQuizPage', () => {
 
       const img = await screen.findByRole('img', { name: 'Poza ta pentru subiectul 3' })
       expect(img.getAttribute('src')).toContain('v=1')
+      // a plain-words confirmation as well (the E2E suite waits for it too)
+      expect(screen.getByRole('status')).toHaveTextContent('Poză încărcată')
     })
   })
 })

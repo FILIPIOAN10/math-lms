@@ -518,6 +518,11 @@ export function TakeQuizPage() {
                     <span>{photos[item.id] ? 'Înlocuiește poza' : 'Încarcă poza rezolvării'}</span>
                   </label>
                   {photos[item.id] && (
+                    <p role="status" className="text-emerald-700 dark:text-emerald-300">
+                      ✓ Poză încărcată. Poți alege alta ca să o înlocuiești.
+                    </p>
+                  )}
+                  {photos[item.id] && (
                     <a
                       href={ownPhotoUrl(attempt.attemptId, item.id)}
                       target="_blank"
