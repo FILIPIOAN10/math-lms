@@ -1,7 +1,7 @@
 # Testing guide
 
-Cum rulezi și testezi math-lms: stack local, teste automate și fluxuri manuale
-per feature. Acoperă tot ce e construit până la Faza 1.6 (auth + onboarding).
+Cum rulezi și testezi math-lms: stack local, date de test, teste automate și fluxuri manuale
+per feature. Actualizat la 2026-10-10 (`main` = `e349248`, migrări V1–V20).
 
 ## A. Pornește stack-ul
 
@@ -58,12 +58,72 @@ docker exec -i mathlms-postgres psql -U mathlms -d mathlms -c \
  "DELETE FROM users WHERE email LIKE '%mathlms.local';"
 ```
 
+### B2. Set de date de test (≈10 minute, pornind de la zero)
+
+Pornește de la o bază curată (șterge TOT conținutul și quiz-urile, păstrează cele 4 conturi ACTIVE, parola `Admin123!`):
+
+```bash
+# PowerShell, din math-lms/
+Get-Content -Raw deploy\dev-reset.sql | docker exec -i mathlms-postgres psql -U mathlms -d mathlms
+```
+
+Apoi, logat ca **admin**, construiește datele de mai jos (fiecare pas exersează și un feature):
+
+| # | Unde | Ce creezi |
+|---|---|---|
+| D1 | Conținut → **Adaugă clasă** | **Clasa a 8-a** și **Clasa a 9-a** (a 9-a rămâne fără elevi, intenționat) |
+| D2 | Clasa a 8-a → **Elevi** | înscrie **Ana** și **Radu** (înscriere în masă) |
+| D3 | Clasa a 8-a → **Adaugă carte** | **Algebra 8** → capitolul **Fracții** → 2 exerciții cu LaTeX (`$\frac{3}{4}+\frac{1}{8}$`) |
+| D4 | **Invitații** | leagă **Maria Parinte → Ana** |
+| D5 | **Quiz-uri → Adaugă quiz** | **Fracții — exersare**: toți elevii, fără limită, **„Permite practică” bifat** |
+| D6 | în editorul lui → **Importă din text** | lipește blocul **A** |
+| D7 | **Adaugă quiz** | **Simulare EN**: Clasa a 8-a, **10 minute**, fără practică → importă blocul **B** |
+| D8 | **Adaugă quiz** | **Ciornă goală** — fără subiecte |
+| D9 | | publică **Fracții — exersare** și **Simulare EN** |
+| D10 | Simulare EN → **Dă ca temă** | Clasa a 8-a, termen **mâine** |
+| D11 | Fracții — exersare → **Dă ca temă** | Clasa a 8-a, termen **peste 2 ore** |
+
+Ține la îndemână 1–2 poze (JPG) cu o rezolvare scrisă de mână.
+
+Blocul **A**:
+```
+1. Cât face $\frac{1}{2}+\frac{1}{4}$? (2p)
+a) $\frac{2}{6}$
+*b) $\frac{3}{4}$
+c) $\frac{1}{8}$
+R: Aduci la numitorul 4: $\frac{2}{4}+\frac{1}{4}=\frac{3}{4}$
+I: Care e numitorul comun?
+I: $\frac{1}{2}=\frac{2}{4}$
+
+2. Simplifică $\frac{6}{8}$. (1p)
+*a) $\frac{3}{4}$
+b) $\frac{2}{3}$
+```
+
+Blocul **B**:
+```
+1. Media aritmetică a numerelor 4, 8 și 12 este: (2p)
+a) 6
+*b) 8
+c) 12
+
+2. Perimetrul unui pătrat cu latura de 5 cm este: (3p)
+a) 10 cm
+*b) 20 cm
+
+3. Un produs costă 200 lei. După o reducere de 15%, cât costă? (5p)
+R: $200 - 30 = 170$ lei (5p)
+```
+
+Formatul importului: `*` marchează varianta corectă, `(Np)` dă punctajul, `R:` = rezolvare/barem, `I:` = indiciu (max 5),
+un subiect fără variante = subiect deschis (cu poză).
+
 ## C. Testare automată
 
 Rulează asta înainte de orice commit.
 
 ```bash
-# Backend — 534 teste (necesită Docker pentru Testcontainers)
+# Backend — 769 teste (necesită Docker pentru Testcontainers)
 cd math-lms/backend && ./mvnw test
 
 # Doar suita de conținut (Faza 2)
@@ -73,7 +133,10 @@ cd math-lms/backend && ./mvnw test
 cd math-lms/frontend && npm test && npm run build
 ```
 
-Frontend: **Vitest + Testing Library** (`npm test`, 28 teste): clientul API (header CSRF doar pe scrieri, refresh silențios la 401 cu o singură rotație pentru cereri paralele, fără refresh la login greșit), `ProgressChart`, `AttemptResultView` (formulare elev/părinte, bareme), `RoleRoute` (toate redirecturile), mesajele de eroare ale `LoginPage` (401/403/429). Rulează și în CI. Fluxurile cap-coadă rămân în suita E2E (Selenium).
+Frontend: **Vitest + Testing Library** (`npm test`, 197 teste în 26 fișiere): clientul API (header CSRF doar pe scrieri, refresh silențios la 401 cu o singură rotație pentru cereri paralele, fără refresh la login greșit), `AppShell` + paginile de start pe rol, `TakeQuizPage` (practică, indicii, navigator, dialogul de predare, cronometru, poze), `AttemptResultView` (nota, comentariile profesorului, poza proprie), `AdminGradingPage`, `AdminQuizzesPage` (meniul ⋯, editorul pe URL), `StudentQuizListPage`, `PageHeader`, `RowMenu`, nota 1–10 (`grades.ts`), `RoleRoute`, `LoginPage`. Rulează și în CI. Fluxurile cap-coadă rămân în suita E2E (Selenium).
+
+O rulare izolată poate pica rar în `VerificationTokenServiceTest.rejectsTamperedToken` (test instabil, cunoscut: modifică
+ultimele 2 caractere ale semnăturii, care uneori nu schimbă semnătura decodată) — rerulează; fixul e în așteptare.
 
 La finalul suitei backend poate apărea `Surefire is going to kill self fork JVM` — e inofensiv
 (build-ul rămâne SUCCESS): testele de repository își pornesc fiecare propriul container Postgres,
@@ -100,6 +163,9 @@ backend `:8080`, Vite `:5173`) și a conturilor seed din secțiunea B. Sunt excl
 - `ParentE2eTest`: adminul leagă elevul de părinte, elevul predă un test → părintele (`parinte@mathlms.local`) îl vede la „Copiii mei” → elev → rezultat.
 - Parametri opționali: `-De2e.baseUrl=…` (implicit `http://localhost:5173`), `-De2e.apiUrl=…` (`http://localhost:8080`).
 - Selectorii sunt atributele `data-testid` din frontend; Page Objects în `backend/src/test/java/ro/mathlms/e2e/`.
+- Confirmările sunt dialogul aplicației (`ConfirmDialog`), nu `window.confirm`: `Page.acceptConfirm()` apasă `[data-testid=confirm-yes]`.
+  Fluxul așteaptă și textul „Poză încărcată” după upload — nu-l scoate din UI fără să schimbi `TakeQuizPage.java`.
+- În CI suita rulează **manual** (Actions → „E2E (Selenium)” → Run workflow), pe stack-ul de producție (`docker-compose.prod.yml`).
 - Logout-ul se face prin butonul din UI, nu `deleteAllCookies()`: cookie-ul de refresh e limitat la
   o cale sub `/api/auth`, iar SPA-ul ar reloga silențios utilizatorul.
 - **Datele lăsate de E2E** (quiz-uri „E2E flow/clasa/parinte <număr>”, clase „E2E clasa <număr>” în care e înscrisă Ana)
@@ -166,12 +232,26 @@ Buton pe Dashboard: **Conținut**. Read-only.
 - **Elev**: vede DOAR clasele în care e înscris (`GET /api/me/classes`, iar `GET /api/classes` îi întoarce tot doar clasele lui). Cartea/capitolul/exercițiul unei alte clase → **404** (nu 403), pe fiecare nivel: `/api/classes/{id}`, `/api/books/{id}`, `/api/chapters/{id}`, `/api/exercises/{id}` și listele lor (`ContentAccess`); neînscris nicăieri → „Nu ești înscris în nicio clasă”. Adminul/părintele văd toate clasele (Step 2.4a)
 
 ### 10. Admin — quiz builder (`/admin/quizzes`, ca admin)
-- **Adaugă quiz** → **Deschide** → **Adaugă subiect**: grilă (≥2 variante, exact una corectă) sau deschis (punctaj + barem)
+- lista: **titlul** deschide editorul; pe fiecare rând **o singură acțiune principală** — „Dă ca temă” (publicat) sau „Publică” (ciornă);
+  restul în meniul **⋯** (Statistici, Editează detaliile, Copiază, Depublică, apoi **Șterge** cu roșu, după un separator; merge și din tastatură)
+- editorul are adresă proprie **`/admin/quizzes/:id`**: refresh, Back și bookmark rămân pe același quiz; un id inexistent → eroarea + „Înapoi la quiz-uri”
+- **Adaugă quiz** te duce direct în editor → **Adaugă subiect**: grilă (pornește cu 4 variante, exact una corectă) sau deschis (punctaj + barem);
+  „Salvează și adaugă încă unul” ține dialogul deschis; antetul arată „n subiecte · Total: x p”
+- **Importă din text** adaugă un test întreg dintr-o dată (formatul e la §B2)
+- **Copiază** (din ⋯) creează o copie editabilă și o deschide; **Publică** e dezactivat pe un quiz fără subiecte
+- după ce un elev a dat quiz-ul, punctajele, tipul și varianta corectă sunt **înghețate** (textele se pot corecta); pentru altă variantă → Copiază
 - **Publică** — doar quiz-urile publicate apar la elevi
 - **Pentru clasa** (în dialogul quiz-ului): „Toți elevii” (implicit) sau o clasă — un quiz de clasă apare DOAR elevilor înscriși în ea; lista adminului arată „Clasa: …” / „Toți elevii”. Un elev care ghicește id-ul unui quiz al altei clase primește 404 (Step 2.4b, migrare V13)
 
 ### 11. Elev — dă un test (`/quizzes`, ca `student.activ@mathlms.local`)
-Buton pe Dashboard: **Testele mele**.
+Din bara de sus: **Testele mele**.
+- temele nepredate apar DOAR la „Teme”, nu și a doua oară la „Teste disponibile”
+- un test deja dat arată „✓ Dat · 8 / 11 p · nota 7,55” (sau „Predat — în corectare”), cu **Vezi rezultatul** (principal) și **Dă din nou**
+- pagina de start (nu creează nimic): numele testului, descrierea, „3 subiecte · 10 puncte · ⏱ 10 minute” (sau „Fără limită de timp”),
+  la teme „Temă — termen: … (peste 2 ore)”
+- în timpul testului: bara de jos numerotează subiectele (umplute = cu răspuns), click = sari la subiect;
+  „Trimite lucrarea” deschide dialogul: cu subiecte goale → „Ai 2 subiecte fără răspuns — Subiectele 2, 3…” + **Mergi la subiectul 2** / **Trimite oricum**
+- subiect deschis: butonul „📷 Încarcă poza rezolvării” → miniatura pozei + „✓ Poză încărcată”; altă poză → „Înlocuiește poza”, miniatura se schimbă
 - „Teste disponibile” → **Începe** (sau **Continuă** dacă ai unul în lucru) → **Începe testul**
 - bifează o variantă → „x / n răspunsuri salvate” crește; **reîncarcă pagina** → Continuă → variantele și poza revin
 - subiect deschis → alege o poză (una mare de pe telefon e micșorată automat la ≤2000 px înainte de upload)
@@ -182,7 +262,8 @@ Buton pe Dashboard: **Testele mele**.
 ### 11a. Quiz cronometrat — timer pe server (`/admin/quizzes`, apoi `/quizzes`)
 **Ca admin:** la „Adaugă quiz” / „Editează” completează **Limită de timp (minute)** (1–600; gol = fără limită). Lista arată „⏱ 45 min”.
 **Ca elev:** în „Teste disponibile” apare „⏱ 45 minute”; pe pagina testului scrie că cronometrul pornește la „Începe testul”.
-- bară sus „⏱ Timp rămas: mm:ss” (roșie în ultimul minut); la **0:00** lucrarea se trimite singură cu ce era salvat → pagina de rezultat
+- bară sus „⏱ Timp rămas: mm:ss” — **chihlimbar** în ultimele 5 minute, **roșie** în ultimul minut (cititorul de ecran anunță o dată la fiecare prag);
+  la **0:00** lucrarea se trimite singură cu ce era salvat → pagina de rezultat
 - serverul e sursa adevărului: după termen + 30 s grație, orice răspuns/poză e respins cu **409** („Timpul pentru acest test a expirat”);
   `submit` rămâne permis (se notează ce s-a salvat la timp)
 - ai închis tab-ul? jobul `AttemptExpiryJob` (la 30 s) trimite încercarea expirată singur — fără browser
@@ -199,7 +280,7 @@ Config (opțional): `app.quiz.expiry-job.enabled` (true), `.interval-ms` (30000)
 de aceea e opt-in per quiz: bifeaz-o doar pentru materiale de exersare, nu pentru un test care trebuie să rămână corect.
 **Ca elev:** pe quiz-urile bifate apare lângă **Începe** butonul **Exersează** (sau **Continuă practica**).
 - pagina de start: „Mod practică … nu se acordă notă, nu există cronometru”; bandă violet „Mod practică” sus; **niciun cronometru**, chiar dacă quiz-ul are limită
-- bifezi o variantă → imediat „✓ Corect!” / „✗ Greșit”, varianta corectă conturată verde, greșeala roșie, plus **Rezolvarea** (baremul) randată cu KaTeX; poți schimba răspunsul și feedback-ul se actualizează
+- bifezi o variantă → imediat „✓ Corect!” / „✗ Greșit”, varianta corectă conturată verde **și marcată ✓**, greșeala roșie **și marcată ✗** (nu doar prin culoare), plus **Rezolvarea** (baremul) randată cu KaTeX; poți schimba răspunsul și feedback-ul se actualizează
 - subiect deschis → după poză apare baremul „compară-l cu rezolvarea ta” (nu există verdict automat)
 - **Termină practica** → pagina de rezultat: insigna „Practică”, „fără notă”, „Grile corecte: n din m” — fără scor
 - reîncarci pagina → „Continuă practica” → răspunsurile și feedback-ul revin
@@ -236,11 +317,16 @@ test → `204` fără corp.
 Verificare rapidă prin API (ca admin): `POST /api/admin/assignments {"quizId":…,"schoolClassId":…,"dueAt":"2026-10-12T15:00:00Z"}` → 201 cu rezumatul; ca elev: `GET /api/quiz/assignments`.
 
 ### 12. Profesor — corectură (`/admin/grading`, ca admin)
-Buton pe Dashboard: **Corectură**.
+Din bara de sus: **Corectură** (numărul roșu = lucrări de corectat).
 - „De corectat” → **Corectează** → grilele (corectate automat), poza elevului (click = mărime completă), baremul
-- punctaj peste valoarea subiectului → eroare; punctaj valid → **Salvează punctajul** → „✓ notat cu X p”
-- **Finalizează nota** se deblochează când toate subiectele deschise au punctaj → lucrarea trece la „Notate”
-- ca elev, rezultatul arată acum nota finală (`X / max puncte`)
+- per subiect deschis: punctaj + **Comentariu pentru elev (opțional)** → **Salvează nota și comentariul** → „✓ notat cu X p”;
+  punctaj peste valoarea subiectului → eroare
+- **Comentariu pentru toată lucrarea (opțional)** → **Salvează comentariul** → „✓ Comentariu salvat”; merge și pe o lucrare deja
+  notată (inclusiv una doar cu grile, notată automat la predare); gol = șterge comentariul; max 2000 de caractere
+- **Finalizează nota** se deblochează când toate subiectele deschise au punctaj → dialog „Finalizezi nota?” → lucrarea trece la „Notate”
+- lista „Notate” arată „9 / 10 p · nota 9,10”
+- ca elev: rezultatul arată „9 / 10 puncte”, „Nota 9,10 · 90%”, **ambele comentarii** (chenar albastru) și propria poză
+- **nota** = 1 + 9 × procent (un punct „din oficiu”), cu 2 zecimale: 0% → 1, 50% → 5,50, 100% → 10; quiz fără puncte → fără notă
 
 ### 12h. Stack-ul de producție (Docker) — `docs/DEPLOY.md`
 `docker-compose.prod.yml`: nginx (singurul port publicat) + backend + Postgres + Redis (+ profil `monitoring`). Imaginile: `backend/Dockerfile` (Maven → JRE alpine, utilizator non-root, healthcheck pe `/actuator/health`) și `frontend/Dockerfile` (Vite → nginx, proxy `/api` + `/oauth2` + `/login/oauth2`, `/actuator` → 404, aceleași headere de securitate ca API-ul).
@@ -306,11 +392,47 @@ Buton pe Dashboard (elev): **Progresul meu**. Graficul arată doar testele **not
 - Fără teste notate → „Nu există încă teste notate…”. Punctajul maxim vine dintr-un singur query agregat pe toate quiz-urile implicate
 
 ### 13. Părinte — copiii mei (`/parent`, ca `parinte@mathlms.local`)
-Prerechizit: adminul a legat elevul de părinte la `/admin/links`. Buton pe Dashboard: **Copiii mei**.
+Prerechizit: adminul a legat elevul de părinte la `/admin/links`. Din bara de sus: **Copiii mei**.
 - Lista conține DOAR elevii legați de acest cont; fără nimeni legat → „Niciun elev nu este legat încă…”
-- **Vezi testele** → încercările copilului (status, dată, puncte) → **Vezi rezultatul** (aceeași vedere ca elevului, formulată pentru părinte: „Răspunsul elevului”)
+- **Vezi testele** → încercările copilului (status, dată, „x / max p · nota n”) → **Vezi rezultatul** (aceeași vedere ca elevului, formulată pentru părinte: „Răspunsul elevului”), **cu comentariile profesorului, dar fără poza** (nu există endpoint de părinte pentru poze)
 - Părintele nu vede copilul altui părinte: `/api/parent/children/{id}/attempts` pe un id străin → **403**; la fel pentru un attempt străin pus sub id-ul propriului copil și pentru id-uri inexistente (nu se poate „ghici” ce există). Elev/admin pe `/api/parent/**` → 403; părinte neaprobat → 403
 - Un părinte vede în `/content` DOAR clasele în care e înscris vreunul dintre copiii lui (`GET /api/classes` îi întoarce doar acelea; cartea/capitolul/exercițiul altei clase → 404). Fără copii legați → „niciun elev legat”; elevul/părintele nu pot ghici id-uri din alte clase
+
+### 14. Navigare + pagini de start pe rol (toate rolurile)
+- bara de sus (sticky) pe orice pagină după login, **în afară de pagina în care dai un test** (acolo cronometrul e sus)
+- linkurile fiecărui rol: **Elev** Acasă · Testele mele · Progresul meu · Conținut; **Părinte** Acasă · Copiii mei · Conținut;
+  **Profesor** Acasă · Conținut · Quiz-uri · Teme · Corectură · Conturi · Invitații — pagina curentă e evidențiată
+- la profesor: număr roșu pe **Corectură** (lucrări de corectat) și **Conturi** (conturi de aprobat), recitit la fiecare schimbare de pagină
+- dreapta: numele, rolul în română (Profesor/Elev/Părinte — niciodată `ADMIN`), butonul **Ieșire**
+- pe telefon linkurile trec pe un rând separat și se derulează orizontal
+- titlul tab-ului se schimbă pe fiecare pagină („Corectură · Math LMS”, „Rezultat · Simulare EN · Math LMS”)
+- **Acasă — elev:** „De făcut” (temele nepredate, cu Începe/Continuă), „Teste începute” (teste neterminate care nu sunt teme),
+  „Rezultate” (ultima notă `x / max puncte · nota n`, câte lucrări sunt în corectare)
+- **Acasă — profesor:** 3 plăci cu numere (lucrări de corectat, conturi de aprobat, teme deschise) care duc la pagina respectivă;
+  „Termene” (temele deschise + cele depășite în ultimele 7 zile la care lipsesc elevi, cu „x / y predate”; clasă fără elevi →
+  „Niciun elev în clasă”); „De corectat” (cine așteaptă nota)
+- **Acasă — părinte:** un card per copil cu ultima notă și câte teste sunt în corectare; fără copii legați → explicația
+- toate confirmările (ștergeri, predarea lucrării, finalizarea notei) sunt dialogul aplicației, nu fereastra browserului;
+  Escape / click în afară = Anulează
+
+### 15. Contul meu + GDPR (`/account`, orice rol)
+Din bara de sus: click pe numele tău („Contul meu” pe telefon).
+- **Profil**: nume, email, rolul în română, metoda de conectare („Email și parolă”, „Google” sau ambele)
+- **Parola** (cont cu parolă): parola actuală + nouă (min. 8, max. 72) + repetare → „✓ Parola a fost schimbată”; **celelalte dispozitive
+  sunt deconectate**, acesta rămâne conectat. Parolă actuală greșită → „Parola actuală nu e corectă.” (400); aceeași parolă → „trebuie să fie
+  diferită”; parolele noi diferite → mesaj fără cerere la server. Limită: 5 încercări / 15 min / utilizator (429)
+- cont doar-Google: fără formular, doar **Setează o parolă** → `/forgot-password`
+- **Dispozitive conectate**: fiecare sesiune (browser, IP, ultima folosire), „Acest dispozitiv” marcat; **Deconectează** pe altele;
+  **Deconectează-te de peste tot** (cu confirmare) → te scoate și de aici
+- **Datele tale** → **Descarcă datele mele** → `datele-mele-mathlms.zip` (profil, clase, încercări cu răspunsuri, note, comentariile
+  profesorului, pozele) — `GET /api/users/gdpr/export`
+- **Șterge contul** (elev/părinte): parola (lipsește la doar-Google) → confirmare → „Ți-am trimis un email” (cere **SMTP real** și o adresă
+  pe care o citești); parolă greșită → „Parola nu e corectă.”. Limită: 3 cereri / oră
+- linkul din email duce la **`/erase-account?token=…`**: deschiderea NU șterge nimic (scannerele de email deschid linkuri), abia
+  **Șterge definitiv contul** o face → „Contul a fost șters” + delogare. Token expirat/folosit → „Linkul a expirat…”; fără token → „Link invalid”
+- **profesorul** nu-și poate șterge contul din aplicație (explicat pe pagină; serverul răspunde 409) — fără el nimeni nu mai corectează/aprobă
+- ce face ștergerea: anonimizează contul (email `erased-…@erased.invalid`, fără parolă), șterge înscrierile, pozele și **comentariile
+  profesorului**, revocă toate sesiunile; notele rămân în statistici, fără nume
 
 ### Verificare rapidă prin API (ca admin, cu cookie)
 Scrierile (POST/PUT/DELETE, în afară de `/api/auth/**`) cer header-ul `X-XSRF-TOKEN` egal cu cookie-ul
