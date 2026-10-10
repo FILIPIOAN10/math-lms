@@ -102,6 +102,12 @@ backend `:8080`, Vite `:5173`) și a conturilor seed din secțiunea B. Sunt excl
 - Selectorii sunt atributele `data-testid` din frontend; Page Objects în `backend/src/test/java/ro/mathlms/e2e/`.
 - Logout-ul se face prin butonul din UI, nu `deleteAllCookies()`: cookie-ul de refresh e limitat la
   o cale sub `/api/auth`, iar SPA-ul ar reloga silențios utilizatorul.
+- **Datele lăsate de E2E** (quiz-uri „E2E flow/clasa/parinte <număr>”, clase „E2E clasa <număr>” în care e înscrisă Ana)
+  încurcă testarea manuală — ex. Ana pare să vadă „toate” quiz-urile de clasă. Curățare (doar baza de **dev**, într-o
+  singură tranzacție, păstrează conturile și restul datelor), din `math-lms/`:
+  PowerShell `Get-Content -Raw deploy\dev-cleanup-e2e.sql | docker exec -i mathlms-postgres psql -U mathlms -d mathlms`
+  (Git Bash: `... psql -U mathlms -d mathlms < deploy/dev-cleanup-e2e.sql`). Pozele încercărilor șterse rămân în
+  `backend/uploads/quiz-photos/` (orfane, inofensive).
 
 ## D. Testare manuală, per feature
 
