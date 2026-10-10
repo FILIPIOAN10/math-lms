@@ -1,10 +1,36 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useAuth } from '@/context/AuthContext'
+import { listAttemptsForGrading, listPendingUsers } from '@/lib/api'
+
+/** A small count on a dashboard button ("Corectură 3"); nothing when there is nothing to do. */
+function Count({ n, label }: { n: number | null; label: string }) {
+  if (!n) return null
+  return (
+    <span aria-label={label} className="ml-1.5 rounded-full bg-destructive px-1.5 text-xs font-semibold text-white">
+      {n}
+    </span>
+  )
+}
 
 export function DashboardPage() {
   const { user, logout } = useAuth()
+  const [pending, setPending] = useState<number | null>(null)
+  const [toGrade, setToGrade] = useState<number | null>(null)
+  const isAdmin = user?.role === 'ADMIN'
+
+  useEffect(() => {
+    if (!isAdmin) return
+    let cancelled = false
+    // Only hints on the buttons: if a call fails the dashboard still works, just without the number.
+    listPendingUsers().then((list) => !cancelled && setPending(list.length)).catch(() => undefined)
+    listAttemptsForGrading('SUBMITTED').then((list) => !cancelled && setToGrade(list.length)).catch(() => undefined)
+    return () => {
+      cancelled = true
+    }
+  }, [isAdmin])
 
   if (!user) {
     return null
@@ -55,10 +81,10 @@ export function DashboardPage() {
                     Teme
                   </Link>
                   <Link to="/admin/grading" className={buttonVariants({ variant: 'secondary' })}>
-                    Corectură
+                    Corectură<Count n={toGrade} label={`${toGrade} lucrări de corectat`} />
                   </Link>
                   <Link to="/admin/pending" className={buttonVariants({ variant: 'secondary' })}>
-                    Conturi în așteptare
+                    Conturi în așteptare<Count n={pending} label={`${pending} conturi de aprobat`} />
                   </Link>
                   <Link to="/admin/links" className={buttonVariants({ variant: 'secondary' })}>
                     Invitații și părinți

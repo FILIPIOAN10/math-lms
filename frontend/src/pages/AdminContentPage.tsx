@@ -194,7 +194,7 @@ function ExerciseDialog({
 function EnrollDialog({ open, onClose, schoolClass }: { open: boolean; onClose: () => void; schoolClass: SchoolClass }) {
   const [roster, setRoster] = useState<Enrollment[]>([])
   const [students, setStudents] = useState<AdminUserSummary[]>([])
-  const [selected, setSelected] = useState<number | ''>('')
+  const [picked, setPicked] = useState<Set<number>>(new Set())
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -210,19 +210,34 @@ function EnrollDialog({ open, onClose, schoolClass }: { open: boolean; onClose: 
   const enrolledIds = new Set(roster.map((r) => r.studentId))
   const candidates = students.filter((s) => !enrolledIds.has(s.id))
 
-  async function add() {
-    if (selected === '') return
+  function toggle(id: number) {
+    setPicked((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
+  }
+
+  /** One request per student, in order; one that fails does not stop the others, and is reported by name. */
+  async function addPicked() {
     setError(null)
     setBusy(true)
-    try {
-      const created = await enrollStudent(schoolClass.id, selected)
-      setRoster((prev) => [...prev, created])
-      setSelected('')
-    } catch (e) {
-      setError(errorMessage(e))
-    } finally {
-      setBusy(false)
+    const failures: string[] = []
+    for (const id of picked) {
+      try {
+        const created = await enrollStudent(schoolClass.id, id)
+        setRoster((prev) => [...prev, created])
+      } catch (e) {
+        failures.push(`${students.find((s) => s.id === id)?.fullName ?? id}: ${errorMessage(e)}`)
+      }
     }
+    setPicked(new Set())
+    setBusy(false)
+    if (failures.length > 0) setError(failures.join(' · '))
   }
 
   async function remove(enrollmentId: number) {
@@ -238,26 +253,35 @@ function EnrollDialog({ open, onClose, schoolClass }: { open: boolean; onClose: 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()} title={`Elevi — ${schoolClass.name}`}>
       <div className="space-y-4">
-        <div className="flex gap-2">
-          <select
-            className={`${selectClass} flex-1`}
-            value={selected}
-            disabled={busy || candidates.length === 0}
-            onChange={(e) => setSelected(e.target.value === '' ? '' : Number(e.target.value))}
-          >
-            <option value="">
-              {candidates.length === 0 ? 'Niciun elev de adăugat' : 'Alege un elev…'}
-            </option>
-            {candidates.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.fullName} ({s.email})
-              </option>
-            ))}
-          </select>
-          <Button onClick={add} disabled={busy || selected === ''}>
-            Adaugă
-          </Button>
-        </div>
+        {candidates.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Toți elevii activi sunt deja în această clasă.</p>
+        ) : (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span className="font-medium">Adaugă elevi</span>
+              <button
+                type="button"
+                className="text-muted-foreground hover:text-foreground hover:underline"
+                onClick={() => setPicked(picked.size === candidates.length ? new Set() : new Set(candidates.map((s) => s.id)))}
+              >
+                {picked.size === candidates.length ? 'Deselectează tot' : 'Selectează tot'}
+              </button>
+            </div>
+            <ul className="max-h-48 divide-y divide-border overflow-y-auto rounded-lg border border-border">
+              {candidates.map((s) => (
+                <li key={s.id}>
+                  <label className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm">
+                    <input type="checkbox" checked={picked.has(s.id)} disabled={busy} onChange={() => toggle(s.id)} />
+                    {s.fullName} <span className="text-muted-foreground">({s.email})</span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+            <Button onClick={addPicked} disabled={busy || picked.size === 0}>
+              {busy ? 'Se adaugă…' : `Adaugă selectații (${picked.size})`}
+            </Button>
+          </div>
+        )}
 
         {error && <p className="text-sm text-destructive">{error}</p>}
 
@@ -385,12 +409,18 @@ export function AdminContentPage() {
 
         {error && <p className="text-sm text-destructive">{error}</p>}
 
-        {/* Toolbar: add button for the current level */}
-        <div className="flex justify-end">
-          {!cls && <Button size="sm" onClick={() => setDialog({ kind: 'class', item: null })}>Adaugă clasă</Button>}
-          {cls && !book && <Button size="sm" onClick={() => setDialog({ kind: 'book', item: null })}>Adaugă carte</Button>}
-          {book && !chapter && <Button size="sm" onClick={() => setDialog({ kind: 'chapter', item: null })}>Adaugă capitol</Button>}
-          {chapter && <Button size="sm" onClick={() => setDialog({ kind: 'exercise', item: null })}>Adaugă exercițiu</Button>}
+        {/* Where you are + the main action for this level, side by side, so the button is where the eye already is */}
+        <div className="flex flex-wrap items-end justify-between gap-2">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">
+              {chapter ? 'Capitol · exerciții' : book ? 'Carte · capitole' : cls ? 'Clasă · cărți' : 'Clase'}
+            </p>
+            <h1 className="text-2xl font-semibold">{chapter?.title ?? book?.title ?? cls?.name ?? 'Conținut'}</h1>
+          </div>
+          {!cls && <Button onClick={() => setDialog({ kind: 'class', item: null })}>Adaugă clasă</Button>}
+          {cls && !book && <Button onClick={() => setDialog({ kind: 'book', item: null })}>Adaugă carte</Button>}
+          {book && !chapter && <Button onClick={() => setDialog({ kind: 'chapter', item: null })}>Adaugă capitol</Button>}
+          {chapter && <Button onClick={() => setDialog({ kind: 'exercise', item: null })}>Adaugă exercițiu</Button>}
         </div>
 
         {loading && <p className="text-muted-foreground">Se încarcă...</p>}
