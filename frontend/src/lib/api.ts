@@ -187,6 +187,17 @@ export async function linkParent(studentId: number, parentId: number): Promise<U
   return response.json()
 }
 
+/** A signed registration link (valid 7 days) that grants the invitee the given role. */
+export interface Invite {
+  role: Role
+  url: string
+}
+
+export async function createInvite(role: Role): Promise<Invite> {
+  const response = await postJson('/admin/invites', { role })
+  return response.json()
+}
+
 // --- Content hierarchy (Faza 2) ---
 
 export type Difficulty = 'EASY' | 'MEDIUM' | 'HARD'

@@ -123,10 +123,18 @@ backend `:8080`, Vite `:5173`) și a conturilor seed din secțiunea B. Sunt excl
 - alege un părinte pentru un student → **Leagă** → „Părinte curent" se actualizează; în DB `parent_id` setat
 - endpointul: `GET /api/admin/users?role=STUDENT|PARENT`, apoi `POST /api/admin/users/{id}/link-parent`
 
+### 4a. Admin — invitații (`/admin/links`, cardul „Invită utilizatori”, ca admin)
+Buton pe Dashboard: **Invitații și părinți**. Înregistrarea e doar pe bază de invitație — pe `/login` nu există (intenționat) un buton „Creează cont”.
+- alege **Rol** (Elev / Părinte — nu se pot genera invitații de admin din UI) → **Generează link** → apare „Link de invitație” + „Pentru rolul: …”
+- **Copiază** → „Copiat ✓”; dacă browserul refuză clipboard-ul, linkul rămâne selectat și apare „apasă Ctrl+C”
+- linkul e valabil **7 zile** și poate fi folosit de mai multe persoane (token semnat, nu se stochează); un link nou nu le invalidează pe cele vechi
+- endpointul: `POST /api/admin/invites {"role":"STUDENT"}` → `{role, url}`
+
 ### 5. Register + verify email (`/register?token=…`)
 - fără token → „Invitație necesară"
-- token-ul: `POST /api/admin/invites` (ca admin) → link `/register?token=…`
-- după submit → „Verifică-ți emailul"; linkul de confirmare ajunge pe SMTP-ul real din `.env`
+- token-ul: din cardul de invitații (§4a) → link `/register?token=…`; deschide-l într-o fereastră privată (altfel ești încă logat ca admin)
+- după submit → „Verifică-ți emailul"; linkul de confirmare ajunge pe SMTP-ul real din `.env` — folosește o adresă reală pe care o citești, nu `@mathlms.local`
+- după confirmare contul e `PENDING_APPROVAL` cu rolul din invitație → apare la `/admin/pending` → **Aprobă**
 
 ### 6. Forgot / reset parolă (`/forgot-password`, `/reset-password?token=…`)
 - mereu „dacă există un cont…" (anti-enumerare); linkul de reset vine pe email

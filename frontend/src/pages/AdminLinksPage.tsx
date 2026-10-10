@@ -9,6 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { InviteLinkCard } from '@/components/InviteLinkCard'
 import { listActiveUsers, linkParent, type AdminUserSummary } from '@/lib/api'
 
 export function AdminLinksPage() {
@@ -71,7 +72,8 @@ export function AdminLinksPage() {
 
   return (
     <div className="min-h-screen bg-muted p-4">
-      <div className="mx-auto max-w-4xl">
+      <div className="mx-auto max-w-4xl space-y-4">
+        <InviteLinkCard />
         <Card>
           <CardHeader>
             <CardTitle className="text-2xl">Leagă părinți de studenți</CardTitle>

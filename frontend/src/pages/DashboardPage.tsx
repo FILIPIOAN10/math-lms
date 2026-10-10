@@ -61,7 +61,7 @@ export function DashboardPage() {
                     Conturi în așteptare
                   </Link>
                   <Link to="/admin/links" className={buttonVariants({ variant: 'secondary' })}>
-                    Leagă părinți
+                    Invitații și părinți
                   </Link>
                 </>
               )}
