@@ -145,6 +145,71 @@ export async function logout(): Promise<void> {
   await apiFetch('/auth/logout', { method: 'POST' })
 }
 
+// ---------- "Contul meu": own account, sessions, GDPR ----------
+
+export interface Account {
+  email: string
+  fullName: string
+  role: Role | null
+  /** Has a password of its own (Google-only accounts do not). */
+  hasPassword: boolean
+  googleLinked: boolean
+}
+
+export async function getAccount(): Promise<Account> {
+  const response = await apiFetch('/me/account')
+  return response.json()
+}
+
+/** Signs every OTHER device out on success; a wrong current password is a 400 with the reason. */
+export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+  await postJson('/me/password', { currentPassword, newPassword })
+}
+
+export interface DeviceSession {
+  sessionId: string
+  deviceInfo: string
+  ipAddress: string
+  /** Epoch milliseconds. */
+  createdAt: number
+  lastUsedAt: number
+  /** The browser making this call. */
+  current: boolean
+}
+
+export async function listSessions(): Promise<DeviceSession[]> {
+  const response = await apiFetch('/auth/sessions')
+  return response.json()
+}
+
+export async function revokeSession(sessionId: string): Promise<void> {
+  await del(`/auth/sessions/${encodeURIComponent(sessionId)}`)
+}
+
+/** Every device, this one included. */
+export async function logoutAll(): Promise<void> {
+  await postJson('/auth/logout-all', {})
+}
+
+/** GDPR Art. 15: the whole account as a ZIP (profile, classes, attempts, answers, photos). */
+export async function downloadMyData(): Promise<Blob> {
+  const response = await apiFetch('/users/gdpr/export')
+  return response.blob()
+}
+
+/**
+ * GDPR Art. 17, step 1: emails a confirmation link; nothing is deleted yet. `password` is required for an account that
+ * has one (a wrong one answers 401), null for a Google-only account.
+ */
+export async function requestAccountErasure(password: string | null): Promise<void> {
+  await postJson('/users/gdpr/erase', password === null ? {} : { password })
+}
+
+/** Step 2, from the emailed link (no session needed): erases the account. A spent or expired token answers 400. */
+export async function confirmAccountErasure(token: string): Promise<void> {
+  await apiFetch(`/public/gdpr/erase/confirm?token=${encodeURIComponent(token)}`, { method: 'POST' })
+}
+
 export interface PendingUser {
   id: number
   email: string

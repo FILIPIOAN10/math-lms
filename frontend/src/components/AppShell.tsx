@@ -98,10 +98,18 @@ export function AppShell() {
             ))}
           </nav>
           <div className="ml-auto flex items-center gap-3">
-            <p className="hidden text-right leading-tight sm:block">
-              <span className="block text-sm font-medium">{user.fullName}</span>
-              <span className="block text-xs text-muted-foreground">{roleLabel(user.role)}</span>
-            </p>
+            <Link
+              to="/account"
+              title="Contul meu"
+              className="rounded-lg px-2 py-1 text-right leading-tight outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
+            >
+              <span className="text-sm font-medium sm:hidden">Contul meu</span>
+              <span className="hidden sm:block">
+                <span className="sr-only">Contul meu: </span>
+                <span className="block text-sm font-medium">{user.fullName}</span>
+                <span className="block text-xs text-muted-foreground">{roleLabel(user.role)}</span>
+              </span>
+            </Link>
             <Button variant="outline" size="sm" onClick={logout} data-testid="logout">
               Ieșire
             </Button>

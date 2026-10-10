@@ -132,4 +132,17 @@ class GdprErasureServiceTest {
         verify(emailService).sendErasureConfirmationEmail(org.mockito.ArgumentMatchers.eq("ok@scoala.ro"),
                 org.mockito.ArgumentMatchers.anyString());
     }
+
+    @Test
+    void aTeacherAccountCannotEraseItself() {
+        // The teacher runs the platform: erasing the (often only) ADMIN would lock everyone out of grading and approvals.
+        User teacher = new User("prof@scoala.ro", "Prof Pop", Role.ADMIN);
+        teacher.setPassword(passwordEncoder.encode("parola123"));
+        userRepository.save(teacher);
+
+        assertThatThrownBy(() -> service.requestErasure("prof@scoala.ro", "parola123"))
+                .isInstanceOf(ErasureNotAllowedException.class);
+        org.mockito.Mockito.verify(emailService, org.mockito.Mockito.never())
+                .sendErasureConfirmationEmail(org.mockito.ArgumentMatchers.eq("prof@scoala.ro"), org.mockito.ArgumentMatchers.anyString());
+    }
 }

@@ -29,6 +29,8 @@ const AdminQuizStatsPage = lazy(() => import('@/pages/AdminQuizStatsPage').then(
 const StudentProgressPage = lazy(() => import('@/pages/StudentProgressPage').then((m) => ({ default: m.StudentProgressPage })))
 const ParentChildrenPage = lazy(() => import('@/pages/ParentChildrenPage').then((m) => ({ default: m.ParentChildrenPage })))
 const ParentChildPage = lazy(() => import('@/pages/ParentChildPage').then((m) => ({ default: m.ParentChildPage })))
+const AccountPage = lazy(() => import('@/pages/AccountPage').then((m) => ({ default: m.AccountPage })))
+const EraseAccountPage = lazy(() => import('@/pages/EraseAccountPage').then((m) => ({ default: m.EraseAccountPage })))
 const ParentAttemptResultPage = lazy(() => import('@/pages/ParentAttemptResultPage').then((m) => ({ default: m.ParentAttemptResultPage })))
 
 function LoginRoute() {
@@ -55,6 +57,8 @@ function App() {
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/verify-email" element={<VerifyEmailPage />} />
           <Route path="/pending" element={<PendingPage />} />
+          {/* From the erasure confirmation email: works without a session (the token is the proof). */}
+          <Route path="/erase-account" element={<EraseAccountPage />} />
           {/* Taking a test has no app header: its timer is pinned to the top and nothing should pull the student away. */}
           <Route
             path="/quizzes/:id/take"
@@ -183,6 +187,14 @@ function App() {
                 <RoleRoute role="PARENT">
                   <ParentAttemptResultPage />
                 </RoleRoute>
+              }
+            />
+            <Route
+              path="/account"
+              element={
+                <ProtectedRoute>
+                  <AccountPage />
+                </ProtectedRoute>
               }
             />
             <Route

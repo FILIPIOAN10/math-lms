@@ -34,6 +34,9 @@ public class RateLimitConfig {
                 new RateLimitRule("register", "POST", "/api/auth/register", 5, Duration.ofHours(1), RateLimitKeyType.IP),
                 // The SPA refreshes silently on every 401, so this one is deliberately roomy.
                 new RateLimitRule("refresh", "POST", "/api/auth/refresh", 30, minute, RateLimitKeyType.IP),
+                // Guessing the current password from a stolen session, and erasure requests that each send an email.
+                new RateLimitRule("change-password", "POST", "/api/me/password", 5, Duration.ofMinutes(15), RateLimitKeyType.USER),
+                new RateLimitRule("gdpr-erase", "POST", "/api/users/gdpr/erase", 3, Duration.ofHours(1), RateLimitKeyType.USER),
                 // Expensive per-student write: the photo upload (image decoding + disk).
                 new RateLimitRule("photo-upload", "POST", "/api/quiz/attempts/*/responses/*/photo", 20, minute, RateLimitKeyType.USER)
         );

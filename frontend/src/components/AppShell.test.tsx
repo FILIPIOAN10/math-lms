@@ -98,6 +98,12 @@ describe('AppShell', () => {
     expect(api.listAttemptsForGrading).not.toHaveBeenCalled()
   })
 
+  it('leads to "Contul meu" from the account corner', () => {
+    auth.value.user = user({})
+    renderShell()
+    expect(within(screen.getByRole('banner')).getByRole('link', { name: /Contul meu/ })).toHaveAttribute('href', '/account')
+  })
+
   it('logs out from any page', async () => {
     auth.value.user = user({})
     renderShell('/quizzes')

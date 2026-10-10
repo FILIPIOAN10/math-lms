@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import ro.mathlms.gdpr.ErasureNotAllowedException;
 
 /** Maps auth-flow exceptions to HTTP responses without leaking internals. */
 @RestControllerAdvice
@@ -43,6 +44,16 @@ public class ApiExceptionHandler {
     }
 
     /** Credentials were correct but the account is not allowed a session yet. */
+    @ExceptionHandler(PasswordChangeException.class)
+    public ResponseEntity<String> handlePasswordChange(PasswordChangeException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ex.getMessage());
+    }
+
+    @ExceptionHandler(ErasureNotAllowedException.class)
+    public ResponseEntity<String> handleErasureNotAllowed(ErasureNotAllowedException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
+    }
+
     @ExceptionHandler(AccountNotActiveException.class)
     public ResponseEntity<String> handleAccountNotActive(AccountNotActiveException ex) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ex.reason());
