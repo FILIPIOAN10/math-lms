@@ -1,6 +1,7 @@
 package ro.mathlms.content;
 
 import org.junit.jupiter.api.Test;
+import org.mockito.InOrder;
 import org.springframework.data.domain.Sort;
 
 import java.util.List;
@@ -9,6 +10,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -96,10 +98,47 @@ class SchoolClassServiceTest {
 
     @Test
     void deleteRemovesWhenPresent() {
-        when(repository.existsById(1L)).thenReturn(true);
+        when(repository.findById(1L)).thenReturn(Optional.of(new SchoolClass("Clasa a 9-a", null)));
 
         service.delete(1L);
 
         verify(repository).deleteById(1L);
+    }
+
+    @Test
+    void deleteUnenrollsTheStudentsBeforeRemovingTheClass() {
+        when(repository.findById(1L)).thenReturn(Optional.of(new SchoolClass("Clasa a 9-a", null)));
+
+        service.delete(1L);
+
+        InOrder order = inOrder(repository);
+        order.verify(repository).deleteEnrollments(1L);
+        order.verify(repository).deleteById(1L);
+    }
+
+    @Test
+    void deleteRefusesWhileBooksOrQuizzesBelongToTheClassAndSaysWhich() {
+        when(repository.findById(1L)).thenReturn(Optional.of(new SchoolClass("Clasa a 9-a", null)));
+        when(repository.countBooks(1L)).thenReturn(2L);
+        when(repository.countQuizzes(1L)).thenReturn(1L);
+
+        assertThatThrownBy(() -> service.delete(1L))
+                .isInstanceOf(ContentInUseException.class)
+                .hasMessageContaining("Clasa a 9-a")
+                .hasMessageContaining("2 cărți")
+                .hasMessageContaining("1 quiz");
+        verify(repository, never()).deleteEnrollments(any());
+        verify(repository, never()).deleteById(any());
+    }
+
+    @Test
+    void deleteRefusalOnlyGivesTheAdviceThatApplies() {
+        when(repository.findById(1L)).thenReturn(Optional.of(new SchoolClass("Clasa a 9-a", null)));
+        when(repository.countBooks(1L)).thenReturn(1L);
+
+        assertThatThrownBy(() -> service.delete(1L))
+                .hasMessageContaining("are 1 carte.")
+                .hasMessageContaining("Șterge întâi cărțile")
+                .hasMessageNotContaining("Quiz");
     }
 }

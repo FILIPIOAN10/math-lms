@@ -54,8 +54,11 @@ public class BookService {
 
     @Transactional
     public void delete(Long id) {
-        if (!bookRepository.existsById(id)) {
-            throw new ContentNotFoundException("Book", id);
+        Book book = bookRepository.findById(id).orElseThrow(() -> new ContentNotFoundException("Book", id));
+        long chapters = bookRepository.countChapters(id);
+        if (chapters > 0) {
+            throw new ContentInUseException("Cartea „" + book.getTitle() + "” nu poate fi ștearsă: are "
+                    + RoCount.of(chapters, "capitol", "capitole") + ". Șterge întâi capitolele.");
         }
         bookRepository.deleteById(id);
     }

@@ -4,6 +4,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
@@ -45,11 +46,31 @@ public class SchoolClassService {
         return repository.save(schoolClass);
     }
 
+    /**
+     * Books and class-only quizzes block the delete (they are content the teacher would lose);
+     * enrollments do not — they only say who attends the class, so they go with it. Homework
+     * for the class is removed by the database (ON DELETE CASCADE).
+     */
     @Transactional
     public void delete(Long id) {
-        if (!repository.existsById(id)) {
-            throw new ContentNotFoundException("SchoolClass", id);
+        SchoolClass schoolClass = get(id);
+        long books = repository.countBooks(id);
+        long quizzes = repository.countQuizzes(id);
+        if (books > 0 || quizzes > 0) {
+            List<String> blockers = new ArrayList<>();
+            List<String> fixes = new ArrayList<>();
+            if (books > 0) {
+                blockers.add(RoCount.of(books, "carte", "cărți"));
+                fixes.add("Șterge întâi cărțile.");
+            }
+            if (quizzes > 0) {
+                blockers.add(RoCount.of(quizzes, "quiz destinat ei", "quiz-uri destinate ei"));
+                fixes.add("Quiz-urile le ștergi sau le muți la „Toți elevii” din pagina Quiz-uri.");
+            }
+            throw new ContentInUseException("Clasa „" + schoolClass.getName() + "” nu poate fi ștearsă: are "
+                    + String.join(" și ", blockers) + ". " + String.join(" ", fixes));
         }
+        repository.deleteEnrollments(id);
         repository.deleteById(id);
     }
 }

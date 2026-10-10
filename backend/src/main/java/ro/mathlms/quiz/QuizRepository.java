@@ -25,6 +25,10 @@ public interface QuizRepository extends JpaRepository<Quiz, Long> {
 
     List<Quiz> findByStatusOrderByTitle(QuizStatus status);
 
+    /** Attempts of any mode (test or practice): each one holds a student's answers. */
+    @Query("select count(a) from QuizAttempt a where a.quiz.id = :quizId")
+    long countAttempts(@Param("quizId") Long quizId);
+
     /** Published quizzes open to every student (not assigned to any class). */
     @EntityGraph(attributePaths = "schoolClass")
     List<Quiz> findByStatusAndSchoolClassIsNullOrderByTitle(QuizStatus status);

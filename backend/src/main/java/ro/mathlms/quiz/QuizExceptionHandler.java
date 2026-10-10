@@ -20,6 +20,11 @@ public class QuizExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
     }
 
+    @ExceptionHandler(QuizInUseException.class)
+    public ResponseEntity<String> handleInUse(QuizInUseException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
+    }
+
     @ExceptionHandler(InvalidQuizException.class)
     public ResponseEntity<String> handleInvalid(InvalidQuizException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ex.getMessage());

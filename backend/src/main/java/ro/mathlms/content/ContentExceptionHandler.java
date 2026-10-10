@@ -21,6 +21,11 @@ public class ContentExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
     }
 
+    @ExceptionHandler(ContentInUseException.class)
+    public ResponseEntity<String> handleInUse(ContentInUseException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
+    }
+
     /** Two admins edited the same exercise; the second save lost the race. */
     @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
     public ResponseEntity<String> handleOptimisticLock(ObjectOptimisticLockingFailureException ex) {
@@ -28,10 +33,10 @@ public class ContentExceptionHandler {
                 .body("This item was changed by someone else. Reload and try again.");
     }
 
-    /** e.g. deleting a class that still has books, or a leftover unique violation. */
+    /** Last resort for a constraint the services do not check up front (deletes are checked above). */
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<String> handleIntegrity(DataIntegrityViolationException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body("This item is still in use or conflicts with an existing one.");
+                .body("Elementul e încă folosit sau intră în conflict cu unul existent.");
     }
 }

@@ -54,8 +54,11 @@ public class ChapterService {
 
     @Transactional
     public void delete(Long id) {
-        if (!chapterRepository.existsById(id)) {
-            throw new ContentNotFoundException("Chapter", id);
+        Chapter chapter = chapterRepository.findById(id).orElseThrow(() -> new ContentNotFoundException("Chapter", id));
+        long exercises = chapterRepository.countExercises(id);
+        if (exercises > 0) {
+            throw new ContentInUseException("Capitolul „" + chapter.getTitle() + "” nu poate fi șters: are "
+                    + RoCount.of(exercises, "exercițiu", "exerciții") + ". Șterge întâi exercițiile.");
         }
         chapterRepository.deleteById(id);
     }

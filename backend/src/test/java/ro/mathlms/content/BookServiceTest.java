@@ -110,4 +110,27 @@ class BookServiceTest {
                 .isInstanceOf(ContentNotFoundException.class);
         verify(bookRepository, never()).deleteById(any());
     }
+
+    @Test
+    void deleteRefusesWhileTheBookHasChapters() {
+        SchoolClass ninth = new SchoolClass("Clasa a 9-a", null);
+        when(bookRepository.findById(7L)).thenReturn(Optional.of(new Book(ninth, "Algebra", null)));
+        when(bookRepository.countChapters(7L)).thenReturn(3L);
+
+        assertThatThrownBy(() -> service.delete(7L))
+                .isInstanceOf(ContentInUseException.class)
+                .hasMessageContaining("Algebra")
+                .hasMessageContaining("3 capitole");
+        verify(bookRepository, never()).deleteById(any());
+    }
+
+    @Test
+    void deleteRemovesAnEmptyBook() {
+        SchoolClass ninth = new SchoolClass("Clasa a 9-a", null);
+        when(bookRepository.findById(7L)).thenReturn(Optional.of(new Book(ninth, "Algebra", null)));
+
+        service.delete(7L);
+
+        verify(bookRepository).deleteById(7L);
+    }
 }

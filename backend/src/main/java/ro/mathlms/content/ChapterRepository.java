@@ -15,4 +15,7 @@ public interface ChapterRepository extends JpaRepository<Chapter, Long> {
     List<Chapter> findByBookIdOrderByTitle(Long bookId);
 
     boolean existsByBookIdAndTitle(Long bookId, String title);
+
+    @Query("select count(e) from Exercise e where e.chapter.id = :chapterId")
+    long countExercises(@Param("chapterId") Long chapterId);
 }

@@ -5,6 +5,7 @@ import org.springframework.transaction.annotation.Transactional;
 import ro.mathlms.cache.AfterCommitCacheEvictor;
 import ro.mathlms.cache.CacheNames;
 import ro.mathlms.content.SchoolClass;
+import ro.mathlms.content.RoCount;
 import ro.mathlms.content.SchoolClassRepository;
 import ro.mathlms.quiz.QuizDtos.ItemDto;
 import ro.mathlms.quiz.QuizDtos.QuizDetailDto;
@@ -103,6 +104,12 @@ public class QuizAdminService {
     @Transactional
     public void deleteQuiz(Long id) {
         Quiz quiz = getQuiz(id);
+        long attempts = quizRepository.countAttempts(id);
+        if (attempts > 0) {
+            throw new QuizInUseException("Quiz-ul „" + quiz.getTitle() + "” nu poate fi șters: elevii au deja "
+                    + RoCount.of(attempts, "încercare", "încercări") + " (cu răspunsuri și note). "
+                    + "Apasă „Depublică” ca să nu mai apară la elevi.");
+        }
         for (QuizItem item : itemRepository.findByQuizIdOrderByPosition(id)) {
             optionRepository.deleteByItemId(item.getId());
             hintRepository.deleteByItemId(item.getId());

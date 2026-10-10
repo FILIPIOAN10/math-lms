@@ -292,4 +292,26 @@ class QuizAdminServiceTest {
         order.verify(hintRepository).deleteByItemId(any());
         order.verify(itemRepository).delete(existing);
     }
+
+    @Test
+    void deleteQuizRefusesOnceStudentsHaveAttemptsAndPointsAtUnpublish() {
+        when(quizRepository.findById(1L)).thenReturn(Optional.of(quiz));
+        when(quizRepository.countAttempts(1L)).thenReturn(2L);
+
+        assertThatThrownBy(() -> service.deleteQuiz(1L))
+                .isInstanceOf(QuizInUseException.class)
+                .hasMessageContaining("Simulare EN")
+                .hasMessageContaining("2 încercări")
+                .hasMessageContaining("Depublică");
+        verify(quizRepository, never()).delete(any(Quiz.class));
+    }
+
+    @Test
+    void deleteQuizRemovesAQuizNobodyTook() {
+        when(quizRepository.findById(1L)).thenReturn(Optional.of(quiz));
+
+        service.deleteQuiz(1L);
+
+        verify(quizRepository).delete(quiz);
+    }
 }

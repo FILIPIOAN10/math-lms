@@ -104,4 +104,27 @@ class ChapterServiceTest {
                 .isInstanceOf(ContentNotFoundException.class);
         verify(chapterRepository, never()).deleteById(any());
     }
+
+    @Test
+    void deleteRefusesWhileTheChapterHasExercises() {
+        Book algebra = new Book(new SchoolClass("Clasa a 9-a", null), "Algebra", null);
+        when(chapterRepository.findById(9L)).thenReturn(Optional.of(new Chapter(algebra, "Ecuații", null)));
+        when(chapterRepository.countExercises(9L)).thenReturn(1L);
+
+        assertThatThrownBy(() -> service.delete(9L))
+                .isInstanceOf(ContentInUseException.class)
+                .hasMessageContaining("Ecuații")
+                .hasMessageContaining("1 exercițiu");
+        verify(chapterRepository, never()).deleteById(any());
+    }
+
+    @Test
+    void deleteRemovesAnEmptyChapter() {
+        Book algebra = new Book(new SchoolClass("Clasa a 9-a", null), "Algebra", null);
+        when(chapterRepository.findById(9L)).thenReturn(Optional.of(new Chapter(algebra, "Ecuații", null)));
+
+        service.delete(9L);
+
+        verify(chapterRepository).deleteById(9L);
+    }
 }
