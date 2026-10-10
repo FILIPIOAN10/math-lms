@@ -44,6 +44,20 @@ public final class StudentQuizDtos {
     }
 
     /** A published quiz ready to be taken. */
+    /**
+     * What a student sees BEFORE starting: enough to know what they are walking into (how many items, how many
+     * points, whether a clock will run) without revealing a single statement.
+     */
+    public record QuizPreviewDto(
+            Long id,
+            String title,
+            String description,
+            Integer timeLimitMinutes, // null = untimed
+            boolean practiceAllowed,
+            int itemCount,
+            int maxScore
+    ) {}
+
     public record StudentQuizDto(
             Long id,
             String title,
@@ -154,6 +168,7 @@ public final class StudentQuizDtos {
      * correct option and the barem — hidden before submit — are revealed for learning.
      */
     public record ItemResultDto(
+            Long itemId,        // lets the student's page fetch their own photo of an OPEN item
             int position,
             QuizItemType type,
             String statement,

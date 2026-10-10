@@ -54,6 +54,12 @@ class QuizAttemptSecurityTest {
     }
 
     @Test
+    @WithMockUser(authorities = {"STATUS_ACTIVE", "ROLE_PARENT"})
+    void aParentCannotFetchAStudentsPhotoThroughTheStudentApi() throws Exception {
+        mockMvc.perform(get("/api/quiz/attempts/1/responses/2/photo")).andExpect(status().isForbidden());
+    }
+
+    @Test
     @WithMockUser(authorities = {"STATUS_ACTIVE", "ROLE_STUDENT"})
     void activeStudentCanListQuizzes() throws Exception {
         when(service.listPublished(any())).thenReturn(List.of());

@@ -10,19 +10,24 @@ export function Dialog({
   onOpenChange,
   title,
   description,
+  finalFocus,
   children,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   title: string
   description?: string
+  /** Where focus goes on close: return an element, or true for the default (back to what opened the dialog). */
+  finalFocus?: () => HTMLElement | boolean | null
   children: ReactNode
 }) {
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Backdrop className="fixed inset-0 z-40 bg-black/40" />
-        <DialogPrimitive.Popup className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl bg-card p-5 text-card-foreground shadow-lg ring-1 ring-foreground/10 outline-none">
+        <DialogPrimitive.Popup
+          finalFocus={finalFocus}
+          className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl bg-card p-5 text-card-foreground shadow-lg ring-1 ring-foreground/10 outline-none">
           <DialogPrimitive.Title className="text-lg font-medium">{title}</DialogPrimitive.Title>
           {description && (
             <DialogPrimitive.Description className="mt-1 text-sm text-muted-foreground">

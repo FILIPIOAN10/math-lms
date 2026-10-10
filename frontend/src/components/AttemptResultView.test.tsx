@@ -13,12 +13,12 @@ const graded: AttemptResultViewDto = {
   maxScore: 15,
   items: [
     {
-      position: 1, type: 'SINGLE_CHOICE', statement: 'Alege B', points: 5, awardedPoints: 5, correct: true,
+      itemId: 100, position: 1, type: 'SINGLE_CHOICE', statement: 'Alege B', points: 5, awardedPoints: 5, correct: true,
       selectedOptionText: 'Varianta B', correctOptionText: 'Varianta B', barem: null, photoUploaded: false,
       hintsUsed: 0, hintsAvailable: 0,
     },
     {
-      position: 2, type: 'OPEN', statement: 'Rezolvă', points: 10, awardedPoints: 8, correct: null,
+      itemId: 101, position: 2, type: 'OPEN', statement: 'Rezolvă', points: 10, awardedPoints: 8, correct: null,
       selectedOptionText: null, correctOptionText: null, barem: 'x1 = 2', photoUploaded: true,
       hintsUsed: 0, hintsAvailable: 0,
     },
@@ -26,6 +26,20 @@ const graded: AttemptResultViewDto = {
 }
 
 describe('AttemptResultView', () => {
+  it('shows the student their own photo next to the open item', () => {
+    render(<AttemptResultView result={graded} />)
+
+    const img = screen.getByRole('img', { name: 'Poza ta pentru subiectul 2' })
+    expect(img).toHaveAttribute('src', '/api/quiz/attempts/50/responses/101/photo')
+  })
+
+  it('does not try to show the photo to a parent (no endpoint of theirs serves it)', () => {
+    render(<AttemptResultView result={graded} audience="parent" />)
+
+    expect(screen.queryByRole('img')).not.toBeInTheDocument()
+    expect(screen.getByText('Elevul a trimis o poză cu rezolvarea.')).toBeInTheDocument()
+  })
+
   it('shows the big final score once the attempt is graded', () => {
     render(<AttemptResultView result={graded} />)
 

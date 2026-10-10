@@ -2,10 +2,13 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { MathContent } from '@/components/MathContent'
 import {
   ApiError,
-  getStudentQuizzes,
+  getMyAssignments,
+  getQuizPreview,
+  ownPhotoUrl,
   revealQuizHint,
   saveQuizAnswer,
   startQuizAttempt,
@@ -13,19 +16,52 @@ import {
   uploadQuizPhoto,
   type AnswerFeedback,
   type AttemptMode,
+  type QuizPreview,
   type StartedAttemptDto,
+  type StudentItemDto,
 } from '@/lib/api'
+import { dueCountdown } from '@/lib/assignments'
 import { formatClock, secondsLeft } from '@/lib/countdown'
 import { errorMessage } from '@/lib/errors'
-import { formatMinutes } from '@/lib/format'
+import { formatDate, formatMinutes, roCount } from '@/lib/format'
+import { todoAssignments } from '@/lib/home'
 import { shrinkImage } from '@/lib/image'
+import { cn } from '@/lib/utils'
 
 const MAX_UPLOAD_BYTES = 8 * 1024 * 1024 // matches spring.servlet.multipart.max-file-size
 
+type TimerTone = 'normal' | 'warning' | 'danger'
+
+/** Calm, then amber in the last five minutes, then red in the last one. */
+function timerTone(left: number): TimerTone {
+  if (left <= 60) return 'danger'
+  if (left <= 5 * 60) return 'warning'
+  return 'normal'
+}
+
+const TIMER_CLASSES: Record<TimerTone, string> = {
+  normal: 'bg-background',
+  warning: 'bg-amber-100 text-amber-900 dark:bg-amber-500/20 dark:text-amber-100',
+  danger: 'bg-destructive text-destructive-foreground',
+}
+
+/**
+ * Said once to a screen reader when the clock crosses into a new tone (a polite live region is only read when its text
+ * changes, so the per-second countdown itself is never read out).
+ */
+const TIMER_ANNOUNCEMENTS: Record<TimerTone, string> = {
+  normal: '',
+  warning: 'Mai ai mai puțin de 5 minute.',
+  danger: 'Mai ai mai puțin de un minut.',
+}
+
+const headingId = (itemId: number) => `item-heading-${itemId}`
+
 /**
  * Taking one quiz. Nothing is created until the student presses "Începe" (the start call creates
- * the attempt, or resumes the one in progress). Every answer is saved to the server as soon as it
- * is given, so a closed tab or a dead battery loses nothing — reopening resumes with the saved
+ * the attempt, or resumes the one in progress). Before that the page shows what the student is walking into: the
+ * title, how many items and points, the clock and, for homework, the deadline. Every answer is saved to the server
+ * as soon as it is given, so a closed tab or a dead battery loses nothing — reopening resumes with the saved
  * answers restored.
  *
  * A timed quiz shows a countdown, but only as a display: the SERVER holds the deadline and rejects answers
@@ -35,6 +71,9 @@ const MAX_UPLOAD_BYTES = 8 * 1024 * 1024 // matches spring.servlet.multipart.max
  * With {@code ?mode=practice} (only for quizzes the teacher opened for it) the same screen becomes a practice: no
  * clock, and each answer comes back from the server with its verdict, the right option and the barem. It is never
  * graded. The server alone decides what to reveal — a graded test returns no feedback at all.
+ *
+ * The bottom bar numbers every item (answered ones filled) and jumps to it; handing in goes through a dialog that
+ * lists what is still unanswered and can take the student to the first such item.
  */
 export function TakeQuizPage() {
   const { id } = useParams<{ id: string }>()
@@ -47,6 +86,7 @@ export function TakeQuizPage() {
   const [attempt, setAttempt] = useState<StartedAttemptDto | null>(null)
   const [selected, setSelected] = useState<Record<number, number>>({})
   const [photos, setPhotos] = useState<Record<number, boolean>>({})
+  const [photoVersion, setPhotoVersion] = useState<Record<number, number>>({}) // bumps the thumbnail URL after a re-upload
   const [feedback, setFeedback] = useState<Record<number, AnswerFeedback | undefined>>({}) // practice only
   const [hints, setHints] = useState<Record<number, string[]>>({}) // itemId -> hints revealed so far (practice only)
   const [hintBusy, setHintBusy] = useState<Record<number, boolean>>({})
@@ -54,21 +94,30 @@ export function TakeQuizPage() {
   const [itemErrors, setItemErrors] = useState<Record<number, string | undefined>>({})
   const [starting, setStarting] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [confirming, setConfirming] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [limitMinutes, setLimitMinutes] = useState<number | null>(null) // shown before start, so no one is surprised by the clock
+  const [preview, setPreview] = useState<QuizPreview | null>(null) // shown before start, so nothing is a surprise
+  const [homeworkDue, setHomeworkDue] = useState<string | null>(null)
   const [receivedAt, setReceivedAt] = useState(0)
   const [now, setNow] = useState(() => Date.now())
   const autoSubmitted = useRef(false)
+  const jumpTarget = useRef<HTMLElement | null>(null) // where "Mergi la subiectul N" sends focus once the dialog closes
 
   useEffect(() => {
     let cancelled = false
-    getStudentQuizzes()
-      .then((list) => !cancelled && setLimitMinutes(list.find((q) => q.id === quizId)?.timeLimitMinutes ?? null))
-      .catch(() => undefined) // purely informative: the quiz still starts without it
+    // Both purely informative: the quiz still starts without them.
+    getQuizPreview(quizId)
+      .then((p) => !cancelled && setPreview(p))
+      .catch(() => undefined)
+    if (!practice) {
+      getMyAssignments()
+        .then((list) => !cancelled && setHomeworkDue(todoAssignments(list).find((a) => a.quizId === quizId)?.dueAt ?? null))
+        .catch(() => undefined)
+    }
     return () => {
       cancelled = true
     }
-  }, [quizId])
+  }, [quizId, practice])
 
   const deadlineAt = attempt?.deadlineAt ?? null
   useEffect(() => {
@@ -95,6 +144,7 @@ export function TakeQuizPage() {
   async function submitBecauseTimeIsUp() {
     if (!attempt || autoSubmitted.current) return
     autoSubmitted.current = true
+    setConfirming(false)
     setSubmitting(true)
     setError(null)
     try {
@@ -121,6 +171,19 @@ export function TakeQuizPage() {
   }
   function setItemError(itemId: number, message: string | undefined) {
     setItemErrors((s) => ({ ...s, [itemId]: message }))
+  }
+
+  function isAnswered(item: StudentItemDto): boolean {
+    return item.type === 'SINGLE_CHOICE' ? selected[item.id] !== undefined : photos[item.id] === true
+  }
+
+  /** Scrolls an item into view and moves focus to its heading, so keyboard and screen-reader users land there too. */
+  function goToItem(itemId: number) {
+    const heading = document.getElementById(headingId(itemId))
+    if (!heading) return
+    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    heading.scrollIntoView?.({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' })
+    heading.focus({ preventScroll: true })
   }
 
   async function start() {
@@ -215,6 +278,7 @@ export function TakeQuizPage() {
       }
       const result = await uploadQuizPhoto(attempt.attemptId, itemId, toSend)
       setPhotos((s) => ({ ...s, [itemId]: true }))
+      setPhotoVersion((v) => ({ ...v, [itemId]: (v[itemId] ?? 0) + 1 }))
       setFeedback((s) => ({ ...s, [itemId]: result ?? undefined }))
     } catch (e) {
       setItemError(itemId, errorMessage(e))
@@ -226,17 +290,8 @@ export function TakeQuizPage() {
 
   async function submit() {
     if (!attempt) return
-    const unanswered = attempt.quiz.items.filter((item) =>
-      item.type === 'SINGLE_CHOICE' ? selected[item.id] === undefined : !photos[item.id],
-    ).length
-    const question =
-      practice ? 'Închei sesiunea de practică?'
-      : timeUp ? 'Timpul a expirat. Trimiți lucrarea cu răspunsurile salvate?'
-      : unanswered > 0
-        ? `Ai ${unanswered} subiect(e) fără răspuns. Trimiți lucrarea oricum?`
-        : 'Trimiți lucrarea? După trimitere nu mai poți modifica răspunsurile.'
-    if (!window.confirm(question)) return
-
+    jumpTarget.current = null
+    setConfirming(false)
     setSubmitting(true)
     setError(null)
     try {
@@ -250,12 +305,32 @@ export function TakeQuizPage() {
 
   // ----- Before start -----
   if (!attempt) {
+    const limitMinutes = preview?.timeLimitMinutes ?? null
     return (
       <div className="min-h-screen bg-muted p-4">
         <div className="mx-auto max-w-xl space-y-4 pt-12">
           <Card>
             <CardContent className="space-y-4 py-6 text-center">
-              <h1 className="text-xl font-semibold">{practice ? 'Gata de exersat?' : 'Ești gata să începi?'}</h1>
+              <div className="space-y-1">
+                <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                  {practice ? 'Exersare' : 'Test'}
+                </p>
+                <h1 className="text-xl font-semibold">
+                  {preview?.title ?? (practice ? 'Gata de exersat?' : 'Ești gata să începi?')}
+                </h1>
+                {preview?.description && <p className="text-sm text-muted-foreground">{preview.description}</p>}
+              </div>
+              {preview && (
+                <p data-testid="quiz-facts" className="text-sm font-medium">
+                  {roCount(preview.itemCount, 'subiect', 'subiecte')} · {roCount(preview.maxScore, 'punct', 'puncte')}
+                  {!practice && ` · ${limitMinutes !== null ? `⏱ ${formatMinutes(limitMinutes)}` : 'Fără limită de timp'}`}
+                </p>
+              )}
+              {homeworkDue && (
+                <p data-testid="quiz-homework-due" className="text-sm">
+                  Temă — termen: {formatDate(homeworkDue)} ({dueCountdown(homeworkDue, Date.now())})
+                </p>
+              )}
               <p className="text-sm text-muted-foreground">
                 Răspunsurile se salvează automat pe măsură ce lucrezi. Dacă închizi pagina, poți continua
                 de unde ai rămas din „Testele mele”.
@@ -287,22 +362,45 @@ export function TakeQuizPage() {
   }
 
   // ----- Taking the quiz -----
-  const answeredCount = attempt.quiz.items.filter((item) =>
-    item.type === 'SINGLE_CHOICE' ? selected[item.id] !== undefined : photos[item.id],
-  ).length
+  const items = attempt.quiz.items
+  const answeredCount = items.filter(isAnswered).length
+  const unanswered = items.flatMap((item, index) => (isAnswered(item) ? [] : [{ item, number: index + 1 }]))
+  const askAboutUnanswered = !practice && !timeUp && unanswered.length > 0
+  const tone = timeLeft !== null ? timerTone(timeLeft) : 'normal'
+
+  const dialogTitle = practice
+    ? 'Închei sesiunea de practică?'
+    : timeUp
+      ? 'Timpul a expirat'
+      : askAboutUnanswered
+        ? `Ai ${roCount(unanswered.length, 'subiect', 'subiecte')} fără răspuns`
+        : 'Trimiți lucrarea?'
+  const dialogBody = practice
+    ? 'Poți relua practica oricând.'
+    : timeUp
+      ? 'Se trimit răspunsurile salvate la timp.'
+      : askAboutUnanswered
+        ? `${unanswered.length === 1 ? 'Subiectul' : 'Subiectele'} ${unanswered.map((u) => u.number).join(', ')} ${
+            unanswered.length === 1 ? 'nu are' : 'nu au'
+          } răspuns. Le poți completa acum sau poți trimite lucrarea așa. După trimitere nu mai poți modifica nimic.`
+        : 'După trimitere nu mai poți modifica răspunsurile.'
 
   return (
-    <div className="min-h-screen bg-muted p-4 pb-28">
+    <div className="min-h-screen bg-muted p-4 pb-40">
       {timeLeft !== null && (
-        <div
-          role="timer"
-          data-testid="quiz-timer"
-          className={`fixed inset-x-0 top-0 z-10 border-b p-2 text-center text-sm font-semibold ${
-            timeLeft <= 60 ? 'bg-destructive text-destructive-foreground' : 'bg-background'
-          }`}
-        >
-          {timeUp ? 'Timpul a expirat — se trimite lucrarea...' : `⏱ Timp rămas: ${formatClock(timeLeft)}`}
-        </div>
+        <>
+          <div
+            role="timer"
+            data-testid="quiz-timer"
+            data-tone={tone}
+            className={`fixed inset-x-0 top-0 z-10 border-b p-2 text-center text-sm font-semibold transition-colors ${TIMER_CLASSES[tone]}`}
+          >
+            {timeUp ? 'Timpul a expirat — se trimite lucrarea...' : `⏱ Timp rămas: ${formatClock(timeLeft)}`}
+          </div>
+          <div aria-live="polite" className="sr-only" data-testid="quiz-timer-announcement">
+            {timeUp ? '' : TIMER_ANNOUNCEMENTS[tone]}
+          </div>
+        </>
       )}
       {practice && (
         <div
@@ -320,12 +418,12 @@ export function TakeQuizPage() {
           )}
         </div>
 
-        {attempt.quiz.items.map((item, index) => (
-          <Card key={item.id}>
+        {items.map((item, index) => (
+          <Card key={item.id} className="scroll-mt-14">
             <CardContent className="space-y-3 py-4">
-              <p className="text-sm font-medium">
+              <h2 id={headingId(item.id)} tabIndex={-1} className="scroll-mt-14 text-sm font-medium outline-none">
                 Subiectul {index + 1} · {item.points} p
-              </p>
+              </h2>
               <MathContent>{item.statement}</MathContent>
 
               {item.type === 'SINGLE_CHOICE' ? (
@@ -350,11 +448,25 @@ export function TakeQuizPage() {
                       <input
                         type="radio"
                         name={`item-${item.id}`}
+                        className="size-4 shrink-0"
                         checked={selected[item.id] === option.id}
                         disabled={saving[item.id] || timeUp}
                         onChange={() => choose(item.id, option.id)}
                       />
                       <MathContent inline>{option.text}</MathContent>
+                      {/* A sign as well as a colour: the verdict must not depend on telling green from red. */}
+                      {isRight && (
+                        <span className="ml-auto font-semibold text-emerald-700 dark:text-emerald-300">
+                          <span aria-hidden="true">✓</span>
+                          <span className="sr-only"> (răspunsul corect)</span>
+                        </span>
+                      )}
+                      {isWrongPick && (
+                        <span className="ml-auto font-semibold text-destructive">
+                          <span aria-hidden="true">✗</span>
+                          <span className="sr-only"> (alegerea ta, greșită)</span>
+                        </span>
+                      )}
                     </label>
                     )
                   })}
@@ -365,7 +477,7 @@ export function TakeQuizPage() {
                           feedback[item.id]?.correct ? 'text-emerald-700 dark:text-emerald-300' : 'text-destructive'
                         }`}
                       >
-                        {feedback[item.id]?.correct ? '✓ Corect!' : '✗ Greșit — răspunsul corect e marcat cu verde.'}
+                        {feedback[item.id]?.correct ? '✓ Corect!' : '✗ Greșit — răspunsul corect e marcat cu ✓.'}
                       </p>
                       {feedback[item.id]?.solution && (
                         <div>
@@ -377,25 +489,45 @@ export function TakeQuizPage() {
                   )}
                 </div>
               ) : (
-                <div className="space-y-2 text-sm">
+                <div className="space-y-3 text-sm">
                   <p className="text-muted-foreground">
                     Rezolvă pe hârtie, apoi fotografiază rezolvarea și încarc-o aici.
                   </p>
-                  <input
-                    type="file"
-                    data-testid="item-photo"
-                    accept="image/*"
-                    disabled={saving[item.id] || timeUp}
-                    onChange={(e) => {
-                      const file = e.target.files?.[0]
-                      if (file) upload(item.id, file)
-                      e.target.value = '' // lets the student pick the same file again after an error
-                    }}
-                  />
+                  <label
+                    className={cn(
+                      buttonVariants({ variant: photos[item.id] ? 'outline' : 'default' }),
+                      'h-10 cursor-pointer px-4 has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50',
+                      (saving[item.id] || timeUp) && 'pointer-events-none opacity-50',
+                    )}
+                  >
+                    <input
+                      type="file"
+                      className="sr-only"
+                      data-testid="item-photo"
+                      accept="image/*"
+                      disabled={saving[item.id] || timeUp}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) upload(item.id, file)
+                        e.target.value = '' // lets the student pick the same file again after an error
+                      }}
+                    />
+                    <span aria-hidden="true">📷</span>
+                    <span>{photos[item.id] ? 'Înlocuiește poza' : 'Încarcă poza rezolvării'}</span>
+                  </label>
                   {photos[item.id] && (
-                    <p className="text-emerald-700 dark:text-emerald-300">
-                      ✓ Poză încărcată. Poți alege alta ca să o înlocuiești.
-                    </p>
+                    <a
+                      href={ownPhotoUrl(attempt.attemptId, item.id)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block w-fit"
+                    >
+                      <img
+                        src={`${ownPhotoUrl(attempt.attemptId, item.id)}${photoVersion[item.id] ? `?v=${photoVersion[item.id]}` : ''}`}
+                        alt={`Poza ta pentru subiectul ${index + 1}`}
+                        className="max-h-48 rounded-lg border bg-background object-contain"
+                      />
+                    </a>
                   )}
                   {feedback[item.id]?.solution && (
                     <div data-testid="item-feedback" className="space-y-1 rounded-lg bg-muted p-3">
@@ -446,15 +578,62 @@ export function TakeQuizPage() {
       </div>
 
       <div className="fixed inset-x-0 bottom-0 border-t bg-background p-3">
-        <div className="mx-auto flex max-w-3xl items-center justify-between gap-3">
-          <p className="text-sm text-muted-foreground">
-            {answeredCount} / {attempt.quiz.items.length} {practice ? 'subiecte rezolvate' : 'răspunsuri salvate'}
-          </p>
-          <Button onClick={submit} disabled={submitting} data-testid="quiz-submit">
-            {submitting ? 'Se trimite...' : practice ? 'Termină practica' : 'Trimite lucrarea'}
-          </Button>
+        <div className="mx-auto max-w-3xl space-y-2">
+          <nav aria-label="Subiecte" className="flex gap-1.5 overflow-x-auto pb-1">
+            {items.map((item, index) => {
+              const done = isAnswered(item)
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  aria-label={`Subiectul ${index + 1}, ${done ? 'cu răspuns' : 'fără răspuns'}`}
+                  onClick={() => goToItem(item.id)}
+                  className={cn(
+                    'size-9 shrink-0 rounded-lg border text-sm font-medium transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+                    done ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background hover:bg-muted',
+                  )}
+                >
+                  {index + 1}
+                </button>
+              )
+            })}
+          </nav>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm text-muted-foreground">
+              {answeredCount} / {items.length} {practice ? 'subiecte rezolvate' : 'răspunsuri salvate'}
+            </p>
+            <Button onClick={() => setConfirming(true)} disabled={submitting} data-testid="quiz-submit">
+              {submitting ? 'Se trimite...' : practice ? 'Termină practica' : 'Trimite lucrarea'}
+            </Button>
+          </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={confirming}
+        title={dialogTitle}
+        confirmLabel={practice ? 'Termină practica' : askAboutUnanswered ? 'Trimite oricum' : 'Trimite'}
+        onConfirm={() => void submit()}
+        onCancel={() => setConfirming(false)}
+        finalFocus={() => jumpTarget.current ?? true}
+        extraAction={
+          askAboutUnanswered && (
+            <Button
+              variant="ghost"
+              onClick={() => {
+                const first = unanswered[0].item.id
+                jumpTarget.current = document.getElementById(headingId(first))
+                setConfirming(false)
+                goToItem(first)
+              }}
+            >
+              Mergi la subiectul {unanswered[0].number}
+            </Button>
+          )
+        }
+      >
+        {dialogBody}
+      </ConfirmDialog>
     </div>
   )
 }

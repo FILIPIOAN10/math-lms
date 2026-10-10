@@ -612,6 +612,8 @@ export interface ProgressPointDto {
 }
 
 export interface ItemResultDto {
+  /** Lets the student's own page fetch their photo of an OPEN item. */
+  itemId: number
   position: number
   type: QuizItemType
   statement: string
@@ -663,6 +665,28 @@ export async function getChildAttempts(childId: number): Promise<MyAttemptDto[]>
 export async function getChildAttemptResult(childId: number, attemptId: number): Promise<AttemptResultViewDto> {
   const response = await apiFetch(`/parent/children/${childId}/attempts/${attemptId}/result`)
   return response.json()
+}
+
+/** What a student sees before starting a quiz - starts nothing and reveals no statement. */
+export interface QuizPreview {
+  id: number
+  title: string
+  description: string | null
+  /** null = untimed */
+  timeLimitMinutes: number | null
+  practiceAllowed: boolean
+  itemCount: number
+  maxScore: number
+}
+
+export async function getQuizPreview(quizId: number): Promise<QuizPreview> {
+  const response = await apiFetch(`/quiz/quizzes/${quizId}`)
+  return response.json()
+}
+
+/** The student's own photo of an OPEN item (served only to them; never cached, so add `?v=` after a re-upload). */
+export function ownPhotoUrl(attemptId: number, itemId: number): string {
+  return `/api/quiz/attempts/${attemptId}/responses/${itemId}/photo`
 }
 
 export async function getStudentQuizzes(): Promise<QuizSummary[]> {

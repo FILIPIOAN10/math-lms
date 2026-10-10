@@ -19,6 +19,7 @@ import ro.mathlms.quiz.StudentQuizDtos.AttemptResultViewDto;
 import ro.mathlms.quiz.StudentQuizDtos.ItemResultDto;
 import ro.mathlms.quiz.StudentQuizDtos.MyAttemptDto;
 import ro.mathlms.quiz.StudentQuizDtos.ProgressPointDto;
+import ro.mathlms.quiz.StudentQuizDtos.QuizPreviewDto;
 import ro.mathlms.quiz.StudentQuizDtos.SavedAnswerDto;
 import ro.mathlms.quiz.StudentQuizDtos.StartedAttemptDto;
 import ro.mathlms.quiz.StudentQuizDtos.StudentItemDto;
@@ -112,6 +113,26 @@ public class QuizAttemptService {
     }
 
     /**
+     * The "before you start" summary of a quiz the student may take: item count, total points, time limit. The same
+     * rules as starting it apply - a draft, or another class's quiz, is a 404 (a guessed id must not confirm it exists).
+     */
+    @Transactional(readOnly = true)
+    public QuizPreviewDto getPreview(Long quizId, String studentEmail) {
+        Quiz quiz = requireTakeable(quizId, requireUser(studentEmail));
+        int maxScore = itemRepository.sumPointsByQuiz(List.of(quizId)).stream()
+                .findFirst().map(m -> m.maxScore().intValue()).orElse(0);
+        return new QuizPreviewDto(quiz.getId(), quiz.getTitle(), quiz.getDescription(), quiz.getTimeLimitMinutes(),
+                quiz.isPracticeAllowed(), (int) itemRepository.countByQuizId(quizId), maxScore);
+    }
+
+    private Quiz requireTakeable(Long quizId, User student) {
+        return quizRepository.findById(quizId)
+                .filter(q -> q.getStatus() == QuizStatus.PUBLISHED)
+                .filter(q -> isVisibleTo(q, student))
+                .orElseThrow(() -> new QuizNotFoundException("Quiz", quizId));
+    }
+
+    /**
      * Starts a fresh attempt at a published quiz, or resumes the student's existing in-progress one,
      * and returns the answer-hidden quiz to fill in.
      */
@@ -127,11 +148,8 @@ public class QuizAttemptService {
     @Transactional
     public StartedAttemptDto startAttempt(Long quizId, String studentEmail, AttemptMode mode) {
         User student = requireUser(studentEmail);
-        Quiz quiz = quizRepository.findById(quizId)
-                .filter(q -> q.getStatus() == QuizStatus.PUBLISHED)
-                // 404 (not 403) for another class's quiz: a guessed id must not confirm it exists
-                .filter(q -> isVisibleTo(q, student))
-                .orElseThrow(() -> new QuizNotFoundException("Quiz", quizId));
+        // 404 (not 403) for another class's quiz: a guessed id must not confirm it exists
+        Quiz quiz = requireTakeable(quizId, student);
         if (mode == AttemptMode.PRACTICE && !quiz.isPracticeAllowed()) {
             throw new InvalidQuizException("Acest quiz nu permite modul practică");
         }
@@ -383,7 +401,7 @@ public class QuizAttemptService {
                 photoUploaded = response != null && response.getImageKey() != null;
             }
             itemResults.add(new ItemResultDto(
-                    item.getPosition(), item.getType(), item.getStatement(), item.getPoints(),
+                    item.getId(), item.getPosition(), item.getType(), item.getStatement(), item.getPoints(),
                     response == null ? null : response.getAwardedPoints(),
                     response == null ? null : response.getCorrect(),
                     selectedText, correctText, item.getSolution(), photoUploaded,
@@ -495,6 +513,18 @@ public class QuizAttemptService {
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new QuizAccessException("Unknown user " + email));
     }
+    /**
+     * A student's own uploaded photo, in any state of the attempt (to see it while working and on the result).
+     * Somebody else's attempt is a 404 - the same answer as an id that does not exist.
+     */
+    @Transactional(readOnly = true)
+    public Resource getOwnPhoto(Long attemptId, Long itemId, String studentEmail) {
+        attemptRepository.findById(attemptId)
+                .filter(a -> a.getStudent().getEmail().equals(studentEmail))
+                .orElseThrow(() -> new QuizNotFoundException("QuizAttempt", attemptId));
+        return getOpenPhotoResource(attemptId, itemId);
+    }
+
     /** Fetch pentru poza uploadată, folosit de admin/profesor. */
     public Resource getOpenPhotoResource(Long attemptId, Long itemId) {
         QuizAttempt attempt = attemptRepository.findById(attemptId)

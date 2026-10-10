@@ -1,6 +1,11 @@
 package ro.mathlms.quiz;
 
 import jakarta.validation.Valid;
+import org.springframework.core.io.Resource;
+import org.springframework.http.CacheControl;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.MediaTypeFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -18,6 +23,7 @@ import ro.mathlms.quiz.StudentQuizDtos.AttemptResultDto;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultViewDto;
 import ro.mathlms.quiz.StudentQuizDtos.HintDto;
 import ro.mathlms.quiz.StudentQuizDtos.ProgressPointDto;
+import ro.mathlms.quiz.StudentQuizDtos.QuizPreviewDto;
 import ro.mathlms.quiz.StudentQuizDtos.MyAttemptDto;
 import ro.mathlms.quiz.StudentQuizDtos.StartedAttemptDto;
 
@@ -42,6 +48,12 @@ public class QuizAttemptController {
     @GetMapping("/api/quiz/quizzes")
     public List<QuizSummaryDto> list(Authentication auth) {
         return service.listPublished(auth.getName()).stream().map(QuizSummaryDto::from).toList();
+    }
+
+    /** What the student sees before pressing "Începe": item count, total points, time limit. Starts nothing. */
+    @GetMapping("/api/quiz/quizzes/{quizId}")
+    public QuizPreviewDto preview(@PathVariable Long quizId, Authentication auth) {
+        return service.getPreview(quizId, auth.getName());
     }
 
     /** {@code ?mode=PRACTICE} starts a practice (immediate feedback, no grade); the default is the graded test. */
@@ -72,6 +84,21 @@ public class QuizAttemptController {
     public ResponseEntity<AnswerFeedbackDto> uploadPhoto(@PathVariable Long attemptId, @PathVariable Long itemId,
                                                          @RequestParam("file") MultipartFile file, Authentication auth) {
         return feedbackOrNoContent(service.uploadOpenPhoto(attemptId, itemId, file, auth.getName()));
+    }
+
+    /**
+     * The student's own photo of an OPEN item. Never cached: a re-upload replaces it under the same URL, and the
+     * thumbnail must show the new one.
+     */
+    @GetMapping("/api/quiz/attempts/{attemptId}/responses/{itemId}/photo")
+    public ResponseEntity<Resource> ownPhoto(@PathVariable Long attemptId, @PathVariable Long itemId,
+                                             Authentication auth) {
+        Resource file = service.getOwnPhoto(attemptId, itemId, auth.getName());
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + file.getFilename() + "\"")
+                .cacheControl(CacheControl.noStore())
+                .contentType(MediaTypeFactory.getMediaType(file).orElse(MediaType.APPLICATION_OCTET_STREAM))
+                .body(file);
     }
 
     /** 200 + feedback in a practice, 204 (nothing revealed) in a graded test. */

@@ -4,12 +4,22 @@ import { Card, CardContent } from '@/components/ui/card'
 import { AttemptModeBadge } from '@/components/AttemptModeBadge'
 import { AttemptStatusBadge } from '@/components/AttemptStatusBadge'
 import { MathContent } from '@/components/MathContent'
-import { type AttemptResultViewDto, type ItemResultDto } from '@/lib/api'
+import { ownPhotoUrl, type AttemptResultViewDto, type ItemResultDto } from '@/lib/api'
 
 /** Who is reading: only the wording changes ("Răspunsul tău" vs "Răspunsul elevului"). */
 export type ResultAudience = 'student' | 'parent'
 
-function ItemResult({ item, index, audience }: { item: ItemResultDto; index: number; audience: ResultAudience }) {
+function ItemResult({
+  item,
+  index,
+  audience,
+  attemptId,
+}: {
+  item: ItemResultDto
+  index: number
+  audience: ResultAudience
+  attemptId: number
+}) {
   const [showBarem, setShowBarem] = useState(false)
   const own = audience === 'student'
   // An unanswered grilă has no response row at all, so null there means 0 — only OPEN waits for the teacher.
@@ -50,6 +60,7 @@ function ItemResult({ item, index, audience }: { item: ItemResultDto; index: num
             )}
           </div>
         ) : (
+          <div className="space-y-2">
           <p className="text-sm text-muted-foreground">
             {item.photoUploaded
               ? own
@@ -59,6 +70,17 @@ function ItemResult({ item, index, audience }: { item: ItemResultDto; index: num
                 ? 'Nu ai trimis nicio poză pentru acest subiect.'
                 : 'Elevul nu a trimis nicio poză pentru acest subiect.'}
           </p>
+          {/* Only the student's own API serves the photo; the parent view has no endpoint for it. */}
+          {own && item.photoUploaded && (
+            <a href={ownPhotoUrl(attemptId, item.itemId)} target="_blank" rel="noreferrer" className="block w-fit">
+              <img
+                src={ownPhotoUrl(attemptId, item.itemId)}
+                alt={`Poza ta pentru subiectul ${index + 1}`}
+                className="max-h-64 rounded-lg border bg-background object-contain"
+              />
+            </a>
+          )}
+          </div>
         )}
 
         {item.barem && (
@@ -118,7 +140,13 @@ export function AttemptResultView({ result, audience = 'student' }: { result: At
       </Card>
 
       {result.items.map((item, index) => (
-        <ItemResult key={item.position + '-' + index} item={item} index={index} audience={audience} />
+        <ItemResult
+          key={item.position + '-' + index}
+          item={item}
+          index={index}
+          audience={audience}
+          attemptId={result.attemptId}
+        />
       ))}
     </>
   )

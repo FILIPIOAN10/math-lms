@@ -1,7 +1,11 @@
 package ro.mathlms.quiz;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -13,6 +17,7 @@ import ro.mathlms.quiz.StudentQuizDtos.AnswerFeedbackDto;
 import ro.mathlms.quiz.StudentQuizDtos.HintDto;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultViewDto;
 import ro.mathlms.quiz.StudentQuizDtos.MyAttemptDto;
+import ro.mathlms.quiz.StudentQuizDtos.QuizPreviewDto;
 import ro.mathlms.quiz.StudentQuizDtos.StartedAttemptDto;
 
 import java.util.Optional;
@@ -107,6 +112,34 @@ class QuizAttemptControllerTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
         verify(service).uploadOpenPhoto(50L, 101L, file, "elev@scoala.ro");
+    }
+
+    @Test
+    void previewDelegatesWithPrincipalEmail() {
+        QuizPreviewDto preview = new QuizPreviewDto(10L, "Simulare EN", null, 30, false, 3, 11);
+        when(service.getPreview(10L, "elev@scoala.ro")).thenReturn(preview);
+
+        assertThat(controller.preview(10L, auth)).isEqualTo(preview);
+    }
+
+    @Test
+    void ownPhotoIsServedInlineWithItsImageType() {
+        Resource image = new ByteArrayResource("img".getBytes()) {
+            @Override
+            public String getFilename() {
+                return "stored.jpg";
+            }
+        };
+        when(service.getOwnPhoto(50L, 101L, "elev@scoala.ro")).thenReturn(image);
+
+        ResponseEntity<Resource> response = controller.ownPhoto(50L, 101L, auth);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getHeaders().getContentType()).isEqualTo(MediaType.IMAGE_JPEG);
+        assertThat(response.getHeaders().getFirst(HttpHeaders.CONTENT_DISPOSITION)).isEqualTo("inline; filename=\"stored.jpg\"");
+        // a re-upload replaces the photo under the same URL: the browser must ask again, never reuse an old copy
+        assertThat(response.getHeaders().getCacheControl()).contains("no-store");
+        assertThat(response.getBody()).isSameAs(image);
     }
 
     @Test
