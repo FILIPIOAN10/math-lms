@@ -354,7 +354,7 @@ export function TakeQuizPage() {
                         disabled={saving[item.id] || timeUp}
                         onChange={() => choose(item.id, option.id)}
                       />
-                      <MathContent className="inline">{option.text}</MathContent>
+                      <MathContent inline>{option.text}</MathContent>
                     </label>
                     )
                   })}

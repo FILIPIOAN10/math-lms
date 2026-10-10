@@ -542,7 +542,7 @@ export function AdminQuizzesPage() {
                           {item.options.map((o) => (
                             <li key={o.id} className={o.correct ? 'font-medium text-emerald-700 dark:text-emerald-300' : ''}>
                               {o.correct ? '✓ ' : '• '}
-                              <MathContent className="inline">{o.text}</MathContent>
+                              <MathContent inline>{o.text}</MathContent>
                             </li>
                           ))}
                         </ul>

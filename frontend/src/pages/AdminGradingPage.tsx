@@ -220,13 +220,13 @@ export function AdminGradingPage() {
                         {item.selectedOptionText === null ? (
                           <em>fără răspuns</em>
                         ) : (
-                          <MathContent className="inline">{item.selectedOptionText}</MathContent>
+                          <MathContent inline>{item.selectedOptionText}</MathContent>
                         )}{' '}
                         ({item.awardedPoints ?? 0} p, corectat automat)
                       </p>
                       {!item.correct && item.correctOptionText !== null && (
                         <p>
-                          Corect: <MathContent className="inline">{item.correctOptionText}</MathContent>
+                          Corect: <MathContent inline>{item.correctOptionText}</MathContent>
                         </p>
                       )}
                     </div>

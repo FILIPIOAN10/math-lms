@@ -40,12 +40,12 @@ function ItemResult({ item, index, audience }: { item: ItemResultDto; index: num
               {item.selectedOptionText === null ? (
                 <em>fără răspuns</em>
               ) : (
-                <MathContent className="inline">{item.selectedOptionText}</MathContent>
+                <MathContent inline>{item.selectedOptionText}</MathContent>
               )}
             </p>
             {!item.correct && item.correctOptionText !== null && (
               <p>
-                Răspuns corect: <MathContent className="inline">{item.correctOptionText}</MathContent>
+                Răspuns corect: <MathContent inline>{item.correctOptionText}</MathContent>
               </p>
             )}
           </div>

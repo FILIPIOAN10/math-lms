@@ -81,7 +81,7 @@ export function ImportItemsDialog({
             <ol className="list-decimal space-y-1 pl-5 text-sm">
               {parsed.items.map((item, i) => (
                 <li key={i}>
-                  <MathContent className="inline">{item.statement}</MathContent>{' '}
+                  <MathContent inline>{item.statement}</MathContent>{' '}
                   <span className="text-muted-foreground">({item.points} p)</span>
                 </li>
               ))}
