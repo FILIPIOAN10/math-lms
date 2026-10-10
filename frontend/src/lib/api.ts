@@ -479,6 +479,12 @@ export async function deleteQuiz(id: number): Promise<void> {
   await del(`/admin/quizzes/${id}`)
 }
 
+/** A DRAFT copy with the same settings and items (attempts and homework are not copied). */
+export async function copyQuiz(id: number): Promise<QuizSummary> {
+  const response = await postJson(`/admin/quizzes/${id}/copy`, {})
+  return response.json()
+}
+
 export async function setQuizPublished(id: number, published: boolean): Promise<QuizSummary> {
   const response = await postJson(`/admin/quizzes/${id}/${published ? 'publish' : 'unpublish'}`, {})
   return response.json()

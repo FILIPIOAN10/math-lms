@@ -113,6 +113,38 @@ public class QuizAdminService {
         return quizRepository.save(quiz);
     }
 
+    /**
+     * A DRAFT copy with the same audience, timer, practice flag, items, options and hints: variant B of a test, or the
+     * editable version of a quiz students already took (that one's items are frozen). Attempts and homework stay behind.
+     */
+    @Transactional
+    public Quiz copyQuiz(Long id) {
+        Quiz source = getQuiz(id);
+        Quiz copy = new Quiz(copyTitle(source.getTitle()), source.getDescription());
+        copy.assignToClass(source.getSchoolClass());
+        copy.changeTimeLimit(source.getTimeLimitMinutes());
+        copy.allowPractice(source.isPracticeAllowed());
+        Quiz saved = quizRepository.save(copy);
+        for (QuizItem item : itemRepository.findByQuizIdOrderByPosition(id)) {
+            QuizItem itemCopy = itemRepository.save(new QuizItem(saved, item.getPosition(), item.getType(),
+                    item.getStatement(), item.getPoints(), item.getSolution()));
+            for (QuizOption option : optionRepository.findByItemIdOrderByPosition(item.getId())) {
+                optionRepository.save(new QuizOption(itemCopy, option.getPosition(), option.getText(), option.isCorrect()));
+            }
+            for (QuizItemHint hint : hintRepository.findByItemIdOrderByPosition(item.getId())) {
+                hintRepository.save(new QuizItemHint(itemCopy, hint.getPosition(), hint.getText()));
+            }
+        }
+        return saved;
+    }
+
+    /** "Teza (copie)", cut so it still fits the 200 characters a title may have. */
+    private static String copyTitle(String title) {
+        String suffix = " (copie)";
+        int room = 200 - suffix.length();
+        return (title.length() > room ? title.substring(0, room) : title) + suffix;
+    }
+
     @Transactional
     public void deleteQuiz(Long id) {
         Quiz quiz = getQuiz(id);
@@ -203,7 +235,7 @@ public class QuizAdminService {
         if (attempts > 0) {
             throw new QuizInUseException("Quiz-ul „" + quiz.getTitle() + "” a fost deja dat de elevi ("
                     + RoCount.of(attempts, "încercare", "încercări") + "): " + refused
-                    + ", s-ar schimba punctajul maxim și notele lor. Pentru o variantă modificată fă un quiz nou.");
+                    + ", s-ar schimba punctajul maxim și notele lor. Apasă „Copiază” pe rândul quiz-ului și modifică copia.");
         }
     }
 

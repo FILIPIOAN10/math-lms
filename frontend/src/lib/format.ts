@@ -7,3 +7,10 @@ export function formatDate(iso: string | null): string {
 export function formatMinutes(minutes: number): string {
   return `${minutes} ${minutes === 1 ? 'minut' : 'minute'}`
 }
+
+/** "1 subiect", "4 subiecte", "20 de subiecte": Romanian adds "de" when the last two digits are 00 or 20–99. */
+export function roCount(n: number, one: string, many: string): string {
+  if (n === 1) return `1 ${one}`
+  const lastTwo = n % 100
+  return `${n}${n !== 0 && (lastTwo === 0 || lastTwo >= 20) ? ' de ' : ' '}${many}`
+}

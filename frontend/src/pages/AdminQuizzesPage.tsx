@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent, type KeyboardEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -6,9 +6,11 @@ import { Dialog } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { ImportItemsDialog } from '@/components/ImportItemsDialog'
 import { MathContent } from '@/components/MathContent'
 import {
   addQuizItem,
+  copyQuiz,
   createQuiz,
   deleteQuiz,
   deleteQuizItem,
@@ -26,6 +28,7 @@ import {
   type QuizInput,
   type SchoolClass,
 } from '@/lib/api'
+import { roCount } from '@/lib/format'
 
 const selectClass =
   'h-9 rounded-lg border border-border bg-background px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50'
@@ -162,6 +165,14 @@ interface OptionDraft {
   correct: boolean
 }
 
+/** Four boxes, the first marked right: most multiple-choice items have four options. */
+const emptyOptions = (): OptionDraft[] => [
+  { text: '', correct: true },
+  { text: '', correct: false },
+  { text: '', correct: false },
+  { text: '', correct: false },
+]
+
 export function ItemDialog({
   open,
   onClose,
@@ -181,13 +192,11 @@ export function ItemDialog({
   const [options, setOptions] = useState<OptionDraft[]>(
     initial && initial.options.length > 0
       ? initial.options.map((o) => ({ text: o.text, correct: o.correct }))
-      : [
-          { text: '', correct: true },
-          { text: '', correct: false },
-        ],
+      : emptyOptions(),
   )
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [saved, setSaved] = useState(0) // items added with "Salvează și adaugă încă unul" while the dialog stayed open
 
   const isEdit = initial !== null
 
@@ -207,12 +216,19 @@ export function ItemDialog({
     setHints((prev) => prev.filter((_, i) => i !== index))
   }
 
+  /** Enter in an option moves to the next one (adding it after the last) instead of saving a half-written item. */
+  function onOptionEnter(e: KeyboardEvent<HTMLInputElement>, index: number) {
+    if (e.key !== 'Enter') return
+    e.preventDefault()
+    if (index === options.length - 1) addOption()
+    setTimeout(() => document.getElementById(`ioption-${index + 1}`)?.focus(), 0)
+  }
+
   function removeOption(index: number) {
     setOptions((prev) => (prev.length <= 2 ? prev : prev.filter((_, i) => i !== index)))
   }
 
-  async function submit(e: FormEvent) {
-    e.preventDefault()
+  async function save(addAnother: boolean) {
     setError(null)
     if (type === 'SINGLE_CHOICE') {
       if (options.some((o) => o.text.trim() === '')) {
@@ -239,12 +255,27 @@ export function ItemDialog({
     setBusy(true)
     try {
       await onSubmit(input)
-      onClose()
+      if (addAnother) {
+        // Same type and points as the item just saved: a test is usually a run of similar items.
+        setStatement('')
+        setSolution('')
+        setHints([])
+        setOptions(emptyOptions())
+        setSaved((n) => n + 1)
+        document.getElementById('istatement')?.focus()
+      } else {
+        onClose()
+      }
     } catch (err) {
       setError(errorMessage(err))
     } finally {
       setBusy(false)
     }
+  }
+
+  function submit(e: FormEvent) {
+    e.preventDefault()
+    void save(false)
   }
 
   return (
@@ -295,7 +326,13 @@ export function ItemDialog({
                   onChange={() => setCorrect(i)}
                   aria-label={`Varianta ${i + 1} corectă`}
                 />
-                <Input value={o.text} onChange={(e) => setOptionText(i, e.target.value)} placeholder={`Varianta ${i + 1}`} />
+                <Input
+                  id={`ioption-${i}`}
+                  value={o.text}
+                  onChange={(e) => setOptionText(i, e.target.value)}
+                  onKeyDown={(e) => onOptionEnter(e, i)}
+                  placeholder={`Varianta ${i + 1}`}
+                />
                 <Button type="button" variant="ghost" size="icon-sm" onClick={() => removeOption(i)} disabled={options.length <= 2} aria-label="Șterge varianta">
                   ×
                 </Button>
@@ -348,9 +385,19 @@ export function ItemDialog({
           </p>
         </div>
 
+        {saved > 0 && (
+          <p role="status" className="text-sm text-emerald-700 dark:text-emerald-300">
+            ✓ {roCount(saved, 'subiect salvat', 'subiecte salvate')}. Continuă cu următorul sau închide.
+          </p>
+        )}
         {error && <p className="text-sm text-destructive">{error}</p>}
-        <div className="flex justify-end gap-2">
-          <Button type="button" variant="outline" onClick={onClose} disabled={busy}>Anulează</Button>
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button type="button" variant="outline" onClick={onClose} disabled={busy}>{saved > 0 ? 'Închide' : 'Anulează'}</Button>
+          {!isEdit && (
+            <Button type="button" variant="secondary" disabled={busy || statement.trim() === ''} onClick={() => void save(true)}>
+              Salvează și adaugă încă unul
+            </Button>
+          )}
           <Button type="submit" disabled={busy || statement.trim() === ''}>Salvează</Button>
         </div>
       </form>
@@ -368,6 +415,7 @@ export function AdminQuizzesPage() {
   const [error, setError] = useState<string | null>(null)
   const [quizDialog, setQuizDialog] = useState<{ item: QuizSummary | null } | null>(null)
   const [itemDialog, setItemDialog] = useState<{ item: QuizItemDto | null } | null>(null)
+  const [importing, setImporting] = useState(false)
 
   useEffect(() => {
     listQuizzes()
@@ -397,6 +445,18 @@ export function AdminQuizzesPage() {
       await setQuizPublished(q.id, q.status !== 'PUBLISHED')
       await reloadList()
       if (quiz && quiz.id === q.id) await reloadQuiz(q.id)
+    } catch (e) {
+      setError(errorMessage(e))
+    }
+  }
+
+  /** Variant B of a test, or the editable version of one students already took (its own items are frozen). */
+  async function duplicate(q: QuizSummary) {
+    setError(null)
+    try {
+      const copy = await copyQuiz(q.id)
+      await reloadList()
+      await openBuilder(copy.id)
     } catch (e) {
       setError(errorMessage(e))
     }
@@ -441,13 +501,21 @@ export function AdminQuizzesPage() {
         {quiz ? (
           <div className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className={`rounded-md px-2 py-0.5 text-xs font-medium ${quiz.status === 'PUBLISHED' ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' : 'bg-amber-500/15 text-amber-700 dark:text-amber-300'}`}>
-                {quiz.status === 'PUBLISHED' ? 'Publicat' : 'Ciornă'}
-              </span>
-              <div className="flex gap-2">
-                <Button size="sm" variant="outline" onClick={() => togglePublish(quiz)}>
+              <div className="flex items-center gap-2">
+                <span className={`rounded-md px-2 py-0.5 text-xs font-medium ${quiz.status === 'PUBLISHED' ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' : 'bg-amber-500/15 text-amber-700 dark:text-amber-300'}`}>
+                  {quiz.status === 'PUBLISHED' ? 'Publicat' : 'Ciornă'}
+                </span>
+                <span className="text-sm text-muted-foreground" data-testid="quiz-total">
+                  {roCount(quiz.items.length, 'subiect', 'subiecte')} · Total: {quiz.items.reduce((sum, item) => sum + item.points, 0)} p
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" variant="outline" onClick={() => togglePublish(quiz)}
+                        disabled={quiz.status !== 'PUBLISHED' && quiz.items.length === 0}
+                        title={quiz.items.length === 0 ? 'Adaugă cel puțin un subiect înainte să publici' : undefined}>
                   {quiz.status === 'PUBLISHED' ? 'Depublică' : 'Publică'}
                 </Button>
+                <Button size="sm" variant="outline" onClick={() => setImporting(true)}>Importă din text</Button>
                 <Button size="sm" onClick={() => setItemDialog({ item: null })}>Adaugă subiect</Button>
               </div>
             </div>
@@ -511,12 +579,18 @@ export function AdminQuizzesPage() {
                       </p>
                       {q.description && <p className="truncate text-sm text-muted-foreground">{q.description}</p>}
                     </div>
-                    <div className="flex shrink-0 gap-2">
+                    <div className="flex flex-wrap justify-end gap-2">
                       <Button size="xs" variant="outline" onClick={() => openBuilder(q.id)}>Deschide</Button>
                       <Link to={`/admin/quizzes/${q.id}/stats`} data-testid="quiz-stats"
                             className={buttonVariants({ size: 'xs', variant: 'outline' })}>Statistici</Link>
                       <Button size="xs" variant="secondary" onClick={() => togglePublish(q)}>{q.status === 'PUBLISHED' ? 'Depublică' : 'Publică'}</Button>
+                      {q.status === 'PUBLISHED' && (
+                        <Link to={`/admin/assignments?quizId=${q.id}`} className={buttonVariants({ size: 'xs', variant: 'outline' })}>
+                          Dă ca temă
+                        </Link>
+                      )}
                       <Button size="xs" variant="outline" onClick={() => setQuizDialog({ item: q })}>Editează</Button>
+                      <Button size="xs" variant="outline" onClick={() => duplicate(q)}>Copiază</Button>
                       <Button size="xs" variant="destructive" onClick={() => removeQuiz(q)}>Șterge</Button>
                     </div>
                   </CardContent>
@@ -540,10 +614,12 @@ export function AdminQuizzesPage() {
           onSubmit={async (input) => {
             if (quizDialog.item) {
               await updateQuiz(quizDialog.item.id, input)
+              await reloadList()
             } else {
-              await createQuiz(input)
+              const created = await createQuiz(input)
+              await reloadList()
+              await openBuilder(created.id) // a new quiz has no items yet: go straight to adding them
             }
-            await reloadList()
           }}
         />
       )}
@@ -561,6 +637,27 @@ export function AdminQuizzesPage() {
               await addQuizItem(quiz.id, { ...input, position: quiz.items.length })
             }
             await reloadQuiz(quiz.id)
+          }}
+        />
+      )}
+
+      {importing && quiz && (
+        <ImportItemsDialog
+          open
+          onClose={() => setImporting(false)}
+          onImport={async (items) => {
+            let added = 0
+            try {
+              for (const item of items) {
+                await addQuizItem(quiz.id, { ...item, position: quiz.items.length + added }) // after the existing items
+                added++
+              }
+              return null
+            } catch (e) {
+              return `S-au adăugat ${added} din ${items.length}. ${errorMessage(e)}`
+            } finally {
+              await reloadQuiz(quiz.id)
+            }
           }}
         />
       )}

@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Dialog } from '@/components/ui/dialog'
@@ -35,8 +35,14 @@ const STATE_LABEL: Record<AssignmentState, string> = {
 }
 
 type DialogProps =
-  | { mode: 'create'; quizzes: QuizSummary[]; classes: SchoolClass[]; currentDueAt?: undefined }
-  | { mode: 'reschedule'; currentDueAt: string; quizzes?: undefined; classes?: undefined }
+  | {
+      mode: 'create'; quizzes: QuizSummary[]; classes: SchoolClass[]; currentDueAt?: undefined
+      initialQuizId?: number | null; initialClassId?: number | null // "Dă ca temă" from the quiz list
+    }
+  | {
+      mode: 'reschedule'; currentDueAt: string; quizzes?: undefined; classes?: undefined
+      initialQuizId?: undefined; initialClassId?: undefined
+    }
 
 /**
  * Create a homework (pick a published quiz, a class and a deadline) or just move the deadline of an existing one.
@@ -48,8 +54,8 @@ export function AssignmentDialog({
   onSubmit,
   ...props
 }: { open: boolean; onClose: () => void; onSubmit: (input: AssignmentInput) => Promise<void> } & DialogProps) {
-  const [quizId, setQuizId] = useState('')
-  const [classId, setClassId] = useState('')
+  const [quizId, setQuizId] = useState(props.initialQuizId ? String(props.initialQuizId) : '')
+  const [classId, setClassId] = useState(props.initialClassId ? String(props.initialClassId) : '')
   const [due, setDue] = useState(props.mode === 'reschedule' ? isoToLocalInput(props.currentDueAt) : '')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -126,11 +132,14 @@ export function AdminAssignmentsPage() {
   const [classes, setClasses] = useState<SchoolClass[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [creating, setCreating] = useState(false)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const preselectedQuizId = Number(searchParams.get('quizId')) || null // set by "Dă ca temă" on the quiz list
+  const [creating, setCreating] = useState(preselectedQuizId !== null) // arriving from "Dă ca temă" opens the dialog
   const [moving, setMoving] = useState<AssignmentSummary | null>(null)
   const [openId, setOpenId] = useState<number | null>(null)
   const [status, setStatus] = useState<AssignmentStudentStatus[] | null>(null)
   const [now, setNow] = useState(() => Date.now()) // refreshed whenever the list is (re)loaded
+  const preselectedQuiz = quizzes.find((q) => q.id === preselectedQuizId)
 
   useEffect(() => {
     listAssignments()
@@ -249,13 +258,18 @@ export function AdminAssignmentsPage() {
         ))}
       </div>
 
-      {creating && (
+      {creating && (preselectedQuizId === null || preselectedQuiz) && (
         <AssignmentDialog
           open
           mode="create"
           quizzes={quizzes}
           classes={classes}
-          onClose={() => setCreating(false)}
+          initialQuizId={preselectedQuizId}
+          initialClassId={preselectedQuiz?.schoolClassId ?? null} // a quiz reserved for a class can only go to that class
+          onClose={() => {
+            setCreating(false)
+            if (preselectedQuizId) setSearchParams({}, { replace: true })
+          }}
           onSubmit={async (input) => {
             await createAssignment(input)
             await reload()

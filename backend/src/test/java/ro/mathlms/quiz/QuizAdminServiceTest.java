@@ -449,4 +449,50 @@ class QuizAdminServiceTest {
                 .hasMessageContaining("Depublică");
         verify(itemRepository, never()).delete(any(QuizItem.class));
     }
+
+    // --- U9: copying a quiz ---
+
+    @Test
+    void aCopyIsADraftWithTheSameSettingsItemsOptionsAndHints() {
+        ReflectionTestUtils.setField(quiz, "id", 1L);
+        quiz.assignToClass(ninth);
+        quiz.changeTimeLimit(30);
+        quiz.allowPractice(true);
+        quiz.publish();
+        QuizItem item = new QuizItem(quiz, 1, QuizItemType.SINGLE_CHOICE, "Cât e $2+2$?", 2, "$4$");
+        ReflectionTestUtils.setField(item, "id", 7L);
+        when(quizRepository.findById(1L)).thenReturn(Optional.of(quiz));
+        when(quizRepository.save(any(Quiz.class))).thenAnswer(i -> i.getArgument(0));
+        when(itemRepository.findByQuizIdOrderByPosition(1L)).thenReturn(List.of(item));
+        when(itemRepository.save(any(QuizItem.class))).thenAnswer(i -> i.getArgument(0));
+        when(optionRepository.findByItemIdOrderByPosition(7L)).thenReturn(List.of(
+                new QuizOption(item, 0, "$4$", true), new QuizOption(item, 1, "$5$", false)));
+        when(hintRepository.findByItemIdOrderByPosition(7L)).thenReturn(List.of(new QuizItemHint(item, 1, "Numără")));
+
+        Quiz copy = service.copyQuiz(1L);
+
+        assertThat(copy).isNotSameAs(quiz);
+        assertThat(copy.getTitle()).isEqualTo("Simulare EN (copie)");
+        assertThat(copy.getStatus()).isEqualTo(QuizStatus.DRAFT);
+        assertThat(copy.getSchoolClass()).isSameAs(ninth);
+        assertThat(copy.getTimeLimitMinutes()).isEqualTo(30);
+        assertThat(copy.isPracticeAllowed()).isTrue();
+        ArgumentCaptor<QuizOption> options = ArgumentCaptor.forClass(QuizOption.class);
+        verify(optionRepository, org.mockito.Mockito.times(2)).save(options.capture());
+        assertThat(options.getAllValues()).extracting(QuizOption::getText, QuizOption::isCorrect)
+                .containsExactly(org.assertj.core.groups.Tuple.tuple("$4$", true), org.assertj.core.groups.Tuple.tuple("$5$", false));
+        assertThat(options.getAllValues()).allSatisfy(o -> assertThat(o.getItem().getQuiz()).isSameAs(copy));
+        verify(hintRepository).save(any(QuizItemHint.class));
+    }
+
+    @Test
+    void aCopyOfAVeryLongTitleStillFitsTwoHundredCharacters() {
+        Quiz longOne = new Quiz("x".repeat(200), null);
+        when(quizRepository.findById(2L)).thenReturn(Optional.of(longOne));
+        when(quizRepository.save(any(Quiz.class))).thenAnswer(i -> i.getArgument(0));
+
+        Quiz copy = service.copyQuiz(2L);
+
+        assertThat(copy.getTitle()).hasSize(200).endsWith(" (copie)");
+    }
 }

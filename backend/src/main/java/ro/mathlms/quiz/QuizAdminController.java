@@ -52,6 +52,11 @@ public class QuizAdminController {
                         request.timeLimitMinutes(), Boolean.TRUE.equals(request.practiceAllowed())));
     }
 
+    @PostMapping("/api/admin/quizzes/{id}/copy")
+    public ResponseEntity<QuizSummaryDto> copy(@PathVariable Long id) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(QuizSummaryDto.from(service.copyQuiz(id)));
+    }
+
     @PostMapping("/api/admin/quizzes/{id}/publish")
     public QuizSummaryDto publish(@PathVariable Long id) {
         return QuizSummaryDto.from(service.setPublished(id, true));

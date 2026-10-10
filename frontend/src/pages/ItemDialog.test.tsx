@@ -92,3 +92,46 @@ describe('ItemDialog hints editor', () => {
     expect((await submitted(onSubmit)).solution).toBe('Adunăm: 2+2=4')
   })
 })
+
+describe('ItemDialog quick entry', () => {
+  it('starts a new multiple-choice item with four options', () => {
+    renderDialog(null)
+
+    expect(screen.getAllByPlaceholderText(/^Varianta \d$/)).toHaveLength(4)
+  })
+
+  it('moves to a new option on Enter in the last one instead of saving', async () => {
+    const onSubmit = renderDialog(null)
+
+    await userEvent.type(screen.getByPlaceholderText('Varianta 4'), 'ultima{Enter}')
+
+    expect(screen.getAllByPlaceholderText(/^Varianta \d$/)).toHaveLength(5)
+    await waitFor(() => expect(screen.getByPlaceholderText('Varianta 5')).toHaveFocus())
+    expect(onSubmit).not.toHaveBeenCalled()
+  })
+
+  it('saves and empties the form for the next item, keeping its type and points', async () => {
+    const onClose = vi.fn()
+    const onSubmit = vi.fn().mockResolvedValue(undefined)
+    render(<ItemDialog open onClose={onClose} initial={null} onSubmit={onSubmit} />)
+    await userEvent.selectOptions(screen.getByLabelText('Tip'), 'OPEN')
+    await userEvent.type(screen.getByLabelText('Enunț'), 'Demonstrează')
+    await userEvent.clear(screen.getByLabelText('Punctaj'))
+    await userEvent.type(screen.getByLabelText('Punctaj'), '3')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Salvează și adaugă încă unul' }))
+
+    expect((await submitted(onSubmit)).statement).toBe('Demonstrează')
+    expect(screen.getByLabelText('Enunț')).toHaveValue('')
+    expect(screen.getByLabelText('Tip')).toHaveValue('OPEN')
+    expect(screen.getByLabelText('Punctaj')).toHaveValue(3)
+    expect(screen.getByRole('status')).toHaveTextContent('1 subiect salvat')
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it('offers save-and-next only for a new item', () => {
+    renderDialog(openItem)
+
+    expect(screen.queryByRole('button', { name: 'Salvează și adaugă încă unul' })).not.toBeInTheDocument()
+  })
+})
