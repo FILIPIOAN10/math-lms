@@ -67,6 +67,8 @@ class GdprExportServiceTest {
         r1.gradeAuto(true, 5);
         ItemResponse r2 = new ItemResponse(attempt, deschis);
         r2.answerOpen("photo.jpg");
+        r2.gradeManual(20, "Raționament corect.");
+        attempt.commentOverall("Lucrare bună.");
 
         when(userRepository.findByEmail("elev@scoala.ro")).thenReturn(Optional.of(student));
         when(enrollmentRepository.findByStudentId(1L)).thenReturn(List.of(enrollment));
@@ -84,7 +86,10 @@ class GdprExportServiceTest {
                 .contains("Elev Pop")
                 .contains("Clasa a 9-a")
                 .contains("Simulare EN")
-                .contains("\"4\"");
+                .contains("\"4\"")
+                // the teacher's comments are about the student too: they go into the archive
+                .contains("Raționament corect.")
+                .contains("Lucrare bună.");
         assertThat(entries).containsKey("photos/photo.jpg");
         assertThat(new String(entries.get("photos/photo.jpg"))).isEqualTo("IMG");
     }

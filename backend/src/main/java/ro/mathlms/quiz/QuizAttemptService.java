@@ -38,6 +38,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -181,9 +182,21 @@ public class QuizAttemptService {
     @Transactional(readOnly = true)
     public List<MyAttemptDto> listMyAttempts(String studentEmail) {
         User student = requireUser(studentEmail);
-        return attemptRepository.findByStudentIdOrderByStartedAtDesc(student.getId()).stream()
-                .map(MyAttemptDto::from)
+        List<QuizAttempt> attempts = attemptRepository.findByStudentIdOrderByStartedAtDesc(student.getId());
+        Map<Long, Integer> maxScores = maxScores(attempts);
+        return attempts.stream()
+                .map(a -> MyAttemptDto.from(a, maxScores.getOrDefault(a.getQuiz().getId(), 0)))
                 .toList();
+    }
+
+    /** Each quiz's total points for a list of attempts, in ONE aggregate query (a quiz without items is 0). */
+    private Map<Long, Integer> maxScores(List<QuizAttempt> attempts) {
+        if (attempts.isEmpty()) {
+            return Map.of();
+        }
+        Set<Long> quizIds = attempts.stream().map(a -> a.getQuiz().getId()).collect(Collectors.toSet());
+        return itemRepository.sumPointsByQuiz(quizIds).stream()
+                .collect(Collectors.toMap(QuizMaxScore::quizId, m -> m.maxScore().intValue()));
     }
 
     /**
@@ -406,10 +419,12 @@ public class QuizAttemptService {
                     response == null ? null : response.getCorrect(),
                     selectedText, correctText, item.getSolution(), photoUploaded,
                     response == null ? 0 : response.getHintsUsed(),
-                    hintCounts.getOrDefault(item.getId(), 0)));
+                    hintCounts.getOrDefault(item.getId(), 0),
+                    response == null ? null : response.getTeacherComment()));
         }
         return new AttemptResultViewDto(attempt.getId(), attempt.getQuiz().getTitle(),
-                attempt.getStatus(), attempt.getScore(), maxScore, itemResults, attempt.getMode());
+                attempt.getStatus(), attempt.getScore(), maxScore, itemResults, attempt.getMode(),
+                attempt.getTeacherComment());
     }
 
     /** The quiz as the student sees it; hint counts only exist in a practice - a graded test hides even that. */
@@ -546,7 +561,7 @@ public class QuizAttemptService {
 
     /** Profesorul acordă punctaj manual pentru un subiect OPEN. */
     @Transactional
-    public void gradeOpenResponse(Long attemptId, Long itemId, int points) {
+    public void gradeOpenResponse(Long attemptId, Long itemId, int points, String comment) {
         QuizAttempt attempt = attemptRepository.findById(attemptId)
                 .orElseThrow(() -> new QuizNotFoundException("QuizAttempt", attemptId));
 
@@ -571,8 +586,23 @@ public class QuizAttemptService {
         ItemResponse response = responseRepository.findByAttemptIdAndItemId(attemptId, itemId)
                 .orElseGet(() -> new ItemResponse(attempt, item));
 
-        response.gradeManual(points);
+        response.gradeManual(points, comment);
         responseRepository.save(response);
+    }
+
+    /**
+     * The teacher's comment on a whole paper - while grading it, or later on one that is already graded (an
+     * all-grilă test is graded the moment it is handed in). Not before it is handed in, never on a practice.
+     */
+    @Transactional
+    public void commentOnAttempt(Long attemptId, String comment) {
+        QuizAttempt attempt = attemptRepository.findById(attemptId)
+                .orElseThrow(() -> new QuizNotFoundException("QuizAttempt", attemptId));
+        if (attempt.getMode() != AttemptMode.TEST || attempt.getStatus() == QuizAttemptStatus.IN_PROGRESS) {
+            throw new InvalidQuizException("Poți comenta doar o lucrare predată");
+        }
+        attempt.commentOverall(comment);
+        attemptRepository.save(attempt);
     }
 
     /** Profesorul închide corectura, validând că toate subiectele OPEN au fost notate. */
@@ -623,8 +653,10 @@ public class QuizAttemptService {
     /** The teacher's grading queue (Q10): attempts in one status, oldest submission first. */
     @Transactional(readOnly = true)
     public List<AdminAttemptSummaryDto> listForGrading(QuizAttemptStatus status) {
-        return attemptRepository.findByStatusForGrading(status).stream()
-                .map(AdminAttemptSummaryDto::from)
+        List<QuizAttempt> attempts = attemptRepository.findByStatusForGrading(status);
+        Map<Long, Integer> maxScores = maxScores(attempts);
+        return attempts.stream()
+                .map(a -> AdminAttemptSummaryDto.from(a, maxScores.getOrDefault(a.getQuiz().getId(), 0)))
                 .toList();
     }
 
@@ -665,10 +697,11 @@ public class QuizAttemptService {
                     item.getSolution(), selectedText, correctText,
                     response == null ? null : response.getCorrect(),
                     response == null ? null : response.getAwardedPoints(),
-                    response != null && response.getImageKey() != null));
+                    response != null && response.getImageKey() != null,
+                    response == null ? null : response.getTeacherComment()));
         }
         return new AdminAttemptDetailDto(attempt.getId(), attempt.getQuiz().getTitle(),
                 attempt.getStudent().getFullName(), attempt.getStatus(), attempt.getSubmittedAt(),
-                attempt.getScore(), maxScore, reviews);
+                attempt.getScore(), maxScore, reviews, attempt.getTeacherComment());
     }
 }

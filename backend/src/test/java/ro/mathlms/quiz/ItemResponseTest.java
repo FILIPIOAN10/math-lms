@@ -159,4 +159,24 @@ class ItemResponseTest {
 
         assertThatThrownBy(() -> response.revealHint(0)).isInstanceOf(IllegalArgumentException.class);
     }
+
+    @Test
+    void gradeManualKeepsTheTeachersCommentTrimmed() {
+        ItemResponse response = new ItemResponse(attempt, open());
+
+        response.gradeManual(20, "  Bine, dar ai uitat unitatea de măsură.  ");
+
+        assertThat(response.getAwardedPoints()).isEqualTo(20);
+        assertThat(response.getTeacherComment()).isEqualTo("Bine, dar ai uitat unitatea de măsură.");
+    }
+
+    @Test
+    void aBlankCommentIsStoredAsNoComment() {
+        ItemResponse response = new ItemResponse(attempt, open());
+        response.gradeManual(20, "Prima variantă");
+
+        response.gradeManual(20, "   ");
+
+        assertThat(response.getTeacherComment()).isNull();
+    }
 }

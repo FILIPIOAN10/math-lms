@@ -101,7 +101,7 @@ class AdminQuizAttemptControllerTest {
     @Test
     @WithMockUser(roles = "ADMIN")
     void gradeItem_Success() throws Exception {
-        GradeRequestDto request = new GradeRequestDto(15);
+        GradeRequestDto request = new GradeRequestDto(15, "Bine!");
 
         mockMvc.perform(put("/api/admin/quiz/attempts/1/responses/2/grade")
                         .with(csrf())
@@ -109,13 +109,13 @@ class AdminQuizAttemptControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isNoContent());
 
-        verify(service).gradeOpenResponse(1L, 2L, 15);
+        verify(service).gradeOpenResponse(1L, 2L, 15, "Bine!");
     }
 
     @Test
     @WithMockUser(roles = "ADMIN")
     void gradeItem_FailsWhenPointsNegative() throws Exception {
-        GradeRequestDto request = new GradeRequestDto(-5);
+        GradeRequestDto request = new GradeRequestDto(-5, null);
 
         mockMvc.perform(put("/api/admin/quiz/attempts/1/responses/2/grade")
                         .with(csrf())
@@ -127,7 +127,7 @@ class AdminQuizAttemptControllerTest {
     @Test
     @WithMockUser(roles = "STUDENT")
     void gradeItem_FailsForStudentRole() throws Exception {
-        GradeRequestDto request = new GradeRequestDto(10);
+        GradeRequestDto request = new GradeRequestDto(10, null);
 
         mockMvc.perform(put("/api/admin/quiz/attempts/1/responses/2/grade")
                         .with(csrf())
@@ -152,7 +152,7 @@ class AdminQuizAttemptControllerTest {
     @WithMockUser(roles = "ADMIN")
     void listDefaultsToSubmittedQueue() throws Exception {
         when(service.listForGrading(QuizAttemptStatus.SUBMITTED)).thenReturn(List.of(
-                new AdminAttemptSummaryDto(1L, 10L, "Simulare EN", 5L, "Ana", QuizAttemptStatus.SUBMITTED, null, null)));
+                new AdminAttemptSummaryDto(1L, 10L, "Simulare EN", 5L, "Ana", QuizAttemptStatus.SUBMITTED, null, null, 35)));
 
         mockMvc.perform(get("/api/admin/quiz/attempts"))
                 .andExpect(status().isOk())
@@ -174,7 +174,7 @@ class AdminQuizAttemptControllerTest {
     @WithMockUser(roles = "ADMIN")
     void detailReturnsTheAttempt() throws Exception {
         when(service.getAttemptForGrading(1L)).thenReturn(new AdminAttemptDetailDto(
-                1L, "Simulare EN", "Ana", QuizAttemptStatus.SUBMITTED, null, null, 35, List.of()));
+                1L, "Simulare EN", "Ana", QuizAttemptStatus.SUBMITTED, null, null, 35, List.of(), null));
 
         mockMvc.perform(get("/api/admin/quiz/attempts/1"))
                 .andExpect(status().isOk())
@@ -185,6 +185,40 @@ class AdminQuizAttemptControllerTest {
     @WithMockUser(roles = "STUDENT")
     void studentCannotSeeTheGradingQueue() throws Exception {
         mockMvc.perform(get("/api/admin/quiz/attempts"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void gradeItem_RejectsACommentLongerThan2000Characters() throws Exception {
+        GradeRequestDto request = new GradeRequestDto(5, "x".repeat(2001));
+
+        mockMvc.perform(put("/api/admin/quiz/attempts/1/responses/2/grade")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void commentOnTheWholePaper() throws Exception {
+        mockMvc.perform(put("/api/admin/quiz/attempts/1/comment")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"comment\":\"Felicitări!\"}"))
+                .andExpect(status().isNoContent());
+
+        verify(service).commentOnAttempt(1L, "Felicitări!");
+    }
+
+    @Test
+    @WithMockUser(roles = "STUDENT")
+    void aStudentCannotCommentOnAPaper() throws Exception {
+        mockMvc.perform(put("/api/admin/quiz/attempts/1/comment")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"comment\":\"10 pe linie\"}"))
                 .andExpect(status().isForbidden());
     }
 }

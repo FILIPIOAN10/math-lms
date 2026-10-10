@@ -65,10 +65,12 @@ class GdprErasureServiceTest {
                 new QuizItem(quiz, 1, QuizItemType.OPEN, "Rezolvă.", 30, null));
         QuizAttempt attempt = attemptRepository.save(new QuizAttempt(quiz, user));
         attempt.submit();
+        attempt.commentOverall("Ana, ai progresat mult.");
         attemptRepository.save(attempt);
 
         ItemResponse response = new ItemResponse(attempt, open);
         response.answerOpen("rezolvare.jpg");
+        response.gradeManual(25, "Ana, verifică semnul.");
         response = responseRepository.save(response);
 
         return new Seed(user.getId(), attempt.getId(), response.getId());
@@ -94,6 +96,11 @@ class GdprErasureServiceTest {
         // Grades kept, but the photo detached and its key cleared.
         assertThat(attemptRepository.findById(seed.attemptId())).isPresent();
         assertThat(responseRepository.findById(seed.responseId()).orElseThrow().getImageKey()).isNull();
+        // Free text about the person may name them: the teacher's comments go too, the points stay.
+        assertThat(attemptRepository.findById(seed.attemptId()).orElseThrow().getTeacherComment()).isNull();
+        ItemResponse kept = responseRepository.findById(seed.responseId()).orElseThrow();
+        assertThat(kept.getTeacherComment()).isNull();
+        assertThat(kept.getAwardedPoints()).isEqualTo(25);
     }
 
     @Test

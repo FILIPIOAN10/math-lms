@@ -100,7 +100,8 @@ public class GdprExportService {
                 attempt.getScore(),
                 attempt.getStartedAt().toString(),
                 Objects.toString(attempt.getSubmittedAt(), null),
-                responses);
+                responses,
+                attempt.getTeacherComment());
     }
 
     private GdprExportData.ResponseEntry toResponse(ItemResponse response) {
@@ -111,7 +112,8 @@ public class GdprExportService {
                 response.getSelectedOption() == null ? null : response.getSelectedOption().getText(),
                 response.getImageKey(),
                 response.getAwardedPoints(),
-                response.getCorrect());
+                response.getCorrect(),
+                response.getTeacherComment());
     }
 
     private byte[] zip(User user, GdprExportData.Archive archive) {

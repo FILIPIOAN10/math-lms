@@ -31,4 +31,9 @@ public interface ItemResponseRepository extends JpaRepository<ItemResponse, Long
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("update ItemResponse r set r.imageKey = null where r.attempt.student.id = :userId")
     void clearPhotosByStudentId(@Param("userId") Long userId);
+
+    /** GDPR erasure: the teacher's comments are free text about the student - they go, the points stay. */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("update ItemResponse r set r.teacherComment = null where r.attempt.student.id = :userId")
+    void clearTeacherCommentsByStudentId(@Param("userId") Long userId);
 }

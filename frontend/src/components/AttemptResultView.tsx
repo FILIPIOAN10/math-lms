@@ -5,6 +5,17 @@ import { AttemptModeBadge } from '@/components/AttemptModeBadge'
 import { AttemptStatusBadge } from '@/components/AttemptStatusBadge'
 import { MathContent } from '@/components/MathContent'
 import { ownPhotoUrl, type AttemptResultViewDto, type ItemResultDto } from '@/lib/api'
+import { formatGrade, romanianGrade } from '@/lib/grades'
+
+/** The teacher's words, set apart from the app's own text so they read as a note from a person. */
+function TeacherNote({ text, testId, title }: { text: string; testId: string; title: string }) {
+  return (
+    <div data-testid={testId} className="rounded-lg border-l-4 border-sky-500 bg-sky-500/10 p-3 text-sm">
+      <p className="text-xs font-medium text-sky-800 dark:text-sky-200">{title}</p>
+      <p className="whitespace-pre-line">{text}</p>
+    </div>
+  )
+}
 
 /** Who is reading: only the wording changes ("Răspunsul tău" vs "Răspunsul elevului"). */
 export type ResultAudience = 'student' | 'parent'
@@ -83,6 +94,10 @@ function ItemResult({
           </div>
         )}
 
+        {item.teacherComment && (
+          <TeacherNote text={item.teacherComment} testId="item-teacher-comment" title="Comentariul profesorului" />
+        )}
+
         {item.barem && (
           <div className="space-y-2">
             <Button size="xs" variant="outline" onClick={() => setShowBarem((v) => !v)}>
@@ -111,6 +126,7 @@ export function AttemptResultView({ result, audience = 'student' }: { result: At
   const choiceCorrect = choiceItems.filter((i) => i.correct).length
   const hintsUsed = result.items.reduce((sum, i) => sum + i.hintsUsed, 0)
   const hintsAvailable = result.items.reduce((sum, i) => sum + i.hintsAvailable, 0)
+  const grade = result.finalScore !== null ? romanianGrade(result.finalScore, result.maxScore) : null
 
   return (
     <>
@@ -127,14 +143,25 @@ export function AttemptResultView({ result, audience = 'student' }: { result: At
               {hintsAvailable > 0 && ` Indicii folosite: ${hintsUsed} din ${hintsAvailable}.`}
             </p>
           ) : result.status === 'GRADED' ? (
-            <p data-testid="result-score" className="text-3xl font-semibold">
-              {result.finalScore} <span className="text-base text-muted-foreground">/ {result.maxScore} puncte</span>
-            </p>
+            <>
+              <p data-testid="result-score" className="text-3xl font-semibold">
+                {result.finalScore} <span className="text-base text-muted-foreground">/ {result.maxScore} puncte</span>
+              </p>
+              {grade !== null && result.finalScore !== null && (
+                <p data-testid="result-grade" className="text-sm text-muted-foreground">
+                  Nota <span className="font-semibold text-foreground">{formatGrade(grade)}</span> ·{' '}
+                  {Math.round((100 * result.finalScore) / result.maxScore)}%
+                </p>
+              )}
+            </>
           ) : (
             <p className="text-sm text-muted-foreground">
               Grilele sunt corectate ({pointsSoFar} puncte până acum). Subiectele cu rezolvare
               așteaptă corectura profesorului — revino mai târziu pentru nota finală.
             </p>
+          )}
+          {result.teacherComment && (
+            <TeacherNote text={result.teacherComment} testId="teacher-comment" title="Comentariul profesorului pentru toată lucrarea" />
           )}
         </CardContent>
       </Card>

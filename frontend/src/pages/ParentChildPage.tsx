@@ -7,6 +7,7 @@ import { ProgressChart } from '@/components/ProgressChart'
 import { AttemptModeBadge } from '@/components/AttemptModeBadge'
 import { getChildAttempts, getChildProgress, type MyAttemptDto, type ProgressPointDto } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
+import { scoreLine } from '@/lib/grades'
 import { formatDate } from '@/lib/format'
 
 /** One child's attempts (read-only). A child that is not yours answers 403, shown as the error. */
@@ -64,7 +65,7 @@ export function ParentChildPage() {
                 <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                   {a.mode === 'PRACTICE' ? <AttemptModeBadge mode={a.mode} /> : <AttemptStatusBadge status={a.status} />}
                   <span>{formatDate(a.submittedAt ?? a.startedAt)}</span>
-                  {a.score !== null && <span className="text-foreground">{a.score} puncte</span>}
+                  {a.score !== null && <span className="text-foreground">{scoreLine(a.score, a.maxScore)}</span>}
                 </p>
               </div>
               {a.status !== 'IN_PROGRESS' && (

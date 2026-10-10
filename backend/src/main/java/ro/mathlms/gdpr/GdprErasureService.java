@@ -14,6 +14,7 @@ import ro.mathlms.auth.UserNotFoundException;
 import ro.mathlms.auth.VerificationTokenService;
 import ro.mathlms.content.EnrollmentRepository;
 import ro.mathlms.quiz.ItemResponseRepository;
+import ro.mathlms.quiz.QuizAttemptRepository;
 import ro.mathlms.storage.FileService;
 import ro.mathlms.user.User;
 import ro.mathlms.user.UserRepository;
@@ -46,6 +47,7 @@ public class GdprErasureService {
     private final EmailService emailService;
     private final EnrollmentRepository enrollmentRepository;
     private final ItemResponseRepository responseRepository;
+    private final QuizAttemptRepository attemptRepository;
     private final FileService fileService;
     private final RefreshTokenService refreshTokenService;
     private final String quizPhotosDir;
@@ -53,7 +55,7 @@ public class GdprErasureService {
     public GdprErasureService(UserRepository userRepository, PasswordEncoder passwordEncoder,
                               VerificationTokenService tokenService, EmailService emailService,
                               EnrollmentRepository enrollmentRepository, ItemResponseRepository responseRepository,
-                              FileService fileService, RefreshTokenService refreshTokenService,
+                              QuizAttemptRepository attemptRepository, FileService fileService, RefreshTokenService refreshTokenService,
                               @Value("${app.storage.quiz-photos-dir}") String quizPhotosDir) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
@@ -61,6 +63,7 @@ public class GdprErasureService {
         this.emailService = emailService;
         this.enrollmentRepository = enrollmentRepository;
         this.responseRepository = responseRepository;
+        this.attemptRepository = attemptRepository;
         this.fileService = fileService;
         this.refreshTokenService = refreshTokenService;
         this.quizPhotosDir = quizPhotosDir;
@@ -106,6 +109,9 @@ public class GdprErasureService {
             }
         }
         responseRepository.clearPhotosByStudentId(userId);
+        // The teacher's comments are free text about the person and may name them; points and grades stay.
+        responseRepository.clearTeacherCommentsByStudentId(userId);
+        attemptRepository.clearTeacherCommentsByStudentId(userId);
 
         // Drop the person's own state; quiz attempts/grades stay, now anonymised via the tombstone.
         enrollmentRepository.deleteByStudentId(userId);

@@ -140,12 +140,13 @@ public final class StudentQuizDtos {
             Instant startedAt,
             Instant submittedAt,
             Integer score,
-            AttemptMode mode
+            AttemptMode mode,
+            int maxScore        // the quiz's total points, so a score reads "8 / 11"
     ) {
-        public static MyAttemptDto from(QuizAttempt attempt) {
+        public static MyAttemptDto from(QuizAttempt attempt, int maxScore) {
             return new MyAttemptDto(attempt.getId(), attempt.getQuiz().getId(), attempt.getQuiz().getTitle(),
                     attempt.getStatus(), attempt.getStartedAt(), attempt.getSubmittedAt(), attempt.getScore(),
-                    attempt.getMode());
+                    attempt.getMode(), maxScore);
         }
     }
 
@@ -180,7 +181,8 @@ public final class StudentQuizDtos {
             String barem,
             boolean photoUploaded,
             int hintsUsed,      // practice only; 0 in a graded test
-            int hintsAvailable  // practice only; 0 in a graded test
+            int hintsAvailable, // practice only; 0 in a graded test
+            String teacherComment
     ) {}
 
     /** The student's graded attempt: the score plus a per-item breakdown. */
@@ -191,6 +193,7 @@ public final class StudentQuizDtos {
             Integer finalScore,
             int maxScore,
             List<ItemResultDto> items,
-            AttemptMode mode
+            AttemptMode mode,
+            String teacherComment // on the whole paper
     ) {}
 }

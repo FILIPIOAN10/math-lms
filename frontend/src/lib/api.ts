@@ -598,6 +598,8 @@ export interface MyAttemptDto {
   submittedAt: string | null
   score: number | null
   mode: AttemptMode
+  /** The quiz's total points, so a score reads "8 / 11". */
+  maxScore: number
 }
 
 /** One point of the progress chart: a graded attempt as points and as a percent of the quiz's max. */
@@ -627,6 +629,8 @@ export interface ItemResultDto {
   /** Practice only (0 in a graded test). */
   hintsUsed: number
   hintsAvailable: number
+  /** The teacher's comment on this answer (graded open items), or null. */
+  teacherComment: string | null
 }
 
 export interface AttemptResultViewDto {
@@ -637,6 +641,8 @@ export interface AttemptResultViewDto {
   maxScore: number
   items: ItemResultDto[]
   mode: AttemptMode
+  /** The teacher's comment on the whole paper, or null. */
+  teacherComment: string | null
 }
 
 // ----- Parent (Phase 5): read-only view of one's own children -----
@@ -762,6 +768,7 @@ export interface AdminAttemptSummary {
   status: QuizAttemptStatus
   submittedAt: string | null
   score: number | null
+  maxScore: number
 }
 
 export interface AdminItemReview {
@@ -776,6 +783,7 @@ export interface AdminItemReview {
   correct: boolean | null
   awardedPoints: number | null
   photoUploaded: boolean
+  teacherComment: string | null
 }
 
 export interface AdminAttemptDetail {
@@ -787,6 +795,8 @@ export interface AdminAttemptDetail {
   score: number | null
   maxScore: number
   items: AdminItemReview[]
+  /** On the whole paper. */
+  teacherComment: string | null
 }
 
 export async function listAttemptsForGrading(status: QuizAttemptStatus): Promise<AdminAttemptSummary[]> {
@@ -799,8 +809,14 @@ export async function getAttemptForGrading(attemptId: number): Promise<AdminAtte
   return response.json()
 }
 
-export async function gradeOpenItem(attemptId: number, itemId: number, points: number): Promise<void> {
-  await putJson(`/admin/quiz/attempts/${attemptId}/responses/${itemId}/grade`, { points })
+/** Points for one open answer, with an optional comment for the student (blank = none). */
+export async function gradeOpenItem(attemptId: number, itemId: number, points: number, comment: string | null = null): Promise<void> {
+  await putJson(`/admin/quiz/attempts/${attemptId}/responses/${itemId}/grade`, { points, comment })
+}
+
+/** The teacher's comment on the whole paper, while grading or after; blank removes it. */
+export async function commentOnAttempt(attemptId: number, comment: string): Promise<void> {
+  await putJson(`/admin/quiz/attempts/${attemptId}/comment`, { comment })
 }
 
 export async function finalizeGrading(attemptId: number): Promise<void> {

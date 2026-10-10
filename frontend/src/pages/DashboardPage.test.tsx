@@ -40,7 +40,7 @@ const homework = (id: number, title: string, state: StudentAssignment['state']):
 })
 const attempt = (over: Partial<MyAttemptDto>): MyAttemptDto => ({
   attemptId: 1, quizId: 1, quizTitle: 'Test', status: 'GRADED', startedAt: inDays(-1), submittedAt: inDays(-1),
-  score: 8, mode: 'TEST', ...over,
+  score: 8, mode: 'TEST', maxScore: 11, ...over,
 })
 const point = (over: Partial<ProgressPointDto>): ProgressPointDto => ({
   attemptId: 7, quizId: 3, quizTitle: 'Simulare EN', submittedAt: inDays(-1), score: 8, maxScore: 11, percent: 73, ...over,
@@ -124,6 +124,7 @@ describe('DashboardPage — student', () => {
 
     const grade = await screen.findByTestId('latest-grade')
     expect(grade).toHaveTextContent('8 / 11')
+    expect(grade).toHaveTextContent('nota 7,55')
     expect(grade).toHaveTextContent('Simulare EN')
     expect(within(grade).getByRole('link', { name: 'Vezi rezultatul' })).toHaveAttribute('href', '/quizzes/attempts/7/result')
     expect(screen.getByTestId('awaiting-grading')).toHaveTextContent('1')
@@ -143,7 +144,7 @@ describe('DashboardPage — teacher', () => {
   })
   const submitted = (id: number, studentName: string): AdminAttemptSummary => ({
     attemptId: id, quizId: 1, quizTitle: 'Simulare EN', studentId: id, studentName, status: 'SUBMITTED',
-    submittedAt: inDays(-1), score: null,
+    submittedAt: inDays(-1), score: null, maxScore: 11,
   })
 
   beforeEach(() => {
@@ -220,6 +221,7 @@ describe('DashboardPage — parent', () => {
     expect(cards).toHaveLength(2)
     expect(cards[0]).toHaveTextContent('Ana Student')
     expect(cards[0]).toHaveTextContent('8 / 11')
+    expect(cards[0]).toHaveTextContent('nota 7,55')
     expect(cards[0]).toHaveTextContent('1 test în corectare')
     expect(within(cards[0]).getByRole('link', { name: 'Vezi detalii' })).toHaveAttribute('href', '/parent/children/4')
     expect(cards[1]).toHaveTextContent('Nicio notă încă')

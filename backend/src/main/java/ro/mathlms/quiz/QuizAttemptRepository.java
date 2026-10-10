@@ -4,6 +4,7 @@ import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -66,4 +67,9 @@ public interface QuizAttemptRepository extends JpaRepository<QuizAttempt, Long> 
     @Query("select a from QuizAttempt a join fetch a.quiz join fetch a.student "
             + "where a.status = :status and a.mode = ro.mathlms.quiz.AttemptMode.TEST order by a.submittedAt asc")
     List<QuizAttempt> findByStatusForGrading(@Param("status") QuizAttemptStatus status);
+
+    /** GDPR erasure: the teacher's comment on a paper is free text about the student - it goes, the grade stays. */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("update QuizAttempt a set a.teacherComment = null where a.student.id = :userId")
+    void clearTeacherCommentsByStudentId(@Param("userId") Long userId);
 }

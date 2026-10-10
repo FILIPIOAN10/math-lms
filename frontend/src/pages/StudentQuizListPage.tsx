@@ -15,6 +15,8 @@ import {
 } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
 import { formatMinutes } from '@/lib/format'
+import { scoreLine } from '@/lib/grades'
+import { todoAssignments } from '@/lib/home'
 
 function formatDate(iso: string | null): string {
   return iso ? new Date(iso).toLocaleString('ro-RO', { dateStyle: 'medium', timeStyle: 'short' }) : '—'
@@ -50,6 +52,15 @@ export function StudentQuizListPage() {
   const inProgressTests = openQuizIds('TEST')
   const inProgressPractices = openQuizIds('PRACTICE')
 
+  // The latest handed-in graded test per quiz (attempts come newest first), for the "already taken" line.
+  const latestDone = new Map<number, MyAttemptDto>()
+  for (const a of attempts) {
+    if (a.mode === 'TEST' && a.status !== 'IN_PROGRESS' && !latestDone.has(a.quizId)) latestDone.set(a.quizId, a)
+  }
+  // Homework still to do is offered under "Teme"; listing it again here would show two "Începe" for one quiz.
+  const homeworkToDo = new Set(todoAssignments(assignments).map((a) => a.quizId))
+  const available = quizzes.filter((q) => !homeworkToDo.has(q.id))
+
   return (
     <div className="p-4">
       <div className="mx-auto max-w-3xl space-y-6">
@@ -66,12 +77,16 @@ export function StudentQuizListPage() {
 
             <section className="space-y-2">
               <h2 className="font-medium">Teste disponibile</h2>
-              {quizzes.length === 0 ? (
+              {available.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  Niciun test publicat momentan. Revino după ce profesorul publică unul.
+                  {quizzes.length === 0
+                    ? 'Niciun test publicat momentan. Revino după ce profesorul publică unul.'
+                    : 'Toate testele tale sunt la „Teme”.'}
                 </p>
               ) : (
-                quizzes.map((q) => (
+                available.map((q) => {
+                  const done = inProgressTests.has(q.id) ? undefined : latestDone.get(q.id)
+                  return (
                   <Card key={q.id}>
                     <CardContent data-testid="quiz-card" className="flex items-center justify-between gap-3 py-3">
                       <div className="min-w-0">
@@ -82,6 +97,13 @@ export function StudentQuizListPage() {
                         {q.timeLimitMinutes !== null && (
                           <p className="text-xs font-medium text-muted-foreground" data-testid="quiz-time-limit">
                             ⏱ {formatMinutes(q.timeLimitMinutes)}
+                          </p>
+                        )}
+                        {done && (
+                          <p data-testid="quiz-done" className="text-sm text-emerald-700 dark:text-emerald-300">
+                            {done.status === 'GRADED' && done.score !== null
+                              ? `✓ Dat · ${scoreLine(done.score, done.maxScore)}`
+                              : '✓ Predat — în corectare'}
                           </p>
                         )}
                       </div>
@@ -95,13 +117,29 @@ export function StudentQuizListPage() {
                             {inProgressPractices.has(q.id) ? 'Continuă practica' : 'Exersează'}
                           </Link>
                         )}
-                        <Link to={`/quizzes/${q.id}/take`} data-testid="quiz-open" className={buttonVariants({ size: 'sm' })}>
-                          {inProgressTests.has(q.id) ? 'Continuă' : 'Începe'}
-                        </Link>
+                        {done ? (
+                          <>
+                            <Link
+                              to={`/quizzes/${q.id}/take`}
+                              data-testid="quiz-open"
+                              className={buttonVariants({ size: 'sm', variant: 'outline' })}
+                            >
+                              Dă din nou
+                            </Link>
+                            <Link to={`/quizzes/attempts/${done.attemptId}/result`} className={buttonVariants({ size: 'sm' })}>
+                              Vezi rezultatul
+                            </Link>
+                          </>
+                        ) : (
+                          <Link to={`/quizzes/${q.id}/take`} data-testid="quiz-open" className={buttonVariants({ size: 'sm' })}>
+                            {inProgressTests.has(q.id) ? 'Continuă' : 'Începe'}
+                          </Link>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
-                ))
+                  )
+                })
               )}
             </section>
 
@@ -118,7 +156,7 @@ export function StudentQuizListPage() {
                         <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                           {a.mode === 'PRACTICE' ? <AttemptModeBadge mode={a.mode} /> : <AttemptStatusBadge status={a.status} />}
                           <span>{formatDate(a.submittedAt ?? a.startedAt)}</span>
-                          {a.score !== null && <span className="text-foreground">{a.score} puncte</span>}
+                          {a.score !== null && <span className="text-foreground">{scoreLine(a.score, a.maxScore)}</span>}
                         </p>
                       </div>
                       {a.status === 'IN_PROGRESS' ? (

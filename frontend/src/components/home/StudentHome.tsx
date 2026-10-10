@@ -14,6 +14,7 @@ import {
 } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
 import { formatDate } from '@/lib/format'
+import { formatGrade, romanianGrade } from '@/lib/grades'
 import { latestGrade, todoAssignments } from '@/lib/home'
 
 interface StudentData {
@@ -104,6 +105,11 @@ export function StudentHome() {
                 <>
                   <p className="text-3xl font-semibold">
                     {last.score} <span className="text-base text-muted-foreground">/ {last.maxScore} puncte</span>
+                    {romanianGrade(last.score, last.maxScore) !== null && (
+                      <span className="ml-2 text-base font-medium text-muted-foreground">
+                        · nota {formatGrade(romanianGrade(last.score, last.maxScore)!)}
+                      </span>
+                    )}
                   </p>
                   <p className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
                     <span className="min-w-0 truncate">

@@ -15,14 +15,15 @@ const graded: AttemptResultViewDto = {
     {
       itemId: 100, position: 1, type: 'SINGLE_CHOICE', statement: 'Alege B', points: 5, awardedPoints: 5, correct: true,
       selectedOptionText: 'Varianta B', correctOptionText: 'Varianta B', barem: null, photoUploaded: false,
-      hintsUsed: 0, hintsAvailable: 0,
+      hintsUsed: 0, hintsAvailable: 0, teacherComment: null,
     },
     {
       itemId: 101, position: 2, type: 'OPEN', statement: 'Rezolvă', points: 10, awardedPoints: 8, correct: null,
       selectedOptionText: null, correctOptionText: null, barem: 'x1 = 2', photoUploaded: true,
-      hintsUsed: 0, hintsAvailable: 0,
+      hintsUsed: 0, hintsAvailable: 0, teacherComment: 'Ai uitat unitatea de măsură.',
     },
   ],
+  teacherComment: 'Lucrare îngrijită, bravo!',
 }
 
 describe('AttemptResultView', () => {
@@ -44,6 +45,31 @@ describe('AttemptResultView', () => {
     render(<AttemptResultView result={graded} />)
 
     expect(screen.getByTestId('result-score')).toHaveTextContent('13 / 15 puncte')
+    expect(screen.getByTestId('result-grade')).toHaveTextContent('Nota 8,80')
+    expect(screen.getByTestId('result-grade')).toHaveTextContent('87%')
+  })
+
+  it("shows the teacher's comment on the paper and on each answer", () => {
+    render(<AttemptResultView result={graded} />)
+
+    expect(screen.getByTestId('teacher-comment')).toHaveTextContent('Lucrare îngrijită, bravo!')
+    const itemComments = screen.getAllByTestId('item-teacher-comment')
+    expect(itemComments).toHaveLength(1)
+    expect(itemComments[0]).toHaveTextContent('Ai uitat unitatea de măsură.')
+  })
+
+  it("shows the teacher's comments to a parent too", () => {
+    render(<AttemptResultView result={graded} audience="parent" />)
+
+    expect(screen.getByTestId('teacher-comment')).toHaveTextContent('Lucrare îngrijită, bravo!')
+    expect(screen.getByTestId('item-teacher-comment')).toHaveTextContent('Ai uitat unitatea de măsură.')
+  })
+
+  it('shows no comment block when the teacher wrote none', () => {
+    render(<AttemptResultView result={{ ...graded, teacherComment: null, items: [graded.items[0]] }} />)
+
+    expect(screen.queryByTestId('teacher-comment')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('item-teacher-comment')).not.toBeInTheDocument()
   })
 
   it('says it is waiting for the teacher while the open item is not graded', () => {

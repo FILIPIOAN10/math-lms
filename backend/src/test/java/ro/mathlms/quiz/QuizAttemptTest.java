@@ -188,4 +188,36 @@ class QuizAttemptTest {
 
         assertThatThrownBy(test::completePractice).isInstanceOf(IllegalStateException.class);
     }
+
+    @Test
+    void aTeacherCanCommentOnASubmittedOrGradedTest() {
+        QuizAttempt attempt = new QuizAttempt(quiz, student);
+        attempt.submit();
+        attempt.commentOverall("  Lucrare îngrijită.  ");
+        assertThat(attempt.getTeacherComment()).isEqualTo("Lucrare îngrijită.");
+
+        attempt.markGraded(10);
+        attempt.commentOverall("Felicitări!");
+        assertThat(attempt.getTeacherComment()).isEqualTo("Felicitări!");
+
+        attempt.commentOverall(" ");
+        assertThat(attempt.getTeacherComment()).isNull();
+    }
+
+    @Test
+    void thereIsNothingToCommentOnBeforeTheStudentHandsIn() {
+        QuizAttempt attempt = new QuizAttempt(quiz, student);
+
+        assertThatThrownBy(() -> attempt.commentOverall("Prea devreme"))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void aPracticeSessionTakesNoTeacherComment() {
+        QuizAttempt practice = new QuizAttempt(quiz, student, Instant.now(), AttemptMode.PRACTICE);
+        practice.submit();
+
+        assertThatThrownBy(() -> practice.commentOverall("Nu se notează"))
+                .isInstanceOf(IllegalStateException.class);
+    }
 }

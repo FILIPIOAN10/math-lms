@@ -510,7 +510,7 @@ class QuizAttemptServiceTest {
         when(itemRepository.findById(101L)).thenReturn(Optional.of(deschis));
         when(responseRepository.findByAttemptIdAndItemId(50L, 101L)).thenReturn(Optional.of(response));
 
-        service.gradeOpenResponse(50L, 101L, 15);
+        service.gradeOpenResponse(50L, 101L, 15, null);
 
         assertThat(response.getAwardedPoints()).isEqualTo(15);
         verify(responseRepository).save(response);
@@ -524,7 +524,7 @@ class QuizAttemptServiceTest {
         when(attemptRepository.findById(50L)).thenReturn(Optional.of(attempt));
         when(itemRepository.findById(101L)).thenReturn(Optional.of(deschis));
 
-        assertThatThrownBy(() -> service.gradeOpenResponse(50L, 101L, 31))
+        assertThatThrownBy(() -> service.gradeOpenResponse(50L, 101L, 31, null))
                 .isInstanceOf(InvalidQuizException.class)
                 .hasMessageContaining("30");
         verify(responseRepository, never()).save(any());
@@ -539,7 +539,7 @@ class QuizAttemptServiceTest {
         when(attemptRepository.findById(50L)).thenReturn(Optional.of(attempt));
         when(itemRepository.findById(200L)).thenReturn(Optional.of(foreign));
 
-        assertThatThrownBy(() -> service.gradeOpenResponse(50L, 200L, 5))
+        assertThatThrownBy(() -> service.gradeOpenResponse(50L, 200L, 5, null))
                 .isInstanceOf(InvalidQuizException.class)
                 .hasMessageContaining("does not belong");
         verify(responseRepository, never()).save(any());
@@ -606,7 +606,7 @@ class QuizAttemptServiceTest {
         when(attemptRepository.findById(50L)).thenReturn(Optional.of(attempt));
         when(itemRepository.findById(100L)).thenReturn(Optional.of(grila));
 
-        assertThatThrownBy(() -> service.gradeOpenResponse(50L, 100L, 5))
+        assertThatThrownBy(() -> service.gradeOpenResponse(50L, 100L, 5, null))
                 .isInstanceOf(InvalidQuizException.class);
     }
 
@@ -618,7 +618,7 @@ class QuizAttemptServiceTest {
         when(attemptRepository.findById(1L)).thenReturn(Optional.of(attempt));
 
         // Act & Assert
-        assertThatThrownBy(() -> service.gradeOpenResponse(1L, 2L, 15))
+        assertThatThrownBy(() -> service.gradeOpenResponse(1L, 2L, 15, null))
                 .isInstanceOf(InvalidQuizException.class)
                 .hasMessageContaining("SUBMITTED");
     }

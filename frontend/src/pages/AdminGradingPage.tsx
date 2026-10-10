@@ -1,11 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { AttemptStatusBadge } from '@/components/AttemptStatusBadge'
 import { MathContent } from '@/components/MathContent'
 import {
   attemptPhotoUrl,
+  commentOnAttempt,
   finalizeGrading,
   getAttemptForGrading,
   gradeOpenItem,
@@ -16,6 +19,10 @@ import {
   type QuizAttemptStatus,
 } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
+import { scoreLine } from '@/lib/grades'
+
+/** Same limit as the server (V20 columns). */
+const MAX_COMMENT = 2000
 
 const selectClass =
   'h-8 rounded-lg border border-border bg-background px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50'
@@ -36,6 +43,8 @@ function OpenItemGrader({
   onSaved: () => Promise<void>
 }) {
   const [points, setPoints] = useState(item.awardedPoints === null ? '' : String(item.awardedPoints))
+  const [comment, setComment] = useState(item.teacherComment ?? '')
+  const commentId = useId()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const readOnly = attempt.status !== 'SUBMITTED'
@@ -49,7 +58,7 @@ function OpenItemGrader({
     setBusy(true)
     setError(null)
     try {
-      await gradeOpenItem(attempt.attemptId, item.itemId, value)
+      await gradeOpenItem(attempt.attemptId, item.itemId, value, comment.trim() === '' ? null : comment.trim())
       await onSaved()
     } catch (e) {
       setError(errorMessage(e))
@@ -79,6 +88,19 @@ function OpenItemGrader({
         </div>
       )}
 
+      <div className="space-y-1">
+        <label htmlFor={commentId} className="text-sm font-medium">Comentariu pentru elev (opțional)</label>
+        <Textarea
+          id={commentId}
+          value={comment}
+          maxLength={MAX_COMMENT}
+          onChange={(e) => setComment(e.target.value)}
+          disabled={readOnly || busy}
+          placeholder="Ex.: Raționament corect, dar ai uitat unitatea de măsură."
+          className="min-h-16"
+        />
+      </div>
+
       <div className="flex flex-wrap items-center gap-2">
         <Input
           type="number"
@@ -94,7 +116,7 @@ function OpenItemGrader({
         <span className="text-sm text-muted-foreground">/ {item.points} p</span>
         {!readOnly && (
           <Button size="sm" onClick={save} disabled={busy} data-testid="grade-save">
-            {busy ? 'Se salvează...' : 'Salvează punctajul'}
+            {busy ? 'Se salvează...' : 'Salvează nota și comentariul'}
           </Button>
         )}
         {item.awardedPoints !== null && (
@@ -103,6 +125,61 @@ function OpenItemGrader({
       </div>
       {error && <p className="text-sm text-destructive">{error}</p>}
     </div>
+  )
+}
+
+// ---------- The comment on the whole paper ----------
+
+/**
+ * One comment for the whole paper. Open while grading AND after: an all-grilă test is graded the moment it is handed
+ * in, and the teacher may still want to say something about it.
+ */
+function OverallComment({ attempt, onSaved }: { attempt: AdminAttemptDetail; onSaved: () => Promise<void> }) {
+  const [comment, setComment] = useState(attempt.teacherComment ?? '')
+  const [busy, setBusy] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const id = useId()
+
+  async function save() {
+    setBusy(true)
+    setSaved(false)
+    setError(null)
+    try {
+      await commentOnAttempt(attempt.attemptId, comment.trim())
+      setSaved(true)
+      await onSaved()
+    } catch (e) {
+      setError(errorMessage(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Card>
+      <CardContent className="space-y-2 py-4">
+        <label htmlFor={id} className="text-sm font-medium">Comentariu pentru toată lucrarea (opțional)</label>
+        <Textarea
+          id={id}
+          value={comment}
+          maxLength={MAX_COMMENT}
+          onChange={(e) => {
+            setComment(e.target.value)
+            setSaved(false)
+          }}
+          disabled={busy}
+          placeholder="Îl văd elevul și părintele, împreună cu rezultatul."
+        />
+        <div className="flex flex-wrap items-center gap-3">
+          <Button size="sm" variant="outline" onClick={save} disabled={busy}>
+            {busy ? 'Se salvează...' : 'Salvează comentariul'}
+          </Button>
+          {saved && <span className="text-sm text-emerald-700 dark:text-emerald-300">✓ Comentariu salvat</span>}
+        </div>
+        {error && <p className="text-sm text-destructive">{error}</p>}
+      </CardContent>
+    </Card>
   )
 }
 
@@ -115,6 +192,7 @@ export function AdminGradingPage() {
   const [detail, setDetail] = useState<AdminAttemptDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [finalizing, setFinalizing] = useState(false)
+  const [confirmingFinal, setConfirmingFinal] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   async function reloadList(status: QuizAttemptStatus = filter) {
@@ -149,7 +227,8 @@ export function AdminGradingPage() {
   }
 
   async function finalize() {
-    if (!detail || !window.confirm('Finalizezi nota? După asta punctajele nu se mai pot modifica.')) return
+    if (!detail) return
+    setConfirmingFinal(false)
     setFinalizing(true)
     setError(null)
     try {
@@ -197,7 +276,9 @@ export function AdminGradingPage() {
                 <div className="flex items-center gap-3">
                   <AttemptStatusBadge status={detail.status} />
                   <span className="text-sm">
-                    {detail.status === 'GRADED' ? detail.score : pointsSoFar} / {detail.maxScore} p
+                    {detail.status === 'GRADED' && detail.score !== null
+                      ? scoreLine(detail.score, detail.maxScore)
+                      : `${pointsSoFar} / ${detail.maxScore} p`}
                   </span>
                 </div>
               </CardContent>
@@ -240,12 +321,24 @@ export function AdminGradingPage() {
               </Card>
             ))}
 
+            <OverallComment key={detail.attemptId} attempt={detail} onSaved={() => open(detail.attemptId)} />
+
+            <ConfirmDialog
+              open={confirmingFinal}
+              title="Finalizezi nota?"
+              confirmLabel="Finalizează"
+              onConfirm={() => void finalize()}
+              onCancel={() => setConfirmingFinal(false)}
+            >
+              După asta punctajele nu se mai pot modifica. Comentariul pentru toată lucrarea îl poți schimba și după.
+            </ConfirmDialog>
+
             {detail.status === 'SUBMITTED' && (
               <div className="flex items-center justify-end gap-3">
                 {!allOpenGraded && (
                   <p className="text-sm text-muted-foreground">Notează toate subiectele cu rezolvare ca să poți finaliza.</p>
                 )}
-                <Button onClick={finalize} disabled={!allOpenGraded || finalizing} data-testid="grade-finalize">
+                <Button onClick={() => setConfirmingFinal(true)} disabled={!allOpenGraded || finalizing} data-testid="grade-finalize">
                   {finalizing ? 'Se finalizează...' : 'Finalizează nota'}
                 </Button>
               </div>
@@ -284,7 +377,7 @@ export function AdminGradingPage() {
                       <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                         <AttemptStatusBadge status={a.status} />
                         <span>{formatDate(a.submittedAt)}</span>
-                        {a.score !== null && <span className="text-foreground">{a.score} p</span>}
+                        {a.score !== null && <span className="text-foreground">{scoreLine(a.score, a.maxScore)}</span>}
                       </p>
                     </div>
                     <Button size="sm" variant={a.status === 'SUBMITTED' ? 'default' : 'outline'} onClick={() => open(a.attemptId)} data-testid="attempt-open">

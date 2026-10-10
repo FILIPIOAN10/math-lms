@@ -12,6 +12,7 @@ import {
 } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
 import { formatDate, roCount } from '@/lib/format'
+import { formatGrade, romanianGrade } from '@/lib/grades'
 import { latestGrade } from '@/lib/home'
 
 interface ChildOverview {
@@ -76,6 +77,11 @@ export function ParentHome() {
                   <>
                     <p className="text-2xl font-semibold">
                       {latest.score} <span className="text-base text-muted-foreground">/ {latest.maxScore} puncte</span>
+                      {romanianGrade(latest.score, latest.maxScore) !== null && (
+                        <span className="ml-2 text-base font-medium text-muted-foreground">
+                          · nota {formatGrade(romanianGrade(latest.score, latest.maxScore)!)}
+                        </span>
+                      )}
                     </p>
                     <p className="truncate text-sm text-muted-foreground">
                       {latest.quizTitle} · {latest.percent}% · {formatDate(latest.submittedAt)}

@@ -62,7 +62,15 @@ public class AdminQuizAttemptController {
     @PutMapping("/{attemptId}/responses/{itemId}/grade")
     public ResponseEntity<Void> gradeItem(@PathVariable Long attemptId, @PathVariable Long itemId,
                                           @Valid @RequestBody GradeRequestDto request) {
-        service.gradeOpenResponse(attemptId, itemId, request.points());
+        service.gradeOpenResponse(attemptId, itemId, request.points(), request.comment());
+        return ResponseEntity.noContent().build();
+    }
+
+    /** The teacher's comment on the whole paper (while grading, or after); a blank one removes it. */
+    @PutMapping("/{attemptId}/comment")
+    public ResponseEntity<Void> comment(@PathVariable Long attemptId,
+                                        @Valid @RequestBody AttemptCommentRequest request) {
+        service.commentOnAttempt(attemptId, request.comment());
         return ResponseEntity.noContent().build();
     }
 

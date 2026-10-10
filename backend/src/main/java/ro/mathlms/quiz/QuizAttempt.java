@@ -69,6 +69,10 @@ public class QuizAttempt {
     @Column
     private Integer score;
 
+    /** The teacher's comment on the whole paper; null = none. */
+    @Column(name = "teacher_comment", length = TeacherComment.MAX_LENGTH)
+    private String teacherComment;
+
     public QuizAttempt(Quiz quiz, User student) {
         this(quiz, student, Instant.now());
     }
@@ -116,6 +120,20 @@ public class QuizAttempt {
             throw new IllegalStateException("Only a submitted attempt can be completed, was " + status);
         }
         this.status = QuizAttemptStatus.GRADED;
+    }
+
+    /**
+     * The teacher's comment on the whole paper. Only a handed-in graded TEST has one - while the student is still
+     * writing there is nothing to comment on, and a practice is never seen by the teacher. A blank comment clears it.
+     */
+    public void commentOverall(String comment) {
+        if (mode != AttemptMode.TEST) {
+            throw new IllegalStateException("A practice session takes no teacher comment");
+        }
+        if (status == QuizAttemptStatus.IN_PROGRESS) {
+            throw new IllegalStateException("Only a handed-in attempt can be commented on");
+        }
+        this.teacherComment = TeacherComment.normalize(comment);
     }
 
     /** Records the final total once every item is scored. Only valid after submission. */

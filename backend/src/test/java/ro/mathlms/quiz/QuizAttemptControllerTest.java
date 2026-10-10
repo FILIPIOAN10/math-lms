@@ -76,7 +76,7 @@ class QuizAttemptControllerTest {
     @Test
     void myAttemptsDelegatesWithPrincipalEmail() {
         List<MyAttemptDto> mine = List.of(new MyAttemptDto(
-                50L, 10L, "Simulare EN", QuizAttemptStatus.GRADED, null, null, 7, AttemptMode.TEST));
+                50L, 10L, "Simulare EN", QuizAttemptStatus.GRADED, null, null, 7, AttemptMode.TEST, 35));
         when(service.listMyAttempts("elev@scoala.ro")).thenReturn(mine);
 
         assertThat(controller.myAttempts(auth)).isEqualTo(mine);
@@ -145,7 +145,7 @@ class QuizAttemptControllerTest {
     @Test
     void resultDelegatesToService() {
         AttemptResultViewDto view = new AttemptResultViewDto(
-                50L, "Simulare EN", QuizAttemptStatus.GRADED, 5, 35, List.of(), AttemptMode.TEST);
+                50L, "Simulare EN", QuizAttemptStatus.GRADED, 5, 35, List.of(), AttemptMode.TEST, null);
         when(service.getResult(50L, "elev@scoala.ro")).thenReturn(view);
 
         assertThat(controller.result(50L, auth)).isEqualTo(view);

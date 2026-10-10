@@ -31,7 +31,8 @@ public final class GdprExportData {
             String selectedOptionText,
             String photoFile,
             Integer awardedPoints,
-            Boolean correct
+            Boolean correct,
+            String teacherComment
     ) {}
 
     public record Attempt(
@@ -40,7 +41,8 @@ public final class GdprExportData {
             Integer score,
             String startedAt,
             String submittedAt,
-            List<ResponseEntry> responses
+            List<ResponseEntry> responses,
+            String teacherComment
     ) {}
 
     public record Archive(

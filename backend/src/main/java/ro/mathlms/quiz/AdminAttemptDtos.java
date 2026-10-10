@@ -21,9 +21,10 @@ public final class AdminAttemptDtos {
             String studentName,
             QuizAttemptStatus status,
             Instant submittedAt,
-            Integer score
+            Integer score,
+            int maxScore
     ) {
-        public static AdminAttemptSummaryDto from(QuizAttempt attempt) {
+        public static AdminAttemptSummaryDto from(QuizAttempt attempt, int maxScore) {
             return new AdminAttemptSummaryDto(
                     attempt.getId(),
                     attempt.getQuiz().getId(),
@@ -32,7 +33,8 @@ public final class AdminAttemptDtos {
                     attempt.getStudent().getFullName(),
                     attempt.getStatus(),
                     attempt.getSubmittedAt(),
-                    attempt.getScore());
+                    attempt.getScore(),
+                    maxScore);
         }
     }
 
@@ -48,7 +50,8 @@ public final class AdminAttemptDtos {
             String correctOptionText,
             Boolean correct,
             Integer awardedPoints,
-            boolean photoUploaded
+            boolean photoUploaded,
+            String teacherComment
     ) {
     }
 
@@ -61,7 +64,8 @@ public final class AdminAttemptDtos {
             Instant submittedAt,
             Integer score,
             int maxScore,
-            List<AdminItemReviewDto> items
+            List<AdminItemReviewDto> items,
+            String teacherComment // on the whole paper
     ) {
     }
 }

@@ -66,6 +66,10 @@ public class ItemResponse {
     @Column
     private Boolean correct;
 
+    /** The teacher's written comment on a graded OPEN answer; null = none. */
+    @Column(name = "teacher_comment", length = TeacherComment.MAX_LENGTH)
+    private String teacherComment;
+
     public ItemResponse(QuizAttempt attempt, QuizItem item) {
         this.attempt = Objects.requireNonNull(attempt, "attempt");
         this.item = Objects.requireNonNull(item, "item");
@@ -104,10 +108,16 @@ public class ItemResponse {
         this.awardedPoints = requireNonNegative(awardedPoints);
     }
 
-    /** Records the teacher's score for an OPEN response. */
+    /** Records the teacher's score for an OPEN response, without a comment. */
     public void gradeManual(int awardedPoints) {
+        gradeManual(awardedPoints, null);
+    }
+
+    /** Records the teacher's score and comment for an OPEN response; a blank comment clears it. */
+    public void gradeManual(int awardedPoints, String comment) {
         requireType(QuizItemType.OPEN);
         this.awardedPoints = requireNonNegative(awardedPoints);
+        this.teacherComment = TeacherComment.normalize(comment);
     }
 
     private void requireType(QuizItemType expected) {
