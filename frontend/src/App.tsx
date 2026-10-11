@@ -15,8 +15,7 @@ const ForgotPasswordPage = lazy(() => import('@/pages/ForgotPasswordPage').then(
 const ResetPasswordPage = lazy(() => import('@/pages/ResetPasswordPage').then((m) => ({ default: m.ResetPasswordPage })))
 const VerifyEmailPage = lazy(() => import('@/pages/VerifyEmailPage').then((m) => ({ default: m.VerifyEmailPage })))
 const PendingPage = lazy(() => import('@/pages/PendingPage').then((m) => ({ default: m.PendingPage })))
-const AdminPendingPage = lazy(() => import('@/pages/AdminPendingPage').then((m) => ({ default: m.AdminPendingPage })))
-const AdminLinksPage = lazy(() => import('@/pages/AdminLinksPage').then((m) => ({ default: m.AdminLinksPage })))
+const AdminStudentsPage = lazy(() => import('@/pages/AdminStudentsPage').then((m) => ({ default: m.AdminStudentsPage })))
 const AdminContentPage = lazy(() => import('@/pages/AdminContentPage').then((m) => ({ default: m.AdminContentPage })))
 const AdminQuizzesPage = lazy(() => import('@/pages/AdminQuizzesPage').then((m) => ({ default: m.AdminQuizzesPage })))
 const AdminAssignmentsPage = lazy(() => import('@/pages/AdminAssignmentsPage').then((m) => ({ default: m.AdminAssignmentsPage })))
@@ -30,6 +29,7 @@ const StudentProgressPage = lazy(() => import('@/pages/StudentProgressPage').the
 const ParentChildrenPage = lazy(() => import('@/pages/ParentChildrenPage').then((m) => ({ default: m.ParentChildrenPage })))
 const ParentChildPage = lazy(() => import('@/pages/ParentChildPage').then((m) => ({ default: m.ParentChildPage })))
 const ReviewPage = lazy(() => import('@/pages/ReviewPage').then((m) => ({ default: m.ReviewPage })))
+const AdminStudentPage = lazy(() => import('@/pages/AdminStudentPage').then((m) => ({ default: m.AdminStudentPage })))
 const AdminMasteryPage = lazy(() => import('@/pages/AdminMasteryPage').then((m) => ({ default: m.AdminMasteryPage })))
 const AccountPage = lazy(() => import('@/pages/AccountPage').then((m) => ({ default: m.AccountPage })))
 const EraseAccountPage = lazy(() => import('@/pages/EraseAccountPage').then((m) => ({ default: m.EraseAccountPage })))
@@ -72,21 +72,16 @@ function App() {
           />
           <Route element={<AppShell />}>
             <Route
-              path="/admin/pending"
+              path="/admin/students"
               element={
                 <AdminRoute>
-                  <AdminPendingPage />
+                  <AdminStudentsPage />
                 </AdminRoute>
               }
             />
-            <Route
-              path="/admin/links"
-              element={
-                <AdminRoute>
-                  <AdminLinksPage />
-                </AdminRoute>
-              }
-            />
+            {/* The two pages "Elevi" replaced (T6): old bookmarks and emails still land on the right page. */}
+            <Route path="/admin/pending" element={<Navigate to="/admin/students" replace />} />
+            <Route path="/admin/links" element={<Navigate to="/admin/students" replace />} />
             <Route
               path="/content"
               element={
@@ -116,6 +111,14 @@ function App() {
               element={
                 <AdminRoute>
                   <AdminAssignmentsPage />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/students/:studentId"
+              element={
+                <AdminRoute>
+                  <AdminStudentPage />
                 </AdminRoute>
               }
             />

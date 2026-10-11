@@ -10,6 +10,7 @@ import { ImportItemsDialog } from '@/components/ImportItemsDialog'
 import { MathContent } from '@/components/MathContent'
 import { PageHeader } from '@/components/PageHeader'
 import { RowMenu } from '@/components/RowMenu'
+import { TestsTabs } from '@/components/TestsTabs'
 import { useConfirm } from '@/components/useConfirm'
 import {
   addQuizItem,
@@ -704,6 +705,7 @@ export function AdminQuizzesPage() {
               description="Creează teste, publică-le și dă-le ca temă. Deschide un quiz ca să-i adaugi subiecte."
               actions={<Button size="sm" onClick={() => setQuizDialog({ item: null })}>Adaugă quiz</Button>}
             />
+            <TestsTabs current="quizzes" />
             {error && <p className="text-sm text-destructive">{error}</p>}
             {loading && <p className="text-muted-foreground">Se încarcă...</p>}
             {!loading && quizzes.length === 0 && <p className="text-muted-foreground">Niciun quiz. Adaugă primul.</p>}

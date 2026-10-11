@@ -53,7 +53,7 @@ export function TeacherHome() {
     <>
       <div className="grid grid-cols-3 gap-3">
         <StatTile to="/admin/grading" value={data.toGrade.length} label="Lucrări de corectat" urgent testId="tile-grading" />
-        <StatTile to="/admin/pending" value={data.pending} label="Conturi de aprobat" urgent testId="tile-pending" />
+        <StatTile to="/admin/students" value={data.pending} label="Conturi de aprobat" urgent testId="tile-pending" />
         <StatTile to="/admin/assignments" value={open} label="Teme deschise" testId="tile-assignments" />
       </div>
 

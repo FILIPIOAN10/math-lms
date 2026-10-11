@@ -296,7 +296,8 @@ function EnrollDialog({ open, onClose, schoolClass }: { open: boolean; onClose: 
             {roster.map((r) => (
               <li key={r.id} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
                 <span>
-                  {r.studentName} <span className="text-muted-foreground">({r.studentEmail})</span>
+                  <Link to={`/admin/students/${r.studentId}`} className="hover:underline">{r.studentName}</Link>{' '}
+                  <span className="text-muted-foreground">({r.studentEmail})</span>
                 </span>
                 <Button variant="destructive" size="xs" onClick={() => remove(r.id)}>
                   Scoate
@@ -404,7 +405,7 @@ export function AdminContentPage() {
       <div className="mx-auto max-w-3xl space-y-4">
         {confirmDialog}
         <PageHeader
-          title={chapter?.title ?? book?.title ?? cls?.name ?? 'Conținut'}
+          title={chapter?.title ?? book?.title ?? cls?.name ?? 'Clase'}
           description={
             chapter ? 'Exercițiile capitolului.'
               : book ? 'Capitolele cărții.'
@@ -412,7 +413,7 @@ export function AdminContentPage() {
                   : 'Clasele, cu cărțile, capitolele și exercițiile lor. Deschide o clasă ca să-i adaugi cărți.'
           }
           breadcrumbs={cls ? [
-            { label: 'Conținut', onClick: () => { setCls(null); setBook(null); setChapter(null) } },
+            { label: 'Clase', onClick: () => { setCls(null); setBook(null); setChapter(null) } },
             { label: cls.name, onClick: () => { setBook(null); setChapter(null) } },
             ...(book ? [{ label: book.title, onClick: () => setChapter(null) }] : []),
             ...(chapter ? [{ label: chapter.title }] : []),

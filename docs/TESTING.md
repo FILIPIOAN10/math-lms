@@ -74,7 +74,7 @@ Apoi, logat ca **admin**, construiește datele de mai jos (fiecare pas exerseaz�
 | D1 | Conținut → **Adaugă clasă** | **Clasa a 8-a** și **Clasa a 9-a** (a 9-a rămâne fără elevi, intenționat) |
 | D2 | Clasa a 8-a → **Elevi** | înscrie **Ana** și **Radu** (înscriere în masă) |
 | D3 | Clasa a 8-a → **Adaugă carte** | **Algebra 8** → capitolul **Fracții** → 2 exerciții cu LaTeX (`$\frac{3}{4}+\frac{1}{8}$`) |
-| D4 | **Invitații** | leagă **Maria Parinte → Ana** |
+| D4 | **Elevi** | leagă **Maria Parinte → Ana** |
 | D5 | **Quiz-uri → Adaugă quiz** | **Fracții — exersare**: toți elevii, fără limită, **„Permite practică” bifat**, **Capitol: Fracții** (pentru harta pe capitole) |
 | D6 | în editorul lui → **Importă din text** | lipește blocul **A** |
 | D7 | **Adaugă quiz** | **Simulare EN**: Clasa a 8-a, **10 minute**, fără practică, **Capitol: Fracții** → importă blocul **B**; apoi la subiectul 3 alege **Capitol** = un al doilea capitol (ex. adaugă „Procente” în Algebra 8) |
@@ -184,19 +184,20 @@ backend `:8080`, Vite `:5173`) și a conturilor seed din secțiunea B. Sunt excl
 
 ### 2. Guard-uri / rutare (merge și fără backend)
 - `/` neautentificat → `/login`
-- `/admin/pending` sau `/admin/links` ca non-admin → redirect acasă; neautentificat → `/login`
+- `/admin/students` (și vechile `/admin/pending`, `/admin/links`, care duc acolo) ca non-admin → redirect acasă; neautentificat → `/login`
 - cont autentificat dar non-ACTIVE → `/pending`
 
-### 3. Admin — aprobare / respingere (`/admin/pending`, ca admin)
+### 3. Admin — aprobare / respingere (`/admin/students`, cardul „Conturi de aprobat”, ca admin)
+Cardul apare doar cât timp așteaptă cineva (rolul e scris în română: Elev / Părinte / Profesor).
 - schimbă rolul din select → **Aprobă** → rândul dispare; în DB `status=ACTIVE` + `role` = ce-ai ales
 - **Respinge** → `status=REJECTED`
 
-### 4. Admin — legare părinte (`/admin/links`, ca admin)
+### 4. Admin — legare părinte (`/admin/students`, ca admin)
 - alege un părinte pentru un student → **Leagă** → „Părinte curent" se actualizează; în DB `parent_id` setat
 - endpointul: `GET /api/admin/users?role=STUDENT|PARENT`, apoi `POST /api/admin/users/{id}/link-parent`
 
-### 4a. Admin — link general cu aprobare (`/admin/links`, cardul „Link general (cu aprobare)”, ca admin)
-Buton pe Dashboard: **Invitații și părinți**. Înregistrarea e doar pe bază de invitație — pe `/login` nu există (intenționat) un buton „Creează cont”.
+### 4a. Admin — link general cu aprobare (`/admin/students`, cardul „Link general (cu aprobare)”, jos, ca admin)
+Din bara de sus: **Elevi**. Înregistrarea e doar pe bază de invitație — pe `/login` nu există (intenționat) un buton „Creează cont”.
 Calea simplă (fără aprobare) e la §18; linkul general rămâne pentru cazurile în care nu știi încă clasa.
 - alege **Rol** (Elev / Părinte — nu se pot genera invitații de admin din UI) → **Generează link** → apare „Link de invitație” + „Pentru rolul: …”
 - **Copiază** → „Copiat ✓”; dacă browserul refuză clipboard-ul, linkul rămâne selectat și apare „apasă Ctrl+C”
@@ -207,7 +208,7 @@ Calea simplă (fără aprobare) e la §18; linkul general rămâne pentru cazuri
 - fără token → „Invitație necesară"
 - token-ul: din cardul de invitații (§4a) → link `/register?token=…`; deschide-l într-o fereastră privată (altfel ești încă logat ca admin)
 - după submit → „Verifică-ți emailul"; linkul de confirmare ajunge pe SMTP-ul real din `.env` — folosește o adresă reală pe care o citești, nu `@mathlms.local`
-- după confirmare contul e `PENDING_APPROVAL` cu rolul din invitație → apare la `/admin/pending` → **Aprobă**
+- după confirmare contul e `PENDING_APPROVAL` cu rolul din invitație → apare la **Elevi** → „Conturi de aprobat” → **Aprobă**
 
 ### 6. Forgot / reset parolă (`/forgot-password`, `/reset-password?token=…`)
 - mereu „dacă există un cont…" (anti-enumerare); linkul de reset vine pe email
@@ -216,7 +217,7 @@ Calea simplă (fără aprobare) e la §18; linkul general rămâne pentru cazuri
 - OAuth real; merge doar cu emailuri din `ADMIN_EMAILS` / `ALLOWED_EMAILS`, sau via invite link
 
 ### 8. Admin — gestionare conținut (`/admin/content`, ca admin)
-Buton pe Dashboard: **Gestionează conținut**. Navigare arborescentă cu breadcrumb.
+Din bara de sus: **Clase**. Navigare arborescentă cu breadcrumb.
 - **Adaugă clasă** → dialog (nume + descriere) → apare în listă
 - **Deschide** o clasă → **Adaugă carte**; deschide cartea → **Adaugă capitol**; deschide capitolul → **Adaugă exercițiu**
 - La exercițiu: enunț + soluție pot conține LaTeX (`$x^2+1$`, `$$\frac{a}{b}$$`) + dificultate
@@ -305,7 +306,7 @@ test → `204` fără corp.
 - ștergerea unui subiect/quiz șterge și indiciile lui; modificarea subiectului înlocuiește lista de indicii
 
 ### 11d. Teme cu termen limită (E7) — `/admin/assignments`, apoi `/quizzes`
-**Ca admin:** pe Dashboard → **Teme** → **Dă o temă**: alegi un quiz **publicat**, o clasă și un termen (data+ora ta locală). Lista arată, per temă, „Predate 3/12 · cu întârziere 1 · în lucru 2 · neîncepute 6”.
+**Ca admin:** **Teste** → fila **Teme** → **Dă o temă**: alegi un quiz **publicat**, o clasă și un termen (data+ora ta locală). Lista arată, per temă, „Predate 3/12 · cu întârziere 1 · în lucru 2 · neîncepute 6”.
 **Stare** deschide tabelul pe elevi (neînceput / în lucru / predat în corectare / predat și notat, când a predat, nota); **Termen** mută termenul; **Șterge** scoate tema.
 - reguli: quiz-ul trebuie publicat; un quiz destinat altei clase nu poate fi dat acestei clase; termenul trebuie să fie în viitor (altfel 400); același quiz nu se dă de două ori aceleiași clase (409 — modifică termenul)
 - **Termenul e „moale”**: după el elevul poate preda în continuare, dar predarea apare „cu întârziere”; nu se blochează nimic
@@ -395,7 +396,7 @@ Buton pe Dashboard (elev): **Progresul meu**. Graficul arată doar testele **not
 - Fără teste notate → „Nu există încă teste notate…”. Punctajul maxim vine dintr-un singur query agregat pe toate quiz-urile implicate
 
 ### 13. Părinte — copiii mei (`/parent`, ca `parinte@mathlms.local`)
-Prerechizit: adminul a legat elevul de părinte la `/admin/links`. Din bara de sus: **Copiii mei**.
+Prerechizit: adminul a legat elevul de părinte la **Elevi** (`/admin/students`). Din bara de sus: **Copiii mei**.
 - Lista conține DOAR elevii legați de acest cont; fără nimeni legat → „Niciun elev nu este legat încă…”
 - pe **Acasă**, cardul fiecărui copil arată „2 teme de predat · 1 cu termenul depășit” (sau „Nicio temă de predat.”)
 - **Vezi testele** (pagina copilului, titlul = numele copilului) → secțiunea **Teme**: temele clasei cu insigna (De făcut / În lucru / Termen depășit /
@@ -408,8 +409,9 @@ Prerechizit: adminul a legat elevul de părinte la `/admin/links`. Din bara de s
 ### 14. Navigare + pagini de start pe rol (toate rolurile)
 - bara de sus (sticky) pe orice pagină după login, **în afară de pagina în care dai un test** (acolo cronometrul e sus)
 - linkurile fiecărui rol: **Elev** Acasă · Testele mele · Progresul meu · Conținut; **Părinte** Acasă · Copiii mei · Conținut;
-  **Profesor** Acasă · Conținut · Quiz-uri · Teme · Corectură · Conturi · Invitații — pagina curentă e evidențiată
-- la profesor: număr roșu pe **Corectură** (lucrări de corectat) și **Conturi** (conturi de aprobat), recitit la fiecare schimbare de pagină
+  **Profesor** Acasă · Clase · Teste · Corectură · Elevi (T6) — pagina curentă e evidențiată; **Teste** rămâne evidențiat și pe Teme
+  (filele „Quiz-uri | Teme” sus), **Elevi** și pe pagina unui elev, **Clase** și pe harta pe capitole
+- la profesor: număr roșu pe **Corectură** (lucrări de corectat) și **Elevi** (conturi de aprobat), recitit la fiecare schimbare de pagină
 - dreapta: numele, rolul în română (Profesor/Elev/Părinte — niciodată `ADMIN`), butonul **Ieșire**
 - pe telefon linkurile trec pe un rând separat și se derulează orizontal
 - titlul tab-ului se schimbă pe fiecare pagină („Corectură · Math LMS”, „Rezultat · Simulare EN · Math LMS”)
@@ -487,13 +489,13 @@ de folosiri (clasă: implicit **30**, 1–200; părinte: **1**), oprit oricând 
 de oprire/expirare își termină intrarea. Linkurile vechi „pe rol” (§4a) merg ca înainte — contul așteaptă aprobarea.
 - **Profesor — elevi:** Conținut → pe rândul clasei **Invită elevi** → „Câți elevi îl pot folosi” (30) → **Generează link nou** → **Copiază**.
   Lista arată fiecare link activ: „Folosit 2 / 30 · expiră …”, „plin — generează altul” când s-a umplut, **Oprește linkul**
-- **Profesor — părinte:** Invitații → tabelul „Părinții elevilor” → **Invită părintele** pe un elev fără părinte → link de o singură folosință
+- **Profesor — părinte:** Elevi → tabelul „Elevii” → **Invită părintele** pe un elev fără părinte → link de o singură folosință
   sub rând. Un link nou îl anulează pe cel nefolosit. Elev cu părinte deja legat → butonul lipsește (serverul: 409 „are deja un părinte legat”)
 - **Elevul / părintele** deschide linkul (fereastră privată): sus „**Te alături clasei Clasa a 8-a**” (sau „Cont de părinte”) → completează →
   „Deschide-l și contul tău e gata” → linkul din email → „Email confirmat și contul e activ” → login direct pe pagina de start (nu `/pending`),
   clasa apare la Conținut / copilul la „Copiii mei”
 - **Link mort** (oprit, expirat, plin, inexistent): pagina spune motivul **înainte** de formular („Link indisponibil — … a fost oprit de profesor”)
-- **Clasa ștearsă** între înregistrare și confirmare → contul ajunge la „Conturi în așteptare” (ca înainte), nu se pierde
+- **Clasa ștearsă** între înregistrare și confirmare → contul ajunge la „Conturi de aprobat” (ca înainte), nu se pierde
 - **Google** printr-un link de clasă/părinte: contul e activ și înscris/legat imediat (Google a verificat deja emailul)
 - Confirmarea emailului cere SMTP-ul real din `.env` și o adresă pe care o citești (ca la §5); fluxul complet fără email e acoperit
   de `InviteLinkIntegrationTest` (link → înregistrare → confirmare → activ + înscris / legat; plafon, oprire, expirare)
@@ -510,6 +512,19 @@ de oprire/expirare își termină intrarea. Linkurile vechi „pe rol” (§4a) 
 - e o **copie**: modificările din quiz nu ating exercițiile și invers; o grilă se face din editor (alt tip de subiect → adaugă-l nou)
 - API: `POST /api/admin/chapters/{id}/quiz {"title":…,"exerciseIds":[…],"points":2}` → 201 + rezumatul quiz-ului; exercițiu din alt capitol → 400
 - Teste: `QuizFromChapterIntegrationTest`, `QuizAdminServiceTest`, `ChapterQuizDialog.test.tsx`
+
+### 20. Pagina unui elev (T5) — `/admin/students/:id`, ca admin
+**De ce:** ca să vorbești despre Ana nu mai treci prin 4 pagini (Teme, Corectură, Pe capitole, Recapitulare).
+- Ajungi aici din: **Elevi** (numele din tabel), tabelul **Pe capitole** al clasei, starea unei teme (**Teste → Teme → Stare**), lista
+  **Elevi** a unei clase (Clase → Elevi)
+- sus: **Clase** (link spre harta clasei), **Părinte** (nume + email, sau „niciunul legat · Invită părintele”), rândul de **Recapitulare**
+  („făcută azi ✓ · seria 3 zile”, apare după prima întrebare în recapitulare)
+- apoi **Teme** (aceleași insigne ca la elev, fără Începe/Continuă), **Pe capitole**, **Progres în timp**, **Lucrări**
+- fiecare lucrare predată are **Corectează** (dacă așteaptă nota) sau **Vezi lucrarea** → `/admin/grading?attempt=<id>`: ecranul de corectură
+  se deschide direct pe ea; „Corectură” din breadcrumb te întoarce la coadă
+- un id care nu e de elev (părinte, profesor, inexistent) → 404 „Nu există elevul …”
+- API: `GET /api/admin/students/{id}` (+ `/attempts`, `/assignments`, `/progress`, `/mastery`, `/review`); părinte/elev → 403
+- Teste: `AdminStudentIntegrationTest`, `AdminStudentPage.test.tsx`
 
 ### Verificare rapidă prin API (ca admin, cu cookie)
 Scrierile (POST/PUT/DELETE, în afară de `/api/auth/**`) cer header-ul `X-XSRF-TOKEN` egal cu cookie-ul

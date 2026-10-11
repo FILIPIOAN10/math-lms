@@ -26,6 +26,8 @@ function renderShell(path = '/') {
           <Route path="/" element={<p>pagina acasă</p>} />
           <Route path="/quizzes" element={<p>pagina teste</p>} />
           <Route path="/admin/grading" element={<p>pagina corectură</p>} />
+          <Route path="/admin/assignments" element={<p>pagina teme</p>} />
+          <Route path="/admin/students/:id" element={<p>pagina elev</p>} />
         </Route>
       </Routes>
     </MemoryRouter>,
@@ -80,8 +82,27 @@ describe('AppShell', () => {
 
     expect(navLabels()[0]).toBe('Acasă')
     expect(await within(nav()).findByRole('link', { name: 'Corectură, 3 lucrări de corectat' })).toBeInTheDocument()
-    expect(within(nav()).getByRole('link', { name: 'Conturi, 1 cont de aprobat' })).toBeInTheDocument()
+    expect(within(nav()).getByRole('link', { name: 'Elevi, 1 cont de aprobat' })).toBeInTheDocument()
     expect(api.listAttemptsForGrading).toHaveBeenCalledWith('SUBMITTED')
+  })
+
+  it('gives the teacher five links', () => {
+    auth.value.user = user({ role: 'ADMIN' })
+    renderShell()
+    expect(navLabels()).toEqual(['Acasă', 'Clase', 'Teste', 'Corectură', 'Elevi'])
+  })
+
+  it("keeps the teacher's area lit on the pages it groups", () => {
+    auth.value.user = user({ role: 'ADMIN' })
+    renderShell('/admin/assignments')
+    expect(within(nav()).getByRole('link', { name: 'Teste' })).toHaveAttribute('aria-current', 'page')
+  })
+
+  it("marks Elevi on a student's page", () => {
+    auth.value.user = user({ role: 'ADMIN' })
+    renderShell('/admin/students/4')
+    expect(within(nav()).getByRole('link', { name: 'Elevi' })).toHaveAttribute('aria-current', 'page')
+    expect(within(nav()).getByRole('link', { name: 'Acasă' })).not.toHaveAttribute('aria-current')
   })
 
   it('shows no counts when there is nothing waiting', async () => {

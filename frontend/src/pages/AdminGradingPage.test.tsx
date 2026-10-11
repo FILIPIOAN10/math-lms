@@ -1,5 +1,6 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AdminGradingPage } from '@/pages/AdminGradingPage'
 import type { AdminAttemptDetail, AdminAttemptSummary } from '@/lib/api'
@@ -27,9 +28,17 @@ const detail = (over: Partial<AdminAttemptDetail> = {}): AdminAttemptDetail => (
   ...over,
 })
 
+function renderPage(path = '/admin/grading') {
+  return render(
+    <MemoryRouter initialEntries={[path]}>
+      <AdminGradingPage />
+    </MemoryRouter>,
+  )
+}
+
 async function openAttempt(d: AdminAttemptDetail = detail()) {
   api.getAttemptForGrading.mockResolvedValue(d)
-  render(<AdminGradingPage />)
+  renderPage()
   await userEvent.click(await screen.findByTestId('attempt-open'))
   await screen.findByText('Rezolvă')
 }
@@ -44,7 +53,7 @@ describe('AdminGradingPage', () => {
 
   it('shows graded papers as "x / max p · nota"', async () => {
     api.listAttemptsForGrading.mockResolvedValue([row({ status: 'GRADED', score: 8 })])
-    render(<AdminGradingPage />)
+    renderPage()
     expect(await screen.findByText('8 / 11 p · nota 7,55')).toBeInTheDocument()
   })
 
@@ -96,5 +105,13 @@ describe('AdminGradingPage', () => {
     await userEvent.click(within(dialog).getByRole('button', { name: 'Finalizează' }))
 
     await waitFor(() => expect(api.finalizeGrading).toHaveBeenCalledWith(50))
+  })
+
+  it("opens the paper named in the address (a link from a student's page)", async () => {
+    api.getAttemptForGrading.mockResolvedValue(detail())
+    renderPage('/admin/grading?attempt=50')
+
+    expect(await screen.findByText('Rezolvă')).toBeInTheDocument()
+    expect(api.getAttemptForGrading).toHaveBeenCalledWith(50)
   })
 })

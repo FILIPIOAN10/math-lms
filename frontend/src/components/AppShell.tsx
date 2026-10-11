@@ -1,10 +1,10 @@
 import { Suspense, useEffect, useState } from 'react'
-import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
+import { Link, Outlet, useLocation } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/context/AuthContext'
 import { listAttemptsForGrading, listPendingUsers } from '@/lib/api'
 import { roCount } from '@/lib/format'
-import { navItems, roleLabel, type NavCount } from '@/lib/roles'
+import { isNavActive, navItems, roleLabel, type NavCount } from '@/lib/roles'
 import { cn } from '@/lib/utils'
 
 type Counts = Record<NavCount, number | null>
@@ -79,23 +79,24 @@ export function AppShell() {
             aria-label="Navigare principală"
             className="order-last -mx-1 flex w-full gap-1 overflow-x-auto [scrollbar-width:none] lg:order-none lg:mx-0 lg:w-auto"
           >
-            {navItems(user.role).map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.to === '/'}
-                data-testid={item.testId}
-                className={({ isActive }) =>
-                  cn(
+            {navItems(user.role).map((item) => {
+              const active = isNavActive(item, pathname)
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  data-testid={item.testId}
+                  aria-current={active ? 'page' : undefined}
+                  className={cn(
                     'inline-flex h-9 shrink-0 items-center rounded-lg px-3 text-sm font-medium whitespace-nowrap transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
-                    isActive ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-                  )
-                }
-              >
-                {item.label}
-                {item.count && <CountBadge kind={item.count} n={counts[item.count]} />}
-              </NavLink>
-            ))}
+                    active ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                  )}
+                >
+                  {item.label}
+                  {item.count && <CountBadge kind={item.count} n={counts[item.count]} />}
+                </Link>
+              )
+            })}
           </nav>
           <div className="ml-auto flex items-center gap-3">
             <Link

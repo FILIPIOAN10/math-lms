@@ -43,10 +43,10 @@ export function InviteLinkCard({ createInvite = createInviteRequest }: Props) {
       <CardHeader>
         <CardTitle className="text-xl">Link general (cu aprobare)</CardTitle>
         <CardDescription>
-          Mai simplu: pentru elevi folosește <strong>Invită elevi</strong> din Conținut (pe rândul clasei), iar pentru
+          Mai simplu: pentru elevi folosește <strong>Invită elevi</strong> din Clase (pe rândul clasei), iar pentru
           părinți <strong>Invită părintele</strong> din lista de mai jos — contul intră direct în clasă / se leagă
           singur, fără aprobare. Linkul general de aici nu știe clasa: e valabil 7 zile, îl pot folosi mai multe
-          persoane, iar fiecare cont apare la „Conturi în așteptare”, unde îl aprobi, înscrii și legi tu.
+          persoane, iar fiecare cont apare sus, la „Conturi de aprobat”, unde îl aprobi, înscrii și legi tu.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">

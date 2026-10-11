@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { HomeEmpty } from '@/components/home/HomeBits'
+import { ReviewStatusLine } from '@/components/ReviewStatusLine'
 import {
   getChildAssignments,
   getChildAttempts,
@@ -99,18 +100,7 @@ export function ParentHome() {
                 </>
               )}
             </p>
-            {review && review.totalCards > 0 && (
-              <p data-testid="child-review" className="text-sm">
-                {review.remainingToday === 0 && review.doneToday > 0 ? (
-                  <span className="font-medium text-emerald-700 dark:text-emerald-300">Recapitulare: făcută azi ✓</span>
-                ) : review.remainingToday > 0 ? (
-                  <span className="font-medium">Recapitulare: mai are {review.remainingToday} azi</span>
-                ) : (
-                  <span className="text-muted-foreground">Recapitulare: nimic de făcut azi</span>
-                )}
-                {review.streak > 0 && <span className="text-muted-foreground"> · seria {roCount(review.streak, 'zi', 'zile')}</span>}
-              </p>
-            )}
+            <ReviewStatusLine review={review} testId="child-review" />
             <div className="grid gap-3 sm:grid-cols-[2fr_1fr]">
               <div>
                 <p className="text-xs font-medium text-muted-foreground">Ultima notă</p>

@@ -15,6 +15,8 @@ export interface NavItem {
   label: string
   count?: NavCount
   testId?: string
+  /** Other addresses that belong to this link (it is shown as the current page there too). */
+  also?: string[]
 }
 
 const NAV: Record<Role, NavItem[]> = {
@@ -30,15 +32,21 @@ const NAV: Record<Role, NavItem[]> = {
     { to: '/parent', label: 'Copiii mei', testId: 'my-children' },
     { to: '/content', label: 'Conținut' },
   ],
+  // Five links (T6): quizzes and homework are one "Teste" area with tabs; approving, inviting and linking people is
+  // one "Elevi" page.
   ADMIN: [
     { to: '/', label: 'Acasă' },
-    { to: '/admin/content', label: 'Conținut' },
-    { to: '/admin/quizzes', label: 'Quiz-uri' },
-    { to: '/admin/assignments', label: 'Teme', testId: 'admin-assignments' },
+    { to: '/admin/content', label: 'Clase', also: ['/admin/classes'] },
+    { to: '/admin/quizzes', label: 'Teste', also: ['/admin/assignments'], testId: 'admin-tests' },
     { to: '/admin/grading', label: 'Corectură', count: 'grading' },
-    { to: '/admin/pending', label: 'Conturi', count: 'pending' },
-    { to: '/admin/links', label: 'Invitații' },
+    { to: '/admin/students', label: 'Elevi', count: 'pending', also: ['/admin/pending', '/admin/links'] },
   ],
+}
+
+/** Whether `item` is the link of the page at `pathname` (its own address, a sub-page, or one it groups). */
+export function isNavActive(item: NavItem, pathname: string): boolean {
+  if (item.to === '/') return pathname === '/'
+  return [item.to, ...(item.also ?? [])].some((p) => pathname === p || pathname.startsWith(`${p}/`))
 }
 
 /** The main navigation of one role, in the order it is shown. */

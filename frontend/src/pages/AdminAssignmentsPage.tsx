@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Dialog } from '@/components/ui/dialog'
@@ -25,6 +25,7 @@ import { errorMessage } from '@/lib/errors'
 import { formatDate } from '@/lib/format'
 import { PageHeader } from '@/components/PageHeader'
 import { useConfirm } from '@/components/useConfirm'
+import { TestsTabs } from '@/components/TestsTabs'
 
 const selectClass =
   'h-9 rounded-lg border border-border bg-background px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50'
@@ -200,6 +201,7 @@ export function AdminAssignmentsPage() {
           description="Dai un quiz publicat unei clase, cu un termen. Vezi cine a predat, cine întârzie și cine nu a început."
           actions={<Button onClick={() => setCreating(true)} data-testid="assignment-new">Dă o temă</Button>}
         />
+        <TestsTabs current="assignments" />
 
         {error && <p className="text-sm text-destructive">{error}</p>}
         {loading && <p className="text-muted-foreground">Se încarcă...</p>}
@@ -243,7 +245,9 @@ export function AdminAssignmentsPage() {
                   <tbody>
                     {status.map((s) => (
                       <tr key={s.studentId} className="border-t">
-                        <td className="py-1">{s.fullName}</td>
+                        <td className="py-1">
+                          <Link to={`/admin/students/${s.studentId}`} className="hover:underline">{s.fullName}</Link>
+                        </td>
                         <td>{STATE_LABEL[s.state]}</td>
                         <td>
                           {s.submittedAt ? formatDate(s.submittedAt) : '—'}

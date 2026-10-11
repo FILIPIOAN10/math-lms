@@ -938,6 +938,49 @@ export async function getChildAssignments(childId: number): Promise<StudentAssig
   return response.json()
 }
 
+// ---------- T5: the teacher's page for one student ----------
+
+export interface StudentProfile {
+  id: number
+  fullName: string
+  email: string
+  status: AccountStatus
+  classes: { id: number; name: string }[]
+  parentId: number | null
+  parentName: string | null
+  parentEmail: string | null
+}
+
+export async function getStudentProfile(studentId: number): Promise<StudentProfile> {
+  const response = await apiFetch(`/admin/students/${studentId}`)
+  return response.json()
+}
+
+export async function getStudentAttempts(studentId: number): Promise<MyAttemptDto[]> {
+  const response = await apiFetch(`/admin/students/${studentId}/attempts`)
+  return response.json()
+}
+
+export async function getStudentAssignments(studentId: number): Promise<StudentAssignment[]> {
+  const response = await apiFetch(`/admin/students/${studentId}/assignments`)
+  return response.json()
+}
+
+export async function getStudentProgress(studentId: number): Promise<ProgressPointDto[]> {
+  const response = await apiFetch(`/admin/students/${studentId}/progress`)
+  return response.json()
+}
+
+export async function getStudentMastery(studentId: number): Promise<ChapterMastery[]> {
+  const response = await apiFetch(`/admin/students/${studentId}/mastery`)
+  return response.json()
+}
+
+export async function getStudentReview(studentId: number): Promise<ReviewStatus> {
+  const response = await apiFetch(`/admin/students/${studentId}/review`)
+  return response.json()
+}
+
 export async function getChildAttemptResult(childId: number, attemptId: number): Promise<AttemptResultViewDto> {
   const response = await apiFetch(`/parent/children/${childId}/attempts/${attemptId}/result`)
   return response.json()

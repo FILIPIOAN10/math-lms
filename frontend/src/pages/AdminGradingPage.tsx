@@ -1,4 +1,5 @@
 import { useEffect, useId, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -195,6 +196,9 @@ export function AdminGradingPage() {
   const [finalizing, setFinalizing] = useState(false)
   const [confirmingFinal, setConfirmingFinal] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // `?attempt=12` opens that paper straight away (links from a student's page).
+  const [searchParams, setSearchParams] = useSearchParams()
+  const linkedAttempt = Number(searchParams.get('attempt')) || null
 
   async function reloadList(status: QuizAttemptStatus = filter) {
     setLoading(true)
@@ -218,6 +222,17 @@ export function AdminGradingPage() {
     }
   }, [filter])
 
+  useEffect(() => {
+    if (linkedAttempt !== null) void open(linkedAttempt)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when the address names another paper
+  }, [linkedAttempt])
+
+  /** Back to the queue; also forgets a paper named in the address, so a refresh does not reopen it. */
+  function closeDetail() {
+    setDetail(null)
+    if (linkedAttempt !== null) setSearchParams({}, { replace: true })
+  }
+
   async function open(attemptId: number) {
     setError(null)
     try {
@@ -234,7 +249,7 @@ export function AdminGradingPage() {
     setError(null)
     try {
       await finalizeGrading(detail.attemptId)
-      setDetail(null)
+      closeDetail()
       await reloadList()
     } catch (e) {
       setError(errorMessage(e))
@@ -253,7 +268,7 @@ export function AdminGradingPage() {
           title={detail ? `${detail.studentName} — ${detail.quizTitle}` : 'Corectură'}
           description={detail ? undefined : 'Lucrările predate, cu subiectele care așteaptă nota ta.'}
           breadcrumbs={detail ? [
-            { label: 'Corectură', onClick: () => setDetail(null) },
+            { label: 'Corectură', onClick: closeDetail },
             { label: `${detail.studentName} — ${detail.quizTitle}` },
           ] : undefined}
         />

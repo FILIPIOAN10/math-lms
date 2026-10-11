@@ -2,10 +2,17 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { AdminLinksPage } from '@/pages/AdminLinksPage'
+import { AdminStudentsPage } from '@/pages/AdminStudentsPage'
 import { ApiError, type AdminUserSummary, type InviteLink } from '@/lib/api'
 
-const api = vi.hoisted(() => ({ listActiveUsers: vi.fn(), linkParent: vi.fn(), createParentInvite: vi.fn() }))
+const api = vi.hoisted(() => ({
+  listActiveUsers: vi.fn(),
+  linkParent: vi.fn(),
+  createParentInvite: vi.fn(),
+  listPendingUsers: vi.fn(),
+  approveUser: vi.fn(),
+  rejectUser: vi.fn(),
+}))
 vi.mock('@/lib/api', async (original) => ({ ...(await original<typeof import('@/lib/api')>()), ...api }))
 
 const student = (id: number, fullName: string, parentName: string | null = null): AdminUserSummary => ({
@@ -20,16 +27,51 @@ const parentLink: InviteLink = {
 function renderPage() {
   return render(
     <MemoryRouter>
-      <AdminLinksPage />
+      <AdminStudentsPage />
     </MemoryRouter>,
   )
 }
 
-describe('AdminLinksPage — parent invites', () => {
+describe('AdminStudentsPage', () => {
   beforeEach(() => {
     Object.values(api).forEach((fn) => fn.mockReset())
     api.listActiveUsers.mockImplementation((role: string) =>
       Promise.resolve(role === 'STUDENT' ? [student(1, 'Ana Pop'), student(2, 'Radu Nou', 'Maria Parinte')] : []))
+    api.listPendingUsers.mockResolvedValue([])
+  })
+
+  it("links each student's name to their page", async () => {
+    renderPage()
+
+    expect(await screen.findByRole('link', { name: 'Ana Pop' })).toHaveAttribute('href', '/admin/students/1')
+    expect(screen.getByRole('heading', { name: 'Elevi și părinți' })).toBeInTheDocument()
+  })
+
+  it('shows waiting accounts only while someone waits, and lists an approved student right away', async () => {
+    const user = userEvent.setup()
+    api.listPendingUsers.mockResolvedValue([
+      { id: 9, email: 'nou@scoala.ro', fullName: 'Elev Nou', requestedRole: 'STUDENT', emailVerified: true },
+    ])
+    api.approveUser.mockResolvedValue({})
+    renderPage()
+
+    const card = await screen.findByTestId('pending-accounts')
+    expect(card).toHaveTextContent('Conturi de aprobat (1)')
+    expect(card).toHaveTextContent('Elev') // the requested role in Romanian, not STUDENT
+    api.listActiveUsers.mockImplementation((role: string) =>
+      Promise.resolve(role === 'STUDENT' ? [student(1, 'Ana Pop'), student(9, 'Elev Nou')] : []))
+    await user.click(screen.getByRole('button', { name: 'Aprobă' }))
+
+    expect(api.approveUser).toHaveBeenCalledWith(9, 'STUDENT')
+    expect(await screen.findByRole('link', { name: 'Elev Nou' })).toBeInTheDocument()
+    expect(screen.queryByTestId('pending-accounts')).not.toBeInTheDocument()
+  })
+
+  it('shows no approval card when nobody waits', async () => {
+    renderPage()
+
+    await screen.findByRole('link', { name: 'Ana Pop' })
+    expect(screen.queryByTestId('pending-accounts')).not.toBeInTheDocument()
   })
 
   it('offers "Invită părintele" only on students who have no parent', async () => {

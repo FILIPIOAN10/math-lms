@@ -1,16 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Button, buttonVariants } from '@/components/ui/button'
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { CopyLinkField } from '@/components/CopyLinkField'
 import { InviteLinkCard } from '@/components/InviteLinkCard'
+import { PageHeader } from '@/components/PageHeader'
+import { PendingAccountsCard } from '@/components/PendingAccountsCard'
 import {
   createParentInvite,
   linkParent,
@@ -20,10 +15,13 @@ import {
 } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
 import { formatDate } from '@/lib/format'
-import { usePageTitle } from '@/lib/usePageTitle'
 
-export function AdminLinksPage() {
-  usePageTitle('Invitații și părinți')
+/**
+ * T6 "Elevi și părinți": everything about people in one place — accounts waiting for approval (only while someone
+ * waits), every student with their parent (invite or link one; the name opens the student's page), and the general
+ * invite link. New students join through "Invită elevi" on a class, so they need nothing here.
+ */
+export function AdminStudentsPage() {
   const [students, setStudents] = useState<AdminUserSummary[]>([])
   const [parents, setParents] = useState<AdminUserSummary[]>([])
   const [loading, setLoading] = useState(true)
@@ -35,14 +33,18 @@ export function AdminLinksPage() {
   // The parent link minted for a student row in this visit, shown under the row until the page is left.
   const [parentLinks, setParentLinks] = useState<Record<number, InviteLink>>({})
 
-  useEffect(() => {
-    Promise.all([listActiveUsers('STUDENT'), listActiveUsers('PARENT')])
+  function loadPeople() {
+    return Promise.all([listActiveUsers('STUDENT'), listActiveUsers('PARENT')])
       .then(([studentList, parentList]) => {
         setStudents(studentList)
         setParents(parentList)
       })
       .catch(() => setError('Nu am putut încărca elevii și părinții.'))
       .finally(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    void loadPeople()
   }, [])
 
   function setBusy(id: number, busy: boolean) {
@@ -99,23 +101,19 @@ export function AdminLinksPage() {
   return (
     <div className="p-4">
       <div className="mx-auto max-w-4xl space-y-4">
-        <InviteLinkCard />
+        <PageHeader
+          title="Elevi și părinți"
+          description="Elevii noi intră cu „Invită elevi” de pe rândul clasei (în Clase). Aici vezi fiecare elev, îi inviți sau îi legi părintele și aprobi conturile venite pe altă cale."
+        />
+        <PendingAccountsCard onApproved={() => void loadPeople()} />
         <Card>
           <CardHeader>
-            <CardTitle className="text-2xl">Părinții elevilor</CardTitle>
+            <CardTitle className="text-xl">Elevii{loading ? '' : ` (${students.length})`}</CardTitle>
             <CardDescription>
-              <strong>Invită părintele</strong> generează un link de o singură folosință, valabil 7 zile: părintele
+              Numele deschide pagina elevului (teme, note, capitole, recapitulare). <strong>Invită părintele</strong> generează un link de o singură folosință, valabil 7 zile: părintele
               care își face cont prin el e legat automat de elev, fără aprobare. Dacă părintele are deja cont, alege-l
               din listă și apasă <strong>Leagă</strong>.
             </CardDescription>
-            <CardAction>
-              <Link
-                to="/admin/pending"
-                className={buttonVariants({ variant: 'outline', size: 'sm' })}
-              >
-                Conturi în așteptare
-              </Link>
-            </CardAction>
           </CardHeader>
           <CardContent className="space-y-4">
             {loading && <p className="text-muted-foreground">Se încarcă...</p>}
@@ -123,7 +121,10 @@ export function AdminLinksPage() {
             {!loading && error && <p className="text-sm text-destructive">{error}</p>}
 
             {!loading && !error && students.length === 0 && (
-              <p className="text-muted-foreground">Niciun elev activ.</p>
+              <p className="text-muted-foreground">
+                Niciun elev încă. Deschide <Link to="/admin/content" className="text-primary hover:underline">Clase</Link> și
+                apasă „Invită elevi” pe rândul clasei.
+              </p>
             )}
 
             {!loading && !error && students.length > 0 && parents.length === 0 && (
@@ -151,7 +152,11 @@ export function AdminLinksPage() {
                       const choice = selectedParent[s.id] ?? ''
                       return (
                         <tr key={s.id} className="border-b last:border-0">
-                          <td className="py-3 pr-4">{s.fullName}</td>
+                          <td className="py-3 pr-4">
+                            <Link to={`/admin/students/${s.id}`} className="font-medium hover:underline">
+                              {s.fullName}
+                            </Link>
+                          </td>
                           <td className="py-3 pr-4">{s.email}</td>
                           <td className="py-3 pr-4 text-muted-foreground">
                             {s.parentName ?? '—'}
@@ -219,6 +224,7 @@ export function AdminLinksPage() {
             )}
           </CardContent>
         </Card>
+        <InviteLinkCard />
       </div>
     </div>
   )

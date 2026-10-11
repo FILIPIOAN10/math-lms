@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
 import { MasteryLegend } from '@/components/MasteryLegend'
 import { PageHeader } from '@/components/PageHeader'
@@ -59,7 +59,7 @@ export function AdminMasteryPage() {
         <PageHeader
           title={title}
           description="Nivelul fiecărui elev pe fiecare capitol: ultimul răspuns la fiecare întrebare legată de capitol, din teste și din practică."
-          breadcrumbs={[{ label: 'Conținut', to: '/admin/content' }, { label: className ?? 'Clasă' }, { label: 'Pe capitole' }]}
+          breadcrumbs={[{ label: 'Clase', to: '/admin/content' }, { label: className ?? 'Clasă' }, { label: 'Pe capitole' }]}
         />
         {error && <p className="text-sm text-destructive">{error}</p>}
         {!grid && !error && <p className="text-muted-foreground">Se încarcă...</p>}
@@ -103,7 +103,7 @@ export function AdminMasteryPage() {
                     {grid.students.map((student) => (
                       <tr key={student.studentId} className="border-t">
                         <th scope="row" className="sticky left-0 z-10 bg-card px-3 py-2 text-left font-medium whitespace-nowrap">
-                          {student.fullName}
+                          <Link to={`/admin/students/${student.studentId}`} className="hover:underline">{student.fullName}</Link>
                         </th>
                         {student.cells.map((cell, i) => {
                           const level = masteryLevel(cell.percent)
@@ -162,7 +162,9 @@ export function AdminMasteryPage() {
                       const due = r.doneToday + r.remainingToday
                       return (
                         <tr key={r.studentId} className="border-t">
-                          <th scope="row" className="px-3 py-2 text-left font-medium whitespace-nowrap">{r.fullName}</th>
+                          <th scope="row" className="px-3 py-2 text-left font-medium whitespace-nowrap">
+                            <Link to={`/admin/students/${r.studentId}`} className="hover:underline">{r.fullName}</Link>
+                          </th>
                           <td className={`px-3 py-2 tabular-nums ${r.remainingToday === 0 && r.doneToday > 0 ? 'text-emerald-700 dark:text-emerald-300' : ''}`}>
                             {due === 0 ? '—' : `${r.doneToday} / ${due}`}
                           </td>

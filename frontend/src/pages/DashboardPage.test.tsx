@@ -165,7 +165,7 @@ describe('DashboardPage — teacher', () => {
     expect(grading).toHaveTextContent('2')
     expect(grading).toHaveAttribute('href', '/admin/grading')
     expect(screen.getByTestId('tile-pending')).toHaveTextContent('1')
-    expect(screen.getByTestId('tile-pending')).toHaveAttribute('href', '/admin/pending')
+    expect(screen.getByTestId('tile-pending')).toHaveAttribute('href', '/admin/students')
     expect(screen.getByTestId('tile-assignments')).toHaveTextContent('1') // only Fracții is still open
     expect(api.listAttemptsForGrading).toHaveBeenCalledWith('SUBMITTED')
   })
