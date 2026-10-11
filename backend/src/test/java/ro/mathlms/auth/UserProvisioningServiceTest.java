@@ -163,7 +163,7 @@ class UserProvisioningServiceTest {
         InviteLink link = mock(InviteLink.class);
         when(link.getId()).thenReturn(7L);
         when(link.getKind()).thenReturn(ro.mathlms.invite.InviteLinkKind.CLASS);
-        String code = "AbCdEfGhIjKlMnOpQrStUvWxYz012345";
+        String code = "c".repeat(32); // a stored-link code by shape
         when(inviteLinkService.claim(code)).thenReturn(link);
 
         User result = service.provision("google-sub-9", "nou@gmail.com", "Elev Nou", code);

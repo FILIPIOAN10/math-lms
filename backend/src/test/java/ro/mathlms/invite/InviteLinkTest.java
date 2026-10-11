@@ -58,8 +58,8 @@ class InviteLinkTest {
 
     @Test
     void storedCodesAreToldApartFromRoleInvitesByShape() {
-        assertThat(InviteLinkService.isStoredCode("AbCdEfGhIjKlMnOpQrStUvWx-_12")).isTrue();
-        assertThat(InviteLinkService.isStoredCode("eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiU1RVREVOVCJ9.sig")).isFalse();
+        assertThat(InviteLinkService.isStoredCode("a".repeat(30) + "-_")).isTrue();
+        assertThat(InviteLinkService.isStoredCode("header.payload.signature")).isFalse();
         assertThat(InviteLinkService.isStoredCode("scurt")).isFalse();
         assertThat(InviteLinkService.isStoredCode(null)).isFalse();
     }

@@ -80,9 +80,9 @@ class InviteLinkSecurityTest {
     @WithAnonymousUser
     void thePreviewIsPublic() throws Exception {
         // A junk code is answered by the feature (410), not by the security chain (401).
-        when(service.preview("AbCdEfGhIjKlMnOpQrStUvWx")).thenThrow(new InviteUnavailableException("mort"));
+        when(service.preview("0".repeat(24))).thenThrow(new InviteUnavailableException("mort"));
 
-        mockMvc.perform(get("/api/public/invites/preview").param("token", "AbCdEfGhIjKlMnOpQrStUvWx"))
+        mockMvc.perform(get("/api/public/invites/preview").param("token", "0".repeat(24)))
                 .andExpect(status().isGone());
     }
 }

@@ -256,7 +256,7 @@ class InviteLinkIntegrationTest {
                 .andExpect(jsonPath("$.direct").value(true));
         assertThat(usesOf(link)).isZero();
 
-        mockMvc.perform(get("/api/public/invites/preview").param("token", "NuExistaAsaCevaInBaza1234"))
+        mockMvc.perform(get("/api/public/invites/preview").param("token", "0".repeat(24))) // well-formed, but no such link
                 .andExpect(status().isGone());
     }
 
