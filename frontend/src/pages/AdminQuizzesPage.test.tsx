@@ -13,12 +13,14 @@ const api = vi.hoisted(() => ({
   copyQuiz: vi.fn(),
   deleteQuiz: vi.fn(),
   deleteQuizItem: vi.fn(),
+  listChapterOptions: vi.fn(),
+  createQuiz: vi.fn(),
 }))
 vi.mock('@/lib/api', async (original) => ({ ...(await original<typeof import('@/lib/api')>()), ...api }))
 
 const summary = (id: number, title: string, status: QuizSummary['status'] = 'PUBLISHED'): QuizSummary => ({
   id, title, description: null, status, schoolClassId: null, schoolClassName: null, timeLimitMinutes: null,
-  practiceAllowed: false,
+  practiceAllowed: false, chapterId: null,
 })
 const detail = (over: Partial<QuizDetail> = {}): QuizDetail => ({
   ...summary(7, 'Simulare EN'),
@@ -53,8 +55,15 @@ describe('AdminQuizzesPage', () => {
   beforeEach(() => {
     Object.values(api).forEach((fn) => fn.mockReset())
     api.listQuizzes.mockResolvedValue([summary(7, 'Simulare EN'), summary(8, 'Ciornă nouă', 'DRAFT')])
-    api.listClasses.mockResolvedValue([])
+    api.listClasses.mockResolvedValue([
+      { id: 8, name: 'Clasa a 8-a', description: null },
+      { id: 9, name: 'Clasa a 9-a', description: null },
+    ])
     api.getQuiz.mockResolvedValue(detail())
+    api.listChapterOptions.mockResolvedValue([
+      { id: 1, title: 'Fracții', bookId: 1, bookTitle: 'Algebra', schoolClassId: 8, schoolClassName: 'Clasa a 8-a' },
+      { id: 3, title: 'Funcții', bookId: 2, bookTitle: 'Analiză', schoolClassId: 9, schoolClassName: 'Clasa a 9-a' },
+    ])
   })
 
   it('names the page and the browser tab', async () => {
@@ -135,5 +144,39 @@ describe('AdminQuizzesPage', () => {
     await userEvent.click(within(await screen.findByRole('dialog', { name: 'Ștergi subiectul 1?' })).getByRole('button', { name: 'Șterge' }))
 
     await waitFor(() => expect(api.deleteQuizItem).toHaveBeenCalledWith(70))
+  })
+})
+
+describe('AdminQuizzesPage — chapter tag', () => {
+  beforeEach(() => {
+    Object.values(api).forEach((fn) => fn.mockReset())
+    api.listQuizzes.mockResolvedValue([])
+    api.listClasses.mockResolvedValue([
+      { id: 8, name: 'Clasa a 8-a', description: null },
+      { id: 9, name: 'Clasa a 9-a', description: null },
+    ])
+    api.listChapterOptions.mockResolvedValue([
+      { id: 1, title: 'Fracții', bookId: 1, bookTitle: 'Algebra', schoolClassId: 8, schoolClassName: 'Clasa a 8-a' },
+      { id: 3, title: 'Funcții', bookId: 2, bookTitle: 'Analiză', schoolClassId: 9, schoolClassName: 'Clasa a 9-a' },
+    ])
+    api.createQuiz.mockResolvedValue({ ...summary(20, 'Nou'), status: 'DRAFT' })
+    api.getQuiz.mockResolvedValue(detail({ id: 20, title: 'Nou', items: [] }))
+  })
+
+  it("offers only the chosen class's chapters and sends the one picked", async () => {
+    renderAt('/admin/quizzes')
+    await userEvent.click(await screen.findByRole('button', { name: 'Adaugă quiz' }))
+    const dialog = await screen.findByRole('dialog')
+
+    await userEvent.type(within(dialog).getByLabelText('Titlu'), 'Nou')
+    await userEvent.selectOptions(within(dialog).getByLabelText('Pentru clasa'), '8')
+    const chapter = within(dialog).getByLabelText('Capitol (pentru harta pe capitole)')
+    const offered = within(chapter).getAllByRole('option').map((o) => o.textContent)
+    expect(offered).toContain('Fracții')
+    expect(offered).not.toContain('Funcții')
+    await userEvent.selectOptions(chapter, '1')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Salvează' }))
+
+    await waitFor(() => expect(api.createQuiz).toHaveBeenCalledWith(expect.objectContaining({ schoolClassId: 8, chapterId: 1 })))
   })
 })

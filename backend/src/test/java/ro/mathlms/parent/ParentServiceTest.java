@@ -32,7 +32,8 @@ class ParentServiceTest {
     private final UserRepository userRepository = mock(UserRepository.class);
     private final QuizAttemptService quizAttemptService = mock(QuizAttemptService.class);
     private final ro.mathlms.assignment.AssignmentService assignmentService = mock(ro.mathlms.assignment.AssignmentService.class);
-    private final ParentService service = new ParentService(userRepository, quizAttemptService, assignmentService);
+    private final ro.mathlms.mastery.MasteryService masteryService = mock(ro.mathlms.mastery.MasteryService.class);
+    private final ParentService service = new ParentService(userRepository, quizAttemptService, assignmentService, masteryService);
 
     private final User parent = withId(new User(PARENT_EMAIL, "Maria Pop", Role.PARENT), 1L);
     private final User child = withId(new User(CHILD_EMAIL, "Ana Pop", Role.STUDENT), 2L);
@@ -160,5 +161,18 @@ class ParentServiceTest {
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.childAssignments(PARENT_EMAIL, 9L))
                 .isInstanceOf(ParentAccessException.class);
         org.mockito.Mockito.verifyNoInteractions(assignmentService);
+    }
+
+    @Test
+    void anOwnChildsMasteryIsComputedForThatChildOnly() {
+        when(userRepository.findByEmail(PARENT_EMAIL)).thenReturn(Optional.of(parent));
+        when(userRepository.findByIdAndParentId(2L, 1L)).thenReturn(Optional.of(child));
+        when(masteryService.forStudent(CHILD_EMAIL)).thenReturn(List.of());
+
+        assertThat(service.childMastery(PARENT_EMAIL, 2L)).isEmpty();
+
+        when(userRepository.findByIdAndParentId(9L, 1L)).thenReturn(Optional.empty());
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.childMastery(PARENT_EMAIL, 9L))
+                .isInstanceOf(ParentAccessException.class);
     }
 }

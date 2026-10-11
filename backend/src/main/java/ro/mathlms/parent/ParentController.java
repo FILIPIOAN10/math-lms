@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.RestController;
 import ro.mathlms.parent.ParentDtos.ChildDto;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultViewDto;
 import ro.mathlms.assignment.AssignmentDtos.StudentAssignmentDto;
+import ro.mathlms.mastery.MasteryDtos.ChapterMasteryDto;
 import ro.mathlms.quiz.StudentQuizDtos.MyAttemptDto;
 import ro.mathlms.quiz.StudentQuizDtos.ProgressPointDto;
 
@@ -38,6 +39,12 @@ public class ParentController {
     @GetMapping("/api/parent/children/{studentId}/assignments")
     public List<StudentAssignmentDto> assignments(@PathVariable Long studentId, Authentication auth) {
         return service.childAssignments(auth.getName(), studentId);
+    }
+
+    /** The child's level per chapter (E6 mastery map). */
+    @GetMapping("/api/parent/children/{studentId}/mastery")
+    public List<ChapterMasteryDto> mastery(@PathVariable Long studentId, Authentication auth) {
+        return service.childMastery(auth.getName(), studentId);
     }
 
     @GetMapping("/api/parent/children/{studentId}/progress")

@@ -20,11 +20,18 @@ public record ItemRequest(
         @Min(0) int points,
         String solution,
         @Valid List<OptionRequest> options,
-        @Size(max = QuizItem.MAX_HINTS) List<@NotBlank @Size(max = 2000) String> hints // optional progressive hints, in order
+        @Size(max = QuizItem.MAX_HINTS) List<@NotBlank @Size(max = 2000) String> hints, // optional progressive hints, in order
+        Long chapterId // optional: overrides the quiz's chapter for this question; null = inherit (E6)
 ) {
     /** An item without hints (what the builder sent before E3). */
     public ItemRequest(QuizItemType type, int position, String statement, int points, String solution,
                        List<OptionRequest> options) {
-        this(type, position, statement, points, solution, options, null);
+        this(type, position, statement, points, solution, options, null, null);
+    }
+
+    /** An item without its own chapter (what the builder sent before E6). */
+    public ItemRequest(QuizItemType type, int position, String statement, int points, String solution,
+                       List<OptionRequest> options, List<String> hints) {
+        this(type, position, statement, points, solution, options, hints, null);
     }
 }

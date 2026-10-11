@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { MathContent } from '@/components/MathContent'
-import { Button } from '@/components/ui/button'
+import { Link } from 'react-router-dom'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -486,7 +487,14 @@ export function AdminContentPage() {
                 onOpen: () => openClass(c),
                 onEdit: () => setDialog({ kind: 'class', item: c }),
                 onDelete: () => removeWithConfirm(`clasa „${c.name}"`, () => deleteClass(c.id), reloadClasses),
-                extra: <Button size="xs" variant="secondary" onClick={() => setDialog({ kind: 'enroll', schoolClass: c })}>Elevi</Button>,
+                extra: (
+                  <>
+                    <Button size="xs" variant="secondary" onClick={() => setDialog({ kind: 'enroll', schoolClass: c })}>Elevi</Button>
+                    <Link to={`/admin/classes/${c.id}/mastery`} className={buttonVariants({ size: 'xs', variant: 'secondary' })}>
+                      Pe capitole
+                    </Link>
+                  </>
+                ),
               }))}
             />
           )

@@ -6,11 +6,15 @@ import { AttemptStatusBadge } from '@/components/AttemptStatusBadge'
 import { ProgressChart } from '@/components/ProgressChart'
 import { AttemptModeBadge } from '@/components/AttemptModeBadge'
 import { AssignmentsSection } from '@/components/AssignmentsSection'
+import { HomeSection } from '@/components/home/HomeBits'
+import { MasteryList } from '@/components/MasteryList'
 import {
   getChildAssignments,
   getChildAttempts,
+  getChildMastery,
   getChildProgress,
   listMyChildren,
+  type ChapterMastery,
   type MyAttemptDto,
   type ProgressPointDto,
   type StudentAssignment,
@@ -30,6 +34,7 @@ export function ParentChildPage() {
   const [progress, setProgress] = useState<ProgressPointDto[] | null>(null)
   const [assignments, setAssignments] = useState<StudentAssignment[] | null>(null)
   const [childName, setChildName] = useState<string | null>(null)
+  const [mastery, setMastery] = useState<ChapterMastery[] | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -44,6 +49,9 @@ export function ParentChildPage() {
         }
       })
       .catch((e) => !cancelled && setError(errorMessage(e)))
+    getChildMastery(id)
+      .then((m) => !cancelled && setMastery(m))
+      .catch(() => !cancelled && setMastery([]))
     // Only for the title: the page still works without the name.
     listMyChildren()
       .then((children) => !cancelled && setChildName(children.find((c) => c.id === id)?.fullName ?? null))
@@ -71,6 +79,15 @@ export function ParentChildPage() {
             title="Teme"
             emptyText="Nicio temă dată clasei copilului."
           />
+        )}
+        {mastery && (
+          <HomeSection title="Pe capitole">
+            <Card>
+              <CardContent className="py-4">
+                <MasteryList rows={mastery} />
+              </CardContent>
+            </Card>
+          </HomeSection>
         )}
         {progress && (
           <Card>

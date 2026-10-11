@@ -1,5 +1,6 @@
 package ro.mathlms.quiz;
 
+import ro.mathlms.content.Chapter;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -53,6 +54,11 @@ public class QuizItem {
     @Column(columnDefinition = "TEXT")
     private String solution;
 
+    /** Overrides the quiz's chapter for this question (E6 mastery map); {@code null} = the quiz's chapter. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "chapter_id")
+    private Chapter chapter;
+
     /** The most hints one item may carry. */
     public static final int MAX_HINTS = 5;
 
@@ -72,6 +78,11 @@ public class QuizItem {
         this.statement = requireNonBlank(statement, "statement");
         this.points = requireNonNegative(points);
         this.solution = solution;
+    }
+
+    /** Tags this question with its own chapter, or ({@code null}) lets it inherit the quiz's. */
+    public void tagChapter(Chapter chapter) {
+        this.chapter = chapter;
     }
 
     private static int requireNonNegative(int points) {

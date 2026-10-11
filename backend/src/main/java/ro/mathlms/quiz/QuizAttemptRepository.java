@@ -72,4 +72,8 @@ public interface QuizAttemptRepository extends JpaRepository<QuizAttempt, Long> 
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("update QuizAttempt a set a.teacherComment = null where a.student.id = :userId")
     void clearTeacherCommentsByStudentId(@Param("userId") Long userId);
+
+    /** Every attempt of these students with its quiz - what the mastery map is computed from (E6). */
+    @Query("select a from QuizAttempt a join fetch a.quiz where a.student.id in :studentIds")
+    List<QuizAttempt> findByStudentIdsFetchQuiz(@Param("studentIds") java.util.Collection<Long> studentIds);
 }

@@ -27,9 +27,11 @@ class QuizAdminServiceTest {
     private final QuizOptionRepository optionRepository = mock(QuizOptionRepository.class);
     private final QuizItemHintRepository hintRepository = mock(QuizItemHintRepository.class);
     private final SchoolClassRepository schoolClassRepository = mock(SchoolClassRepository.class);
+    private final ro.mathlms.content.ChapterRepository chapterRepository = mock(ro.mathlms.content.ChapterRepository.class);
     private final AfterCommitCacheEvictor cacheEvictor = mock(AfterCommitCacheEvictor.class);
     private final QuizAdminService service =
-            new QuizAdminService(quizRepository, itemRepository, optionRepository, hintRepository, schoolClassRepository, cacheEvictor);
+            new QuizAdminService(quizRepository, itemRepository, optionRepository, hintRepository, schoolClassRepository,
+                    chapterRepository, cacheEvictor);
 
     private final Quiz quiz = new Quiz("Simulare EN", null);
     private final SchoolClass ninth = new SchoolClass("Clasa a 9-a", null);
@@ -494,5 +496,81 @@ class QuizAdminServiceTest {
         Quiz copy = service.copyQuiz(2L);
 
         assertThat(copy.getTitle()).hasSize(200).endsWith(" (copie)");
+    }
+
+    // --- chapter tags (E6 mastery map) ---
+
+    private ro.mathlms.content.Chapter chapterOf(SchoolClass cls, long id) {
+        ro.mathlms.content.Book book = new ro.mathlms.content.Book(cls, "Algebra", null);
+        ro.mathlms.content.Chapter chapter = new ro.mathlms.content.Chapter(book, "Fracții", null);
+        ReflectionTestUtils.setField(chapter, "id", id);
+        when(chapterRepository.findById(id)).thenReturn(Optional.of(chapter));
+        return chapter;
+    }
+
+    @Test
+    void aQuizCanBeTaggedWithAChapterThatItsQuestionsInherit() {
+        ReflectionTestUtils.setField(ninth, "id", 5L);
+        ro.mathlms.content.Chapter fractii = chapterOf(ninth, 30L);
+        when(schoolClassRepository.findById(5L)).thenReturn(Optional.of(ninth));
+        when(quizRepository.save(any(Quiz.class))).thenAnswer(i -> i.getArgument(0));
+
+        Quiz created = service.createQuiz("Fracții", null, 5L, null, false, 30L);
+
+        assertThat(created.getChapter()).isSameAs(fractii);
+    }
+
+    @Test
+    void aQuizForOneClassCannotBeTaggedWithAnotherClasssChapter() {
+        ReflectionTestUtils.setField(ninth, "id", 5L);
+        SchoolClass tenth = new SchoolClass("Clasa a 10-a", null);
+        ReflectionTestUtils.setField(tenth, "id", 6L);
+        chapterOf(tenth, 31L);
+        when(schoolClassRepository.findById(5L)).thenReturn(Optional.of(ninth));
+
+        assertThatThrownBy(() -> service.createQuiz("Fracții", null, 5L, null, false, 31L))
+                .isInstanceOf(InvalidQuizException.class)
+                .hasMessageContaining("capitol");
+        verify(quizRepository, never()).save(any());
+    }
+
+    @Test
+    void aQuizForEveryoneMayUseAnyChapterAndAnUnknownChapterIsNotFound() {
+        SchoolClass tenth = new SchoolClass("Clasa a 10-a", null);
+        ReflectionTestUtils.setField(tenth, "id", 6L);
+        chapterOf(tenth, 31L);
+        when(quizRepository.save(any(Quiz.class))).thenAnswer(i -> i.getArgument(0));
+
+        assertThat(service.createQuiz("Fracții", null, null, null, false, 31L).getChapter()).isNotNull();
+        when(chapterRepository.findById(404L)).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> service.createQuiz("Fracții", null, null, null, false, 404L))
+                .isInstanceOf(QuizNotFoundException.class);
+    }
+
+    @Test
+    void aQuestionCanOverrideTheQuizsChapter() {
+        chapterOf(ninth, 32L);
+        when(quizRepository.findById(1L)).thenReturn(Optional.of(quiz));
+        when(itemRepository.save(any(QuizItem.class))).thenAnswer(i -> i.getArgument(0));
+
+        ItemDto item = service.addItem(1L, new ItemRequest(QuizItemType.OPEN, 0, "deschis", 4, null, null, null, 32L));
+
+        assertThat(item.chapterId()).isEqualTo(32L);
+    }
+
+    @Test
+    void theChapterOfAQuestionCanChangeEvenAfterStudentsTookTheQuiz() {
+        // The tag is bookkeeping for the mastery map, not part of the grade: tagging old quizzes must work.
+        chapterOf(ninth, 32L);
+        QuizItem taken = new QuizItem(quiz, 0, QuizItemType.OPEN, "deschis", 4, null);
+        ReflectionTestUtils.setField(taken, "id", 7L);
+        ReflectionTestUtils.setField(quiz, "id", 1L);
+        when(itemRepository.findById(7L)).thenReturn(Optional.of(taken));
+        when(quizRepository.countAttempts(1L)).thenReturn(3L);
+        when(itemRepository.save(any(QuizItem.class))).thenAnswer(i -> i.getArgument(0));
+
+        ItemDto item = service.updateItem(7L, new ItemRequest(QuizItemType.OPEN, 0, "deschis", 4, null, null, null, 32L));
+
+        assertThat(item.chapterId()).isEqualTo(32L);
     }
 }

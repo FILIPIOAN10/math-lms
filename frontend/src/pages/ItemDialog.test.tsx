@@ -6,7 +6,7 @@ import type { ItemInput, QuizItemDto } from '@/lib/api'
 
 const openItem: QuizItemDto = {
   id: 9, position: 2, type: 'OPEN', statement: 'Rezolvă ecuația', points: 10, solution: 'x = 2', options: [],
-  hints: ['Mută termenii', 'Împarte la coeficient'],
+  hints: ['Mută termenii', 'Împarte la coeficient'], chapterId: null,
 }
 
 function renderDialog(initial: QuizItemDto | null, onSubmit = vi.fn().mockResolvedValue(undefined)) {
@@ -133,5 +133,33 @@ describe('ItemDialog quick entry', () => {
     renderDialog(openItem)
 
     expect(screen.queryByRole('button', { name: 'Salvează și adaugă încă unul' })).not.toBeInTheDocument()
+  })
+})
+
+describe('ItemDialog chapter', () => {
+  const chapters = [
+    { id: 1, title: 'Fracții', bookId: 1, bookTitle: 'Algebra', schoolClassId: 8, schoolClassName: 'Clasa a 8-a' },
+    { id: 2, title: 'Ecuații', bookId: 1, bookTitle: 'Algebra', schoolClassId: 8, schoolClassName: 'Clasa a 8-a' },
+  ]
+
+  it("inherits the quiz's chapter unless another one is picked", async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined)
+    render(<ItemDialog open onClose={vi.fn()} initial={null} onSubmit={onSubmit} chapters={chapters} quizChapterTitle="Fracții" />)
+
+    const select = screen.getByLabelText('Capitol')
+    expect(select).toHaveValue('')
+    expect(screen.getByRole('option', { name: 'Ca la quiz (Fracții)' })).toBeInTheDocument()
+
+    await userEvent.type(screen.getByLabelText('Enunț'), 'Rezolvă $x+1=2$')
+    await userEvent.selectOptions(screen.getByLabelText('Tip'), 'OPEN')
+    await userEvent.selectOptions(select, '2')
+    await userEvent.click(screen.getByRole('button', { name: 'Salvează' }))
+
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ chapterId: 2 }))
+  })
+
+  it('has no chapter choice when no chapters are offered', () => {
+    render(<ItemDialog open onClose={vi.fn()} initial={null} onSubmit={vi.fn()} />)
+    expect(screen.queryByLabelText('Capitol')).not.toBeInTheDocument()
   })
 })

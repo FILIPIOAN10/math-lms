@@ -6,6 +6,8 @@ import ro.mathlms.cache.AfterCommitCacheEvictor;
 import ro.mathlms.cache.CacheNames;
 import ro.mathlms.content.SchoolClass;
 import ro.mathlms.content.RoCount;
+import ro.mathlms.content.Chapter;
+import ro.mathlms.content.ChapterRepository;
 import ro.mathlms.content.SchoolClassRepository;
 import ro.mathlms.quiz.QuizDtos.ItemDto;
 import ro.mathlms.quiz.QuizDtos.QuizDetailDto;
@@ -21,11 +23,14 @@ public class QuizAdminService {
     private final QuizOptionRepository optionRepository;
     private final QuizItemHintRepository hintRepository;
     private final SchoolClassRepository schoolClassRepository;
+    private final ChapterRepository chapterRepository;
     private final AfterCommitCacheEvictor cacheEvictor;
 
     public QuizAdminService(QuizRepository quizRepository, QuizItemRepository itemRepository,
                             QuizOptionRepository optionRepository, QuizItemHintRepository hintRepository,
-                            SchoolClassRepository schoolClassRepository, AfterCommitCacheEvictor cacheEvictor) {
+                            SchoolClassRepository schoolClassRepository,
+                            ChapterRepository chapterRepository, AfterCommitCacheEvictor cacheEvictor) {
+        this.chapterRepository = chapterRepository;
         this.quizRepository = quizRepository;
         this.itemRepository = itemRepository;
         this.optionRepository = optionRepository;
@@ -64,8 +69,17 @@ public class QuizAdminService {
     @Transactional
     public Quiz createQuiz(String title, String description, Long schoolClassId, Integer timeLimitMinutes,
                            boolean practiceAllowed) {
+        return createQuiz(title, description, schoolClassId, timeLimitMinutes, practiceAllowed, null);
+    }
+
+    /** ...tagged with the chapter its questions practise ({@code null} = untagged), which must fit the quiz's class. */
+    @Transactional
+    public Quiz createQuiz(String title, String description, Long schoolClassId, Integer timeLimitMinutes,
+                           boolean practiceAllowed, Long chapterId) {
         Quiz quiz = new Quiz(title, description);
-        quiz.assignToClass(findClass(schoolClassId));
+        SchoolClass target = findClass(schoolClassId);
+        quiz.assignToClass(target);
+        quiz.tagChapter(chapterFitting(chapterId, target));
         quiz.changeTimeLimit(timeLimitMinutes);
         quiz.allowPractice(practiceAllowed);
         return quizRepository.save(quiz);
@@ -74,8 +88,15 @@ public class QuizAdminService {
     @Transactional
     public Quiz updateQuiz(Long id, String title, String description, Long schoolClassId, Integer timeLimitMinutes,
                            boolean practiceAllowed) {
+        return updateQuiz(id, title, description, schoolClassId, timeLimitMinutes, practiceAllowed, null);
+    }
+
+    @Transactional
+    public Quiz updateQuiz(Long id, String title, String description, Long schoolClassId, Integer timeLimitMinutes,
+                           boolean practiceAllowed, Long chapterId) {
         Quiz quiz = getQuiz(id);
         SchoolClass target = findClass(schoolClassId);
+        Chapter chapter = chapterFitting(chapterId, target);
         if (target != null) {
             List<String> stranded = quizRepository.findAssignedClassNamesOtherThan(id, schoolClassId);
             if (!stranded.isEmpty()) {
@@ -88,7 +109,26 @@ public class QuizAdminService {
         quiz.assignToClass(target);
         quiz.changeTimeLimit(timeLimitMinutes); // attempts already running keep their own deadline
         quiz.allowPractice(practiceAllowed);    // practice already in progress simply finishes; no new one can start
+        quiz.tagChapter(chapter);               // only bookkeeping for the mastery map: allowed even once taken
         return quizRepository.save(quiz);
+    }
+
+    /**
+     * The chapter to tag with, or {@code null}. A quiz for one class may only use that class's chapters (a quiz for
+     * every student may use any): otherwise its answers would colour a class map it does not belong to.
+     */
+    private Chapter chapterFitting(Long chapterId, SchoolClass quizClass) {
+        if (chapterId == null) {
+            return null;
+        }
+        Chapter chapter = chapterRepository.findById(chapterId)
+                .orElseThrow(() -> new QuizNotFoundException("Chapter", chapterId));
+        SchoolClass chapterClass = chapter.getBook().getSchoolClass();
+        if (quizClass != null && !chapterClass.getId().equals(quizClass.getId())) {
+            throw new InvalidQuizException("Quiz-ul e pentru " + quizClass.getName() + ", dar capitolul „"
+                    + chapter.getTitle() + "” e din " + chapterClass.getName() + ".");
+        }
+        return chapter;
     }
 
     private SchoolClass findClass(Long schoolClassId) {
@@ -124,10 +164,13 @@ public class QuizAdminService {
         copy.assignToClass(source.getSchoolClass());
         copy.changeTimeLimit(source.getTimeLimitMinutes());
         copy.allowPractice(source.isPracticeAllowed());
+        copy.tagChapter(source.getChapter());
         Quiz saved = quizRepository.save(copy);
         for (QuizItem item : itemRepository.findByQuizIdOrderByPosition(id)) {
-            QuizItem itemCopy = itemRepository.save(new QuizItem(saved, item.getPosition(), item.getType(),
-                    item.getStatement(), item.getPoints(), item.getSolution()));
+            QuizItem fresh = new QuizItem(saved, item.getPosition(), item.getType(),
+                    item.getStatement(), item.getPoints(), item.getSolution());
+            fresh.tagChapter(item.getChapter());
+            QuizItem itemCopy = itemRepository.save(fresh);
             for (QuizOption option : optionRepository.findByItemIdOrderByPosition(item.getId())) {
                 optionRepository.save(new QuizOption(itemCopy, option.getPosition(), option.getText(), option.isCorrect()));
             }
@@ -175,9 +218,11 @@ public class QuizAdminService {
         Quiz quiz = getQuiz(quizId);
         requireNotTaken(quiz, "nu mai poți adăuga subiecte");
         requireValidHints(request.hints()); // before anything is written
-        QuizItem item = itemRepository.save(new QuizItem(
+        QuizItem fresh = new QuizItem(
                 quiz, request.position(), request.type(), request.statement(),
-                request.points(), request.solution()));
+                request.points(), request.solution());
+        fresh.tagChapter(chapterFitting(request.chapterId(), quiz.getSchoolClass()));
+        QuizItem item = itemRepository.save(fresh);
         List<QuizOption> options = saveOptionsIfSingleChoice(item, request);
         List<QuizItemHint> hints = saveHints(item, request.hints());
         dropScoreCaches();
@@ -191,6 +236,8 @@ public class QuizAdminService {
             throw new InvalidQuizException("The item type cannot be changed");
         }
         requireValidHints(request.hints());
+        // The chapter tag is bookkeeping for the mastery map, not part of the grade: it may change even once taken.
+        item.tagChapter(chapterFitting(request.chapterId(), item.getQuiz().getSchoolClass()));
         boolean taken = quizRepository.countAttempts(item.getQuiz().getId()) > 0;
         List<QuizOption> options;
         if (taken) {

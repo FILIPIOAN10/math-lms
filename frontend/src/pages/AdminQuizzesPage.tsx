@@ -18,6 +18,7 @@ import {
   deleteQuiz,
   deleteQuizItem,
   getQuiz,
+  listChapterOptions,
   listClasses,
   listQuizzes,
   setQuizPublished,
@@ -25,6 +26,7 @@ import {
   updateQuizItem,
   type ItemInput,
   type QuizDetail,
+  type ChapterOption,
   type QuizItemDto,
   type QuizItemType,
   type QuizSummary,
@@ -51,7 +53,9 @@ function QuizDialog({
   initialClassId,
   initialTimeLimit,
   initialPracticeAllowed,
+  initialChapterId = null,
   classes,
+  chapters = [],
   onSubmit,
 }: {
   open: boolean
@@ -61,7 +65,9 @@ function QuizDialog({
   initialClassId: number | null
   initialTimeLimit: number | null
   initialPracticeAllowed: boolean
+  initialChapterId?: number | null
   classes: SchoolClass[]
+  chapters?: ChapterOption[]
   onSubmit: (input: QuizInput) => Promise<void>
 }) {
   const [title, setTitle] = useState(initialTitle)
@@ -69,6 +75,9 @@ function QuizDialog({
   const [classId, setClassId] = useState(initialClassId === null ? '' : String(initialClassId))
   const [timeLimit, setTimeLimit] = useState(initialTimeLimit === null ? '' : String(initialTimeLimit))
   const [practiceAllowed, setPracticeAllowed] = useState(initialPracticeAllowed)
+  const [chapterId, setChapterId] = useState(initialChapterId === null ? '' : String(initialChapterId))
+  // A quiz for one class may only use that class's chapters (the server checks it too).
+  const offered = classId === '' ? chapters : chapters.filter((c) => String(c.schoolClassId) === classId)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -83,6 +92,7 @@ function QuizDialog({
         schoolClassId: classId === '' ? null : Number(classId),
         timeLimitMinutes: timeLimit.trim() === '' ? null : Number(timeLimit),
         practiceAllowed,
+        chapterId: chapterId === '' ? null : Number(chapterId),
       })
       onClose()
     } catch (err) {
@@ -105,7 +115,18 @@ function QuizDialog({
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="qclass">Pentru clasa</Label>
-          <select id="qclass" className={selectClass} value={classId} onChange={(e) => setClassId(e.target.value)}>
+          <select
+            id="qclass"
+            className={selectClass}
+            value={classId}
+            onChange={(e) => {
+              setClassId(e.target.value)
+              // a chapter of another class no longer fits
+              if (e.target.value !== '' && !chapters.some((c) => String(c.id) === chapterId && String(c.schoolClassId) === e.target.value)) {
+                setChapterId('')
+              }
+            }}
+          >
             <option value="">Toți elevii</option>
             {classes.map((c) => (
               <option key={c.id} value={c.id}>{c.name}</option>
@@ -115,6 +136,15 @@ function QuizDialog({
             „Toți elevii” = orice elev activ îl vede. Altfel, doar elevii înscriși în clasa aleasă.
           </p>
         </div>
+        {chapters.length > 0 && (
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="qchapter">Capitol (pentru harta pe capitole)</Label>
+            <ChapterSelect id="qchapter" value={chapterId} onChange={setChapterId} chapters={offered} emptyLabel="— niciunul —" />
+            <p className="text-xs text-muted-foreground">
+              Subiectele quiz-ului contează la acest capitol pe harta elevului, dacă nu le alegi altul fiecăruia.
+            </p>
+          </div>
+        )}
         <div className="flex flex-col gap-2">
           <Label htmlFor="qlimit">Limită de timp (minute, opțional)</Label>
           <Input
@@ -159,6 +189,37 @@ function QuizDialog({
   )
 }
 
+// ---------- Chapter select (E6 mastery map) ----------
+
+/** The chapters as a select grouped by class and book; the empty value means "none" (or "inherit"). */
+function ChapterSelect({ id, value, onChange, chapters, emptyLabel }: {
+  id: string
+  value: string
+  onChange: (value: string) => void
+  chapters: ChapterOption[]
+  emptyLabel: string
+}) {
+  const groups: { label: string; chapters: ChapterOption[] }[] = []
+  for (const chapter of chapters) {
+    const label = `${chapter.schoolClassName} · ${chapter.bookTitle}`
+    const group = groups.find((g) => g.label === label)
+    if (group) group.chapters.push(chapter)
+    else groups.push({ label, chapters: [chapter] })
+  }
+  return (
+    <select id={id} className={selectClass} value={value} onChange={(e) => onChange(e.target.value)}>
+      <option value="">{emptyLabel}</option>
+      {groups.map((g) => (
+        <optgroup key={g.label} label={g.label}>
+          {g.chapters.map((c) => (
+            <option key={c.id} value={c.id}>{c.title}</option>
+          ))}
+        </optgroup>
+      ))}
+    </select>
+  )
+}
+
 // ---------- Item create/edit dialog ----------
 
 const MAX_HINTS = 5 // matches QuizItem.MAX_HINTS on the server
@@ -181,17 +242,24 @@ export function ItemDialog({
   onClose,
   initial,
   onSubmit,
+  chapters = [],
+  quizChapterTitle = null,
 }: {
   open: boolean
   onClose: () => void
   initial: QuizItemDto | null
   onSubmit: (input: ItemInput) => Promise<void>
+  /** The chapters this question may be tagged with; none = no chapter choice shown. */
+  chapters?: ChapterOption[]
+  /** What "inherit" means here, e.g. "Fracții". */
+  quizChapterTitle?: string | null
 }) {
   const [type, setType] = useState<QuizItemType>(initial?.type ?? 'SINGLE_CHOICE')
   const [statement, setStatement] = useState(initial?.statement ?? '')
   const [points, setPoints] = useState(String(initial?.points ?? 5))
   const [solution, setSolution] = useState(initial?.solution ?? '')
   const [hints, setHints] = useState<string[]>(initial?.hints ?? [])
+  const [chapterId, setChapterId] = useState(initial?.chapterId == null ? '' : String(initial.chapterId))
   const [options, setOptions] = useState<OptionDraft[]>(
     initial && initial.options.length > 0
       ? initial.options.map((o) => ({ text: o.text, correct: o.correct }))
@@ -254,6 +322,7 @@ export function ItemDialog({
           ? options.map((o, i) => ({ position: i, text: o.text.trim(), correct: o.correct }))
           : null,
       hints: hints.map((h) => h.trim()).filter((h) => h !== ''), // an empty box is just dropped
+      chapterId: chapterId === '' ? null : Number(chapterId),
     }
     setBusy(true)
     try {
@@ -304,6 +373,18 @@ export function ItemDialog({
           {isEdit && <p className="text-xs text-muted-foreground">Tipul nu se poate schimba după creare.</p>}
         </div>
 
+        {chapters.length > 0 && (
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="ichapter">Capitol</Label>
+            <ChapterSelect
+              id="ichapter"
+              value={chapterId}
+              onChange={setChapterId}
+              chapters={chapters}
+              emptyLabel={quizChapterTitle ? `Ca la quiz (${quizChapterTitle})` : 'Ca la quiz (niciunul)'}
+            />
+          </div>
+        )}
         <div className="flex flex-col gap-2">
           <Label htmlFor="istatement">Enunț</Label>
           <Textarea id="istatement" value={statement} onChange={(e) => setStatement(e.target.value)} required />
@@ -430,6 +511,7 @@ export function AdminQuizzesPage() {
 
   const [quizzes, setQuizzes] = useState<QuizSummary[]>([])
   const [classes, setClasses] = useState<SchoolClass[]>([])
+  const [chapters, setChapters] = useState<ChapterOption[]>([])
   const [loadedQuiz, setQuiz] = useState<QuizDetail | null>(null)
   const [loadError, setLoadError] = useState<{ id: number; message: string } | null>(null)
   const [loading, setLoading] = useState(true)
@@ -446,6 +528,9 @@ export function AdminQuizzesPage() {
     listClasses()
       .then(setClasses)
       .catch((e) => setError(errorMessage(e)))
+    listChapterOptions()
+      .then(setChapters)
+      .catch(() => undefined) // only the chapter choice is missing without it
   }, [])
 
   // The builder follows the address. What is shown is derived from it, so a quiz loaded for an earlier address never
@@ -464,6 +549,10 @@ export function AdminQuizzesPage() {
   const quizError = loadError !== null && loadError.id === quizId && quiz === null ? loadError.message : null
 
   const reloadList = () => listQuizzes().then(setQuizzes)
+  const chapterTitle = (id: number | null) => (id === null ? null : chapters.find((c) => c.id === id)?.title ?? null)
+  // A question of a class quiz may only use that class's chapters.
+  const quizClassId = quiz ? quizzes.find((q) => q.id === quiz.id)?.schoolClassId ?? null : null
+  const chaptersForQuiz = quizClassId === null ? chapters : chapters.filter((c) => c.schoolClassId === quizClassId)
   const reloadQuiz = (id: number) => getQuiz(id).then(setQuiz)
   const openBuilder = (id: number) => navigate(`/admin/quizzes/${id}`)
 
@@ -546,6 +635,7 @@ export function AdminQuizzesPage() {
                     <span data-testid="quiz-total">
                       {roCount(quiz.items.length, 'subiect', 'subiecte')} · Total: {quiz.items.reduce((sum, item) => sum + item.points, 0)} p
                     </span>
+                    <span>· Capitol: {chapterTitle(quiz.chapterId) ?? 'niciunul'}</span>
                   </span>
                 }
                 actions={
@@ -573,6 +663,11 @@ export function AdminQuizzesPage() {
                         <div className="flex items-start justify-between gap-2">
                           <p className="text-sm font-medium">
                             {i + 1}. {item.type === 'SINGLE_CHOICE' ? 'Grilă' : 'Deschis'} · {item.points} p
+                            {item.chapterId !== null && (
+                              <span className="ml-2 rounded-md bg-sky-500/15 px-1.5 py-0.5 text-xs font-medium text-sky-800 dark:text-sky-200">
+                                {chapterTitle(item.chapterId) ?? 'alt capitol'}
+                              </span>
+                            )}
                           </p>
                           <div className="flex shrink-0 gap-2">
                             <Button size="xs" variant="outline" onClick={() => setItemDialog({ item })} aria-label={`Editează subiectul ${i + 1}`}>
@@ -668,7 +763,9 @@ export function AdminQuizzesPage() {
           initialClassId={quizDialog.item?.schoolClassId ?? null}
           initialTimeLimit={quizDialog.item?.timeLimitMinutes ?? null}
           initialPracticeAllowed={quizDialog.item?.practiceAllowed ?? false}
+          initialChapterId={quizDialog.item?.chapterId ?? null}
           classes={classes}
+          chapters={chapters}
           onSubmit={async (input) => {
             if (quizDialog.item) {
               await updateQuiz(quizDialog.item.id, input)
@@ -687,6 +784,8 @@ export function AdminQuizzesPage() {
           open
           onClose={() => setItemDialog(null)}
           initial={itemDialog.item}
+          chapters={chaptersForQuiz}
+          quizChapterTitle={chapterTitle(quiz.chapterId)}
           onSubmit={async (input) => {
             if (itemDialog.item) {
               await updateQuizItem(itemDialog.item.id, input)

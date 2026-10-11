@@ -15,6 +15,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import ro.mathlms.content.SchoolClass;
+import ro.mathlms.content.Chapter;
 
 /**
  * An assessment (e.g. "Simulare EN – Varianta 3") authored directly by an admin: it holds
@@ -62,6 +63,11 @@ public class Quiz {
     @Column(name = "practice_allowed", nullable = false)
     private boolean practiceAllowed;
 
+    /** The chapter its questions practise unless one says otherwise (E6 mastery map); {@code null} = untagged. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "chapter_id")
+    private Chapter chapter;
+
     public Quiz(String title, String description) {
         this.title = requireNonBlank(title, "title");
         this.description = description;
@@ -88,6 +94,11 @@ public class Quiz {
     /** Restricts the quiz to one class, or ({@code null}) opens it to every student again. */
     public void assignToClass(SchoolClass schoolClass) {
         this.schoolClass = schoolClass;
+    }
+
+    /** Tags the quiz with the chapter its questions practise, or ({@code null}) removes the tag. */
+    public void tagChapter(Chapter chapter) {
+        this.chapter = chapter;
     }
 
     /** Makes the quiz visible to students. Idempotent-safe: publishing a published quiz is a no-op. */

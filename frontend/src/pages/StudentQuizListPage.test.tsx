@@ -13,7 +13,7 @@ vi.mock('@/lib/api', async (original) => ({ ...(await original<typeof import('@/
 
 const quiz = (id: number, title: string, over: Partial<QuizSummary> = {}): QuizSummary => ({
   id, title, description: null, status: 'PUBLISHED', schoolClassId: null, schoolClassName: null,
-  timeLimitMinutes: null, practiceAllowed: false, ...over,
+  timeLimitMinutes: null, practiceAllowed: false, chapterId: null, ...over,
 })
 const attempt = (over: Partial<MyAttemptDto>): MyAttemptDto => ({
   attemptId: 1, quizId: 1, quizTitle: 'Q', status: 'GRADED', startedAt: '2026-10-01T10:00:00Z',

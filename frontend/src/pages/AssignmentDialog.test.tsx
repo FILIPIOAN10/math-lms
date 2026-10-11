@@ -6,7 +6,7 @@ import type { AssignmentInput, QuizSummary, SchoolClass } from '@/lib/api'
 import { isoToLocalInput } from '@/lib/assignments'
 
 const quiz = (id: number, title: string, status: QuizSummary['status'] = 'PUBLISHED'): QuizSummary => ({
-  id, title, description: null, status, schoolClassId: null, schoolClassName: null, timeLimitMinutes: null, practiceAllowed: false,
+  id, title, description: null, status, schoolClassId: null, schoolClassName: null, timeLimitMinutes: null, practiceAllowed: false, chapterId: null,
 })
 const quizzes = [quiz(10, 'Simulare EN'), quiz(11, 'Ciorna', 'DRAFT'), quiz(12, 'Teza')]
 const classes: SchoolClass[] = [

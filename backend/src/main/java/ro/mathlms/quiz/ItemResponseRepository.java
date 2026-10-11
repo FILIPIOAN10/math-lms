@@ -36,4 +36,7 @@ public interface ItemResponseRepository extends JpaRepository<ItemResponse, Long
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("update ItemResponse r set r.teacherComment = null where r.attempt.student.id = :userId")
     void clearTeacherCommentsByStudentId(@Param("userId") Long userId);
+
+    /** All answers of these attempts, in one query (the mastery map, E6). */
+    List<ItemResponse> findByAttemptIdIn(java.util.Collection<Long> attemptIds);
 }

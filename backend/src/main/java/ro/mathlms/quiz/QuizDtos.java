@@ -13,13 +13,13 @@ public final class QuizDtos {
     /** A quiz in a list (no items). */
     public record QuizSummaryDto(Long id, String title, String description, QuizStatus status,
                                  Long schoolClassId, String schoolClassName, Integer timeLimitMinutes,
-                                 boolean practiceAllowed) {
+                                 boolean practiceAllowed, Long chapterId) {
         public static QuizSummaryDto from(Quiz quiz) {
             SchoolClass schoolClass = quiz.getSchoolClass(); // null = for every student
             return new QuizSummaryDto(quiz.getId(), quiz.getTitle(), quiz.getDescription(), quiz.getStatus(),
                     schoolClass == null ? null : schoolClass.getId(),
                     schoolClass == null ? null : schoolClass.getName(), quiz.getTimeLimitMinutes(),
-                    quiz.isPracticeAllowed());
+                    quiz.isPracticeAllowed(), quiz.getChapter() == null ? null : quiz.getChapter().getId());
         }
     }
 
@@ -39,7 +39,8 @@ public final class QuizDtos {
             int points,
             String solution,
             List<OptionDto> options,
-            List<String> hints // progressive hints in order (the builder view; students get them one at a time)
+            List<String> hints, // progressive hints in order (the builder view; students get them one at a time)
+            Long chapterId // its own chapter; null = the quiz's
     ) {
         public static ItemDto from(QuizItem item, List<QuizOption> options, List<QuizItemHint> hints) {
             return new ItemDto(
@@ -50,7 +51,8 @@ public final class QuizDtos {
                     item.getPoints(),
                     item.getSolution(),
                     options.stream().map(OptionDto::from).toList(),
-                    hints.stream().map(QuizItemHint::getText).toList());
+                    hints.stream().map(QuizItemHint::getText).toList(),
+                    item.getChapter() == null ? null : item.getChapter().getId());
         }
     }
 
@@ -60,11 +62,12 @@ public final class QuizDtos {
             String title,
             String description,
             QuizStatus status,
-            List<ItemDto> items
+            List<ItemDto> items,
+            Long chapterId // the default its items inherit
     ) {
         public static QuizDetailDto of(Quiz quiz, List<ItemDto> items) {
             return new QuizDetailDto(quiz.getId(), quiz.getTitle(), quiz.getDescription(),
-                    quiz.getStatus(), items);
+                    quiz.getStatus(), items, quiz.getChapter() == null ? null : quiz.getChapter().getId());
         }
     }
 }

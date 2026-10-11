@@ -431,6 +431,8 @@ export interface QuizSummary {
   timeLimitMinutes: number | null
   /** Whether students may also practise this quiz (immediate feedback, no grade). */
   practiceAllowed: boolean
+  /** The chapter its questions practise (E6 mastery map); null = untagged. */
+  chapterId: number | null
 }
 
 export interface QuizOptionDto {
@@ -450,6 +452,8 @@ export interface QuizItemDto {
   options: QuizOptionDto[]
   /** Progressive hints in order (practice mode shows them to students one at a time). */
   hints: string[]
+  /** Its own chapter; null = the quiz's. */
+  chapterId: number | null
 }
 
 export interface QuizDetail {
@@ -458,6 +462,8 @@ export interface QuizDetail {
   description: string | null
   status: QuizStatus
   items: QuizItemDto[]
+  /** The chapter its items inherit. */
+  chapterId: number | null
 }
 
 export interface OptionInput {
@@ -475,6 +481,58 @@ export interface ItemInput {
   options: OptionInput[] | null
   /** Up to 5 hints, in order; empty = none. */
   hints: string[]
+  /** Overrides the quiz's chapter; null/absent = inherit. */
+  chapterId?: number | null
+}
+
+// ---------- Chapters + mastery map (E6) ----------
+
+/** A chapter as the teacher picks it when tagging a quiz or a question. Ordered class → book → chapter. */
+export interface ChapterOption {
+  id: number
+  title: string
+  bookId: number
+  bookTitle: string
+  schoolClassId: number
+  schoolClassName: string
+}
+
+export async function listChapterOptions(): Promise<ChapterOption[]> {
+  const response = await apiFetch('/admin/chapters')
+  return response.json()
+}
+
+/** One chapter for one student. `percent` is null while nothing in it has been scored. */
+export interface ChapterMastery {
+  chapterId: number
+  chapterTitle: string
+  bookTitle: string
+  schoolClassName: string
+  earned: number
+  possible: number
+  percent: number | null
+  questions: number
+}
+
+export interface ClassMastery {
+  chapters: { id: number; title: string; bookTitle: string }[]
+  /** Each student's cells are in the order of `chapters`. */
+  students: { studentId: number; fullName: string; cells: { chapterId: number; percent: number | null; questions: number }[] }[]
+}
+
+export async function getMyMastery(): Promise<ChapterMastery[]> {
+  const response = await apiFetch('/quiz/mastery')
+  return response.json()
+}
+
+export async function getChildMastery(childId: number): Promise<ChapterMastery[]> {
+  const response = await apiFetch(`/parent/children/${childId}/mastery`)
+  return response.json()
+}
+
+export async function getClassMastery(classId: number): Promise<ClassMastery> {
+  const response = await apiFetch(`/admin/classes/${classId}/mastery`)
+  return response.json()
 }
 
 export async function listQuizzes(): Promise<QuizSummary[]> {
@@ -528,6 +586,8 @@ export interface QuizInput {
   schoolClassId: number | null
   timeLimitMinutes: number | null
   practiceAllowed: boolean
+  /** The chapter its questions practise; null = untagged. */
+  chapterId?: number | null
 }
 
 export async function createQuiz(input: QuizInput): Promise<QuizSummary> {

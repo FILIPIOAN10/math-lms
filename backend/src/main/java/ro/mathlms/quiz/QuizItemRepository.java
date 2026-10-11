@@ -20,4 +20,7 @@ public interface QuizItemRepository extends JpaRepository<QuizItem, Long> {
     @Query("select new ro.mathlms.quiz.QuizMaxScore(i.quiz.id, sum(i.points))"
             + " from QuizItem i where i.quiz.id in :quizIds group by i.quiz.id")
     List<QuizMaxScore> sumPointsByQuiz(@Param("quizIds") Collection<Long> quizIds);
+
+    /** All items of these quizzes, in one query (the mastery map, E6). */
+    List<QuizItem> findByQuizIdIn(Collection<Long> quizIds);
 }

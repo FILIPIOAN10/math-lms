@@ -29,6 +29,7 @@ const AdminQuizStatsPage = lazy(() => import('@/pages/AdminQuizStatsPage').then(
 const StudentProgressPage = lazy(() => import('@/pages/StudentProgressPage').then((m) => ({ default: m.StudentProgressPage })))
 const ParentChildrenPage = lazy(() => import('@/pages/ParentChildrenPage').then((m) => ({ default: m.ParentChildrenPage })))
 const ParentChildPage = lazy(() => import('@/pages/ParentChildPage').then((m) => ({ default: m.ParentChildPage })))
+const AdminMasteryPage = lazy(() => import('@/pages/AdminMasteryPage').then((m) => ({ default: m.AdminMasteryPage })))
 const AccountPage = lazy(() => import('@/pages/AccountPage').then((m) => ({ default: m.AccountPage })))
 const EraseAccountPage = lazy(() => import('@/pages/EraseAccountPage').then((m) => ({ default: m.EraseAccountPage })))
 const ParentAttemptResultPage = lazy(() => import('@/pages/ParentAttemptResultPage').then((m) => ({ default: m.ParentAttemptResultPage })))
@@ -114,6 +115,14 @@ function App() {
               element={
                 <AdminRoute>
                   <AdminAssignmentsPage />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/classes/:classId/mastery"
+              element={
+                <AdminRoute>
+                  <AdminMasteryPage />
                 </AdminRoute>
               }
             />

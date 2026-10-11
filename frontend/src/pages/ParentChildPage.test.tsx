@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ParentChildPage } from '@/pages/ParentChildPage'
@@ -9,6 +9,7 @@ const api = vi.hoisted(() => ({
   getChildProgress: vi.fn(),
   getChildAssignments: vi.fn(),
   listMyChildren: vi.fn(),
+  getChildMastery: vi.fn(),
 }))
 vi.mock('@/lib/api', async (original) => ({ ...(await original<typeof import('@/lib/api')>()), ...api }))
 
@@ -35,12 +36,26 @@ describe('ParentChildPage', () => {
     api.getChildProgress.mockResolvedValue([])
     api.getChildAssignments.mockResolvedValue([])
     api.listMyChildren.mockResolvedValue([{ id: 4, fullName: 'Ana Student', email: 'ana@x.ro' }])
+    api.getChildMastery.mockResolvedValue([])
+  })
+
+  it("shows the child's level per chapter", async () => {
+    api.getChildMastery.mockResolvedValue([{
+      chapterId: 1, chapterTitle: 'Fracții', bookTitle: 'Algebra', schoolClassName: 'Clasa a 8-a',
+      earned: 9, possible: 10, percent: 90, questions: 4,
+    }])
+    renderPage()
+
+    const section = await screen.findByRole('region', { name: 'Pe capitole' })
+    expect(section).toHaveTextContent('Fracții')
+    expect(section).toHaveTextContent('90%')
+    expect(api.getChildMastery).toHaveBeenCalledWith(4)
   })
 
   it("is titled with the child's name", async () => {
     renderPage()
     expect(await screen.findByRole('heading', { level: 1, name: 'Ana Student' })).toBeInTheDocument()
-    expect(document.title).toBe('Ana Student · Math LMS')
+    await waitFor(() => expect(document.title).toBe('Ana Student · Math LMS')) // set by an effect after the render
   })
 
   it("lists the child's homework with its state and deadline, without buttons to take it", async () => {

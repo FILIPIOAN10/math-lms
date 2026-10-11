@@ -75,9 +75,9 @@ Apoi, logat ca **admin**, construiește datele de mai jos (fiecare pas exerseaz�
 | D2 | Clasa a 8-a → **Elevi** | înscrie **Ana** și **Radu** (înscriere în masă) |
 | D3 | Clasa a 8-a → **Adaugă carte** | **Algebra 8** → capitolul **Fracții** → 2 exerciții cu LaTeX (`$\frac{3}{4}+\frac{1}{8}$`) |
 | D4 | **Invitații** | leagă **Maria Parinte → Ana** |
-| D5 | **Quiz-uri → Adaugă quiz** | **Fracții — exersare**: toți elevii, fără limită, **„Permite practică” bifat** |
+| D5 | **Quiz-uri → Adaugă quiz** | **Fracții — exersare**: toți elevii, fără limită, **„Permite practică” bifat**, **Capitol: Fracții** (pentru harta pe capitole) |
 | D6 | în editorul lui → **Importă din text** | lipește blocul **A** |
-| D7 | **Adaugă quiz** | **Simulare EN**: Clasa a 8-a, **10 minute**, fără practică → importă blocul **B** |
+| D7 | **Adaugă quiz** | **Simulare EN**: Clasa a 8-a, **10 minute**, fără practică, **Capitol: Fracții** → importă blocul **B**; apoi la subiectul 3 alege **Capitol** = un al doilea capitol (ex. adaugă „Procente” în Algebra 8) |
 | D8 | **Adaugă quiz** | **Ciornă goală** — fără subiecte |
 | D9 | | publică **Fracții — exersare** și **Simulare EN** |
 | D10 | Simulare EN → **Dă ca temă** | Clasa a 8-a, termen **mâine** |
@@ -123,7 +123,7 @@ un subiect fără variante = subiect deschis (cu poză).
 Rulează asta înainte de orice commit.
 
 ```bash
-# Backend — 783 teste (necesită Docker pentru Testcontainers)
+# Backend — 813 teste (necesită Docker pentru Testcontainers)
 cd math-lms/backend && ./mvnw test
 
 # Doar suita de conținut (Faza 2)
@@ -133,7 +133,7 @@ cd math-lms/backend && ./mvnw test
 cd math-lms/frontend && npm test && npm run build
 ```
 
-Frontend: **Vitest + Testing Library** (`npm test`, 214 teste în 28 fișiere): clientul API (header CSRF doar pe scrieri, refresh silențios la 401 cu o singură rotație pentru cereri paralele, fără refresh la login greșit), `AppShell` + paginile de start pe rol, `TakeQuizPage` (practică, indicii, navigator, dialogul de predare, cronometru, poze), `AttemptResultView` (nota, comentariile profesorului, poza proprie), `AdminGradingPage`, `AdminQuizzesPage` (meniul ⋯, editorul pe URL), `StudentQuizListPage`, `AccountPage` + `EraseAccountPage`, `PageHeader`, `RowMenu`, nota 1–10 (`grades.ts`), `RoleRoute`, `LoginPage`. Rulează și în CI. Fluxurile cap-coadă rămân în suita E2E (Selenium).
+Frontend: **Vitest + Testing Library** (`npm test`, 233 teste în 32 fișiere): clientul API (header CSRF doar pe scrieri, refresh silențios la 401 cu o singură rotație pentru cereri paralele, fără refresh la login greșit), `AppShell` + paginile de start pe rol, `TakeQuizPage` (practică, indicii, navigator, dialogul de predare, cronometru, poze), `AttemptResultView` (nota, comentariile profesorului, poza proprie), `AdminGradingPage`, `AdminQuizzesPage` (meniul ⋯, editorul pe URL), `StudentQuizListPage`, `AccountPage` + `EraseAccountPage`, `PageHeader`, `RowMenu`, nota 1–10 (`grades.ts`), `RoleRoute`, `LoginPage`. Rulează și în CI. Fluxurile cap-coadă rămân în suita E2E (Selenium).
 
 O rulare izolată poate pica rar în `VerificationTokenServiceTest.rejectsTamperedToken` (test instabil, cunoscut: modifică
 ultimele 2 caractere ale semnăturii, care uneori nu schimbă semnătura decodată) — rerulează; fixul e în așteptare.
@@ -439,6 +439,24 @@ Din bara de sus: click pe numele tău („Contul meu” pe telefon).
 - **profesorul** nu-și poate șterge contul din aplicație (explicat pe pagină; serverul răspunde 409) — fără el nimeni nu mai corectează/aprobă
 - ce face ștergerea: anonimizează contul (email `erased-…@erased.invalid`, fără parolă), șterge înscrierile, pozele și **comentariile
   profesorului**, revocă toate sesiunile; notele rămân în statistici, fără nume
+
+### 16. Harta pe capitole (E6) — profesor, elev, părinte
+**Etichetare (profesor):** în dialogul quiz-ului **Capitol (pentru harta pe capitole)** — opțional; la un quiz de clasă apar doar capitolele
+clasei (serverul refuză altul: „Quiz-ul e pentru …, dar capitolul … e din …”). În dialogul unui subiect **Capitol**: „Ca la quiz (Fracții)”
+(moștenește) sau alt capitol (teste mixte). Editorul arată „Capitol: …” sus și o etichetă albastră pe subiectele cu capitol propriu.
+Eticheta se poate schimba **și după ce elevii au dat quiz-ul** (nu schimbă note, doar harta). Ștergerea unui capitol doar scoate eticheta.
+**Calcul** (deciziile tale): teste notate **și** practică; pentru fiecare întrebare contează **doar ultimul răspuns** al elevului;
+nivel = puncte obținute / puncte posibile pe întrebările capitolului. Un test predat numără și întrebările lăsate goale (0);
+un răspuns deschis încă necorectat nu contează până la notare; un test început și nepredat nu contează; practica contează pe loc.
+Culori: **Stăpânit** ≥ 80%, **În lucru** 50–79%, **De recapitulat** < 50%, **Fără date** (gri) — mereu cu procentul și cuvântul, nu doar culoarea.
+- **Profesor:** Conținut → pe rândul clasei **Pe capitole** → `/admin/classes/:id/mastery`: tabel elevi × capitole (grupate pe cărți), fiecare
+  celulă „73%” colorată, ultimul rând **Media clasei** (media elevilor care au date). Pe telefon tabelul se derulează lateral, numele rămân fixe.
+  Fără capitole → explicație; fără date → „Leagă quiz-urile de capitole…”
+- **Elev:** **Progresul meu** → secțiunea **Pe capitole** (toate capitolele claselor lui, grupate pe carte; bară + „85% · Stăpânit” + „4 întrebări”)
+- **Părinte:** pagina copilului → **Pe capitole** (aceeași vedere)
+- Test rapid: Ana greșește 1. la Simulare EN (test) → Fracții scade; apoi exersează Fracții — exersare și răspunde corect → Fracții urcă imediat
+- API: elev `GET /api/quiz/mastery`; părinte `GET /api/parent/children/{id}/mastery` (copil străin → 403); profesor
+  `GET /api/admin/classes/{id}/mastery` și `GET /api/admin/chapters` (lista pentru etichetare); elev pe `/api/admin/...` → 403
 
 ### Verificare rapidă prin API (ca admin, cu cookie)
 Scrierile (POST/PUT/DELETE, în afară de `/api/auth/**`) cer header-ul `X-XSRF-TOKEN` egal cu cookie-ul

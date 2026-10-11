@@ -41,10 +41,12 @@ class ParentControllerTest {
         controller.result(2L, 50L, auth);
         controller.progress(2L, auth);
         controller.assignments(2L, auth);
+        controller.mastery(2L, auth);
 
         verify(service).childAttempts("maria@scoala.ro", 2L);
         verify(service).childResult("maria@scoala.ro", 2L, 50L);
         verify(service).childProgress("maria@scoala.ro", 2L);
         verify(service).childAssignments("maria@scoala.ro", 2L);
+        verify(service).childMastery("maria@scoala.ro", 2L);
     }
 }

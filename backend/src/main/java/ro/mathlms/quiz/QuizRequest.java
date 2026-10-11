@@ -11,6 +11,12 @@ public record QuizRequest(
         @Size(max = 1000) String description,
         Long schoolClassId, // optional: null = every student may take the quiz
         @Min(1) @Max(Quiz.MAX_TIME_LIMIT_MINUTES) Integer timeLimitMinutes, // optional: null = untimed
-        Boolean practiceAllowed // optional: null/false = students cannot practise this quiz
+        Boolean practiceAllowed, // optional: null/false = students cannot practise this quiz
+        Long chapterId // optional: the chapter its questions practise (E6 mastery map)
 ) {
+    /** Without a chapter tag (what the builder sent before E6). */
+    public QuizRequest(String title, String description, Long schoolClassId, Integer timeLimitMinutes,
+                       Boolean practiceAllowed) {
+        this(title, description, schoolClassId, timeLimitMinutes, practiceAllowed, null);
+    }
 }

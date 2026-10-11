@@ -3,6 +3,8 @@ package ro.mathlms.parent;
 import org.springframework.stereotype.Service;
 import ro.mathlms.assignment.AssignmentDtos.StudentAssignmentDto;
 import ro.mathlms.assignment.AssignmentService;
+import ro.mathlms.mastery.MasteryDtos.ChapterMasteryDto;
+import ro.mathlms.mastery.MasteryService;
 import ro.mathlms.quiz.QuizAttemptService;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultViewDto;
 import ro.mathlms.quiz.StudentQuizDtos.MyAttemptDto;
@@ -23,9 +25,12 @@ public class ParentService {
     private final UserRepository userRepository;
     private final QuizAttemptService quizAttemptService;
     private final AssignmentService assignmentService;
+    private final MasteryService masteryService;
 
-    public ParentService(UserRepository userRepository, QuizAttemptService quizAttemptService, AssignmentService assignmentService) {
+    public ParentService(UserRepository userRepository, QuizAttemptService quizAttemptService, AssignmentService assignmentService,
+                         MasteryService masteryService) {
         this.assignmentService = assignmentService;
+        this.masteryService = masteryService;
         this.userRepository = userRepository;
         this.quizAttemptService = quizAttemptService;
     }
@@ -43,6 +48,12 @@ public class ParentService {
     public List<StudentAssignmentDto> childAssignments(String parentEmail, Long studentId) {
         User child = requireOwnChild(parentEmail, studentId);
         return assignmentService.myAssignments(child.getEmail());
+    }
+
+    /** The child's mastery map, as the child sees it. */
+    public List<ChapterMasteryDto> childMastery(String parentEmail, Long studentId) {
+        User child = requireOwnChild(parentEmail, studentId);
+        return masteryService.forStudent(child.getEmail());
     }
 
     public List<ProgressPointDto> childProgress(String parentEmail, Long studentId) {
