@@ -18,6 +18,9 @@ import type { ItemInput } from '@/lib/api'
  * Evaluare Națională papers are understood too: a "SUBIECTUL I" / "SUBIECTUL al II-lea" line starts a section (the
  * lines under it, before its first question, are its instruction), every question after it belongs to that section,
  * and the points may come first, as on the paper: "5p 1. Rezultatul calculului … este:".
+ *
+ * A line "[imagine]" (or "[figură]") inside a question marks it as needing a picture (a figure in the statement);
+ * the editor then flags it until the teacher pastes the picture in.
  */
 export interface ParsedItems {
   items: ItemInput[]
@@ -30,6 +33,7 @@ const ITEM_START_POINTS_FIRST = /^\s*\(?\s*(\d+)\s*(?:p|pct|puncte?)\s*\)?\s+(\d
 /** "SUBIECTUL I", "Subiectul al II-lea (30 de puncte)", "SUBIECTUL 3". */
 const SECTION = /^\s*subiectul\s+(?:al\s+)?(?:[ivxlc]+(?:-?lea)?|\d+)\b/i
 const MAX_SECTION = 300 // matches QuizItem.MAX_SECTION on the server
+const IMAGE_MARK = /^\[\s*(?:imagine|figur[aă])\s*\]$/i
 const OPTION = /^\s*(\*)?\s*([a-h])[).]\s+(.+)$/i
 const POINTS = /\(\s*(\d+)\s*(?:p|pct|puncte?)\s*\)\s*$/i
 const SOLUTION = /^\s*R:\s*(.*)$/i
@@ -41,6 +45,7 @@ interface Draft {
   /** Points written before the number ("5p 1."); the "(Np)" at the end wins when both are there. */
   pointsFirst: number | null
   section: string | null
+  imageRequired: boolean
   statement: string[]
   options: { text: string; correct: boolean }[]
   solution: string[]
@@ -58,7 +63,7 @@ export function parseItems(text: string): ParsedItems {
   const startItem = (number: string, statement: string, pointsFirst: number | null) => {
     sectionHasItems = true
     drafts.push({
-      number, pointsFirst, section: section ? section.join('\n') : null,
+      number, pointsFirst, section: section ? section.join('\n') : null, imageRequired: false,
       statement: [statement.trim()], options: [], solution: [], hints: [], part: 'statement',
     })
   }
@@ -88,6 +93,10 @@ export function parseItems(text: string): ParsedItems {
     const current = drafts[drafts.length - 1]
     if (!current) {
       errors.push(`Linia ${index + 1}: textul trebuie să înceapă cu un subiect numerotat („1. …”) sau cu „SUBIECTUL I”.`)
+      return
+    }
+    if (IMAGE_MARK.test(line)) {
+      current.imageRequired = true
       return
     }
     const option = OPTION.exec(line)
@@ -147,6 +156,7 @@ export function parseItems(text: string): ParsedItems {
       options: choice ? draft.options.map((o, p) => ({ position: p, text: o.text, correct: o.correct })) : null,
       hints: draft.hints,
       section: draft.section,
+      imageRequired: draft.imageRequired,
     })
   })
   return { items, errors }

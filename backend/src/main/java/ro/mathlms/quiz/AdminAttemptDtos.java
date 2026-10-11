@@ -52,7 +52,8 @@ public final class AdminAttemptDtos {
             Integer awardedPoints,
             boolean photoUploaded,
             String teacherComment,
-            String section // the heading it sits under; null = none
+            String section, // the heading it sits under; null = none
+            String image // the picture under the statement: a version token for its URL, or null
     ) {
     }
 

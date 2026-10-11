@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { MathContent } from '@/components/MathContent'
+import { QuestionImage } from '@/components/QuestionImage'
 import {
   attemptPhotoUrl as attemptPhotoUrlDefault,
   finalizeGrading as finalizeGradingRequest,
@@ -173,6 +174,7 @@ export function GradeByItem({
               )}
               <p className="text-sm font-medium">Subiectul {current.number} · {current.item.points} p</p>
               <MathContent className="text-sm">{current.item.statement}</MathContent>
+              <QuestionImage itemId={current.item.itemId} image={current.item.image} />
               {current.item.barem && (
                 <div className="rounded-lg bg-muted p-3 text-sm">
                   <p className="mb-1 font-medium">Barem</p>

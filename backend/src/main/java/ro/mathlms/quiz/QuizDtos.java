@@ -41,7 +41,9 @@ public final class QuizDtos {
             List<OptionDto> options,
             List<String> hints, // progressive hints in order (the builder view; students get them one at a time)
             Long chapterId, // its own chapter; null = the quiz's
-            String section // the heading it sits under ("SUBIECTUL I"); null = none
+            String section, // the heading it sits under ("SUBIECTUL I"); null = none
+            String image, // the picture under the statement: a version token for its URL, or null
+            boolean imageRequired // imported with "[imagine]" and still waiting for its picture
     ) {
         public static ItemDto from(QuizItem item, List<QuizOption> options, List<QuizItemHint> hints) {
             return new ItemDto(
@@ -54,7 +56,9 @@ public final class QuizDtos {
                     options.stream().map(OptionDto::from).toList(),
                     hints.stream().map(QuizItemHint::getText).toList(),
                     item.getChapter() == null ? null : item.getChapter().getId(),
-                    item.getSection());
+                    item.getSection(),
+                    item.getImageKey(),
+                    item.isImageRequired());
         }
     }
 

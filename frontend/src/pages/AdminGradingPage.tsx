@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { AttemptStatusBadge } from '@/components/AttemptStatusBadge'
 import { MathContent } from '@/components/MathContent'
+import { QuestionImage } from '@/components/QuestionImage'
 import { GradeByItem } from '@/components/GradeByItem'
 import { SectionHeadingView } from '@/components/SectionHeadingView'
 import { numberItems } from '@/lib/sections'
@@ -353,6 +354,7 @@ export function AdminGradingPage() {
                     {local}. {item.type === 'SINGLE_CHOICE' ? 'Grilă' : 'Rezolvare'} · {item.points} p
                   </p>
                   <MathContent className="text-sm">{item.statement}</MathContent>
+                  <QuestionImage itemId={item.itemId} image={item.image} />
 
                   {item.type === 'SINGLE_CHOICE' ? (
                     <div className="space-y-1 text-sm">

@@ -15,7 +15,7 @@ public final class ReviewDtos {
 
     /** One question of today's queue. */
     public record ReviewQuestionDto(Long itemId, String quizTitle, String statement, List<ReviewOptionDto> options,
-                                    int box) {
+                                    int box, String image) {
     }
 
     /**

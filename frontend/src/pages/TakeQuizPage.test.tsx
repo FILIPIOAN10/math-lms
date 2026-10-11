@@ -340,6 +340,19 @@ describe('TakeQuizPage', () => {
   })
 
   describe('finding your way around a test', () => {
+    it("shows a question's picture under its statement", async () => {
+      const attempt = startedThree()
+      attempt.quiz.items[1].image = 'fig-v1.png'
+      api.startQuizAttempt.mockResolvedValue(attempt)
+      renderPage('')
+      await userEvent.click(await screen.findByRole('button', { name: 'Începe testul' }))
+      await screen.findByText('Primul subiect')
+
+      const pictures = screen.getAllByTestId('question-image')
+      expect(pictures).toHaveLength(1)
+      expect(pictures[0]).toHaveAttribute('src', '/api/quiz/items/101/image?v=fig-v1.png')
+    })
+
     it('groups an EN test under its headings and numbers again from 1 in each', async () => {
       const attempt = startedThree()
       attempt.quiz.items[0].section = 'SUBIECTUL I\nÎncercuiește litera corespunzătoare răspunsului corect.'

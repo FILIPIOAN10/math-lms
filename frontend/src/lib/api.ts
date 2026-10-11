@@ -514,6 +514,10 @@ export interface QuizItemDto {
   chapterId: number | null
   /** The heading it sits under (EN style: "SUBIECTUL I" + optional instruction lines); null/absent = none. */
   section?: string | null
+  /** The picture under the statement: a version token for questionImageUrl(), or null/absent = none. */
+  image?: string | null
+  /** Imported with "[imagine]" and still waiting for its picture. */
+  imageRequired?: boolean
 }
 
 export interface QuizDetail {
@@ -545,6 +549,10 @@ export interface ItemInput {
   chapterId?: number | null
   /** The heading it sits under (EN style: "SUBIECTUL I" + optional instruction lines); null/absent = none. */
   section?: string | null
+  /** The picture under the statement: a version token for questionImageUrl(), or null/absent = none. */
+  image?: string | null
+  /** Imported with "[imagine]": the question still needs its picture (only read when it is created). */
+  imageRequired?: boolean
 }
 
 // ---------- Chapters + mastery map (E6) ----------
@@ -607,6 +615,8 @@ export interface ReviewQuestion {
   options: { id: number; position: number; text: string }[]
   /** Leitner box 1–5. */
   box: number
+  /** The picture under the statement: a version token for questionImageUrl(), or null/absent = none. */
+  image?: string | null
 }
 
 export interface ReviewToday {
@@ -688,6 +698,8 @@ export interface QuizItemStat {
   averagePoints: number | null
   /** The heading it sits under (EN style: "SUBIECTUL I" + optional instruction lines); null/absent = none. */
   section?: string | null
+  /** The picture under the statement: a version token for questionImageUrl(), or null/absent = none. */
+  image?: string | null
 }
 
 export interface QuizStatsDto {
@@ -760,6 +772,23 @@ export async function setQuizPublished(id: number, published: boolean): Promise<
   return response.json()
 }
 
+/** Where a question's picture is served from; the version token changes with every new picture (no stale cache). */
+export function questionImageUrl(itemId: number, version: string): string {
+  return `/api/quiz/items/${itemId}/image?v=${encodeURIComponent(version)}`
+}
+
+/** Puts a picture under the question's statement (PNG/JPG/WEBP/GIF), replacing any earlier one. */
+export async function uploadQuestionImage(itemId: number, file: File): Promise<void> {
+  const formData = new FormData()
+  formData.append('file', file)
+  // No Content-Type header: the browser sets multipart/form-data with the boundary itself.
+  await apiFetch(`/admin/quiz-items/${itemId}/image`, { method: 'PUT', body: formData })
+}
+
+export async function removeQuestionImage(itemId: number): Promise<void> {
+  await del(`/admin/quiz-items/${itemId}/image`)
+}
+
 export async function addQuizItem(quizId: number, input: ItemInput): Promise<QuizItemDto> {
   const response = await postJson(`/admin/quizzes/${quizId}/items`, input)
   return response.json()
@@ -796,6 +825,8 @@ export interface StudentItemDto {
   hintCount: number
   /** The heading it sits under (EN style: "SUBIECTUL I" + optional instruction lines); null/absent = none. */
   section?: string | null
+  /** The picture under the statement: a version token for questionImageUrl(), or null/absent = none. */
+  image?: string | null
 }
 
 export interface StudentQuizDetailDto {
@@ -905,6 +936,8 @@ export interface ItemResultDto {
   teacherComment: string | null
   /** The heading it sits under (EN style: "SUBIECTUL I" + optional instruction lines); null/absent = none. */
   section?: string | null
+  /** The picture under the statement: a version token for questionImageUrl(), or null/absent = none. */
+  image?: string | null
 }
 
 export interface AttemptResultViewDto {
@@ -1109,6 +1142,8 @@ export interface AdminItemReview {
   teacherComment: string | null
   /** The heading it sits under (EN style: "SUBIECTUL I" + optional instruction lines); null/absent = none. */
   section?: string | null
+  /** The picture under the statement: a version token for questionImageUrl(), or null/absent = none. */
+  image?: string | null
 }
 
 export interface AdminAttemptDetail {

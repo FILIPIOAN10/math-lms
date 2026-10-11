@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { MathContent } from '@/components/MathContent'
+import { QuestionImage } from '@/components/QuestionImage'
 import { PageHeader } from '@/components/PageHeader'
 import { answerReview, getReviewToday, type ReviewResult, type ReviewToday } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
@@ -142,6 +143,7 @@ export function ReviewPage() {
               </p>
               <p className="text-xs text-muted-foreground">{question.quizTitle}</p>
               <MathContent>{question.statement}</MathContent>
+              <QuestionImage itemId={question.itemId} image={question.image} />
 
               <div className="space-y-2">
                 {question.options.map((option) => {

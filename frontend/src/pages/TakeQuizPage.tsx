@@ -4,6 +4,7 @@ import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { MathContent } from '@/components/MathContent'
+import { QuestionImage } from '@/components/QuestionImage'
 import { SectionHeadingView } from '@/components/SectionHeadingView'
 import { numberItems } from '@/lib/sections'
 import {
@@ -433,6 +434,7 @@ export function TakeQuizPage() {
                 {label.includes('.') ? `${local}.` : `Subiectul ${label}`} · {item.points} p
               </h2>
               <MathContent>{item.statement}</MathContent>
+              <QuestionImage itemId={item.id} image={item.image} />
 
               {item.type === 'SINGLE_CHOICE' ? (
                 <div className="space-y-2">

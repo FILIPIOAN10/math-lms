@@ -63,6 +63,12 @@ public interface QuizAttemptRepository extends JpaRepository<QuizAttempt, Long> 
     @EntityGraph(attributePaths = "quiz")
     List<QuizAttempt> findByStudentIdAndQuizIdIn(Long studentId, java.util.Collection<Long> quizIds);
 
+    /** Whether the student ever opened this quiz - then its questions (and their pictures) are theirs to see again. */
+    boolean existsByStudentIdAndQuizId(Long studentId, Long quizId);
+
+    /** Whether any of these students (a parent's children) has an attempt at the quiz. */
+    boolean existsByStudentIdInAndQuizId(java.util.Collection<Long> studentIds, Long quizId);
+
     /** The teacher's grading queue: attempts in one status, with quiz + student fetched up front. */
     @Query("select a from QuizAttempt a join fetch a.quiz join fetch a.student "
             + "where a.status = :status and a.mode = ro.mathlms.quiz.AttemptMode.TEST order by a.submittedAt asc")

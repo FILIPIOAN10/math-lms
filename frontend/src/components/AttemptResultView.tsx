@@ -4,6 +4,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { AttemptModeBadge } from '@/components/AttemptModeBadge'
 import { AttemptStatusBadge } from '@/components/AttemptStatusBadge'
 import { MathContent } from '@/components/MathContent'
+import { QuestionImage } from '@/components/QuestionImage'
 import { SectionHeadingView } from '@/components/SectionHeadingView'
 import { numberItems } from '@/lib/sections'
 import { ownPhotoUrl, type AttemptResultViewDto, type ItemResultDto } from '@/lib/api'
@@ -53,6 +54,7 @@ function ItemResult({
           <span className="text-sm text-muted-foreground">{points}</span>
         </div>
         <MathContent>{item.statement}</MathContent>
+        <QuestionImage itemId={item.itemId} image={item.image} />
         {item.hintsAvailable > 0 && (
           <p data-testid="hints-used" className="text-xs text-muted-foreground">
             Indicii folosite: {item.hintsUsed} din {item.hintsAvailable}

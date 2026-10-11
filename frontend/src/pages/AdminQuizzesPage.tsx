@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState, type FormEvent, type KeyboardEvent } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState, type ClipboardEvent, type FormEvent, type KeyboardEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { ImportItemsDialog } from '@/components/ImportItemsDialog'
 import { MathContent } from '@/components/MathContent'
+import { QuestionImage } from '@/components/QuestionImage'
 import { PageHeader } from '@/components/PageHeader'
 import { RowMenu } from '@/components/RowMenu'
 import { TestsTabs } from '@/components/TestsTabs'
@@ -25,9 +26,12 @@ import {
   listChapterOptions,
   listClasses,
   listQuizzes,
+  questionImageUrl,
+  removeQuestionImage,
   setQuizPublished,
   updateQuiz,
   updateQuizItem,
+  uploadQuestionImage,
   type ItemInput,
   type QuizDetail,
   type ChapterOption,
@@ -39,6 +43,10 @@ import {
 } from '@/lib/api'
 import { formatDate, roCount } from '@/lib/format'
 import { errorMessage } from '@/lib/errors'
+import { shrinkImage } from '@/lib/image'
+
+/** What the question dialog does with the picture under the statement. */
+export type ImageChange = 'keep' | 'remove' | File
 
 const selectClass =
   'h-9 rounded-lg border border-border bg-background px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50'
@@ -250,7 +258,8 @@ export function ItemDialog({
   open: boolean
   onClose: () => void
   initial: QuizItemDto | null
-  onSubmit: (input: ItemInput) => Promise<void>
+  /** `image`: a new picture to put under the statement, 'remove' to take it away, 'keep' to leave it as it is. */
+  onSubmit: (input: ItemInput, image: ImageChange) => Promise<void>
   /** The chapters this question may be tagged with; none = no chapter choice shown. */
   chapters?: ChapterOption[]
   /** What "inherit" means here, e.g. "Fracții". */
@@ -273,6 +282,33 @@ export function ItemDialog({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(0) // items added with "Salvează și adaugă încă unul" while the dialog stayed open
+  // The picture under the statement: what is stored (initial), and what this dialog will do with it.
+  const [image, setImage] = useState<ImageChange>('keep')
+  const imagePicker = useRef<HTMLInputElement>(null)
+  const newImageUrl = useMemo(() => (image instanceof File ? URL.createObjectURL(image) : null), [image])
+  useEffect(() => () => {
+    if (newImageUrl) URL.revokeObjectURL(newImageUrl)
+  }, [newImageUrl])
+  const shownImage = newImageUrl
+    ?? (image === 'keep' && initial?.image ? questionImageUrl(initial.id, initial.image) : null)
+
+  function pickImage(file: File | undefined) {
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      setError('Alege o imagine (PNG, JPG, WEBP sau GIF).')
+      return
+    }
+    setError(null)
+    setImage(file)
+  }
+
+  /** Ctrl+V anywhere in the dialog with a screenshot on the clipboard puts it under the statement; text pastes as usual. */
+  function onPaste(e: ClipboardEvent<HTMLFormElement>) {
+    const file = Array.from(e.clipboardData.files).find((f) => f.type.startsWith('image/'))
+    if (!file) return
+    e.preventDefault()
+    pickImage(file)
+  }
 
   const isEdit = initial !== null
 
@@ -332,13 +368,14 @@ export function ItemDialog({
     }
     setBusy(true)
     try {
-      await onSubmit(input)
+      await onSubmit(input, image)
       if (addAnother) {
         // Same type and points as the item just saved: a test is usually a run of similar items.
         setStatement('')
         setSolution('')
         setHints([])
         setOptions(emptyOptions())
+        setImage('keep')
         setSaved((n) => n + 1)
         document.getElementById('istatement')?.focus()
       } else {
@@ -363,7 +400,7 @@ export function ItemDialog({
       title={isEdit ? 'Editează subiectul' : 'Adaugă subiect'}
       description="Enunțul, variantele și baremul pot conține LaTeX între $…$."
     >
-      <form className="flex max-h-[75vh] flex-col gap-4 overflow-y-auto pr-1" onSubmit={submit}>
+      <form className="flex max-h-[75vh] flex-col gap-4 overflow-y-auto pr-1" onSubmit={submit} onPaste={onPaste}>
         <div className="flex flex-col gap-2">
           <Label htmlFor="itype">Tip</Label>
           <select
@@ -407,6 +444,40 @@ export function ItemDialog({
           {statement.trim() !== '' && (
             <MathContent className="rounded-md bg-muted/40 px-2 py-1 text-sm">{statement}</MathContent>
           )}
+        </div>
+
+        <div className="flex flex-col gap-2" data-testid="image-field">
+          <Label>Imagine sub enunț (opțional)</Label>
+          {shownImage ? (
+            <img src={shownImage} alt="Figura subiectului" className="max-h-56 w-fit rounded-lg border bg-white object-contain" />
+          ) : (
+            <p className="rounded-lg border border-dashed px-3 py-4 text-center text-sm text-muted-foreground">
+              Fă o captură a figurii (Win+Shift+S), apoi apasă Ctrl+V oriunde în acest dialog — sau alege un fișier.
+              {initial?.imageRequired && <span className="block font-medium text-amber-700 dark:text-amber-300">Subiectul așteaptă o figură.</span>}
+            </p>
+          )}
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" size="sm" variant="outline" onClick={() => imagePicker.current?.click()}>
+              {shownImage ? 'Înlocuiește imaginea' : 'Alege imaginea'}
+            </Button>
+            {shownImage && (
+              <Button type="button" size="sm" variant="outline" className="text-destructive"
+                      onClick={() => setImage(initial?.image ? 'remove' : 'keep')}>
+                Scoate imaginea
+              </Button>
+            )}
+          </div>
+          <input
+            ref={imagePicker}
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/gif"
+            className="hidden"
+            aria-label="Fișierul imaginii"
+            onChange={(e) => {
+              pickImage(e.target.files?.[0])
+              e.target.value = '' // the same file again still counts as a choice
+            }}
+          />
         </div>
 
         <div className="flex flex-col gap-2">
@@ -718,6 +789,12 @@ export function AdminQuizzesPage() {
                           </div>
                         </div>
                         <MathContent className="text-sm">{item.statement}</MathContent>
+                        <QuestionImage itemId={item.id} image={item.image} />
+                        {item.imageRequired && !item.image && (
+                          <p data-testid="image-missing" className="text-sm font-medium text-amber-700 dark:text-amber-300">
+                            ⚠ Lipsește imaginea — apasă „Editează” și lipește figura (Ctrl+V).
+                          </p>
+                        )}
                         {item.type === 'SINGLE_CHOICE' && (
                           <ul className="space-y-1 text-sm">
                             {item.options.map((o) => (
@@ -851,12 +928,19 @@ export function AdminQuizzesPage() {
           chapters={chaptersForQuiz}
           quizChapterTitle={chapterTitle(quiz.chapterId)}
           defaultSection={quiz.items.at(-1)?.section ?? null}
-          onSubmit={async (input) => {
-            if (itemDialog.item) {
-              await updateQuizItem(itemDialog.item.id, input)
-            } else {
-              // New items go to the end.
-              await addQuizItem(quiz.id, { ...input, position: quiz.items.length })
+          onSubmit={async (input, image) => {
+            const saved = itemDialog.item
+              ? await updateQuizItem(itemDialog.item.id, input)
+              : await addQuizItem(quiz.id, { ...input, position: quiz.items.length }) // new items go to the end
+            try {
+              if (image instanceof File) {
+                await uploadQuestionImage(saved.id, await shrinkImage(image, 1600))
+              } else if (image === 'remove') {
+                await removeQuestionImage(saved.id)
+              }
+            } catch (e) {
+              // The question itself is saved: say so on the page instead of keeping the dialog (a retry would add it twice).
+              setError(`Subiectul a fost salvat, dar imaginea nu: ${errorMessage(e)} Deschide-l cu „Editează” și încearcă din nou.`)
             }
             await reloadQuiz(quiz.id)
           }}

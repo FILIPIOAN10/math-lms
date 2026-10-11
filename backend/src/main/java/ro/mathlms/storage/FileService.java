@@ -26,4 +26,7 @@ public interface FileService {
     /** Încarcă fișierul ca resursă pentru a putea fi descărcat sau afișat în browser. */
     Resource loadImage(String path, String imageName) throws IOException;
 
+    /** Stores a copy of a stored file under a new name (same extension) and returns that name. */
+    String copyImage(String path, String imageName) throws IOException;
+
 }

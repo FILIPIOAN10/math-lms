@@ -156,7 +156,7 @@ R: $x = 4$
 Rulează asta înainte de orice commit.
 
 ```bash
-# Backend — 884 de teste (necesită Docker pentru Testcontainers)
+# Backend — 892 de teste (necesită Docker pentru Testcontainers)
 cd math-lms/backend && ./mvnw test
 
 # Doar suita de conținut (Faza 2)
@@ -166,7 +166,7 @@ cd math-lms/backend && ./mvnw test
 cd math-lms/frontend && npm test && npm run build
 ```
 
-Frontend: **Vitest + Testing Library** (`npm test`, 312 teste în 43 de fișiere): clientul API (header CSRF doar pe scrieri, refresh silențios la 401 cu o singură rotație pentru cereri paralele, fără refresh la login greșit), `AppShell` + paginile de start pe rol, `TakeQuizPage` (practică, indicii, navigator, dialogul de predare, cronometru, poze), `AttemptResultView` (nota, comentariile profesorului, poza proprie), `AdminGradingPage`, `AdminQuizzesPage` (meniul ⋯, editorul pe URL), `StudentQuizListPage`, `AccountPage` + `EraseAccountPage`, `RegisterPage` (previzualizarea linkului), `AdminLinksPage` (Invită părintele), `ClassInviteDialog`, `ChapterQuizDialog`, `PageHeader`, `RowMenu`, nota 1–10 (`grades.ts`), `RoleRoute`, `LoginPage`. Rulează și în CI. Fluxurile cap-coadă rămân în suita E2E (Selenium).
+Frontend: **Vitest + Testing Library** (`npm test`, 318 teste în 43 de fișiere): clientul API (header CSRF doar pe scrieri, refresh silențios la 401 cu o singură rotație pentru cereri paralele, fără refresh la login greșit), `AppShell` + paginile de start pe rol, `TakeQuizPage` (practică, indicii, navigator, dialogul de predare, cronometru, poze), `AttemptResultView` (nota, comentariile profesorului, poza proprie), `AdminGradingPage`, `AdminQuizzesPage` (meniul ⋯, editorul pe URL), `StudentQuizListPage`, `AccountPage` + `EraseAccountPage`, `RegisterPage` (previzualizarea linkului), `AdminLinksPage` (Invită părintele), `ClassInviteDialog`, `ChapterQuizDialog`, `PageHeader`, `RowMenu`, nota 1–10 (`grades.ts`), `RoleRoute`, `LoginPage`. Rulează și în CI. Fluxurile cap-coadă rămân în suita E2E (Selenium).
 
 O rulare izolată poate pica rar în `VerificationTokenServiceTest.rejectsTamperedToken` (test instabil, cunoscut: modifică
 ultimele 2 caractere ale semnăturii, care uneori nu schimbă semnătura decodată) — rerulează; fixul e în așteptare.
@@ -560,6 +560,22 @@ de oprire/expirare își termină intrarea. Linkurile vechi „pe rol” (§4a) 
 - e o **copie**: modificările din quiz nu ating exercițiile și invers; o grilă se face din editor (alt tip de subiect → adaugă-l nou)
 - API: `POST /api/admin/chapters/{id}/quiz {"title":…,"exerciseIds":[…],"points":2}` → 201 + rezumatul quiz-ului; exercițiu din alt capitol → 400
 - Teste: `QuizFromChapterIntegrationTest`, `QuizAdminServiceTest`, `ChapterQuizDialog.test.tsx`
+
+### 21. Imagine sub enunț (figuri EN, V25)
+**De ce:** la EN, Subiectul II are grile cu figuri (forme geometrice); grila rămâne cu variante text, figura stă în enunț.
+- **Profesor:** în editor → **Editează** (sau **Adaugă subiect**) → secțiunea **Imagine sub enunț (opțional)**: fă o captură a figurii
+  din PDF (**Win+Shift+S**), apoi **Ctrl+V oriunde în dialog** — sau **Alege imaginea** (PNG/JPG/WEBP/GIF) → previzualizare →
+  **Salvează**. **Înlocuiește imaginea** / **Scoate imaginea**. Pozele mari se micșorează în browser (≤1600 px); serverul primește max. 4 MB
+- **Import:** un rând `[imagine]` (sau `[figură]`) în subiect îl marchează; previzualizarea arată „· necesită imagine”, iar în editor
+  subiectul are „⚠ Lipsește imaginea — apasă „Editează” și lipește figura (Ctrl+V).” până pui poza
+- **Unde apare:** sub enunț în editor, testul/practica elevului, rezultat (elev și părinte), corectură (lucrare și pe subiect),
+  recapitularea zilnică; click = mărime completă
+- **Cine o vede:** profesorul; elevul care poate da quiz-ul (publicat, clasa lui) sau care are deja o încercare la el; părintele al
+  cărui copil are o încercare. Altcineva → 404 (`GET /api/quiz/items/{id}/image`). Ciorna: elevii nu o văd
+- **Copiază** quiz-ul → copia are propria ei poză; ștergerea subiectului/quiz-ului șterge și fișierul. Fișierele stau în volumul `uploads`
+  (`uploads/question-images`), deci intră în backup
+- API profesor: `PUT /api/admin/quiz-items/{id}/image` (multipart `file`) → 204, `DELETE …/image` → 204; text/fișier non-imagine → 400
+- Teste: `QuestionImageIntegrationTest`, `ItemDialog.test.tsx`, `importItems.test.ts`, `TakeQuizPage.test.tsx`
 
 ### 20. Pagina unui elev (T5) — `/admin/students/:id`, ca admin
 **De ce:** ca să vorbești despre Ana nu mai treci prin 4 pagini (Teme, Corectură, Pe capitole, Recapitulare).

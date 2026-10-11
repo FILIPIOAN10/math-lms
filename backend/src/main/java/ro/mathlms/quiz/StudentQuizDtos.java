@@ -30,7 +30,8 @@ public final class StudentQuizDtos {
             int points,
             List<StudentOptionDto> options,
             int hintCount, // hints this item has - only ever > 0 in practice mode; a graded test hides even their existence
-            String section // the heading it sits under ("SUBIECTUL I"); null = none
+            String section, // the heading it sits under ("SUBIECTUL I"); null = none
+            String image // the picture under the statement: a version token for its URL, or null
     ) {
         public static StudentItemDto from(QuizItem item, List<QuizOption> options, int hintCount) {
             return new StudentItemDto(
@@ -41,7 +42,8 @@ public final class StudentQuizDtos {
                     item.getPoints(),
                     options.stream().map(StudentOptionDto::from).toList(),
                     hintCount,
-                    item.getSection());
+                    item.getSection(),
+                    item.getImageKey());
         }
     }
 
@@ -185,7 +187,8 @@ public final class StudentQuizDtos {
             int hintsUsed,      // practice only; 0 in a graded test
             int hintsAvailable, // practice only; 0 in a graded test
             String teacherComment,
-            String section // the heading it sits under; null = none
+            String section, // the heading it sits under; null = none
+            String image // the picture under the statement: a version token for its URL, or null
     ) {}
 
     /** The student's graded attempt: the score plus a per-item breakdown. */

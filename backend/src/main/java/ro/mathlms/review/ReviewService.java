@@ -249,7 +249,8 @@ public class ReviewService {
         List<ReviewOptionDto> options = optionRepository.findByItemIdOrderByPosition(item.getId()).stream()
                 .map(o -> new ReviewOptionDto(o.getId(), o.getPosition(), o.getText()))
                 .toList();
-        return new ReviewQuestionDto(item.getId(), item.getQuiz().getTitle(), item.getStatement(), options, box);
+        return new ReviewQuestionDto(item.getId(), item.getQuiz().getTitle(), item.getStatement(), options, box,
+                item.getImageKey());
     }
 
     private LocalDate today() {

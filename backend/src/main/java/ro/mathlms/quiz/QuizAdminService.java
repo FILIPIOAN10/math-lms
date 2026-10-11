@@ -30,11 +30,14 @@ public class QuizAdminService {
     private final ChapterRepository chapterRepository;
     private final ExerciseRepository exerciseRepository;
     private final AfterCommitCacheEvictor cacheEvictor;
+    private final QuestionImageService imageService;
 
     public QuizAdminService(QuizRepository quizRepository, QuizItemRepository itemRepository,
                             QuizOptionRepository optionRepository, QuizItemHintRepository hintRepository,
                             SchoolClassRepository schoolClassRepository, ChapterRepository chapterRepository,
-                            ExerciseRepository exerciseRepository, AfterCommitCacheEvictor cacheEvictor) {
+                            ExerciseRepository exerciseRepository, AfterCommitCacheEvictor cacheEvictor,
+                            QuestionImageService imageService) {
+        this.imageService = imageService;
         this.chapterRepository = chapterRepository;
         this.exerciseRepository = exerciseRepository;
         this.quizRepository = quizRepository;
@@ -177,6 +180,12 @@ public class QuizAdminService {
                     item.getStatement(), item.getPoints(), item.getSolution());
             fresh.tagChapter(item.getChapter());
             fresh.placeInSection(item.getSection());
+            String imageCopy = imageService.copyOf(item.getImageKey()); // each question owns its own file
+            if (imageCopy != null) {
+                fresh.attachImage(imageCopy);
+            } else {
+                fresh.requireImage(item.isImageRequired());
+            }
             QuizItem itemCopy = itemRepository.save(fresh);
             for (QuizOption option : optionRepository.findByItemIdOrderByPosition(item.getId())) {
                 optionRepository.save(new QuizOption(itemCopy, option.getPosition(), option.getText(), option.isCorrect()));
@@ -237,6 +246,7 @@ public class QuizAdminService {
         for (QuizItem item : itemRepository.findByQuizIdOrderByPosition(id)) {
             optionRepository.deleteByItemId(item.getId());
             hintRepository.deleteByItemId(item.getId());
+            imageService.deleteAfterCommit(item.getImageKey());
         }
         itemRepository.deleteAll(itemRepository.findByQuizIdOrderByPosition(id));
         quizRepository.delete(quiz);
@@ -260,6 +270,7 @@ public class QuizAdminService {
                 request.points(), request.solution());
         fresh.tagChapter(chapterFitting(request.chapterId(), quiz.getSchoolClass()));
         fresh.placeInSection(request.section());
+        fresh.requireImage(Boolean.TRUE.equals(request.imageRequired()));
         QuizItem item = itemRepository.save(fresh);
         List<QuizOption> options = saveOptionsIfSingleChoice(item, request);
         List<QuizItemHint> hints = saveHints(item, request.hints());
@@ -308,6 +319,7 @@ public class QuizAdminService {
         }
         optionRepository.deleteByItemId(itemId);
         hintRepository.deleteByItemId(itemId);
+        imageService.deleteAfterCommit(item.getImageKey());
         itemRepository.delete(item);
         dropScoreCaches();
     }

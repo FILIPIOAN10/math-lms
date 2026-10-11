@@ -133,6 +133,23 @@ R: $x = 4$
       expect(items[0].section).toBeNull()
     })
 
+    it('marks a question that needs a figure with "[imagine]"', () => {
+      const { items, errors } = parseItems([
+        'SUBIECTUL al II-lea',
+        '5p 1. În figura alăturată, AB =',
+        '[imagine]',
+        '*a) 4',
+        'b) 6',
+        '5p 2. Fără figură',
+        '*a) 1',
+        'b) 2',
+      ].join('\n'))
+
+      expect(errors).toEqual([])
+      expect(items.map((i) => i.imageRequired)).toEqual([true, false])
+      expect(items[0].statement).toBe('În figura alăturată, AB =')
+    })
+
     it('names the section in an error', () => {
       const { errors } = parseItems('SUBIECTUL al II-lea\n5p 1. Enunț\na) 1\nb) 2')
       expect(errors).toEqual(['SUBIECTUL al II-lea, subiectul 1: marchează cu * exact o variantă corectă (acum: 0).'])

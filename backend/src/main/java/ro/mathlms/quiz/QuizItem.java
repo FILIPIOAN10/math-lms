@@ -66,6 +66,14 @@ public class QuizItem {
     @Column(length = MAX_SECTION)
     private String section;
 
+    /** The stored name of the picture shown under the statement, or {@code null}. */
+    @Column(name = "image_key", length = 200)
+    private String imageKey;
+
+    /** Imported with "[imagine]" and still waiting for its picture; cleared when one is attached. */
+    @Column(name = "image_required", nullable = false)
+    private boolean imageRequired;
+
     /** The most characters a section heading (with its instruction) may have - the column's length. */
     public static final int MAX_SECTION = 300;
 
@@ -93,6 +101,27 @@ public class QuizItem {
     /** Tags this question with its own chapter, or ({@code null}) lets it inherit the quiz's. */
     public void tagChapter(Chapter chapter) {
         this.chapter = chapter;
+    }
+
+    /** Shows {@code key}'s picture under the statement; the question no longer waits for one. */
+    public void attachImage(String key) {
+        if (key == null || key.isBlank()) {
+            throw new IllegalArgumentException("image key must not be blank");
+        }
+        this.imageKey = key;
+        this.imageRequired = false;
+    }
+
+    /** Takes the picture away and returns its stored name (to delete the file), or null when there was none. */
+    public String removeImage() {
+        String old = imageKey;
+        this.imageKey = null;
+        return old;
+    }
+
+    /** Marks a question that still needs its picture (import "[imagine]"). */
+    public void requireImage(boolean required) {
+        this.imageRequired = required && imageKey == null;
     }
 
     /** Puts this question under a heading; blank = no heading. */

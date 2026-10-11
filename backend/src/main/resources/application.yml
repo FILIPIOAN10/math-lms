@@ -125,6 +125,8 @@ app:
   # File storage: local filesystem now, S3/MinIO drop-in later (see FileService seam).
   storage:
     quiz-photos-dir: ${QUIZ_PHOTOS_DIR:uploads/quiz-photos}
+    # Pictures under question statements (EN figures); inside the same uploads volume, so backups include them.
+    question-images-dir: ${QUESTION_IMAGES_DIR:uploads/question-images}
 
 # Rate limiting (Phase 6.1): per-endpoint fixed windows in Redis, rules in RateLimitConfig.
 rate:

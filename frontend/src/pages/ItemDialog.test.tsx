@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { ItemDialog } from '@/pages/AdminQuizzesPage'
@@ -18,6 +18,53 @@ async function submitted(onSubmit: ReturnType<typeof vi.fn>): Promise<ItemInput>
   await waitFor(() => expect(onSubmit).toHaveBeenCalled())
   return onSubmit.mock.calls[0][0]
 }
+
+describe('ItemDialog picture under the statement', () => {
+  const png = () => new File([new Uint8Array([137, 80, 78, 71])], 'figura.png', { type: 'image/png' })
+
+  it('takes a chosen file and hands it over with the item', async () => {
+    const onSubmit = renderDialog({ ...openItem })
+    await userEvent.upload(screen.getByLabelText('Fișierul imaginii'), png())
+
+    expect(screen.getByRole('img', { name: 'Figura subiectului' })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Salvează' }))
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled())
+    expect(onSubmit.mock.calls[0][1]).toBeInstanceOf(File)
+  })
+
+  it('takes a screenshot pasted anywhere in the dialog, but leaves text pastes alone', async () => {
+    const onSubmit = renderDialog({ ...openItem })
+    const statement = screen.getByLabelText('Enunț')
+
+    fireEvent.paste(statement, { clipboardData: { files: [png()], getData: () => '' } })
+    expect(await screen.findByRole('img', { name: 'Figura subiectului' })).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Salvează' }))
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled())
+    expect((onSubmit.mock.calls[0][1] as File).name).toBe('figura.png')
+  })
+
+  it('shows the stored picture and can take it away', async () => {
+    const onSubmit = renderDialog({ ...openItem, image: 'abc.png' })
+
+    expect(screen.getByRole('img', { name: 'Figura subiectului' })).toHaveAttribute('src', '/api/quiz/items/9/image?v=abc.png')
+    await userEvent.click(screen.getByRole('button', { name: 'Scoate imaginea' }))
+    expect(screen.queryByRole('img', { name: 'Figura subiectului' })).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Salvează' }))
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled())
+    expect(onSubmit.mock.calls[0][1]).toBe('remove')
+  })
+
+  it('refuses a file that is not a picture', async () => {
+    renderDialog({ ...openItem })
+    await userEvent.upload(screen.getByLabelText('Fișierul imaginii'),
+      new File(['x'], 'nota.txt', { type: 'text/plain' }), { applyAccept: false })
+
+    expect(screen.getByText('Alege o imagine (PNG, JPG, WEBP sau GIF).')).toBeInTheDocument()
+  })
+})
 
 describe('ItemDialog section', () => {
   it('sends the heading the question sits under, and nothing when left empty', async () => {
@@ -172,7 +219,7 @@ describe('ItemDialog chapter', () => {
     await userEvent.selectOptions(select, '2')
     await userEvent.click(screen.getByRole('button', { name: 'Salvează' }))
 
-    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ chapterId: 2 }))
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ chapterId: 2 }), 'keep')
   })
 
   it('has no chapter choice when no chapters are offered', () => {

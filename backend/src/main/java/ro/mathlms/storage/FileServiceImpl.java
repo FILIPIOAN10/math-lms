@@ -53,6 +53,18 @@ public class FileServiceImpl implements FileService {
         }
     }
 
+    @Override
+    public String copyImage(String path, String imageName) throws IOException {
+        Path base = Paths.get(path).toAbsolutePath().normalize();
+        Path source = base.resolve(imageName).normalize();
+        if (!source.startsWith(base) || !Files.isReadable(source)) {
+            throw new FileNotFoundException("Image not found: " + imageName);
+        }
+        String copyName = UUID.randomUUID() + extensionOf(imageName);
+        Files.copy(source, base.resolve(copyName));
+        return copyName;
+    }
+
     /** ".jpg" for "photo.jpg"; "" when there is no filename or no dot. */
     private static String extensionOf(String originalFilename) {
         if (originalFilename == null || !originalFilename.contains(".")) {
