@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import ro.mathlms.assignment.AssignmentDtos.AssignmentRequest;
 import ro.mathlms.assignment.AssignmentDtos.AssignmentSummaryDto;
+import ro.mathlms.assignment.AssignmentDtos.PublishAndAssignRequest;
 import ro.mathlms.assignment.AssignmentDtos.RescheduleRequest;
 import ro.mathlms.assignment.AssignmentDtos.StudentStatusDto;
 
@@ -24,9 +25,11 @@ import java.util.List;
 public class AssignmentAdminController {
 
     private final AssignmentService service;
+    private final PublishAndAssignService publishAndAssignService;
 
-    public AssignmentAdminController(AssignmentService service) {
+    public AssignmentAdminController(AssignmentService service, PublishAndAssignService publishAndAssignService) {
         this.service = service;
+        this.publishAndAssignService = publishAndAssignService;
     }
 
     @GetMapping("/api/admin/assignments")
@@ -37,6 +40,14 @@ public class AssignmentAdminController {
     @PostMapping("/api/admin/assignments")
     public ResponseEntity<AssignmentSummaryDto> create(@Valid @RequestBody AssignmentRequest request) {
         Assignment created = service.create(request.quizId(), request.schoolClassId(), request.dueAt());
+        return ResponseEntity.status(HttpStatus.CREATED).body(service.summaryOf(created.getId()));
+    }
+
+    /** T3: publishes a draft quiz and gives it as homework, all or nothing. */
+    @PostMapping("/api/admin/quizzes/{quizId}/publish-and-assign")
+    public ResponseEntity<AssignmentSummaryDto> publishAndAssign(@PathVariable Long quizId,
+                                                                 @Valid @RequestBody PublishAndAssignRequest request) {
+        Assignment created = publishAndAssignService.publishAndAssign(quizId, request.schoolClassId(), request.dueAt());
         return ResponseEntity.status(HttpStatus.CREATED).body(service.summaryOf(created.getId()));
     }
 

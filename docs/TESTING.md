@@ -242,6 +242,11 @@ Buton pe Dashboard: **Conținut**. Read-only.
 - **Importă din text** adaugă un test întreg dintr-o dată (formatul e la §B2)
 - **Copiază** (din ⋯) creează o copie editabilă și o deschide; **Publică** e dezactivat pe un quiz fără subiecte
 - după ce un elev a dat quiz-ul, punctajele, tipul și varianta corectă sunt **înghețate** (textele se pot corecta); pentru altă variantă → Copiază
+- **Publică** (T3) deschide un dialog: „Dă-l și ca temă” e bifat implicit → **Clasa** (fixată, dacă quiz-ul e pentru o clasă) + **Termen**
+  (precompletat: peste 7 zile, ora 20:00) → **Publică și dă tema**. Totul sau nimic: dacă tema e refuzată (termen trecut, altă clasă, deja dată)
+  quiz-ul rămâne ciornă și dialogul arată motivul. Debifat → doar **Publică**. Fără nicio clasă, bifa e dezactivată. API:
+  `POST /api/admin/quizzes/{id}/publish-and-assign {"schoolClassId":…,"dueAt":"…"}` → 201 (rezumatul temei); teste: `PublishAndAssignIntegrationTest`,
+  `PublishDialog.test.tsx`
 - **Publică** — doar quiz-urile publicate apar la elevi
 - **Pentru clasa** (în dialogul quiz-ului): „Toți elevii” (implicit) sau o clasă — un quiz de clasă apare DOAR elevilor înscriși în ea; lista adminului arată „Clasa: …” / „Toți elevii”. Un elev care ghicește id-ul unui quiz al altei clase primește 404 (Step 2.4b, migrare V13)
 

@@ -11,6 +11,7 @@ import { MathContent } from '@/components/MathContent'
 import { PageHeader } from '@/components/PageHeader'
 import { RowMenu } from '@/components/RowMenu'
 import { TestsTabs } from '@/components/TestsTabs'
+import { PublishDialog } from '@/components/PublishDialog'
 import { useConfirm } from '@/components/useConfirm'
 import {
   addQuizItem,
@@ -520,6 +521,8 @@ export function AdminQuizzesPage() {
   const [quizDialog, setQuizDialog] = useState<{ item: QuizSummary | null } | null>(null)
   const [itemDialog, setItemDialog] = useState<{ item: QuizItemDto | null } | null>(null)
   const [importing, setImporting] = useState(false)
+  // "Publică" opens a dialog that can give the quiz as homework in the same step (T3).
+  const [publishing, setPublishing] = useState<{ id: number; title: string; classId: number | null } | null>(null)
 
   useEffect(() => {
     listQuizzes()
@@ -641,7 +644,10 @@ export function AdminQuizzesPage() {
                 }
                 actions={
                   <>
-                    <Button size="sm" variant="outline" onClick={() => togglePublish(quiz)}
+                    <Button size="sm" variant="outline"
+                            onClick={() => quiz.status === 'PUBLISHED'
+                              ? void togglePublish(quiz)
+                              : setPublishing({ id: quiz.id, title: quiz.title, classId: quizClassId })}
                             disabled={quiz.status !== 'PUBLISHED' && quiz.items.length === 0}
                             title={quiz.items.length === 0 ? 'Adaugă cel puțin un subiect înainte să publici' : undefined}>
                       {quiz.status === 'PUBLISHED' ? 'Depublică' : 'Publică'}
@@ -733,7 +739,9 @@ export function AdminQuizzesPage() {
                           Dă ca temă
                         </Link>
                       ) : (
-                        <Button size="sm" variant="outline" onClick={() => togglePublish(q)}>Publică</Button>
+                        <Button size="sm" variant="outline" onClick={() => setPublishing({ id: q.id, title: q.title, classId: q.schoolClassId })}>
+                          Publică
+                        </Button>
                       )}
                       <RowMenu
                         label={`Mai multe acțiuni pentru ${q.title}`}
@@ -777,6 +785,20 @@ export function AdminQuizzesPage() {
               await reloadList()
               openBuilder(created.id) // a new quiz has no items yet: go straight to adding them
             }
+          }}
+        />
+      )}
+
+      {publishing && (
+        <PublishDialog
+          open
+          onClose={() => setPublishing(null)}
+          quiz={publishing}
+          quizClassId={publishing.classId}
+          classes={classes}
+          onPublished={async () => {
+            await reloadList()
+            if (quiz && quiz.id === publishing.id) await reloadQuiz(quiz.id)
           }}
         />
       )}

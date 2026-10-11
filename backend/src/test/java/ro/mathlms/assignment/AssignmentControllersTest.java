@@ -24,7 +24,7 @@ import static org.mockito.Mockito.when;
 class AssignmentControllersTest {
 
     private final AssignmentService service = mock(AssignmentService.class);
-    private final AssignmentAdminController admin = new AssignmentAdminController(service);
+    private final AssignmentAdminController admin = new AssignmentAdminController(service, mock(PublishAndAssignService.class));
     private final AssignmentStudentController student = new AssignmentStudentController(service);
     private final Instant due = Instant.parse("2026-10-12T15:00:00Z");
 

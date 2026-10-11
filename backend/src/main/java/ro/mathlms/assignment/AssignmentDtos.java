@@ -17,6 +17,10 @@ public final class AssignmentDtos {
     public record RescheduleRequest(@NotNull Instant dueAt) {
     }
 
+    /** T3: the class and deadline of the homework given together with publishing (the quiz is in the path). */
+    public record PublishAndAssignRequest(@NotNull Long schoolClassId, @NotNull Instant dueAt) {
+    }
+
     /** One assignment as the teacher's list shows it, with how the class is doing. */
     public record AssignmentSummaryDto(
             Long id,

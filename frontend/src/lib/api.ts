@@ -1203,6 +1203,18 @@ export async function listAssignments(): Promise<AssignmentSummary[]> {
   return response.json()
 }
 
+/**
+ * T3: publishes a draft quiz and gives it as homework in one step. All or nothing: if the homework is refused (past
+ * deadline, another class's quiz) the quiz stays a draft.
+ */
+export async function publishAndAssign(
+  quizId: number,
+  input: { schoolClassId: number; dueAt: string },
+): Promise<AssignmentSummary> {
+  const response = await postJson(`/admin/quizzes/${quizId}/publish-and-assign`, input)
+  return response.json()
+}
+
 export async function createAssignment(input: AssignmentInput): Promise<AssignmentSummary> {
   const response = await postJson('/admin/assignments', input)
   return response.json()
