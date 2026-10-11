@@ -57,6 +57,7 @@ class MasteryServiceIntegrationTest {
     @Autowired private QuizOptionRepository optionRepository;
     @Autowired private QuizAttemptRepository attemptRepository;
     @Autowired private ItemResponseRepository responseRepository;
+    @Autowired private ro.mathlms.review.ReviewAnswerRepository reviewAnswerRepository;
 
     private record World(User ana, User bob, SchoolClass cls, Chapter fractii, Chapter ecuatii, Chapter geometrie) {}
 
@@ -206,5 +207,22 @@ class MasteryServiceIntegrationTest {
         MasteryDtos.StudentRowDto ana = grid.students().get(0);
         assertThat(ana.cells()).extracting(MasteryDtos.CellDto::percent).containsExactly(null, 100, null);
         assertThat(grid.students().get(1).cells()).allSatisfy(c -> assertThat(c.percent()).isNull());
+    }
+
+    @Test
+    void aReviewAnswerIsTheLatestAnswerToo() {
+        World w = seed("m5");
+        Quiz quiz = new Quiz("Fracții m5", null);
+        quiz.tagChapter(w.fractii());
+        quiz = quizRepository.save(quiz);
+        QuizItem q1 = grila(quiz, 0, 2, null);
+        Instant t0 = Instant.parse("2026-10-05T10:00:00Z");
+        QuizAttempt test = attempt(quiz, w.ana(), AttemptMode.TEST, t0);
+        answer(test, q1, false);
+        handIn(test, t0.plusSeconds(60), 0);
+        reviewAnswerRepository.save(new ro.mathlms.review.ReviewAnswer(w.ana(), q1, option(q1, true), true,
+                t0.plusSeconds(86_400)));
+
+        assertThat(chapter(service.forStudent(w.ana().getEmail()), "Fracții").percent()).isEqualTo(100);
     }
 }

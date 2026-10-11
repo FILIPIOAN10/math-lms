@@ -3,7 +3,9 @@ import { useParams } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
 import { MasteryLegend } from '@/components/MasteryLegend'
 import { PageHeader } from '@/components/PageHeader'
-import { getClassMastery, listClasses, type ClassMastery } from '@/lib/api'
+import { HomeSection } from '@/components/home/HomeBits'
+import { getClassMastery, getClassReview, listClasses, type ClassMastery, type StudentReviewStatus } from '@/lib/api'
+import { roCount } from '@/lib/format'
 import { errorMessage } from '@/lib/errors'
 import { MASTERY_LABELS, MASTERY_TONES, masteryLevel } from '@/lib/mastery'
 
@@ -23,6 +25,7 @@ export function AdminMasteryPage() {
   const id = Number(classId)
   const [grid, setGrid] = useState<ClassMastery | null>(null)
   const [className, setClassName] = useState<string | null>(null)
+  const [review, setReview] = useState<StudentReviewStatus[] | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -33,6 +36,9 @@ export function AdminMasteryPage() {
     listClasses()
       .then((list) => !cancelled && setClassName(list.find((c) => c.id === id)?.name ?? null))
       .catch(() => undefined)
+    getClassReview(id)
+      .then((r) => !cancelled && setReview(r))
+      .catch(() => !cancelled && setReview([]))
     return () => {
       cancelled = true
     }
@@ -74,7 +80,7 @@ export function AdminMasteryPage() {
             )}
             <Card>
               <CardContent className="overflow-x-auto p-0">
-                <table className="w-full border-collapse text-sm">
+                <table aria-label="Nivel pe capitole" className="w-full border-collapse text-sm">
                   <thead>
                     <tr>
                       <th rowSpan={2} scope="col" className="sticky left-0 z-10 bg-card px-3 py-2 text-left font-medium">Elev</th>
@@ -135,6 +141,47 @@ export function AdminMasteryPage() {
             </Card>
             <MasteryLegend />
           </>
+        )}
+
+        {review && review.length > 0 && (
+          <HomeSection title="Recapitulare zilnică">
+            <Card>
+              <CardContent className="overflow-x-auto p-0">
+                <table aria-label="Recapitulare zilnică pe elevi" className="w-full border-collapse text-sm">
+                  <thead>
+                    <tr className="text-left text-xs text-muted-foreground">
+                      <th scope="col" className="px-3 py-2 font-medium">Elev</th>
+                      <th scope="col" className="px-3 py-2 font-medium">Azi</th>
+                      <th scope="col" className="px-3 py-2 font-medium">Seria</th>
+                      <th scope="col" className="px-3 py-2 font-medium">Stăpânite</th>
+                      <th scope="col" className="px-3 py-2 font-medium">Ultima recapitulare</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {review.map((r) => {
+                      const due = r.doneToday + r.remainingToday
+                      return (
+                        <tr key={r.studentId} className="border-t">
+                          <th scope="row" className="px-3 py-2 text-left font-medium whitespace-nowrap">{r.fullName}</th>
+                          <td className={`px-3 py-2 tabular-nums ${r.remainingToday === 0 && r.doneToday > 0 ? 'text-emerald-700 dark:text-emerald-300' : ''}`}>
+                            {due === 0 ? '—' : `${r.doneToday} / ${due}`}
+                          </td>
+                          <td className="px-3 py-2">{r.streak === 0 ? '—' : roCount(r.streak, 'zi', 'zile')}</td>
+                          <td className="px-3 py-2 tabular-nums">{r.mastered} din {r.totalCards}</td>
+                          <td className="px-3 py-2 text-muted-foreground">
+                            {r.lastReviewOn === null ? 'niciodată' : r.lastReviewOn.split('-').reverse().join('.')}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </CardContent>
+            </Card>
+            <p className="text-xs text-muted-foreground">
+              „Azi” = recapitulate / de recapitulat azi (maxim 10 pe zi). Seria = zile la rând cu cel puțin o recapitulare.
+            </p>
+          </HomeSection>
         )}
       </div>
     </div>

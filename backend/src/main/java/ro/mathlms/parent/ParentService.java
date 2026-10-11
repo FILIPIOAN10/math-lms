@@ -5,6 +5,8 @@ import ro.mathlms.assignment.AssignmentDtos.StudentAssignmentDto;
 import ro.mathlms.assignment.AssignmentService;
 import ro.mathlms.mastery.MasteryDtos.ChapterMasteryDto;
 import ro.mathlms.mastery.MasteryService;
+import ro.mathlms.review.ReviewDtos.ReviewStatusDto;
+import ro.mathlms.review.ReviewService;
 import ro.mathlms.quiz.QuizAttemptService;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultViewDto;
 import ro.mathlms.quiz.StudentQuizDtos.MyAttemptDto;
@@ -26,11 +28,13 @@ public class ParentService {
     private final QuizAttemptService quizAttemptService;
     private final AssignmentService assignmentService;
     private final MasteryService masteryService;
+    private final ReviewService reviewService;
 
     public ParentService(UserRepository userRepository, QuizAttemptService quizAttemptService, AssignmentService assignmentService,
-                         MasteryService masteryService) {
+                         MasteryService masteryService, ReviewService reviewService) {
         this.assignmentService = assignmentService;
         this.masteryService = masteryService;
+        this.reviewService = reviewService;
         this.userRepository = userRepository;
         this.quizAttemptService = quizAttemptService;
     }
@@ -48,6 +52,12 @@ public class ParentService {
     public List<StudentAssignmentDto> childAssignments(String parentEmail, Long studentId) {
         User child = requireOwnChild(parentEmail, studentId);
         return assignmentService.myAssignments(child.getEmail());
+    }
+
+    /** How the child keeps up with the daily review (E4). */
+    public ReviewStatusDto childReview(String parentEmail, Long studentId) {
+        User child = requireOwnChild(parentEmail, studentId);
+        return reviewService.status(child.getId());
     }
 
     /** The child's mastery map, as the child sees it. */

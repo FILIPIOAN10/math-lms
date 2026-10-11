@@ -21,6 +21,7 @@ const NAV: Record<Role, NavItem[]> = {
   STUDENT: [
     { to: '/', label: 'Acasă' },
     { to: '/quizzes', label: 'Testele mele' },
+    { to: '/review', label: 'Recapitulare' },
     { to: '/progress', label: 'Progresul meu', testId: 'my-progress' },
     { to: '/content', label: 'Conținut' },
   ],

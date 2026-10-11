@@ -45,10 +45,19 @@ public final class GdprExportData {
             String teacherComment
     ) {}
 
+    /** One daily-review answer (E4). */
+    public record ReviewEntry(
+            String itemStatement,
+            String selectedOptionText,
+            boolean correct,
+            String answeredAt
+    ) {}
+
     public record Archive(
             String exportedAt,
             Profile profile,
             List<EnrolledClass> enrollments,
-            List<Attempt> attempts
+            List<Attempt> attempts,
+            List<ReviewEntry> reviews
     ) {}
 }

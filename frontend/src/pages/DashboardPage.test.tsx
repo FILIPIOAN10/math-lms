@@ -19,6 +19,8 @@ const api = vi.hoisted(() => ({
   getMyAssignments: vi.fn(),
   getMyAttempts: vi.fn(),
   getMyProgress: vi.fn(),
+  getReviewToday: vi.fn(),
+  getChildReview: vi.fn(),
   listAttemptsForGrading: vi.fn(),
   listPendingUsers: vi.fn(),
   listAssignments: vi.fn(),
@@ -65,6 +67,7 @@ describe('DashboardPage — student', () => {
     api.getMyAssignments.mockResolvedValue([])
     api.getMyAttempts.mockResolvedValue([])
     api.getMyProgress.mockResolvedValue([])
+    api.getReviewToday.mockResolvedValue({ limit: 10, doneToday: 0, remainingToday: 0, streak: 0, totalCards: 0, mastered: 0, questions: [] })
   })
 
   it('greets the student by name', async () => {
@@ -206,6 +209,26 @@ describe('DashboardPage — parent', () => {
   beforeEach(() => {
     auth.value = { user: user({ role: 'PARENT', fullName: 'Maria Parinte' }), loading: false }
     api.getChildAssignments.mockResolvedValue([])
+    api.getChildReview.mockResolvedValue({ doneToday: 0, remainingToday: 0, streak: 0, totalCards: 0, mastered: 0, lastReviewOn: null })
+  })
+
+  it("says whether each child did today's review, with their streak", async () => {
+    api.listMyChildren.mockResolvedValue([
+      { id: 4, fullName: 'Ana Student', email: 'ana@x.ro' },
+      { id: 5, fullName: 'Radu Nou', email: 'radu@x.ro' },
+    ])
+    api.getChildProgress.mockResolvedValue([])
+    api.getChildAttempts.mockResolvedValue([])
+    api.getChildReview.mockImplementation(async (id: number) =>
+      id === 4
+        ? { doneToday: 5, remainingToday: 0, streak: 4, totalCards: 9, mastered: 2, lastReviewOn: '2026-10-11' }
+        : { doneToday: 0, remainingToday: 6, streak: 0, totalCards: 6, mastered: 0, lastReviewOn: null },
+    )
+    renderHome()
+
+    const cards = await screen.findAllByTestId('child-card')
+    expect(within(cards[0]).getByTestId('child-review')).toHaveTextContent('Recapitulare: făcută azi ✓ · seria 4 zile')
+    expect(within(cards[1]).getByTestId('child-review')).toHaveTextContent('Recapitulare: mai are 6 azi')
   })
 
   it("says how much homework each child still has to hand in, and what is overdue", async () => {
@@ -258,5 +281,37 @@ describe('DashboardPage — parent', () => {
     api.listMyChildren.mockResolvedValue([])
     renderHome()
     expect(await screen.findByText(/Cere profesorului să te lege de copilul tău/)).toBeInTheDocument()
+  })
+})
+
+describe('DashboardPage — student review', () => {
+  beforeEach(() => {
+    auth.value = { user: user({}), loading: false }
+    api.getMyAssignments.mockResolvedValue([])
+    api.getMyAttempts.mockResolvedValue([])
+    api.getMyProgress.mockResolvedValue([])
+  })
+
+  it("invites the student to today's review", async () => {
+    api.getReviewToday.mockResolvedValue({ limit: 10, doneToday: 0, remainingToday: 6, streak: 2, totalCards: 9, mastered: 0, questions: [] })
+    renderHome()
+
+    const card = await screen.findByTestId('home-review')
+    expect(card).toHaveTextContent('6 întrebări de recapitulat azi')
+    expect(card).toHaveTextContent('seria 2 zile')
+    expect(within(card).getByRole('link', { name: 'Începe recapitularea' })).toHaveAttribute('href', '/review')
+  })
+
+  it('says when today is done', async () => {
+    api.getReviewToday.mockResolvedValue({ limit: 10, doneToday: 4, remainingToday: 0, streak: 5, totalCards: 9, mastered: 0, questions: [] })
+    renderHome()
+    expect(await screen.findByTestId('home-review')).toHaveTextContent('Gata pe azi ✓')
+  })
+
+  it('shows nothing before the student has any question to review', async () => {
+    api.getReviewToday.mockResolvedValue({ limit: 10, doneToday: 0, remainingToday: 0, streak: 0, totalCards: 0, mastered: 0, questions: [] })
+    renderHome()
+    await screen.findByText(/Nicio temă de făcut/)
+    expect(screen.queryByTestId('home-review')).not.toBeInTheDocument()
   })
 })

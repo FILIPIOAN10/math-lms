@@ -29,6 +29,7 @@ const AdminQuizStatsPage = lazy(() => import('@/pages/AdminQuizStatsPage').then(
 const StudentProgressPage = lazy(() => import('@/pages/StudentProgressPage').then((m) => ({ default: m.StudentProgressPage })))
 const ParentChildrenPage = lazy(() => import('@/pages/ParentChildrenPage').then((m) => ({ default: m.ParentChildrenPage })))
 const ParentChildPage = lazy(() => import('@/pages/ParentChildPage').then((m) => ({ default: m.ParentChildPage })))
+const ReviewPage = lazy(() => import('@/pages/ReviewPage').then((m) => ({ default: m.ReviewPage })))
 const AdminMasteryPage = lazy(() => import('@/pages/AdminMasteryPage').then((m) => ({ default: m.AdminMasteryPage })))
 const AccountPage = lazy(() => import('@/pages/AccountPage').then((m) => ({ default: m.AccountPage })))
 const EraseAccountPage = lazy(() => import('@/pages/EraseAccountPage').then((m) => ({ default: m.EraseAccountPage })))
@@ -155,6 +156,14 @@ function App() {
               element={
                 <RoleRoute role="STUDENT">
                   <StudentQuizListPage />
+                </RoleRoute>
+              }
+            />
+            <Route
+              path="/review"
+              element={
+                <RoleRoute role="STUDENT">
+                  <ReviewPage />
                 </RoleRoute>
               }
             />

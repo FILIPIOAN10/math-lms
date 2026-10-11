@@ -33,7 +33,9 @@ class ParentServiceTest {
     private final QuizAttemptService quizAttemptService = mock(QuizAttemptService.class);
     private final ro.mathlms.assignment.AssignmentService assignmentService = mock(ro.mathlms.assignment.AssignmentService.class);
     private final ro.mathlms.mastery.MasteryService masteryService = mock(ro.mathlms.mastery.MasteryService.class);
-    private final ParentService service = new ParentService(userRepository, quizAttemptService, assignmentService, masteryService);
+    private final ro.mathlms.review.ReviewService reviewService = mock(ro.mathlms.review.ReviewService.class);
+    private final ParentService service =
+            new ParentService(userRepository, quizAttemptService, assignmentService, masteryService, reviewService);
 
     private final User parent = withId(new User(PARENT_EMAIL, "Maria Pop", Role.PARENT), 1L);
     private final User child = withId(new User(CHILD_EMAIL, "Ana Pop", Role.STUDENT), 2L);
@@ -173,6 +175,20 @@ class ParentServiceTest {
 
         when(userRepository.findByIdAndParentId(9L, 1L)).thenReturn(Optional.empty());
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.childMastery(PARENT_EMAIL, 9L))
+                .isInstanceOf(ParentAccessException.class);
+    }
+
+    @Test
+    void anOwnChildsReviewStatusIsLoadedForThatChildOnly() {
+        when(userRepository.findByEmail(PARENT_EMAIL)).thenReturn(Optional.of(parent));
+        when(userRepository.findByIdAndParentId(2L, 1L)).thenReturn(Optional.of(child));
+        ro.mathlms.review.ReviewDtos.ReviewStatusDto status = new ro.mathlms.review.ReviewDtos.ReviewStatusDto(1, 0, 3, 5, 1, null);
+        when(reviewService.status(2L)).thenReturn(status);
+
+        assertThat(service.childReview(PARENT_EMAIL, 2L)).isSameAs(status);
+
+        when(userRepository.findByIdAndParentId(9L, 1L)).thenReturn(Optional.empty());
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.childReview(PARENT_EMAIL, 9L))
                 .isInstanceOf(ParentAccessException.class);
     }
 }

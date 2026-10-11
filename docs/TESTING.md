@@ -123,7 +123,7 @@ un subiect fără variante = subiect deschis (cu poză).
 Rulează asta înainte de orice commit.
 
 ```bash
-# Backend — 813 teste (necesită Docker pentru Testcontainers)
+# Backend — 834 teste (necesită Docker pentru Testcontainers)
 cd math-lms/backend && ./mvnw test
 
 # Doar suita de conținut (Faza 2)
@@ -133,7 +133,7 @@ cd math-lms/backend && ./mvnw test
 cd math-lms/frontend && npm test && npm run build
 ```
 
-Frontend: **Vitest + Testing Library** (`npm test`, 233 teste în 32 fișiere): clientul API (header CSRF doar pe scrieri, refresh silențios la 401 cu o singură rotație pentru cereri paralele, fără refresh la login greșit), `AppShell` + paginile de start pe rol, `TakeQuizPage` (practică, indicii, navigator, dialogul de predare, cronometru, poze), `AttemptResultView` (nota, comentariile profesorului, poza proprie), `AdminGradingPage`, `AdminQuizzesPage` (meniul ⋯, editorul pe URL), `StudentQuizListPage`, `AccountPage` + `EraseAccountPage`, `PageHeader`, `RowMenu`, nota 1–10 (`grades.ts`), `RoleRoute`, `LoginPage`. Rulează și în CI. Fluxurile cap-coadă rămân în suita E2E (Selenium).
+Frontend: **Vitest + Testing Library** (`npm test`, 245 teste în 33 fișiere): clientul API (header CSRF doar pe scrieri, refresh silențios la 401 cu o singură rotație pentru cereri paralele, fără refresh la login greșit), `AppShell` + paginile de start pe rol, `TakeQuizPage` (practică, indicii, navigator, dialogul de predare, cronometru, poze), `AttemptResultView` (nota, comentariile profesorului, poza proprie), `AdminGradingPage`, `AdminQuizzesPage` (meniul ⋯, editorul pe URL), `StudentQuizListPage`, `AccountPage` + `EraseAccountPage`, `PageHeader`, `RowMenu`, nota 1–10 (`grades.ts`), `RoleRoute`, `LoginPage`. Rulează și în CI. Fluxurile cap-coadă rămân în suita E2E (Selenium).
 
 O rulare izolată poate pica rar în `VerificationTokenServiceTest.rejectsTamperedToken` (test instabil, cunoscut: modifică
 ultimele 2 caractere ale semnăturii, care uneori nu schimbă semnătura decodată) — rerulează; fixul e în așteptare.
@@ -457,6 +457,25 @@ Culori: **Stăpânit** ≥ 80%, **În lucru** 50–79%, **De recapitulat** < 50%
 - Test rapid: Ana greșește 1. la Simulare EN (test) → Fracții scade; apoi exersează Fracții — exersare și răspunde corect → Fracții urcă imediat
 - API: elev `GET /api/quiz/mastery`; părinte `GET /api/parent/children/{id}/mastery` (copil străin → 403); profesor
   `GET /api/admin/classes/{id}/mastery` și `GET /api/admin/chapters` (lista pentru etichetare); elev pe `/api/admin/...` → 403
+
+### 17. Recapitulare zilnică — repetiție spațiată (E4)
+**Reguli (deciziile tale):** intră în recapitulare **orice grilă** la care elevul a răspuns într-o **practică** sau într-un **test predat**
+(niciodată dintr-un test început și nepredat, niciodată un subiect deschis). **Cutii Leitner**: răspuns corect = cutia următoare
+(1 → 3 → 7 → 14 → 30 de zile), greșit = înapoi în cutia 1 (revine mâine); un răspuns corect *înainte* de termen nu urcă cutia (repetarea
+unei practici nu sare cutii). **Maxim 10 pe zi**, cele mai vechi primele; un quiz depublicat iese din recapitulare. Zilele sunt ale școlii
+(Europe/Bucharest). Nimic despre coadă nu se stochează: cutia și termenul fiecărei întrebări se recalculează din răspunsuri (V22 = doar
+răspunsurile din recapitulare). Răspunsurile din recapitulare contează și pe **harta pe capitole** (ca practica) și apar în **exportul GDPR**.
+- **Elev:** meniul **Recapitulare** (`/review`): „Azi: 2 / 6 · Seria: 3 zile 🔥 · Stăpânite: 1 din 8”; o întrebare odată („cutia 2 din 5”),
+  **Verifică** → ✓/✗ pe variante + rezolvarea + „Urcă în cutia 3 · revine pe 18 oct.” → **Următoarea** / **Termină** → „Gata pe azi! 🎉”.
+  Fără nimic încă: „apar aici după ce exersezi sau predai un test”; la zi: „Nimic de recapitulat azi”. Pe **Acasă**: „6 întrebări de
+  recapitulat azi · seria 2 zile” + **Începe recapitularea** (sau „Gata pe azi ✓”); cardul lipsește până există întrebări
+- **Părinte:** pe cardul copilului: „Recapitulare: făcută azi ✓ · seria 4 zile” / „mai are 6 azi”
+- **Profesor:** Conținut → **Pe capitole** → sub tabel, **Recapitulare zilnică**: Elev · Azi (făcute / de făcut) · Seria · Stăpânite · Ultima
+- Test rapid (cu B2): Ana exersează Fracții — exersare (greșește 1., nimerește 2.) → mâine 1. e în recapitulare, 2. peste 3 zile.
+  Ca să nu aștepți o zi, mută practica în trecut (ziua vine din ceasul serverului):
+  `docker exec -i mathlms-postgres psql -U mathlms -d mathlms -c "update quiz_attempts set started_at = started_at - interval '1 day' where mode='PRACTICE'"`
+- API: elev `GET /api/quiz/review/today`, `POST /api/quiz/review/items/{itemId}/answer {"optionId":…}` (întrebare nescadentă azi → 409);
+  părinte `GET /api/parent/children/{id}/review`; profesor `GET /api/admin/classes/{id}/review`
 
 ### Verificare rapidă prin API (ca admin, cu cookie)
 Scrierile (POST/PUT/DELETE, în afară de `/api/auth/**`) cer header-ul `X-XSRF-TOKEN` egal cu cookie-ul

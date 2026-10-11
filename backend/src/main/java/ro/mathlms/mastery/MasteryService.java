@@ -25,6 +25,8 @@ import ro.mathlms.quiz.QuizAttemptStatus;
 import ro.mathlms.quiz.QuizItem;
 import ro.mathlms.quiz.QuizItemRepository;
 import ro.mathlms.quiz.QuizItemType;
+import ro.mathlms.review.ReviewAnswer;
+import ro.mathlms.review.ReviewAnswerRepository;
 import ro.mathlms.user.Role;
 import ro.mathlms.user.User;
 import ro.mathlms.user.UserRepository;
@@ -46,7 +48,8 @@ import java.util.stream.Collectors;
  *   <li>graded tests AND practice count; for each question only the student's <b>latest</b> scored answer;</li>
  *   <li>a handed-in test counts every question - an unanswered one is a 0 (as on the result page); an open answer
  *       still waiting for the teacher does not count yet; a test still being written does not count at all;</li>
- *   <li>a practice counts each answered multiple-choice question at once (practice open answers are never scored).</li>
+ *   <li>a practice counts each answered multiple-choice question at once (practice open answers are never scored);</li>
+ *   <li>a daily-review answer (E4) counts like a practice answer.</li>
  * </ul>
  * Everything is loaded in four queries (attempts, items, answers, chapters) and computed by {@link MasteryCalculator}.
  */
@@ -60,11 +63,13 @@ public class MasteryService {
     private final QuizAttemptRepository attemptRepository;
     private final QuizItemRepository itemRepository;
     private final ItemResponseRepository responseRepository;
+    private final ReviewAnswerRepository reviewAnswerRepository;
 
     public MasteryService(UserRepository userRepository, EnrollmentRepository enrollmentRepository,
                           SchoolClassRepository schoolClassRepository, ChapterRepository chapterRepository,
                           QuizAttemptRepository attemptRepository, QuizItemRepository itemRepository,
-                          ItemResponseRepository responseRepository) {
+                          ItemResponseRepository responseRepository, ReviewAnswerRepository reviewAnswerRepository) {
+        this.reviewAnswerRepository = reviewAnswerRepository;
         this.userRepository = userRepository;
         this.enrollmentRepository = enrollmentRepository;
         this.schoolClassRepository = schoolClassRepository;
@@ -146,8 +151,9 @@ public class MasteryService {
         List<QuizAttempt> attempts = attemptRepository.findByStudentIdsFetchQuiz(studentIds).stream()
                 .filter(a -> a.getMode() == AttemptMode.PRACTICE || a.getStatus() != QuizAttemptStatus.IN_PROGRESS)
                 .toList();
+        List<Answer> answers = new ArrayList<>(reviewAnswersOf(studentIds));
         if (attempts.isEmpty()) {
-            return List.of();
+            return answers;
         }
         Map<Long, List<QuizItem>> itemsByQuiz = itemRepository
                 .findByQuizIdIn(attempts.stream().map(a -> a.getQuiz().getId()).collect(Collectors.toSet())).stream()
@@ -157,7 +163,6 @@ public class MasteryService {
                 .collect(Collectors.groupingBy(r -> r.getAttempt().getId(),
                         Collectors.toMap(r -> r.getItem().getId(), Function.identity())));
 
-        List<Answer> answers = new ArrayList<>();
         for (QuizAttempt attempt : attempts) {
             Instant at = attempt.getSubmittedAt() != null ? attempt.getSubmittedAt() : attempt.getStartedAt();
             Long quizChapter = attempt.getQuiz().getChapter() == null ? null : attempt.getQuiz().getChapter().getId();
@@ -172,6 +177,19 @@ public class MasteryService {
                     answers.add(new Answer(attempt.getStudent().getId(), item.getId(), chapter, item.getPoints(), earned, at));
                 }
             }
+        }
+        return answers;
+    }
+
+    /** The daily-review answers, each worth the question's points when right. */
+    private List<Answer> reviewAnswersOf(List<Long> studentIds) {
+        List<Answer> answers = new ArrayList<>();
+        for (ReviewAnswer r : reviewAnswerRepository.findByStudentIdIn(studentIds)) {
+            QuizItem item = r.getItem();
+            Long chapter = item.getChapter() != null ? item.getChapter().getId()
+                    : item.getQuiz().getChapter() == null ? null : item.getQuiz().getChapter().getId();
+            answers.add(new Answer(r.getStudent().getId(), item.getId(), chapter, item.getPoints(),
+                    r.isCorrect() ? item.getPoints() : 0, r.getAnsweredAt()));
         }
         return answers;
     }

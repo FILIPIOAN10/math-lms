@@ -42,6 +42,7 @@ class GdprExportServiceTest {
     private final FileService fileService = mock(FileService.class);
     private final GdprExportService service = new GdprExportService(
             userRepository, enrollmentRepository, attemptRepository, responseRepository,
+            mock(ro.mathlms.review.ReviewAnswerRepository.class),
             fileService, new ObjectMapper(), "uploads/quiz-photos");
 
     private static <T> T withId(T entity, long id) {

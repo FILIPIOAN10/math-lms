@@ -7,9 +7,11 @@ import {
   getChildAssignments,
   getChildAttempts,
   getChildProgress,
+  getChildReview,
   listMyChildren,
   type ChildDto,
   type ProgressPointDto,
+  type ReviewStatus,
 } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
 import { formatDate, roCount } from '@/lib/format'
@@ -23,6 +25,8 @@ interface ChildOverview {
   /** Homework still to hand in, and how much of it is past its deadline. */
   homeworkToDo: number
   homeworkOverdue: number
+  /** The daily review (E4); null when it could not be loaded. */
+  review: ReviewStatus | null
 }
 
 /** The parent's start page: one card per child with the latest grade and what waits for the teacher. */
@@ -41,6 +45,7 @@ export function ParentHome() {
               getChildProgress(child.id),
               getChildAssignments(child.id),
             ])
+            const review = await getChildReview(child.id).catch(() => null)
             const todo = todoAssignments(homework)
             return {
               child,
@@ -48,6 +53,7 @@ export function ParentHome() {
               awaiting: attempts.filter((a) => a.mode === 'TEST' && a.status === 'SUBMITTED').length,
               homeworkToDo: todo.length,
               homeworkOverdue: todo.filter((a) => a.overdue).length,
+              review,
             }
           }),
         ),
@@ -72,7 +78,7 @@ export function ParentHome() {
 
   return (
     <div className="space-y-3">
-      {overviews.map(({ child, latest, awaiting, homeworkToDo, homeworkOverdue }) => (
+      {overviews.map(({ child, latest, awaiting, homeworkToDo, homeworkOverdue, review }) => (
         <Card key={child.id} data-testid="child-card">
           <CardContent className="space-y-3 py-4">
             <div className="flex items-center justify-between gap-3">
@@ -93,6 +99,18 @@ export function ParentHome() {
                 </>
               )}
             </p>
+            {review && review.totalCards > 0 && (
+              <p data-testid="child-review" className="text-sm">
+                {review.remainingToday === 0 && review.doneToday > 0 ? (
+                  <span className="font-medium text-emerald-700 dark:text-emerald-300">Recapitulare: făcută azi ✓</span>
+                ) : review.remainingToday > 0 ? (
+                  <span className="font-medium">Recapitulare: mai are {review.remainingToday} azi</span>
+                ) : (
+                  <span className="text-muted-foreground">Recapitulare: nimic de făcut azi</span>
+                )}
+                {review.streak > 0 && <span className="text-muted-foreground"> · seria {roCount(review.streak, 'zi', 'zile')}</span>}
+              </p>
+            )}
             <div className="grid gap-3 sm:grid-cols-[2fr_1fr]">
               <div>
                 <p className="text-xs font-medium text-muted-foreground">Ultima notă</p>

@@ -52,7 +52,7 @@ describe('AppShell', () => {
     auth.value.user = user({})
     renderShell('/quizzes')
 
-    expect(navLabels()).toEqual(['Acasă', 'Testele mele', 'Progresul meu', 'Conținut'])
+    expect(navLabels()).toEqual(['Acasă', 'Testele mele', 'Recapitulare', 'Progresul meu', 'Conținut'])
     expect(within(nav()).getByRole('link', { name: 'Testele mele' })).toHaveAttribute('aria-current', 'page')
     expect(within(nav()).getByRole('link', { name: 'Acasă' })).not.toHaveAttribute('aria-current')
     expect(screen.getByText('pagina teste')).toBeInTheDocument()

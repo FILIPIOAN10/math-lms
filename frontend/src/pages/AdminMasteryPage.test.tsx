@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AdminMasteryPage } from '@/pages/AdminMasteryPage'
 import type { ClassMastery } from '@/lib/api'
 
-const api = vi.hoisted(() => ({ getClassMastery: vi.fn(), listClasses: vi.fn() }))
+const api = vi.hoisted(() => ({ getClassMastery: vi.fn(), listClasses: vi.fn(), getClassReview: vi.fn() }))
 vi.mock('@/lib/api', async (original) => ({ ...(await original<typeof import('@/lib/api')>()), ...api }))
 
 const grid: ClassMastery = {
@@ -37,6 +37,24 @@ describe('AdminMasteryPage', () => {
   beforeEach(() => {
     api.getClassMastery.mockReset().mockResolvedValue(grid)
     api.listClasses.mockReset().mockResolvedValue([{ id: 8, name: 'Clasa a 8-a', description: null }])
+    api.getClassReview.mockReset().mockResolvedValue([
+      { studentId: 4, fullName: 'Ana Student', doneToday: 5, remainingToday: 0, streak: 4, totalCards: 9, mastered: 2, lastReviewOn: '2026-10-11' },
+      { studentId: 5, fullName: 'Radu Nou', doneToday: 0, remainingToday: 6, streak: 0, totalCards: 6, mastered: 0, lastReviewOn: null },
+    ])
+  })
+
+  it('shows who keeps up with the daily review', async () => {
+    renderPage()
+
+    const section = await screen.findByRole('region', { name: 'Recapitulare zilnică' })
+    const ana = within(section).getByRole('row', { name: /Ana Student/ })
+    expect(ana).toHaveTextContent('5 / 5')
+    expect(ana).toHaveTextContent('4 zile')
+    expect(ana).toHaveTextContent('2 din 9')
+    const radu = within(section).getByRole('row', { name: /Radu Nou/ })
+    expect(radu).toHaveTextContent('0 / 6')
+    expect(radu).toHaveTextContent('niciodată')
+    expect(api.getClassReview).toHaveBeenCalledWith(8)
   })
 
   it('is titled with the class and loads its grid', async () => {
@@ -47,7 +65,7 @@ describe('AdminMasteryPage', () => {
 
   it('shows students against chapters, books as column groups, each cell with its percent', async () => {
     renderPage()
-    const table = await screen.findByRole('table')
+    const table = await screen.findByRole('table', { name: 'Nivel pe capitole' })
 
     expect(within(table).getByRole('columnheader', { name: 'Algebra' })).toHaveAttribute('colspan', '2')
     expect(within(table).getByRole('columnheader', { name: 'Triunghiuri' })).toBeInTheDocument()
@@ -58,7 +76,7 @@ describe('AdminMasteryPage', () => {
 
   it("adds the class average under each chapter, from the students who have data", async () => {
     renderPage()
-    const average = within(await screen.findByRole('table')).getByRole('row', { name: /Media clasei/ })
+    const average = within(await screen.findByRole('table', { name: 'Nivel pe capitole' })).getByRole('row', { name: /Media clasei/ })
     const cells = within(average).getAllByRole('cell')
     expect(cells.map((c) => c.textContent)).toEqual(['75%', '40%', '—'])
   })

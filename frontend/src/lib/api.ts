@@ -535,6 +535,74 @@ export async function getClassMastery(classId: number): Promise<ClassMastery> {
   return response.json()
 }
 
+// ---------- Daily review / spaced repetition (E4) ----------
+
+export interface ReviewQuestion {
+  itemId: number
+  quizTitle: string
+  statement: string
+  /** Without which one is right: that comes back with the result. */
+  options: { id: number; position: number; text: string }[]
+  /** Leitner box 1–5. */
+  box: number
+}
+
+export interface ReviewToday {
+  limit: number
+  doneToday: number
+  remainingToday: number
+  streak: number
+  totalCards: number
+  /** Questions in the last box. */
+  mastered: number
+  questions: ReviewQuestion[]
+}
+
+export interface ReviewResult {
+  correct: boolean
+  correctOptionId: number | null
+  solution: string | null
+  boxBefore: number
+  boxAfter: number
+  /** A calendar day, "2026-10-14". */
+  nextDueOn: string
+}
+
+export interface ReviewStatus {
+  doneToday: number
+  remainingToday: number
+  streak: number
+  totalCards: number
+  mastered: number
+  lastReviewOn: string | null
+}
+
+export interface StudentReviewStatus extends ReviewStatus {
+  studentId: number
+  fullName: string
+}
+
+export async function getReviewToday(): Promise<ReviewToday> {
+  const response = await apiFetch('/quiz/review/today')
+  return response.json()
+}
+
+/** A question not due today (another tab, a new day) answers 409 with the reason. */
+export async function answerReview(itemId: number, optionId: number): Promise<ReviewResult> {
+  const response = await postJson(`/quiz/review/items/${itemId}/answer`, { optionId })
+  return response.json()
+}
+
+export async function getChildReview(childId: number): Promise<ReviewStatus> {
+  const response = await apiFetch(`/parent/children/${childId}/review`)
+  return response.json()
+}
+
+export async function getClassReview(classId: number): Promise<StudentReviewStatus[]> {
+  const response = await apiFetch(`/admin/classes/${classId}/review`)
+  return response.json()
+}
+
 export async function listQuizzes(): Promise<QuizSummary[]> {
   const response = await apiFetch('/admin/quizzes')
   return response.json()

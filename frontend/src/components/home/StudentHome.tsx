@@ -8,12 +8,14 @@ import {
   getMyAssignments,
   getMyAttempts,
   getMyProgress,
+  getReviewToday,
   type MyAttemptDto,
   type ProgressPointDto,
+  type ReviewToday,
   type StudentAssignment,
 } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
-import { formatDate } from '@/lib/format'
+import { formatDate, roCount } from '@/lib/format'
 import { formatGrade, romanianGrade } from '@/lib/grades'
 import { latestGrade, todoAssignments } from '@/lib/home'
 
@@ -30,12 +32,16 @@ interface StudentData {
 export function StudentHome() {
   const [data, setData] = useState<StudentData | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [review, setReview] = useState<ReviewToday | null>(null)
 
   useEffect(() => {
     let cancelled = false
     Promise.all([getMyAssignments(), getMyAttempts(), getMyProgress()])
       .then(([assignments, attempts, progress]) => !cancelled && setData({ assignments, attempts, progress }))
       .catch((e) => !cancelled && setError(errorMessage(e)))
+    getReviewToday()
+      .then((r) => !cancelled && setReview(r))
+      .catch(() => undefined) // the home still works without the review card
     return () => {
       cancelled = true
     }
@@ -68,6 +74,29 @@ export function StudentHome() {
           >
             Nicio temă de făcut acum. 🎉
           </HomeEmpty>
+        </HomeSection>
+      )}
+
+      {review && review.totalCards > 0 && (
+        <HomeSection title="Recapitulare">
+          <Card data-testid="home-review">
+            <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4 text-sm">
+              {review.remainingToday > 0 ? (
+                <p>
+                  <span className="font-medium">{roCount(review.remainingToday, 'întrebare', 'întrebări')} de recapitulat azi</span>
+                  {review.streak > 0 && <span className="text-muted-foreground"> · seria {roCount(review.streak, 'zi', 'zile')} 🔥</span>}
+                </p>
+              ) : (
+                <p>
+                  <span className="font-medium text-emerald-700 dark:text-emerald-300">Gata pe azi ✓</span>
+                  {review.streak > 0 && <span className="text-muted-foreground"> · seria {roCount(review.streak, 'zi', 'zile')} 🔥</span>}
+                </p>
+              )}
+              {review.remainingToday > 0 && (
+                <Link to="/review" className={buttonVariants({ size: 'sm' })}>Începe recapitularea</Link>
+              )}
+            </CardContent>
+          </Card>
         </HomeSection>
       )}
 
