@@ -2,20 +2,31 @@ package ro.mathlms.content;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import ro.mathlms.audit.AuditAction;
+import ro.mathlms.audit.AuditEvent;
+import ro.mathlms.audit.AuditLog;
+import ro.mathlms.audit.AuditText;
 
 import java.util.Comparator;
 import java.util.List;
 
-/** CRUD for chapters within a book. */
+/** CRUD for chapters within a book (writes are journalled). */
 @Service
 public class ChapterService {
 
     private final ChapterRepository chapterRepository;
     private final BookRepository bookRepository;
+    private final AuditLog auditLog;
 
-    public ChapterService(ChapterRepository chapterRepository, BookRepository bookRepository) {
+    public ChapterService(ChapterRepository chapterRepository, BookRepository bookRepository, AuditLog auditLog) {
         this.chapterRepository = chapterRepository;
         this.bookRepository = bookRepository;
+        this.auditLog = auditLog;
+    }
+
+    /** "Funcții (Matematică M1)": a chapter named with its book, as the journal shows it. */
+    private static String label(Chapter chapter) {
+        return chapter.getTitle() + " (" + chapter.getBook().getTitle() + ")";
     }
 
     public List<Chapter> listByBook(Long bookId) {
@@ -36,7 +47,9 @@ public class ChapterService {
             throw new DuplicateContentException(
                     "A chapter titled '" + title + "' already exists in this book");
         }
-        return chapterRepository.save(new Chapter(book, title, description));
+        Chapter saved = chapterRepository.save(new Chapter(book, title, description));
+        auditLog.record(AuditEvent.of(AuditAction.CHAPTER_CREATED, saved.getId(), label(saved)));
+        return saved;
     }
 
     @Transactional
@@ -48,8 +61,12 @@ public class ChapterService {
             throw new DuplicateContentException(
                     "A chapter titled '" + title + "' already exists in this book");
         }
+        String oldTitle = chapter.getTitle();
         chapter.update(title, description);
-        return chapterRepository.save(chapter);
+        Chapter saved = chapterRepository.save(chapter);
+        auditLog.record(AuditEvent.of(AuditAction.CHAPTER_UPDATED, id, label(chapter))
+                .details(AuditText.renamedFrom(oldTitle, chapter.getTitle())));
+        return saved;
     }
 
     @Transactional
@@ -61,6 +78,7 @@ public class ChapterService {
                     + RoCount.of(exercises, "exercițiu", "exerciții") + ". Șterge întâi exercițiile.");
         }
         chapterRepository.deleteById(id);
+        auditLog.record(AuditEvent.of(AuditAction.CHAPTER_DELETED, id, label(chapter)));
     }
 
     private Book requireBook(Long bookId) {

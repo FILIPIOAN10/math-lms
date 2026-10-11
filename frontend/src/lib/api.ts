@@ -1286,3 +1286,63 @@ export async function getMyAssignments(): Promise<StudentAssignment[]> {
   const response = await apiFetch('/quiz/assignments')
   return response.json()
 }
+
+// --- F1: the teachers' journal ---
+
+export type AuditCategory = 'CONTENT' | 'QUIZ' | 'GRADING' | 'HOMEWORK' | 'PEOPLE'
+
+export type AuditAction =
+  | 'CLASS_CREATED' | 'CLASS_UPDATED' | 'CLASS_DELETED'
+  | 'BOOK_CREATED' | 'BOOK_UPDATED' | 'BOOK_DELETED'
+  | 'CHAPTER_CREATED' | 'CHAPTER_UPDATED' | 'CHAPTER_DELETED'
+  | 'EXERCISE_CREATED' | 'EXERCISE_UPDATED' | 'EXERCISE_DELETED'
+  | 'QUIZ_CREATED' | 'QUIZ_UPDATED' | 'QUIZ_COPIED' | 'QUIZ_PUBLISHED' | 'QUIZ_UNPUBLISHED' | 'QUIZ_DELETED'
+  | 'QUESTION_ADDED' | 'QUESTION_UPDATED' | 'QUESTION_DELETED' | 'QUESTION_IMAGE_SET' | 'QUESTION_IMAGE_REMOVED'
+  | 'ANSWER_GRADED' | 'PAPER_COMMENTED' | 'PAPER_GRADED'
+  | 'HOMEWORK_ASSIGNED' | 'HOMEWORK_RESCHEDULED' | 'HOMEWORK_DELETED'
+  | 'ACCOUNT_APPROVED' | 'ACCOUNT_REJECTED' | 'PARENT_LINKED' | 'STUDENT_ENROLLED' | 'STUDENT_UNENROLLED'
+  | 'INVITE_LINK_CREATED' | 'INVITE_LINK_REVOKED' | 'JOINED_BY_INVITE'
+
+/**
+ * One row of the journal. Names are today's (an erased account shows its pseudonym); `actorName` is null when the
+ * account no longer exists. `entityId` is the attempt for GRADING rows, the quiz for question rows.
+ */
+export interface AuditEntry {
+  id: number
+  occurredAt: string
+  action: AuditAction
+  category: AuditCategory
+  actorName: string | null
+  entityId: number | null
+  label: string
+  details: string | null
+  studentId: number | null
+  studentName: string | null
+  relatedName: string | null
+}
+
+/** `nextBefore`: pass it as `before` for the next (older) page; null when this page was the last. */
+export interface AuditPage {
+  entries: AuditEntry[]
+  nextBefore: number | null
+}
+
+export interface AuditQuery {
+  category?: AuditCategory
+  studentId?: number
+  /** Days, "2026-10-11", both inclusive (school days in Romania's time). */
+  from?: string
+  to?: string
+  before?: number
+  limit?: number
+}
+
+export async function getAuditLog(query: AuditQuery = {}): Promise<AuditPage> {
+  const params = new URLSearchParams()
+  Object.entries(query).forEach(([key, value]) => {
+    if (value !== undefined && value !== '') params.set(key, String(value))
+  })
+  const qs = params.toString()
+  const response = await apiFetch(`/admin/audit-log${qs ? `?${qs}` : ''}`)
+  return response.json()
+}

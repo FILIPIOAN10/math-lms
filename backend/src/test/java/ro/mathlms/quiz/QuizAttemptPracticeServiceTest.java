@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.util.ReflectionTestUtils;
+import ro.mathlms.audit.AuditLog;
 import ro.mathlms.cache.AfterCommitCacheEvictor;
 import ro.mathlms.content.EnrollmentRepository;
 import ro.mathlms.quiz.StudentQuizDtos.AnswerFeedbackDto;
@@ -45,7 +46,7 @@ class QuizAttemptPracticeServiceTest {
     private final QuizAttemptService service = new QuizAttemptService(
             quizRepository, itemRepository, optionRepository, mock(QuizItemHintRepository.class), attemptRepository, responseRepository,
             userRepository, mock(EnrollmentRepository.class), cacheEvictor, resultNotifier, fileService,
-            Clock.systemUTC(), "uploads/quiz-photos");
+            mock(AuditLog.class), Clock.systemUTC(), "uploads/quiz-photos");
 
     private final User student = withId(new User(EMAIL, "Elev Pop", Role.STUDENT), 1L);
     private final Quiz quiz = practiceQuiz();

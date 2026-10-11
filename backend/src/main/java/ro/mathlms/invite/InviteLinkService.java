@@ -3,6 +3,9 @@ package ro.mathlms.invite;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import ro.mathlms.audit.AuditAction;
+import ro.mathlms.audit.AuditEvent;
+import ro.mathlms.audit.AuditLog;
 import ro.mathlms.content.Enrollment;
 import ro.mathlms.content.EnrollmentRepository;
 import ro.mathlms.content.SchoolClass;
@@ -38,13 +41,16 @@ public class InviteLinkService {
     private final SchoolClassRepository schoolClassRepository;
     private final UserRepository userRepository;
     private final EnrollmentRepository enrollmentRepository;
+    private final AuditLog auditLog;
     private final Clock clock;
     private final String frontendBaseUrl;
     private final SecureRandom random = new SecureRandom();
 
     public InviteLinkService(InviteLinkRepository linkRepository, SchoolClassRepository schoolClassRepository,
-                             UserRepository userRepository, EnrollmentRepository enrollmentRepository, Clock clock,
+                             UserRepository userRepository, EnrollmentRepository enrollmentRepository,
+                             AuditLog auditLog, Clock clock,
                              @Value("${app.frontend.base-url}") String frontendBaseUrl) {
+        this.auditLog = auditLog;
         this.linkRepository = linkRepository;
         this.schoolClassRepository = schoolClassRepository;
         this.userRepository = userRepository;
@@ -66,7 +72,16 @@ public class InviteLinkService {
         SchoolClass schoolClass = schoolClassRepository.findById(classId)
                 .orElseThrow(() -> new InviteNotFoundException("Clasa nu există."));
         int cap = maxUses == null ? InviteLink.DEFAULT_CLASS_USES : maxUses;
-        return toDto(linkRepository.save(InviteLink.forClass(newCode(), schoolClass, cap, clock.instant())));
+        InviteLink link = linkRepository.save(InviteLink.forClass(newCode(), schoolClass, cap, clock.instant()));
+        auditLog.record(AuditEvent.of(AuditAction.INVITE_LINK_CREATED, link.getId(), label(link))
+                .details("cel mult " + cap + " elevi"));
+        return toDto(link);
+    }
+
+    /** "Link pentru Clasa a 8-a" / "Link pentru părinte" (the student is in the row's student column). */
+    private static String label(InviteLink link) {
+        return link.getKind() == InviteLinkKind.CLASS
+                ? "Link pentru " + link.getSchoolClass().getName() : "Link pentru părinte";
     }
 
     /** The class's links that still work or have only filled up — what the teacher can copy or revoke. */
@@ -95,7 +110,9 @@ public class InviteLinkService {
         }
         Instant now = clock.instant();
         linkRepository.findOpenForStudent(studentId, now).forEach(old -> old.revoke(now));
-        return toDto(linkRepository.save(InviteLink.forParentOf(newCode(), student, now)));
+        InviteLink link = linkRepository.save(InviteLink.forParentOf(newCode(), student, now));
+        auditLog.record(AuditEvent.of(AuditAction.INVITE_LINK_CREATED, link.getId(), label(link)).about(student));
+        return toDto(link);
     }
 
     /** Stops a link. Accounts that registered through it before still finish joining. */
@@ -104,6 +121,8 @@ public class InviteLinkService {
         InviteLink link = linkRepository.findById(linkId)
                 .orElseThrow(() -> new InviteNotFoundException("Linkul de invitație nu există."));
         link.revoke(clock.instant());
+        auditLog.record(AuditEvent.of(AuditAction.INVITE_LINK_REVOKED, linkId, label(link))
+                .about(link.getStudent()).details("folosit de " + link.getUses() + " din " + link.getMaxUses()));
     }
 
     // --- newcomer side ---
@@ -156,13 +175,20 @@ public class InviteLinkService {
                 if (!enrollmentRepository.existsByStudentIdAndSchoolClassId(user.getId(), schoolClass.getId())) {
                     enrollmentRepository.save(new Enrollment(user, schoolClass));
                 }
+                // No teacher step happened, so the journal is the only place that says how they got into the class.
+                auditLog.recordAs(user, AuditEvent.of(AuditAction.JOINED_BY_INVITE, schoolClass.getId(),
+                        schoolClass.getName()).about(user).details("elev înscris prin link"));
             }
             case PARENT -> {
                 User student = link.getStudent();
-                if (student.getRole() == Role.STUDENT && student.getParent() == null) {
+                boolean linked = student.getRole() == Role.STUDENT && student.getParent() == null;
+                if (linked) {
                     student.linkParent(user);
                     userRepository.save(student);
                 }
+                auditLog.recordAs(user, AuditEvent.of(AuditAction.JOINED_BY_INVITE, link.getId(), label(link))
+                        .about(student)
+                        .details(linked ? "părinte legat prin link" : "cont de părinte activat, nelegat (elevul avea deja părinte)"));
             }
         }
         return true;

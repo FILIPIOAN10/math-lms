@@ -78,6 +78,11 @@ export function AdminStudentPage() {
           title={name}
           description={data?.profile.email}
           breadcrumbs={[{ label: 'Elevi', to: '/admin/students' }, { label: name }]}
+          actions={
+            <Link to={`/admin/journal?student=${studentId}`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+              Istoric modificări
+            </Link>
+          }
         />
 
         {error && <p className="text-sm text-destructive">{error}</p>}

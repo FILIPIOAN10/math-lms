@@ -3,6 +3,9 @@ package ro.mathlms.quiz;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.test.util.ReflectionTestUtils;
+import ro.mathlms.audit.AuditAction;
+import ro.mathlms.audit.AuditEvent;
+import ro.mathlms.audit.AuditLog;
 import ro.mathlms.cache.AfterCommitCacheEvictor;
 import ro.mathlms.cache.CacheNames;
 import ro.mathlms.content.SchoolClass;
@@ -30,9 +33,10 @@ class QuizAdminServiceTest {
     private final ro.mathlms.content.ChapterRepository chapterRepository = mock(ro.mathlms.content.ChapterRepository.class);
     private final ro.mathlms.content.ExerciseRepository exerciseRepository = mock(ro.mathlms.content.ExerciseRepository.class);
     private final AfterCommitCacheEvictor cacheEvictor = mock(AfterCommitCacheEvictor.class);
+    private final AuditLog auditLog = mock(AuditLog.class);
     private final QuizAdminService service =
             new QuizAdminService(quizRepository, itemRepository, optionRepository, hintRepository, schoolClassRepository,
-                    chapterRepository, exerciseRepository, cacheEvictor, mock(QuestionImageService.class));
+                    chapterRepository, exerciseRepository, cacheEvictor, mock(QuestionImageService.class), auditLog);
 
     private final Quiz quiz = new Quiz("Simulare EN", null);
     private final SchoolClass ninth = new SchoolClass("Clasa a 9-a", null);
@@ -412,6 +416,83 @@ class QuizAdminServiceTest {
         assertThat(item.getStatement()).isEqualTo("Cât face $2+2$?");
         assertThat(dto.options()).extracting(QuizDtos.OptionDto::text).containsExactly("$4$ (patru)", "$5$");
         verify(optionRepository, never()).deleteByItemId(any()); // the students' chosen options must keep existing
+    }
+
+    // --- F1 journal ---
+
+    @Test
+    void correctingATakenQuestionIsJournalledWithWhatChanged() {
+        QuizItem item = lockedChoiceItem();
+        when(itemRepository.findByQuizIdOrderByPosition(1L)).thenReturn(List.of(item));
+
+        service.updateItem(7L, new ItemRequest(QuizItemType.SINGLE_CHOICE, 1, "Cât face $2+2$?", 2, null,
+                List.of(new OptionRequest(0, "$4$ (patru)", true), new OptionRequest(1, "$5$", false))));
+
+        verify(auditLog).record(new AuditEvent(AuditAction.QUESTION_UPDATED, 1L, "Simulare EN · subiectul 1",
+                "enunț, texte variante", null, null));
+    }
+
+    @Test
+    void reSavingATakenQuestionUnchangedWritesNoJournalRow() {
+        lockedChoiceItem();
+
+        service.updateItem(7L, new ItemRequest(QuizItemType.SINGLE_CHOICE, 1, "Cât e $2+2$?", 2, null,
+                List.of(new OptionRequest(0, "$4$", true), new OptionRequest(1, "$5$", false))));
+
+        verify(auditLog, never()).record(any());
+    }
+
+    @Test
+    void aPublishedQuestionsNewPointsAndRightAnswerAreJournalled() {
+        ReflectionTestUtils.setField(quiz, "id", 1L);
+        quiz.publish();
+        QuizItem item = new QuizItem(quiz, 0, QuizItemType.SINGLE_CHOICE, "Cât e $2+2$?", 2, null);
+        ReflectionTestUtils.setField(item, "id", 7L);
+        when(itemRepository.findById(7L)).thenReturn(Optional.of(item));
+        when(itemRepository.findByQuizIdOrderByPosition(1L)).thenReturn(List.of(item));
+        when(optionRepository.findByItemIdOrderByPosition(7L)).thenReturn(List.of(
+                new QuizOption(item, 0, "$4$", false), new QuizOption(item, 1, "$5$", true)));
+        when(optionRepository.save(any(QuizOption.class))).thenAnswer(i -> i.getArgument(0));
+
+        service.updateItem(7L, new ItemRequest(QuizItemType.SINGLE_CHOICE, 0, "Cât e $2+2$?", 3, null,
+                List.of(new OptionRequest(0, "$4$", true), new OptionRequest(1, "$5$", false))));
+
+        verify(auditLog).record(new AuditEvent(AuditAction.QUESTION_UPDATED, 1L, "Simulare EN · subiectul 1",
+                "punctaj 2 → 3, răspuns corect", null, null));
+    }
+
+    @Test
+    void draftingADraftQuizsQuestionsIsNotJournalled() {
+        ReflectionTestUtils.setField(quiz, "id", 1L); // DRAFT, nobody took it
+        when(quizRepository.findById(1L)).thenReturn(Optional.of(quiz));
+        when(itemRepository.save(any(QuizItem.class))).thenAnswer(i -> i.getArgument(0));
+
+        service.addItem(1L, new ItemRequest(QuizItemType.OPEN, 0, "Demonstrează", 3, null, null));
+
+        verify(auditLog, never()).record(any());
+    }
+
+    @Test
+    void publishingIsJournalledOnlyWhenTheStatusChanges() {
+        ReflectionTestUtils.setField(quiz, "id", 1L);
+        when(quizRepository.findById(1L)).thenReturn(Optional.of(quiz));
+        when(itemRepository.countByQuizId(1L)).thenReturn(3L);
+
+        service.setPublished(1L, true);
+        service.setPublished(1L, true); // "Publică și dă ca temă" on a quiz already published
+
+        verify(auditLog).record(AuditEvent.of(AuditAction.QUIZ_PUBLISHED, 1L, "Simulare EN"));
+    }
+
+    @Test
+    void aQuizEditNamesTheRenameAndTheSettingsThatChanged() {
+        ReflectionTestUtils.setField(quiz, "id", 1L);
+        when(quizRepository.findById(1L)).thenReturn(Optional.of(quiz));
+
+        service.updateQuiz(1L, "Teză", null, null, 50, true);
+
+        verify(auditLog).record(new AuditEvent(AuditAction.QUIZ_UPDATED, 1L, "Teză",
+                "fost „Simulare EN”; timp fără limită → 50 min, practică permisă", null, null));
     }
 
     // --- M4: an empty quiz cannot reach the students ---

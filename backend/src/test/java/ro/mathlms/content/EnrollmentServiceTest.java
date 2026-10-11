@@ -1,6 +1,10 @@
 package ro.mathlms.content;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
+import ro.mathlms.audit.AuditAction;
+import ro.mathlms.audit.AuditEvent;
+import ro.mathlms.audit.AuditLog;
 import ro.mathlms.user.Role;
 import ro.mathlms.user.User;
 import ro.mathlms.user.UserRepository;
@@ -21,8 +25,9 @@ class EnrollmentServiceTest {
     private final EnrollmentRepository enrollmentRepository = mock(EnrollmentRepository.class);
     private final SchoolClassRepository schoolClassRepository = mock(SchoolClassRepository.class);
     private final UserRepository userRepository = mock(UserRepository.class);
+    private final AuditLog auditLog = mock(AuditLog.class);
     private final EnrollmentService service =
-            new EnrollmentService(enrollmentRepository, schoolClassRepository, userRepository);
+            new EnrollmentService(enrollmentRepository, schoolClassRepository, userRepository, auditLog);
 
     private final SchoolClass ninth = new SchoolClass("Clasa a 9-a", null);
 
@@ -142,10 +147,30 @@ class EnrollmentServiceTest {
 
     @Test
     void unenrollThrowsWhenMissing() {
-        when(enrollmentRepository.existsById(404L)).thenReturn(false);
+        when(enrollmentRepository.findById(404L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.unenroll(404L))
                 .isInstanceOf(ContentNotFoundException.class);
         verify(enrollmentRepository, never()).deleteById(any());
+    }
+
+    // --- F1 journal: who was added to / removed from which class ---
+
+    @Test
+    void enrollingAndUnenrollingAreJournalledAboutTheStudent() {
+        User student = new User("elev@scoala.ro", "Ana Pop", Role.STUDENT);
+        ReflectionTestUtils.setField(student, "id", 2L);
+        ReflectionTestUtils.setField(ninth, "id", 1L);
+        when(schoolClassRepository.findById(1L)).thenReturn(Optional.of(ninth));
+        when(userRepository.findById(2L)).thenReturn(Optional.of(student));
+        when(enrollmentRepository.save(any(Enrollment.class))).thenAnswer(i -> i.getArgument(0));
+        when(enrollmentRepository.findById(9L)).thenReturn(Optional.of(new Enrollment(student, ninth)));
+
+        service.enroll(1L, 2L);
+        service.unenroll(9L);
+
+        verify(auditLog).record(new AuditEvent(AuditAction.STUDENT_ENROLLED, 1L, "Clasa a 9-a", null, 2L, null));
+        verify(auditLog).record(new AuditEvent(AuditAction.STUDENT_UNENROLLED, 1L, "Clasa a 9-a", null, 2L, null));
+        verify(enrollmentRepository).deleteById(9L);
     }
 }

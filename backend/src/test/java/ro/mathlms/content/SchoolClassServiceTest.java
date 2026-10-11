@@ -3,6 +3,9 @@ package ro.mathlms.content;
 import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
 import org.springframework.data.domain.Sort;
+import ro.mathlms.audit.AuditAction;
+import ro.mathlms.audit.AuditEvent;
+import ro.mathlms.audit.AuditLog;
 
 import java.util.List;
 import java.util.Optional;
@@ -19,7 +22,8 @@ import static org.mockito.Mockito.when;
 class SchoolClassServiceTest {
 
     private final SchoolClassRepository repository = mock(SchoolClassRepository.class);
-    private final SchoolClassService service = new SchoolClassService(repository);
+    private final AuditLog auditLog = mock(AuditLog.class);
+    private final SchoolClassService service = new SchoolClassService(repository, auditLog);
 
     @Test
     void classesAreListedInNaturalOrderSoTenthGradeComesAfterNinth() {
@@ -74,6 +78,26 @@ class SchoolClassServiceTest {
         SchoolClass updated = service.update(1L, "Clasa a 9-a", "nou");
 
         assertThat(updated.getDescription()).isEqualTo("nou");
+    }
+
+    @Test
+    void aRenameIsJournalledWithTheOldName() {
+        when(repository.findById(1L)).thenReturn(Optional.of(new SchoolClass("Clasa a 9-a", null)));
+        when(repository.save(any(SchoolClass.class))).thenAnswer(i -> i.getArgument(0));
+
+        service.update(1L, "Clasa a 9-a B", null);
+
+        verify(auditLog).record(new AuditEvent(AuditAction.CLASS_UPDATED, 1L, "Clasa a 9-a B", "fost „Clasa a 9-a”",
+                null, null));
+    }
+
+    @Test
+    void aDeletedClassIsJournalledByName() {
+        when(repository.findById(1L)).thenReturn(Optional.of(new SchoolClass("Clasa a 9-a", null)));
+
+        service.delete(1L);
+
+        verify(auditLog).record(AuditEvent.of(AuditAction.CLASS_DELETED, 1L, "Clasa a 9-a"));
     }
 
     @Test

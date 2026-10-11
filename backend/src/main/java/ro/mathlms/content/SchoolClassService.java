@@ -3,19 +3,25 @@ package ro.mathlms.content;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import ro.mathlms.audit.AuditAction;
+import ro.mathlms.audit.AuditEvent;
+import ro.mathlms.audit.AuditLog;
+import ro.mathlms.audit.AuditText;
 
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
-/** CRUD for school classes. Writes are transactional; uniqueness of name is checked up front. */
+/** CRUD for school classes. Writes are transactional (and journalled); uniqueness of name is checked up front. */
 @Service
 public class SchoolClassService {
 
     private final SchoolClassRepository repository;
+    private final AuditLog auditLog;
 
-    public SchoolClassService(SchoolClassRepository repository) {
+    public SchoolClassService(SchoolClassRepository repository, AuditLog auditLog) {
         this.repository = repository;
+        this.auditLog = auditLog;
     }
 
     public List<SchoolClass> list() {
@@ -33,7 +39,9 @@ public class SchoolClassService {
         if (repository.existsByName(name)) {
             throw new DuplicateContentException("A class named '" + name + "' already exists");
         }
-        return repository.save(new SchoolClass(name, description));
+        SchoolClass saved = repository.save(new SchoolClass(name, description));
+        auditLog.record(AuditEvent.of(AuditAction.CLASS_CREATED, saved.getId(), saved.getName()));
+        return saved;
     }
 
     @Transactional
@@ -42,8 +50,12 @@ public class SchoolClassService {
         if (!schoolClass.getName().equals(name) && repository.existsByName(name)) {
             throw new DuplicateContentException("A class named '" + name + "' already exists");
         }
+        String oldName = schoolClass.getName();
         schoolClass.update(name, description);
-        return repository.save(schoolClass);
+        SchoolClass saved = repository.save(schoolClass);
+        auditLog.record(AuditEvent.of(AuditAction.CLASS_UPDATED, id, schoolClass.getName())
+                .details(AuditText.renamedFrom(oldName, schoolClass.getName())));
+        return saved;
     }
 
     /**
@@ -72,5 +84,6 @@ public class SchoolClassService {
         }
         repository.deleteEnrollments(id);
         repository.deleteById(id);
+        auditLog.record(AuditEvent.of(AuditAction.CLASS_DELETED, id, schoolClass.getName()));
     }
 }

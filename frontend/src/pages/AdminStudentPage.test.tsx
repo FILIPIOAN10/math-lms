@@ -63,6 +63,12 @@ describe('AdminStudentPage', () => {
     expect(screen.getByRole('heading', { name: 'Ana Student' })).toBeInTheDocument()
   })
 
+  it("opens the journal filtered to this student (F1: who changed Ana's grades, classes, parent)", async () => {
+    renderPage()
+
+    expect(await screen.findByRole('link', { name: 'Istoric modificări' })).toHaveAttribute('href', '/admin/journal?student=4')
+  })
+
   it("opens each paper on the grading screen, and a paper still waiting says so", async () => {
     renderPage()
 

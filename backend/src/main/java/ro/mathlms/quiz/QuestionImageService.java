@@ -9,6 +9,10 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
+import ro.mathlms.audit.AuditAction;
+import ro.mathlms.audit.AuditEvent;
+import ro.mathlms.audit.AuditLog;
+import ro.mathlms.audit.AuditText;
 import ro.mathlms.content.EnrollmentRepository;
 import ro.mathlms.storage.FileService;
 import ro.mathlms.user.User;
@@ -38,17 +42,31 @@ public class QuestionImageService {
     private final EnrollmentRepository enrollmentRepository;
     private final UserRepository userRepository;
     private final FileService fileService;
+    private final QuizRepository quizRepository;
+    private final AuditLog auditLog;
     private final String dir;
 
     public QuestionImageService(QuizItemRepository itemRepository, QuizAttemptRepository attemptRepository,
                                 EnrollmentRepository enrollmentRepository, UserRepository userRepository,
-                                FileService fileService, @Value("${app.storage.question-images-dir}") String dir) {
+                                FileService fileService, QuizRepository quizRepository, AuditLog auditLog,
+                                @Value("${app.storage.question-images-dir}") String dir) {
         this.itemRepository = itemRepository;
         this.attemptRepository = attemptRepository;
         this.enrollmentRepository = enrollmentRepository;
         this.userRepository = userRepository;
         this.fileService = fileService;
+        this.quizRepository = quizRepository;
+        this.auditLog = auditLog;
         this.dir = dir;
+    }
+
+    /** Like the question's other edits (see {@link QuizAdminService}): journalled once students can see the quiz. */
+    private void record(AuditAction action, QuizItem item) {
+        Quiz quiz = item.getQuiz();
+        if (quiz.getStatus() == QuizStatus.PUBLISHED || quizRepository.countAttempts(quiz.getId()) > 0) {
+            String number = QuestionNumbers.of(item, itemRepository.findByQuizIdOrderByPosition(quiz.getId()));
+            auditLog.record(AuditEvent.of(action, quiz.getId(), AuditText.question(quiz.getTitle(), number)));
+        }
     }
 
     // --- teacher ---
@@ -78,13 +96,18 @@ public class QuestionImageService {
         deleteAfterCommit(old);
         // Should the transaction fail, the new file is not referenced by anything: remove it again.
         whenRolledBack(stored);
+        record(AuditAction.QUESTION_IMAGE_SET, item);
     }
 
     @Transactional
     public void remove(Long itemId) {
         QuizItem item = requireItem(itemId);
-        deleteAfterCommit(item.removeImage());
+        String removed = item.removeImage();
+        deleteAfterCommit(removed);
         itemRepository.save(item);
+        if (removed != null) {
+            record(AuditAction.QUESTION_IMAGE_REMOVED, item);
+        }
     }
 
     /** A stored copy of a picture, for a copied question (each question owns its file). Null in, null out. */

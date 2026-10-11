@@ -7,6 +7,10 @@ import ro.mathlms.assignment.AssignmentDtos.AssignmentSummaryDto;
 import ro.mathlms.assignment.AssignmentDtos.StudentAssignmentDto;
 import ro.mathlms.assignment.AssignmentDtos.StudentStatusDto;
 import ro.mathlms.assignment.AssignmentProgress.State;
+import ro.mathlms.audit.AuditAction;
+import ro.mathlms.audit.AuditEvent;
+import ro.mathlms.audit.AuditLog;
+import ro.mathlms.audit.AuditText;
 import ro.mathlms.content.Enrollment;
 import ro.mathlms.content.EnrollmentRepository;
 import ro.mathlms.content.SchoolClass;
@@ -46,6 +50,7 @@ public class AssignmentService {
     private final QuizAttemptRepository attemptRepository;
     private final UserRepository userRepository;
     private final OutboxEventPublisher publisher;
+    private final AuditLog auditLog;
     private final Clock clock;
     private final int reminderLeadHours;
     private final boolean remindParents;
@@ -53,9 +58,10 @@ public class AssignmentService {
     public AssignmentService(AssignmentRepository assignmentRepository, QuizRepository quizRepository,
                              SchoolClassRepository schoolClassRepository, EnrollmentRepository enrollmentRepository,
                              QuizAttemptRepository attemptRepository, UserRepository userRepository,
-                             OutboxEventPublisher publisher, Clock clock,
+                             OutboxEventPublisher publisher, AuditLog auditLog, Clock clock,
                              @Value("${app.assignments.reminder-lead-hours:24}") int reminderLeadHours,
                              @Value("${app.assignments.remind-parents:true}") boolean remindParents) {
+        this.auditLog = auditLog;
         this.assignmentRepository = assignmentRepository;
         this.quizRepository = quizRepository;
         this.schoolClassRepository = schoolClassRepository;
@@ -89,20 +95,36 @@ public class AssignmentService {
         if (assignmentRepository.existsByQuizIdAndSchoolClassId(quizId, schoolClassId)) {
             throw new AssignmentConflictException("Quiz-ul este deja dat ca temă acestei clase — modifică termenul");
         }
-        return assignmentRepository.save(new Assignment(quiz, schoolClass, dueAt, Instant.now(clock)));
+        Assignment saved = assignmentRepository.save(new Assignment(quiz, schoolClass, dueAt, Instant.now(clock)));
+        auditLog.record(AuditEvent.of(AuditAction.HOMEWORK_ASSIGNED, saved.getId(), label(saved))
+                .details("termen " + AuditText.dateTime(dueAt)));
+        return saved;
     }
 
     @Transactional
     public Assignment reschedule(Long id, Instant dueAt) {
         Assignment assignment = require(id);
         requireFuture(dueAt);
+        Instant before = assignment.getDueAt();
         assignment.reschedule(dueAt);
-        return assignmentRepository.save(assignment);
+        Assignment saved = assignmentRepository.save(assignment);
+        if (!before.equals(dueAt)) {
+            auditLog.record(AuditEvent.of(AuditAction.HOMEWORK_RESCHEDULED, id, label(assignment))
+                    .details("termen " + AuditText.dateTime(before) + " → " + AuditText.dateTime(dueAt)));
+        }
+        return saved;
     }
 
     @Transactional
     public void delete(Long id) {
-        assignmentRepository.delete(require(id));
+        Assignment assignment = require(id);
+        assignmentRepository.delete(assignment);
+        auditLog.record(AuditEvent.of(AuditAction.HOMEWORK_DELETED, id, label(assignment)));
+    }
+
+    /** "Teză · Clasa a 9-a": the quiz and the class it was handed to. */
+    private static String label(Assignment assignment) {
+        return assignment.getQuiz().getTitle() + " · " + assignment.getSchoolClass().getName();
     }
 
     @Transactional(readOnly = true)

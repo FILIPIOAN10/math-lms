@@ -156,7 +156,7 @@ R: $x = 4$
 Rulează asta înainte de orice commit.
 
 ```bash
-# Backend — 892 de teste (necesită Docker pentru Testcontainers)
+# Backend — 921 de teste (necesită Docker pentru Testcontainers)
 cd math-lms/backend && ./mvnw test
 
 # Doar suita de conținut (Faza 2)
@@ -166,7 +166,7 @@ cd math-lms/backend && ./mvnw test
 cd math-lms/frontend && npm test && npm run build
 ```
 
-Frontend: **Vitest + Testing Library** (`npm test`, 318 teste în 43 de fișiere): clientul API (header CSRF doar pe scrieri, refresh silențios la 401 cu o singură rotație pentru cereri paralele, fără refresh la login greșit), `AppShell` + paginile de start pe rol, `TakeQuizPage` (practică, indicii, navigator, dialogul de predare, cronometru, poze), `AttemptResultView` (nota, comentariile profesorului, poza proprie), `AdminGradingPage`, `AdminQuizzesPage` (meniul ⋯, editorul pe URL), `StudentQuizListPage`, `AccountPage` + `EraseAccountPage`, `RegisterPage` (previzualizarea linkului), `AdminLinksPage` (Invită părintele), `ClassInviteDialog`, `ChapterQuizDialog`, `PageHeader`, `RowMenu`, nota 1–10 (`grades.ts`), `RoleRoute`, `LoginPage`. Rulează și în CI. Fluxurile cap-coadă rămân în suita E2E (Selenium).
+Frontend: **Vitest + Testing Library** (`npm test`, 327 de teste în 45 de fișiere): clientul API (header CSRF doar pe scrieri, refresh silențios la 401 cu o singură rotație pentru cereri paralele, fără refresh la login greșit), `AppShell` + paginile de start pe rol, `TakeQuizPage` (practică, indicii, navigator, dialogul de predare, cronometru, poze), `AttemptResultView` (nota, comentariile profesorului, poza proprie), `AdminGradingPage`, `AdminQuizzesPage` (meniul ⋯, editorul pe URL), `StudentQuizListPage`, `AccountPage` + `EraseAccountPage`, `RegisterPage` (previzualizarea linkului), `AdminLinksPage` (Invită părintele), `ClassInviteDialog`, `ChapterQuizDialog`, `PageHeader`, `RowMenu`, nota 1–10 (`grades.ts`), `RoleRoute`, `LoginPage`. Rulează și în CI. Fluxurile cap-coadă rămân în suita E2E (Selenium).
 
 O rulare izolată poate pica rar în `VerificationTokenServiceTest.rejectsTamperedToken` (test instabil, cunoscut: modifică
 ultimele 2 caractere ale semnăturii, care uneori nu schimbă semnătura decodată) — rerulează; fixul e în așteptare.
@@ -576,6 +576,29 @@ de oprire/expirare își termină intrarea. Linkurile vechi „pe rol” (§4a) 
   (`uploads/question-images`), deci intră în backup
 - API profesor: `PUT /api/admin/quiz-items/{id}/image` (multipart `file`) → 204, `DELETE …/image` → 204; text/fișier non-imagine → 400
 - Teste: `QuestionImageIntegrationTest`, `ItemDialog.test.tsx`, `importItems.test.ts`, `TakeQuizPage.test.tsx`
+
+### 22. Jurnal (F1, V26) — `/admin/journal`, ca admin
+**De ce:** la o contestație („cine i-a schimbat nota copilului meu?”, „cine a șters exercițiul?”) ai un răspuns scris, nu din memorie.
+- Ajungi aici din: **Acasă** (linkul „Jurnal: cine a schimbat ce și când”, sub secțiuni) și din pagina unui elev (**Istoric modificări**
+  → jurnalul filtrat pe elevul acela)
+- fiecare rând: **ce** s-a întâmplat · **despre ce** (clasa, testul + „subiectul I.2” numerotat ca pe ecran, tema), **detaliile**
+  („3 → 5 p din 5, comentariu adăugat”, „termen 08.10.2026 13:00 → 15.10.2026 13:00”, „fost „Clasa a 9-a””), data, **de** cine,
+  **elev:** (link spre pagina lui), **părinte:** la legări; la corectură **Vezi lucrarea**
+- filtre (rămân în adresă): **Ce** (Corectură, Teste, Teme, Conținut, Elevi și părinți), **Elev**, **De la / Până la** (zile, ora României);
+  **Mai vechi** aduce următoarele 50
+- **Ce intră:** clase/cărți/capitole/exerciții (creare, modificare cu ce s-a schimbat, ștergere); teste (creat, din capitol, copiat,
+  modificat, publicat/depublicat, șters); **subiectele doar după ce elevii văd testul** (publicat sau deja dat): ciorna și importul nu
+  umplu jurnalul; corectură (punctaj vechi → nou, comentariu, lucrare notată cu totalul); teme (dată, termen mutat, ștearsă); conturi
+  (aprobat cu rolul, respins), părinte legat, înscris/scos din clasă, linkuri de invitație create/oprite și **intrarea prin link**
+  (fără pasul profesorului, deci jurnalul e singurul loc care o arată). O salvare identică (aceeași notă, același comentariu) nu scrie rând
+- **Garanții:** rândul se scrie în **aceeași tranzacție** cu modificarea (o modificare refuzată nu lasă rând; una reușită are mereu
+  rând); nu se poate edita/șterge din aplicație; **fără nume în text**: oamenii sunt id-uri citite la afișare, deci un cont șters (GDPR)
+  apare „Utilizator șters” și în jurnal
+- Verificare rapidă: creează o clasă, redenumește-o, șterge-o → 3 rânduri, cel mai nou sus, „fost „…”” la redenumire;
+  corectează un subiect de 2 ori cu note diferite → „X → Y p din Z”
+- API: `GET /api/admin/audit-log?category=&studentId=&from=2026-10-01&to=2026-10-11&before=&limit=50` →
+  `{entries:[…], nextBefore}`; elev/părinte → 403; categorie necunoscută → 400
+- Teste: `AuditLogIntegrationTest`, `QuestionNumbersTest`, testele de serviciu (`*ServiceTest`), `AdminAuditPage.test.tsx`, `audit.test.ts`
 
 ### 20. Pagina unui elev (T5) — `/admin/students/:id`, ca admin
 **De ce:** ca să vorbești despre Ana nu mai treci prin 4 pagini (Teme, Corectură, Pe capitole, Recapitulare).

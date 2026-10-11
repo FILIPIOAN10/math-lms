@@ -3,6 +3,7 @@ package ro.mathlms.quiz;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.test.util.ReflectionTestUtils;
+import ro.mathlms.audit.AuditLog;
 import ro.mathlms.cache.AfterCommitCacheEvictor;
 import ro.mathlms.content.EnrollmentRepository;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultViewDto;
@@ -41,7 +42,7 @@ class QuizAttemptHintServiceTest {
     private final QuizAttemptService service = new QuizAttemptService(
             quizRepository, itemRepository, optionRepository, hintRepository, attemptRepository, responseRepository,
             userRepository, mock(EnrollmentRepository.class), mock(AfterCommitCacheEvictor.class),
-            mock(ResultNotifier.class), mock(FileService.class), Clock.systemUTC(), "uploads/quiz-photos");
+            mock(ResultNotifier.class), mock(FileService.class), mock(AuditLog.class), Clock.systemUTC(), "uploads/quiz-photos");
 
     private final User student = withId(new User(EMAIL, "Elev Pop", Role.STUDENT), 1L);
     private final Quiz quiz = practiceQuiz();

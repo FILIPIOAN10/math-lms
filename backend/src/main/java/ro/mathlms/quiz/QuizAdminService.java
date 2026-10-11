@@ -2,6 +2,10 @@ package ro.mathlms.quiz;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import ro.mathlms.audit.AuditAction;
+import ro.mathlms.audit.AuditEvent;
+import ro.mathlms.audit.AuditLog;
+import ro.mathlms.audit.AuditText;
 import ro.mathlms.cache.AfterCommitCacheEvictor;
 import ro.mathlms.cache.CacheNames;
 import ro.mathlms.content.SchoolClass;
@@ -18,7 +22,11 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-/** Admin authoring of quizzes: quiz CRUD, publish, and item/option management. */
+/**
+ * Admin authoring of quizzes: quiz CRUD, publish, and item/option management. Quiz-level changes are always journalled;
+ * question-level ones only once students can see the quiz (published, or already taken) - drafting a test question by
+ * question, or importing 30 at once, is not something anyone will need to account for later.
+ */
 @Service
 public class QuizAdminService {
 
@@ -31,13 +39,15 @@ public class QuizAdminService {
     private final ExerciseRepository exerciseRepository;
     private final AfterCommitCacheEvictor cacheEvictor;
     private final QuestionImageService imageService;
+    private final AuditLog auditLog;
 
     public QuizAdminService(QuizRepository quizRepository, QuizItemRepository itemRepository,
                             QuizOptionRepository optionRepository, QuizItemHintRepository hintRepository,
                             SchoolClassRepository schoolClassRepository, ChapterRepository chapterRepository,
                             ExerciseRepository exerciseRepository, AfterCommitCacheEvictor cacheEvictor,
-                            QuestionImageService imageService) {
+                            QuestionImageService imageService, AuditLog auditLog) {
         this.imageService = imageService;
+        this.auditLog = auditLog;
         this.chapterRepository = chapterRepository;
         this.exerciseRepository = exerciseRepository;
         this.quizRepository = quizRepository;
@@ -91,7 +101,25 @@ public class QuizAdminService {
         quiz.tagChapter(chapterFitting(chapterId, target));
         quiz.changeTimeLimit(timeLimitMinutes);
         quiz.allowPractice(practiceAllowed);
-        return quizRepository.save(quiz);
+        Quiz saved = quizRepository.save(quiz);
+        auditLog.record(AuditEvent.of(AuditAction.QUIZ_CREATED, saved.getId(), saved.getTitle())
+                .details(audience(saved)));
+        return saved;
+    }
+
+    /** "pentru Clasa a 9-a" / "pentru toți elevii". */
+    private static String audience(Quiz quiz) {
+        return quiz.getSchoolClass() == null ? "pentru toți elevii" : "pentru " + quiz.getSchoolClass().getName();
+    }
+
+    /** Students see it (published) or saw it (has attempts): from then on, its questions' edits are journalled. */
+    private boolean seenByStudents(Quiz quiz) {
+        return quiz.getStatus() == QuizStatus.PUBLISHED || quizRepository.countAttempts(quiz.getId()) > 0;
+    }
+
+    private void recordQuestion(AuditAction action, QuizItem item, String number, String details) {
+        auditLog.record(AuditEvent.of(action, item.getQuiz().getId(), AuditText.question(item.getQuiz().getTitle(), number))
+                .details(details));
     }
 
     @Transactional
@@ -114,12 +142,37 @@ public class QuizAdminService {
                         + "Șterge întâi tema din pagina Teme sau lasă quiz-ul la „Toți elevii”.");
             }
         }
+        String oldTitle = quiz.getTitle();
+        AuditText.Changes changes = new AuditText.Changes()
+                .addIfDifferent(quiz.getDescription(), description, "descriere")
+                .addIfDifferent(classId(quiz.getSchoolClass()), schoolClassId, "elevi: " + audience(target))
+                .addIfDifferent(quiz.getTimeLimitMinutes(), timeLimitMinutes,
+                        "timp " + minutes(quiz.getTimeLimitMinutes()) + " → " + minutes(timeLimitMinutes))
+                .addIf(quiz.isPracticeAllowed() != practiceAllowed, practiceAllowed ? "practică permisă" : "practică oprită")
+                .addIfDifferent(quiz.getChapter() == null ? null : quiz.getChapter().getId(), chapterId, "capitol");
         quiz.update(title, description);
         quiz.assignToClass(target);
         quiz.changeTimeLimit(timeLimitMinutes); // attempts already running keep their own deadline
         quiz.allowPractice(practiceAllowed);    // practice already in progress simply finishes; no new one can start
         quiz.tagChapter(chapter);               // only bookkeeping for the mastery map: allowed even once taken
-        return quizRepository.save(quiz);
+        Quiz saved = quizRepository.save(quiz);
+        String renamed = AuditText.renamedFrom(oldTitle, quiz.getTitle());
+        String details = renamed == null ? changes.joined()
+                : changes.isEmpty() ? renamed : renamed + "; " + changes.joined();
+        auditLog.record(AuditEvent.of(AuditAction.QUIZ_UPDATED, id, quiz.getTitle()).details(details));
+        return saved;
+    }
+
+    private static String audience(SchoolClass target) {
+        return target == null ? "toți elevii" : target.getName();
+    }
+
+    private static Long classId(SchoolClass schoolClass) {
+        return schoolClass == null ? null : schoolClass.getId();
+    }
+
+    private static String minutes(Integer limit) {
+        return limit == null ? "fără limită" : limit + " min";
     }
 
     /**
@@ -151,6 +204,7 @@ public class QuizAdminService {
     @Transactional
     public Quiz setPublished(Long id, boolean published) {
         Quiz quiz = getQuiz(id);
+        QuizStatus before = quiz.getStatus();
         if (published) {
             if (itemRepository.countByQuizId(id) == 0) {
                 throw new InvalidQuizException("Adaugă cel puțin un subiect înainte să publici quiz-ul.");
@@ -159,7 +213,12 @@ public class QuizAdminService {
         } else {
             quiz.unpublish();
         }
-        return quizRepository.save(quiz);
+        Quiz saved = quizRepository.save(quiz);
+        if (quiz.getStatus() != before) {
+            auditLog.record(AuditEvent.of(published ? AuditAction.QUIZ_PUBLISHED : AuditAction.QUIZ_UNPUBLISHED,
+                    id, quiz.getTitle()));
+        }
+        return saved;
     }
 
     /**
@@ -194,6 +253,8 @@ public class QuizAdminService {
                 hintRepository.save(new QuizItemHint(itemCopy, hint.getPosition(), hint.getText()));
             }
         }
+        auditLog.record(AuditEvent.of(AuditAction.QUIZ_COPIED, saved.getId(), saved.getTitle())
+                .details("copie după „" + source.getTitle() + "”"));
         return saved;
     }
 
@@ -224,6 +285,9 @@ public class QuizAdminService {
             itemRepository.save(new QuizItem(saved, position++, QuizItemType.OPEN,
                     exercise.getStatement(), points, exercise.getSolution()));
         }
+        auditLog.record(AuditEvent.of(AuditAction.QUIZ_CREATED, saved.getId(), saved.getTitle())
+                .details("din capitolul „" + chapter.getTitle() + "”, "
+                        + RoCount.of(exercises.size(), "exercițiu", "exerciții")));
         return saved;
     }
 
@@ -251,6 +315,7 @@ public class QuizAdminService {
         itemRepository.deleteAll(itemRepository.findByQuizIdOrderByPosition(id));
         quizRepository.delete(quiz);
         dropScoreCaches();
+        auditLog.record(AuditEvent.of(AuditAction.QUIZ_DELETED, id, quiz.getTitle()));
     }
 
     // --- item-level ---
@@ -275,6 +340,11 @@ public class QuizAdminService {
         List<QuizOption> options = saveOptionsIfSingleChoice(item, request);
         List<QuizItemHint> hints = saveHints(item, request.hints());
         dropScoreCaches();
+        if (seenByStudents(quiz)) {
+            recordQuestion(AuditAction.QUESTION_ADDED, item,
+                    QuestionNumbers.of(item, itemRepository.findByQuizIdOrderByPosition(quizId)),
+                    item.getPoints() + " p");
+        }
         return ItemDto.from(item, options, hints);
     }
 
@@ -285,6 +355,8 @@ public class QuizAdminService {
             throw new InvalidQuizException("The item type cannot be changed");
         }
         requireValidHints(request.hints());
+        boolean journalled = seenByStudents(item.getQuiz());
+        ItemSnapshot before = journalled ? snapshot(item) : null;
         // The chapter tag is bookkeeping for the mastery map, not part of the grade: it may change even once taken.
         item.tagChapter(chapterFitting(request.chapterId(), item.getQuiz().getSchoolClass()));
         item.placeInSection(request.section()); // layout only, like the chapter tag: allowed even once taken
@@ -305,7 +377,53 @@ public class QuizAdminService {
         hintRepository.deleteByItemId(itemId); // hints are replaced wholesale too
         List<QuizItemHint> hints = saveHints(item, request.hints());
         dropScoreCaches();
+        if (journalled) {
+            String changes = before.changesTo(snapshot(item, options, hints));
+            if (changes != null) { // re-saved unchanged (e.g. only moved): not worth a row
+                recordQuestion(AuditAction.QUESTION_UPDATED, item, before.number(), changes);
+            }
+        }
         return ItemDto.from(item, options, hints);
+    }
+
+    /** What a question looked like, to word what an edit changed ("punctaj 3 → 5, răspuns corect"). */
+    private record ItemSnapshot(String number, String statement, int points, String solution, List<String> options,
+                                int correctOption, List<String> hints, String section, Long chapterId) {
+
+        String changesTo(ItemSnapshot after) {
+            return new AuditText.Changes()
+                    .addIfDifferent(statement, after.statement, "enunț")
+                    .addIf(points != after.points, "punctaj " + points + " → " + after.points)
+                    .addIfDifferent(solution, after.solution, "barem")
+                    .addIf(options.size() != after.options.size(), "număr de variante")
+                    .addIf(options.size() == after.options.size() && !options.equals(after.options), "texte variante")
+                    .addIf(correctOption != after.correctOption, "răspuns corect")
+                    .addIfDifferent(hints, after.hints, "indicii")
+                    .addIfDifferent(section, after.section, "secțiune")
+                    .addIfDifferent(chapterId, after.chapterId, "capitol")
+                    .joined();
+        }
+    }
+
+    private ItemSnapshot snapshot(QuizItem item) {
+        return snapshot(item, optionRepository.findByItemIdOrderByPosition(item.getId()),
+                hintRepository.findByItemIdOrderByPosition(item.getId()));
+    }
+
+    private ItemSnapshot snapshot(QuizItem item, List<QuizOption> options, List<QuizItemHint> hints) {
+        List<QuizOption> ordered = options.stream()
+                .sorted(java.util.Comparator.comparingInt(QuizOption::getPosition)).toList();
+        int correct = -1;
+        for (int i = 0; i < ordered.size(); i++) {
+            if (ordered.get(i).isCorrect()) {
+                correct = i;
+            }
+        }
+        return new ItemSnapshot(QuestionNumbers.of(item, itemRepository.findByQuizIdOrderByPosition(item.getQuiz().getId())),
+                item.getStatement(), item.getPoints(), item.getSolution(),
+                ordered.stream().map(QuizOption::getText).toList(), correct,
+                hints.stream().map(QuizItemHint::getText).toList(), item.getSection(),
+                item.getChapter() == null ? null : item.getChapter().getId());
     }
 
     @Transactional
@@ -316,6 +434,11 @@ public class QuizAdminService {
         if (quiz.getStatus() == QuizStatus.PUBLISHED && itemRepository.countByQuizId(quiz.getId()) <= 1) {
             throw new InvalidQuizException("Acesta e ultimul subiect al unui quiz publicat: apasă întâi „Depublică”, "
                     + "altfel elevii ar vedea un quiz gol.");
+        }
+        if (seenByStudents(quiz)) {
+            recordQuestion(AuditAction.QUESTION_DELETED, item,
+                    QuestionNumbers.of(item, itemRepository.findByQuizIdOrderByPosition(quiz.getId())),
+                    AuditText.snippet(item.getStatement(), 80));
         }
         optionRepository.deleteByItemId(itemId);
         hintRepository.deleteByItemId(itemId);

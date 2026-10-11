@@ -7,6 +7,9 @@ import ro.mathlms.assignment.AssignmentDtos.AssignmentSummaryDto;
 import ro.mathlms.assignment.AssignmentDtos.StudentAssignmentDto;
 import ro.mathlms.assignment.AssignmentDtos.StudentStatusDto;
 import ro.mathlms.assignment.AssignmentProgress.State;
+import ro.mathlms.audit.AuditAction;
+import ro.mathlms.audit.AuditEvent;
+import ro.mathlms.audit.AuditLog;
 import ro.mathlms.content.Enrollment;
 import ro.mathlms.content.EnrollmentRepository;
 import ro.mathlms.content.SchoolClass;
@@ -59,10 +62,11 @@ class AssignmentServiceTest {
     private final QuizAttemptRepository attemptRepository = mock(QuizAttemptRepository.class);
     private final UserRepository userRepository = mock(UserRepository.class);
     private final OutboxEventPublisher publisher = mock(OutboxEventPublisher.class);
+    private final AuditLog auditLog = mock(AuditLog.class);
     private final SettableClock clock = new SettableClock();
     private final AssignmentService service = new AssignmentService(
             assignmentRepository, quizRepository, schoolClassRepository, enrollmentRepository,
-            attemptRepository, userRepository, publisher, clock, 24, true);
+            attemptRepository, userRepository, publisher, auditLog, clock, 24, true);
 
     private final SchoolClass ninth = withId(new SchoolClass("Clasa a 9-a", null), 5L);
     private final Quiz quiz = published(withId(new Quiz("Simulare EN", null), 10L));
@@ -181,6 +185,17 @@ class AssignmentServiceTest {
 
         assertThat(existing.getDueAt()).isEqualTo(due.plus(Duration.ofDays(7)));
         assertThat(existing.getReminderSentAt()).isNull(); // a new date re-arms the reminder
+    }
+
+    @Test
+    void aMovedDeadlineIsJournalledInRomaniasTime() {
+        when(assignmentRepository.findById(1L)).thenReturn(Optional.of(assignment(1L)));
+
+        service.reschedule(1L, due.plus(Duration.ofDays(7)));
+
+        // 10:00 UTC is 13:00 in Bucharest in October (summer time)
+        verify(auditLog).record(new AuditEvent(AuditAction.HOMEWORK_RESCHEDULED, 1L, "Simulare EN · Clasa a 9-a",
+                "termen 08.10.2026 13:00 → 15.10.2026 13:00", null, null));
     }
 
     @Test
@@ -496,7 +511,7 @@ class AssignmentServiceTest {
     void parentsAreLeftOutWhenTheSettingIsOff() {
         AssignmentService withoutParents = new AssignmentService(
                 assignmentRepository, quizRepository, schoolClassRepository, enrollmentRepository,
-                attemptRepository, userRepository, publisher, clock, 24, false);
+                attemptRepository, userRepository, publisher, auditLog, clock, 24, false);
         dueSoonWithRoster(withParent(student(1L, "Ana Pop"), 50L));
 
         withoutParents.queueReminders(1L);

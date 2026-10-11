@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.util.ReflectionTestUtils;
+import ro.mathlms.audit.AuditLog;
 import ro.mathlms.cache.AfterCommitCacheEvictor;
 import ro.mathlms.content.EnrollmentRepository;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultDto;
@@ -58,7 +59,7 @@ class QuizAttemptTimerServiceTest {
     private final QuizAttemptService service = new QuizAttemptService(
             quizRepository, itemRepository, optionRepository, mock(QuizItemHintRepository.class), attemptRepository, responseRepository,
             userRepository, mock(EnrollmentRepository.class), mock(AfterCommitCacheEvictor.class),
-            resultNotifier, fileService, clock, "uploads/quiz-photos");
+            resultNotifier, fileService, mock(AuditLog.class), clock, "uploads/quiz-photos");
 
     private final User student = withId(new User(EMAIL, "Elev Pop", Role.STUDENT), 1L);
     private final Quiz timedQuiz = timed(withId(new Quiz("Simulare EN", null), 10L), 30);

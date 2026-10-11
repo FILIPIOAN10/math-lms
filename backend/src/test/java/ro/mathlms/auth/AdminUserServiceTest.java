@@ -1,6 +1,10 @@
 package ro.mathlms.auth;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
+import ro.mathlms.audit.AuditAction;
+import ro.mathlms.audit.AuditEvent;
+import ro.mathlms.audit.AuditLog;
 import ro.mathlms.user.AccountStatus;
 import ro.mathlms.user.Role;
 import ro.mathlms.user.User;
@@ -20,7 +24,8 @@ import static org.mockito.Mockito.when;
 class AdminUserServiceTest {
 
     private final UserRepository userRepository = mock(UserRepository.class);
-    private final AdminUserService service = new AdminUserService(userRepository);
+    private final AuditLog auditLog = mock(AuditLog.class);
+    private final AdminUserService service = new AdminUserService(userRepository, auditLog);
 
     @Test
     void listPendingReturnsAccountsAwaitingApproval() {
@@ -103,6 +108,35 @@ class AdminUserServiceTest {
 
         assertThat(result.getParent()).isSameAs(parent);
         verify(userRepository).save(student);
+    }
+
+    @Test
+    void linkingAParentIsJournalledAboutTheStudentWithTheParent() {
+        User student = new User("copil@example.com", "Copil Pop", Role.STUDENT);
+        User parent = new User("parinte@example.com", "Parinte Pop", Role.PARENT);
+        ReflectionTestUtils.setField(student, "id", 1L);
+        ReflectionTestUtils.setField(parent, "id", 2L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(student));
+        when(userRepository.findById(2L)).thenReturn(Optional.of(parent));
+        when(userRepository.save(any(User.class))).thenAnswer(i -> i.getArgument(0));
+
+        service.linkParent(1L, 2L);
+
+        // No names in the row: both people are ids, read back as today's names.
+        verify(auditLog).record(new AuditEvent(AuditAction.PARENT_LINKED, 1L, "Părinte legat", null, 1L, 2L));
+    }
+
+    @Test
+    void approvingIsJournalledWithTheRoleGiven() {
+        User pending = User.registerLocal("ana@example.com", "Ana Pop", "hash", Role.STUDENT);
+        pending.verifyEmail();
+        ReflectionTestUtils.setField(pending, "id", 5L);
+        when(userRepository.findById(5L)).thenReturn(Optional.of(pending));
+        when(userRepository.save(any(User.class))).thenAnswer(i -> i.getArgument(0));
+
+        service.approve(5L, Role.PARENT);
+
+        verify(auditLog).record(new AuditEvent(AuditAction.ACCOUNT_APPROVED, 5L, "Cont aprobat", "rol: părinte", 5L, null));
     }
 
     @Test

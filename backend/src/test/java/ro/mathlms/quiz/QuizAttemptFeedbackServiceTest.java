@@ -3,6 +3,7 @@ package ro.mathlms.quiz;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.test.util.ReflectionTestUtils;
+import ro.mathlms.audit.AuditLog;
 import ro.mathlms.cache.AfterCommitCacheEvictor;
 import ro.mathlms.content.EnrollmentRepository;
 import ro.mathlms.quiz.AdminAttemptDtos.AdminAttemptDetailDto;
@@ -44,7 +45,7 @@ class QuizAttemptFeedbackServiceTest {
             quizRepository, itemRepository, optionRepository,
             mock(QuizItemHintRepository.class), attemptRepository, responseRepository, userRepository,
             mock(EnrollmentRepository.class), mock(AfterCommitCacheEvictor.class), mock(ResultNotifier.class),
-            mock(FileService.class), Clock.systemUTC(), "uploads/quiz-photos");
+            mock(FileService.class), mock(AuditLog.class), Clock.systemUTC(), "uploads/quiz-photos");
 
     private static final String EMAIL = "elev@scoala.ro";
 

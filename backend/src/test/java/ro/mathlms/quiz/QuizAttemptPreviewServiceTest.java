@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
 import org.springframework.test.util.ReflectionTestUtils;
+import ro.mathlms.audit.AuditLog;
 import ro.mathlms.cache.AfterCommitCacheEvictor;
 import ro.mathlms.content.EnrollmentRepository;
 import ro.mathlms.content.SchoolClass;
@@ -43,7 +44,7 @@ class QuizAttemptPreviewServiceTest {
             quizRepository, itemRepository, optionRepository,
             mock(QuizItemHintRepository.class), attemptRepository, responseRepository, userRepository,
             enrollmentRepository, mock(AfterCommitCacheEvictor.class), mock(ResultNotifier.class), fileService,
-            Clock.systemUTC(), "uploads/quiz-photos");
+            mock(AuditLog.class), Clock.systemUTC(), "uploads/quiz-photos");
 
     private static final String EMAIL = "elev@scoala.ro";
 

@@ -2,26 +2,31 @@ package ro.mathlms.content;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import ro.mathlms.audit.AuditAction;
+import ro.mathlms.audit.AuditEvent;
+import ro.mathlms.audit.AuditLog;
 import ro.mathlms.user.User;
 import ro.mathlms.user.UserRepository;
 
 import java.util.Comparator;
 import java.util.List;
 
-/** Admin management of who is enrolled in which class. */
+/** Admin management of who is enrolled in which class (changes are journalled). */
 @Service
 public class EnrollmentService {
 
     private final EnrollmentRepository enrollmentRepository;
     private final SchoolClassRepository schoolClassRepository;
     private final UserRepository userRepository;
+    private final AuditLog auditLog;
 
     public EnrollmentService(EnrollmentRepository enrollmentRepository,
                              SchoolClassRepository schoolClassRepository,
-                             UserRepository userRepository) {
+                             UserRepository userRepository, AuditLog auditLog) {
         this.enrollmentRepository = enrollmentRepository;
         this.schoolClassRepository = schoolClassRepository;
         this.userRepository = userRepository;
+        this.auditLog = auditLog;
     }
 
     public List<Enrollment> roster(Long classId) {
@@ -59,15 +64,20 @@ public class EnrollmentService {
             throw new DuplicateContentException("This student is already enrolled in this class");
         }
         // The Enrollment constructor enforces that the account's real role is STUDENT.
-        return enrollmentRepository.save(new Enrollment(student, schoolClass));
+        Enrollment saved = enrollmentRepository.save(new Enrollment(student, schoolClass));
+        auditLog.record(AuditEvent.of(AuditAction.STUDENT_ENROLLED, schoolClass.getId(), schoolClass.getName())
+                .about(student));
+        return saved;
     }
 
     @Transactional
     public void unenroll(Long enrollmentId) {
-        if (!enrollmentRepository.existsById(enrollmentId)) {
-            throw new ContentNotFoundException("Enrollment", enrollmentId);
-        }
+        Enrollment enrollment = enrollmentRepository.findById(enrollmentId)
+                .orElseThrow(() -> new ContentNotFoundException("Enrollment", enrollmentId));
+        SchoolClass schoolClass = enrollment.getSchoolClass();
         enrollmentRepository.deleteById(enrollmentId);
+        auditLog.record(AuditEvent.of(AuditAction.STUDENT_UNENROLLED, schoolClass.getId(), schoolClass.getName())
+                .about(enrollment.getStudent()));
     }
 
     private SchoolClass requireClass(Long classId) {

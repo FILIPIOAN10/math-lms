@@ -35,6 +35,7 @@ const AdminMasteryPage = lazy(() => import('@/pages/AdminMasteryPage').then((m) 
 const AccountPage = lazy(() => import('@/pages/AccountPage').then((m) => ({ default: m.AccountPage })))
 const EraseAccountPage = lazy(() => import('@/pages/EraseAccountPage').then((m) => ({ default: m.EraseAccountPage })))
 const ParentAttemptResultPage = lazy(() => import('@/pages/ParentAttemptResultPage').then((m) => ({ default: m.ParentAttemptResultPage })))
+const AdminAuditPage = lazy(() => import('@/pages/AdminAuditPage').then((m) => ({ default: m.AdminAuditPage })))
 
 function LoginRoute() {
   const { user, loading } = useAuth()
@@ -152,6 +153,14 @@ function App() {
               element={
                 <AdminRoute>
                   <AdminGradingPage />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/journal"
+              element={
+                <AdminRoute>
+                  <AdminAuditPage />
                 </AdminRoute>
               }
             />

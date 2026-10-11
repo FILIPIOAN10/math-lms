@@ -1,6 +1,7 @@
 package ro.mathlms.content;
 
 import org.junit.jupiter.api.Test;
+import ro.mathlms.audit.AuditLog;
 
 import java.util.List;
 import java.util.Optional;
@@ -18,7 +19,8 @@ class ChapterServiceTest {
 
     private final ChapterRepository chapterRepository = mock(ChapterRepository.class);
     private final BookRepository bookRepository = mock(BookRepository.class);
-    private final ChapterService service = new ChapterService(chapterRepository, bookRepository);
+    private final AuditLog auditLog = mock(AuditLog.class);
+    private final ChapterService service = new ChapterService(chapterRepository, bookRepository, auditLog);
 
     private final Book book = new Book(new SchoolClass("Clasa a 9-a", null), "M1", null);
 

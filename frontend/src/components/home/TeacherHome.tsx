@@ -151,6 +151,12 @@ export function TeacherHome() {
           </Card>
         </HomeSection>
       )}
+
+      <p className="text-sm">
+        <Link to="/admin/journal" className="text-muted-foreground hover:text-foreground hover:underline">
+          Jurnal: cine a schimbat ce și când
+        </Link>
+      </p>
     </>
   )
 }

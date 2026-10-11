@@ -5,6 +5,10 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import ro.mathlms.audit.AuditAction;
+import ro.mathlms.audit.AuditEvent;
+import ro.mathlms.audit.AuditLog;
+import ro.mathlms.audit.AuditText;
 import ro.mathlms.cache.AfterCommitCacheEvictor;
 import ro.mathlms.cache.CacheNames;
 import ro.mathlms.content.EnrollmentRepository;
@@ -37,6 +41,7 @@ import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -62,6 +67,7 @@ public class QuizAttemptService {
     private final AfterCommitCacheEvictor cacheEvictor;
     private final ResultNotifier resultNotifier;
     private final FileService fileService;
+    private final AuditLog auditLog;
     private final Clock clock;
     private final String quizPhotosDir;
 
@@ -76,8 +82,9 @@ public class QuizAttemptService {
                               QuizAttemptRepository attemptRepository,
                               ItemResponseRepository responseRepository, UserRepository userRepository,
                               EnrollmentRepository enrollmentRepository, AfterCommitCacheEvictor cacheEvictor,
-                              ResultNotifier resultNotifier, FileService fileService, Clock clock,
+                              ResultNotifier resultNotifier, FileService fileService, AuditLog auditLog, Clock clock,
                               @Value("${app.storage.quiz-photos-dir}") String quizPhotosDir) {
+        this.auditLog = auditLog;
         this.quizRepository = quizRepository;
         this.itemRepository = itemRepository;
         this.optionRepository = optionRepository;
@@ -588,8 +595,30 @@ public class QuizAttemptService {
         ItemResponse response = responseRepository.findByAttemptIdAndItemId(attemptId, itemId)
                 .orElseGet(() -> new ItemResponse(attempt, item));
 
+        Integer pointsBefore = response.getAwardedPoints();
+        String commentBefore = response.getTeacherComment();
         response.gradeManual(points, comment);
         responseRepository.save(response);
+
+        String commentChange = commentChange(commentBefore, response.getTeacherComment());
+        if (Objects.equals(pointsBefore, points) && commentChange == null) {
+            return; // saved again unchanged ("Finalizează" re-sends every score): nothing new to journal
+        }
+        String score = pointsBefore == null || pointsBefore == points
+                ? points + " p" : pointsBefore + " → " + points + " p";
+        String number = QuestionNumbers.of(item, itemRepository.findByQuizIdOrderByPosition(item.getQuiz().getId()));
+        auditLog.record(AuditEvent.of(AuditAction.ANSWER_GRADED, attemptId,
+                        AuditText.question(attempt.getQuiz().getTitle(), number))
+                .about(attempt.getStudent())
+                .details(score + " din " + item.getPoints() + (commentChange == null ? "" : ", " + commentChange)));
+    }
+
+    /** "comentariu adăugat / modificat / șters", or null when the comment stayed the same. */
+    private static String commentChange(String before, String after) {
+        if (Objects.equals(before, after)) {
+            return null;
+        }
+        return "comentariu " + (after == null ? "șters" : before == null ? "adăugat" : "modificat");
     }
 
     /**
@@ -603,8 +632,14 @@ public class QuizAttemptService {
         if (attempt.getMode() != AttemptMode.TEST || attempt.getStatus() == QuizAttemptStatus.IN_PROGRESS) {
             throw new InvalidQuizException("Poți comenta doar o lucrare predată");
         }
+        String before = attempt.getTeacherComment();
         attempt.commentOverall(comment);
         attemptRepository.save(attempt);
+        String change = commentChange(before, attempt.getTeacherComment());
+        if (change != null) {
+            auditLog.record(AuditEvent.of(AuditAction.PAPER_COMMENTED, attemptId, attempt.getQuiz().getTitle())
+                    .about(attempt.getStudent()).details(change));
+        }
     }
 
     /** Profesorul închide corectura, validând că toate subiectele OPEN au fost notate. */
@@ -622,7 +657,9 @@ public class QuizAttemptService {
                 .collect(Collectors.toMap(r -> r.getItem().getId(), Function.identity()));
 
         int totalScore = 0;
+        int maxScore = 0;
         for (QuizItem item : items) {
+            maxScore += item.getPoints();
             ItemResponse response = responses.get(item.getId());
 
             if (item.getType() == QuizItemType.OPEN) {
@@ -639,6 +676,8 @@ public class QuizAttemptService {
         attempt.markGraded(totalScore);
         attemptRepository.save(attempt);
         evictGradingCaches(attempt);
+        auditLog.record(AuditEvent.of(AuditAction.PAPER_GRADED, attemptId, attempt.getQuiz().getTitle())
+                .about(attempt.getStudent()).details(totalScore + " p din " + maxScore));
     }
 
     /**

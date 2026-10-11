@@ -5,6 +5,9 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.multipart.MultipartFile;
+import ro.mathlms.audit.AuditAction;
+import ro.mathlms.audit.AuditEvent;
+import ro.mathlms.audit.AuditLog;
 import ro.mathlms.cache.AfterCommitCacheEvictor;
 import ro.mathlms.cache.CacheNames;
 import ro.mathlms.content.EnrollmentRepository;
@@ -45,10 +48,12 @@ class QuizAttemptServiceTest {
     private final EnrollmentRepository enrollmentRepository = mock(EnrollmentRepository.class);
     private final AfterCommitCacheEvictor cacheEvictor = mock(AfterCommitCacheEvictor.class);
     private final ResultNotifier resultNotifier = mock(ResultNotifier.class);
+    private final AuditLog auditLog = mock(AuditLog.class);
     private final QuizAttemptService service = new QuizAttemptService(
             quizRepository, itemRepository, optionRepository,
             mock(QuizItemHintRepository.class), attemptRepository, responseRepository, userRepository,
-            enrollmentRepository, cacheEvictor, resultNotifier, fileService, java.time.Clock.systemUTC(), "uploads/quiz-photos");
+            enrollmentRepository, cacheEvictor, resultNotifier, fileService, auditLog, java.time.Clock.systemUTC(),
+            "uploads/quiz-photos");
 
     private static final String EMAIL = "elev@scoala.ro";
 
@@ -514,6 +519,75 @@ class QuizAttemptServiceTest {
 
         assertThat(response.getAwardedPoints()).isEqualTo(15);
         verify(responseRepository).save(response);
+    }
+
+    // --- F1: grading is journalled ---
+
+    private ItemResponse submittedResponse(QuizItem item) {
+        QuizAttempt attempt = attempt(50L, student);
+        attempt.submit();
+        ItemResponse response = new ItemResponse(attempt, item);
+        response.answerOpen("poza.jpg");
+        when(attemptRepository.findById(50L)).thenReturn(Optional.of(attempt));
+        when(itemRepository.findById(item.getId())).thenReturn(Optional.of(item));
+        when(itemRepository.findByQuizIdOrderByPosition(10L)).thenReturn(List.of(singleChoice(100L, 5), item));
+        when(responseRepository.findByAttemptIdAndItemId(50L, item.getId())).thenReturn(Optional.of(response));
+        return response;
+    }
+
+    @Test
+    void gradingAnAnswerIsJournalledWithTheQuestionNumberTheTeacherSeesAndTheStudent() {
+        submittedResponse(open(101L, 30));
+
+        service.gradeOpenResponse(50L, 101L, 15, null);
+
+        verify(auditLog).record(new AuditEvent(AuditAction.ANSWER_GRADED, 50L, "Simulare EN · subiectul 2",
+                "15 p din 30", 1L, null));
+    }
+
+    @Test
+    void changingAGradeIsJournalledAsOldToNewWithTheCommentChange() {
+        ItemResponse response = submittedResponse(open(101L, 30));
+        response.gradeManual(10);
+
+        service.gradeOpenResponse(50L, 101L, 22, "Lipsește verificarea.");
+
+        verify(auditLog).record(new AuditEvent(AuditAction.ANSWER_GRADED, 50L, "Simulare EN · subiectul 2",
+                "10 → 22 p din 30, comentariu adăugat", 1L, null));
+    }
+
+    @Test
+    void savingTheSameGradeAgainWritesNoJournalRow() {
+        ItemResponse response = submittedResponse(open(101L, 30));
+        response.gradeManual(22, "Bine");
+
+        service.gradeOpenResponse(50L, 101L, 22, "Bine");
+
+        verify(auditLog, never()).record(any());
+    }
+
+    @Test
+    void finishingGradingIsJournalledWithTheTotal() {
+        QuizItem deschis = open(101L, 30);
+        ItemResponse response = submittedResponse(deschis);
+        response.gradeManual(22);
+        when(responseRepository.findByAttemptId(50L)).thenReturn(List.of(response));
+        when(itemRepository.findByQuizIdOrderByPosition(10L)).thenReturn(List.of(deschis));
+
+        service.finalizeGrading(50L);
+
+        verify(auditLog).record(new AuditEvent(AuditAction.PAPER_GRADED, 50L, "Simulare EN", "22 p din 30", 1L, null));
+    }
+
+    @Test
+    void theWholePaperCommentIsJournalledOnlyWhenItChanges() {
+        submittedResponse(open(101L, 30));
+
+        service.commentOnAttempt(50L, "Lucrare îngrijită.");
+        service.commentOnAttempt(50L, "Lucrare îngrijită.");
+
+        verify(auditLog).record(new AuditEvent(AuditAction.PAPER_COMMENTED, 50L, "Simulare EN", "comentariu adăugat",
+                1L, null));
     }
 
     @Test
