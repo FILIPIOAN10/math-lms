@@ -137,8 +137,28 @@ export async function resetPassword(token: string, newPassword: string): Promise
   await postJson('/auth/reset-password', { token, newPassword })
 }
 
-export async function verifyEmail(token: string): Promise<void> {
-  await apiFetch(`/auth/verify-email?token=${encodeURIComponent(token)}`)
+/** What the account became: ACTIVE (it joined through a class/parent link — sign in now) or PENDING_APPROVAL. */
+export interface VerifyEmailResult {
+  status: AccountStatus
+}
+
+export async function verifyEmail(token: string): Promise<VerifyEmailResult> {
+  const response = await apiFetch(`/auth/verify-email?token=${encodeURIComponent(token)}`)
+  return response.json()
+}
+
+/** What a /register?token=… link is for, before the form is filled in. A dead link answers 410 with the reason. */
+export interface InvitePreview {
+  role: Role
+  /** The class a class link enrols into; null for other links. */
+  className: string | null
+  /** true = a class/parent link: active as soon as the email is confirmed; false = the teacher approves it. */
+  direct: boolean
+}
+
+export async function previewInvite(token: string): Promise<InvitePreview> {
+  const response = await apiFetch(`/public/invites/preview?token=${encodeURIComponent(token)}`)
+  return response.json()
 }
 
 export async function logout(): Promise<void> {
@@ -261,6 +281,44 @@ export interface Invite {
 export async function createInvite(role: Role): Promise<Invite> {
   const response = await postJson('/admin/invites', { role })
   return response.json()
+}
+
+/**
+ * A stored invite link (T1): a CLASS link enrols whoever joins in that class, a PARENT link links its one user to the
+ * student. Either way the account is active once the email is confirmed — nothing left to approve.
+ */
+export interface InviteLink {
+  id: number
+  kind: 'CLASS' | 'PARENT'
+  url: string
+  uses: number
+  maxUses: number
+  expiresAt: string
+  createdAt: string
+  className: string | null
+  studentName: string | null
+}
+
+/** The class's links that are neither revoked nor expired (full ones included), newest first. */
+export async function listClassInvites(classId: number): Promise<InviteLink[]> {
+  const response = await apiFetch(`/admin/classes/${classId}/invites`)
+  return response.json()
+}
+
+/** `maxUses` omitted = the server's default (30). */
+export async function createClassInvite(classId: number, maxUses?: number): Promise<InviteLink> {
+  const response = await postJson(`/admin/classes/${classId}/invites`, maxUses === undefined ? {} : { maxUses })
+  return response.json()
+}
+
+/** Single use; replaces the student's earlier unused parent link. 409 if the student already has a parent. */
+export async function createParentInvite(studentId: number): Promise<InviteLink> {
+  const response = await postJson(`/admin/users/${studentId}/parent-invite`, {})
+  return response.json()
+}
+
+export async function revokeInviteLink(id: number): Promise<void> {
+  await del(`/admin/invite-links/${id}`)
 }
 
 // --- Content hierarchy (Faza 2) ---
@@ -656,6 +714,19 @@ export interface QuizInput {
   practiceAllowed: boolean
   /** The chapter its questions practise; null = untagged. */
   chapterId?: number | null
+}
+
+/** T2: a draft quiz of OPEN questions made from the chapter's ticked exercises, for the chapter's class. */
+export interface ChapterQuizInput {
+  title: string
+  exerciseIds: number[]
+  /** Points per question (1–100); single questions can be changed in the editor. */
+  points: number
+}
+
+export async function createQuizFromChapter(chapterId: number, input: ChapterQuizInput): Promise<QuizSummary> {
+  const response = await postJson(`/admin/chapters/${chapterId}/quiz`, input)
+  return response.json()
 }
 
 export async function createQuiz(input: QuizInput): Promise<QuizSummary> {

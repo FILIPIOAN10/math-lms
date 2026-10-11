@@ -57,6 +57,14 @@ public class QuizAdminController {
         return ResponseEntity.status(HttpStatus.CREATED).body(QuizSummaryDto.from(service.copyQuiz(id)));
     }
 
+    /** T2: a draft quiz from the chapter's exercises the teacher ticked; the editor opens on it next. */
+    @PostMapping("/api/admin/chapters/{chapterId}/quiz")
+    public ResponseEntity<QuizSummaryDto> createFromChapter(@PathVariable Long chapterId,
+                                                            @Valid @RequestBody ChapterQuizRequest request) {
+        Quiz created = service.createFromExercises(chapterId, request.title(), request.exerciseIds(), request.points());
+        return ResponseEntity.status(HttpStatus.CREATED).body(QuizSummaryDto.from(created));
+    }
+
     @PostMapping("/api/admin/quizzes/{id}/publish")
     public QuizSummaryDto publish(@PathVariable Long id) {
         return QuizSummaryDto.from(service.setPublished(id, true));

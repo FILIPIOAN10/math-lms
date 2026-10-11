@@ -2,6 +2,8 @@ package ro.mathlms.auth;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import ro.mathlms.invite.InviteLink;
+import ro.mathlms.invite.InviteLinkService;
 import ro.mathlms.user.AccountStatus;
 import ro.mathlms.user.Role;
 import ro.mathlms.user.User;
@@ -23,6 +25,7 @@ class UserProvisioningServiceTest {
     private UserRepository userRepository;
     private UserProvisioningService service;
     private InviteTokenService inviteTokenService;
+    private InviteLinkService inviteLinkService;
 
     @BeforeEach
     void setUp() {
@@ -33,7 +36,9 @@ class UserProvisioningServiceTest {
                 "test-secret-at-least-32-characters-long!!",
                 60);
         inviteTokenService = new InviteTokenService(properties);
-        service = new UserProvisioningService(userRepository, properties, inviteTokenService);
+        inviteLinkService = mock(InviteLinkService.class);
+        service = new UserProvisioningService(userRepository, properties,
+                new InviteRedeemer(inviteTokenService, inviteLinkService), inviteLinkService);
     }
 
     @Test
@@ -147,5 +152,24 @@ class UserProvisioningServiceTest {
                 .isInstanceOf(io.jsonwebtoken.JwtException.class);
 
         verify(userRepository, never()).save(any(User.class));
+    }
+
+    // --- T1: Google sign-up through a stored class/parent link ---
+
+    @Test
+    void aStoredLinkIsRecordedAndFinishedRightAway() {
+        when(userRepository.findByEmail("nou@gmail.com")).thenReturn(Optional.empty());
+        when(userRepository.save(any(User.class))).thenAnswer(i -> i.getArgument(0));
+        InviteLink link = mock(InviteLink.class);
+        when(link.getId()).thenReturn(7L);
+        when(link.getKind()).thenReturn(ro.mathlms.invite.InviteLinkKind.CLASS);
+        String code = "AbCdEfGhIjKlMnOpQrStUvWxYz012345";
+        when(inviteLinkService.claim(code)).thenReturn(link);
+
+        User result = service.provision("google-sub-9", "nou@gmail.com", "Elev Nou", code);
+
+        assertThat(result.getRequestedRole()).isEqualTo(Role.STUDENT);
+        assertThat(result.getInviteLinkId()).isEqualTo(7L);
+        verify(inviteLinkService).completeOnboarding(result); // Google verified the email: no waiting
     }
 }

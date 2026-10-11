@@ -28,10 +28,11 @@ class QuizAdminServiceTest {
     private final QuizItemHintRepository hintRepository = mock(QuizItemHintRepository.class);
     private final SchoolClassRepository schoolClassRepository = mock(SchoolClassRepository.class);
     private final ro.mathlms.content.ChapterRepository chapterRepository = mock(ro.mathlms.content.ChapterRepository.class);
+    private final ro.mathlms.content.ExerciseRepository exerciseRepository = mock(ro.mathlms.content.ExerciseRepository.class);
     private final AfterCommitCacheEvictor cacheEvictor = mock(AfterCommitCacheEvictor.class);
     private final QuizAdminService service =
             new QuizAdminService(quizRepository, itemRepository, optionRepository, hintRepository, schoolClassRepository,
-                    chapterRepository, cacheEvictor);
+                    chapterRepository, exerciseRepository, cacheEvictor);
 
     private final Quiz quiz = new Quiz("Simulare EN", null);
     private final SchoolClass ninth = new SchoolClass("Clasa a 9-a", null);
@@ -572,5 +573,67 @@ class QuizAdminServiceTest {
         ItemDto item = service.updateItem(7L, new ItemRequest(QuizItemType.OPEN, 0, "deschis", 4, null, null, null, 32L));
 
         assertThat(item.chapterId()).isEqualTo(32L);
+    }
+
+    // --- T2: a quiz from the chapter's exercises ---
+
+    private ro.mathlms.content.Exercise exercise(ro.mathlms.content.Chapter chapter, long id, String statement,
+                                                String solution) {
+        ro.mathlms.content.Exercise exercise = new ro.mathlms.content.Exercise(chapter, statement, solution, null);
+        ReflectionTestUtils.setField(exercise, "id", id);
+        return exercise;
+    }
+
+    @Test
+    void theTickedExercisesBecomeOpenQuestionsOfADraftForTheChaptersClass() {
+        ReflectionTestUtils.setField(ninth, "id", 5L);
+        ro.mathlms.content.Chapter fractii = chapterOf(ninth, 30L);
+        when(chapterRepository.findById(30L)).thenReturn(Optional.of(fractii));
+        when(schoolClassRepository.findById(5L)).thenReturn(Optional.of(ninth));
+        when(exerciseRepository.findByChapterIdOrderById(30L)).thenReturn(List.of(
+                exercise(fractii, 1L, "$\frac{1}{2}+\frac{1}{4}$", "$\frac{3}{4}$"),
+                exercise(fractii, 2L, "Simplifică $\frac{6}{8}$", null),
+                exercise(fractii, 3L, "Neales", null)));
+        when(quizRepository.save(any(Quiz.class))).thenAnswer(i -> i.getArgument(0));
+        ArgumentCaptor<QuizItem> items = ArgumentCaptor.forClass(QuizItem.class);
+        when(itemRepository.save(items.capture())).thenAnswer(i -> i.getArgument(0));
+
+        Quiz created = service.createFromExercises(30L, "Fracții — test", List.of(2L, 1L), 3);
+
+        assertThat(created.getStatus()).isEqualTo(QuizStatus.DRAFT);
+        assertThat(created.getTitle()).isEqualTo("Fracții — test");
+        assertThat(created.getSchoolClass()).isSameAs(ninth);
+        assertThat(created.getChapter()).isSameAs(fractii);
+        // In the chapter's order, not the order of the ticks; the unticked exercise stays out.
+        assertThat(items.getAllValues()).extracting(QuizItem::getPosition, QuizItem::getStatement, QuizItem::getSolution)
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple(1, "$\frac{1}{2}+\frac{1}{4}$", "$\frac{3}{4}$"),
+                        org.assertj.core.groups.Tuple.tuple(2, "Simplifică $\frac{6}{8}$", null));
+        assertThat(items.getAllValues()).allSatisfy(item -> {
+            assertThat(item.getType()).isEqualTo(QuizItemType.OPEN);
+            assertThat(item.getPoints()).isEqualTo(3);
+        });
+    }
+
+    @Test
+    void anExerciseFromAnotherChapterIsRefusedAndNothingIsCreated() {
+        ReflectionTestUtils.setField(ninth, "id", 5L);
+        ro.mathlms.content.Chapter fractii = chapterOf(ninth, 30L);
+        when(chapterRepository.findById(30L)).thenReturn(Optional.of(fractii));
+        when(exerciseRepository.findByChapterIdOrderById(30L)).thenReturn(List.of(exercise(fractii, 1L, "A", null)));
+
+        assertThatThrownBy(() -> service.createFromExercises(30L, "Test", List.of(1L, 99L), 1))
+                .isInstanceOf(InvalidQuizException.class)
+                .hasMessageContaining("Fracții");
+
+        verify(quizRepository, never()).save(any(Quiz.class));
+    }
+
+    @Test
+    void anUnknownChapterIsA404() {
+        when(chapterRepository.findById(404L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.createFromExercises(404L, "Test", List.of(1L), 1))
+                .isInstanceOf(QuizNotFoundException.class);
     }
 }

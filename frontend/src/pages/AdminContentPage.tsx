@@ -1,6 +1,8 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { MathContent } from '@/components/MathContent'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import { ChapterQuizDialog } from '@/components/ChapterQuizDialog'
+import { ClassInviteDialog } from '@/components/ClassInviteDialog'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog } from '@/components/ui/dialog'
@@ -320,9 +322,12 @@ type Dialogs =
   | { kind: 'chapter'; item: Chapter | null }
   | { kind: 'exercise'; item: Exercise | null }
   | { kind: 'enroll'; schoolClass: SchoolClass }
+  | { kind: 'invite'; schoolClass: SchoolClass }
+  | { kind: 'chapterQuiz' }
   | null
 
 export function AdminContentPage() {
+  const navigate = useNavigate()
   const { confirm, dialog: confirmDialog } = useConfirm()
   const [classes, setClasses] = useState<SchoolClass[]>([])
   const [cls, setCls] = useState<SchoolClass | null>(null)
@@ -417,6 +422,16 @@ export function AdminContentPage() {
               {!cls && <Button onClick={() => setDialog({ kind: 'class', item: null })}>Adaugă clasă</Button>}
               {cls && !book && <Button onClick={() => setDialog({ kind: 'book', item: null })}>Adaugă carte</Button>}
               {book && !chapter && <Button onClick={() => setDialog({ kind: 'chapter', item: null })}>Adaugă capitol</Button>}
+              {chapter && (
+                <Button
+                  variant="outline"
+                  disabled={exercises.length === 0}
+                  title={exercises.length === 0 ? 'Adaugă întâi exerciții în capitol' : undefined}
+                  onClick={() => setDialog({ kind: 'chapterQuiz' })}
+                >
+                  Creează quiz din capitol
+                </Button>
+              )}
               {chapter && <Button onClick={() => setDialog({ kind: 'exercise', item: null })}>Adaugă exercițiu</Button>}
             </>
           }
@@ -489,6 +504,7 @@ export function AdminContentPage() {
                 onDelete: () => removeWithConfirm(`clasa „${c.name}"`, () => deleteClass(c.id), reloadClasses),
                 extra: (
                   <>
+                    <Button size="xs" onClick={() => setDialog({ kind: 'invite', schoolClass: c })}>Invită elevi</Button>
                     <Button size="xs" variant="secondary" onClick={() => setDialog({ kind: 'enroll', schoolClass: c })}>Elevi</Button>
                     <Link to={`/admin/classes/${c.id}/mastery`} className={buttonVariants({ size: 'xs', variant: 'secondary' })}>
                       Pe capitole
@@ -542,6 +558,15 @@ export function AdminContentPage() {
       {dialog?.kind === 'enroll' && (
         <EnrollDialog open onClose={closeDialog} schoolClass={dialog.schoolClass} />
       )}
+      {dialog?.kind === 'invite' && (
+        <ClassInviteDialog open onClose={closeDialog} schoolClass={dialog.schoolClass} />
+      )}
+      {dialog?.kind === 'chapterQuiz' && chapter && (
+        <ChapterQuizDialog
+          open onClose={closeDialog} chapter={chapter} exercises={exercises}
+          onCreated={(quiz) => navigate(`/admin/quizzes/${quiz.id}`)}
+        />
+      )}
     </div>
   )
 }
@@ -566,7 +591,7 @@ function RowList({ rows }: { rows: AdminRow[] }) {
               <p className="truncate font-medium">{row.title}</p>
               {row.description && <p className="truncate text-sm text-muted-foreground">{row.description}</p>}
             </div>
-            <div className="flex shrink-0 gap-2">
+            <div className="flex flex-wrap justify-end gap-2">
               {row.extra}
               <Button size="xs" variant="outline" onClick={row.onOpen}>Deschide</Button>
               <Button size="xs" variant="outline" onClick={row.onEdit}>Editează</Button>

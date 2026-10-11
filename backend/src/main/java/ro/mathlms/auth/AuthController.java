@@ -1,6 +1,5 @@
 package ro.mathlms.auth;
 
-import io.jsonwebtoken.JwtException;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -17,7 +16,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import ro.mathlms.user.Role;
 import ro.mathlms.user.User;
 import ro.mathlms.user.UserRepository;
 
@@ -31,7 +29,6 @@ public class AuthController {
     private final RegistrationService registrationService;
     private final EmailService emailService;
     private final VerificationTokenService verificationTokenService;
-    private final InviteTokenService inviteTokenService;
     private final LoginService loginService;
     private final JwtCookieFactory jwtCookieFactory;
     private final PasswordResetService passwordResetService;
@@ -41,7 +38,6 @@ public class AuthController {
                           RegistrationService registrationService,
                           EmailService emailService,
                           VerificationTokenService verificationTokenService,
-                          InviteTokenService inviteTokenService,
                           LoginService loginService,
                           JwtCookieFactory jwtCookieFactory,
                           PasswordResetService passwordResetService,
@@ -50,7 +46,6 @@ public class AuthController {
         this.registrationService = registrationService;
         this.emailService = emailService;
         this.verificationTokenService = verificationTokenService;
-        this.inviteTokenService = inviteTokenService;
         this.loginService = loginService;
         this.jwtCookieFactory = jwtCookieFactory;
         this.passwordResetService = passwordResetService;
@@ -70,13 +65,12 @@ public class AuthController {
 
     /**
      * Registers a local account and emails a verification link. The role comes from
-     * the signed invite token (minted by an admin), never from client input.
+     * the invite link (minted by an admin), never from client input.
      */
     @PostMapping("/register")
     public ResponseEntity<Void> register(@Valid @RequestBody RegisterRequest request) {
-        Role requestedRole = inviteTokenService.verify(request.inviteToken());
-        User user = registrationService.register(
-                request.email(), request.fullName(), request.password(), requestedRole);
+        User user = registrationService.registerWithInvite(
+                request.email(), request.fullName(), request.password(), request.inviteToken());
         String token = verificationTokenService.generate(user.getEmail(), TokenPurpose.VERIFY_EMAIL);
         emailService.sendVerificationEmail(user.getEmail(), token);
         return ResponseEntity.status(HttpStatus.CREATED).build();
@@ -129,15 +123,15 @@ public class AuthController {
         return ResponseEntity.noContent().build();
     }
 
-    /** Confirms the email carried by the token and moves the account to approval. */
+    /**
+     * Confirms the email carried by the token. The answer says what happens next: {@code ACTIVE} (joined through a
+     * class/parent link — sign in now) or {@code PENDING_APPROVAL} (the teacher still approves the account).
+     */
     @GetMapping("/verify-email")
-    public ResponseEntity<Void> verifyEmail(@RequestParam String token) {
+    public ResponseEntity<VerifyEmailResponse> verifyEmail(@RequestParam String token) {
         String email = verificationTokenService.verify(token, TokenPurpose.VERIFY_EMAIL);
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new JwtException("No account for this token"));
-        user.verifyEmail();
-        userRepository.save(user);
-        return ResponseEntity.ok().build();
+        User user = registrationService.verifyEmail(email);
+        return ResponseEntity.ok(new VerifyEmailResponse(user.getStatus()));
     }
 
     /** Always answers 200 so callers cannot probe which emails have accounts. */

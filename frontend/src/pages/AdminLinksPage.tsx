@@ -9,8 +9,17 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { CopyLinkField } from '@/components/CopyLinkField'
 import { InviteLinkCard } from '@/components/InviteLinkCard'
-import { listActiveUsers, linkParent, type AdminUserSummary } from '@/lib/api'
+import {
+  createParentInvite,
+  linkParent,
+  listActiveUsers,
+  type AdminUserSummary,
+  type InviteLink,
+} from '@/lib/api'
+import { errorMessage } from '@/lib/errors'
+import { formatDate } from '@/lib/format'
 import { usePageTitle } from '@/lib/usePageTitle'
 
 export function AdminLinksPage() {
@@ -23,6 +32,8 @@ export function AdminLinksPage() {
   // Parent the admin picked per student row (parent id, or '' for none chosen yet).
   const [selectedParent, setSelectedParent] = useState<Record<number, number | ''>>({})
   const [busyIds, setBusyIds] = useState<Set<number>>(new Set())
+  // The parent link minted for a student row in this visit, shown under the row until the page is left.
+  const [parentLinks, setParentLinks] = useState<Record<number, InviteLink>>({})
 
   useEffect(() => {
     Promise.all([listActiveUsers('STUDENT'), listActiveUsers('PARENT')])
@@ -30,7 +41,7 @@ export function AdminLinksPage() {
         setStudents(studentList)
         setParents(parentList)
       })
-      .catch(() => setError('Nu am putut încărca studenții și părinții.'))
+      .catch(() => setError('Nu am putut încărca elevii și părinții.'))
       .finally(() => setLoading(false))
   }, [])
 
@@ -72,15 +83,30 @@ export function AdminLinksPage() {
     }
   }
 
+  async function handleParentInvite(studentId: number) {
+    setActionError(null)
+    setBusy(studentId, true)
+    try {
+      const link = await createParentInvite(studentId)
+      setParentLinks((prev) => ({ ...prev, [studentId]: link }))
+    } catch (e) {
+      setActionError(errorMessage(e))
+    } finally {
+      setBusy(studentId, false)
+    }
+  }
+
   return (
     <div className="p-4">
       <div className="mx-auto max-w-4xl space-y-4">
         <InviteLinkCard />
         <Card>
           <CardHeader>
-            <CardTitle className="text-2xl">Leagă părinți de studenți</CardTitle>
+            <CardTitle className="text-2xl">Părinții elevilor</CardTitle>
             <CardDescription>
-              Alege pentru fiecare student părintele căruia îi aparține.
+              <strong>Invită părintele</strong> generează un link de o singură folosință, valabil 7 zile: părintele
+              care își face cont prin el e legat automat de elev, fără aprobare. Dacă părintele are deja cont, alege-l
+              din listă și apasă <strong>Leagă</strong>.
             </CardDescription>
             <CardAction>
               <Link
@@ -97,12 +123,12 @@ export function AdminLinksPage() {
             {!loading && error && <p className="text-sm text-destructive">{error}</p>}
 
             {!loading && !error && students.length === 0 && (
-              <p className="text-muted-foreground">Niciun student activ.</p>
+              <p className="text-muted-foreground">Niciun elev activ.</p>
             )}
 
             {!loading && !error && students.length > 0 && parents.length === 0 && (
               <p className="text-sm text-muted-foreground">
-                Nu există încă niciun părinte activ de legat. Aprobă întâi un cont ca PARENT.
+                Niciun părinte nu are încă un cont. Folosește <strong>Invită părintele</strong> pe rândul elevului.
               </p>
             )}
 
@@ -113,7 +139,7 @@ export function AdminLinksPage() {
                 <table className="w-full border-collapse text-sm">
                   <thead>
                     <tr className="border-b text-left text-muted-foreground">
-                      <th className="py-2 pr-4 font-medium">Student</th>
+                      <th className="py-2 pr-4 font-medium">Elev</th>
                       <th className="py-2 pr-4 font-medium">Email</th>
                       <th className="py-2 pr-4 font-medium">Părinte curent</th>
                       <th className="py-2 font-medium">Leagă de</th>
@@ -131,7 +157,7 @@ export function AdminLinksPage() {
                             {s.parentName ?? '—'}
                           </td>
                           <td className="py-3">
-                            <div className="flex gap-2">
+                            <div className="flex flex-wrap gap-2">
                               <select
                                 className="h-8 rounded-lg border border-border bg-background px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50"
                                 value={choice}
@@ -157,7 +183,32 @@ export function AdminLinksPage() {
                               >
                                 Leagă
                               </Button>
+                              {s.parentId === null && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  data-testid={`parent-invite-${s.id}`}
+                                  disabled={busy}
+                                  onClick={() => handleParentInvite(s.id)}
+                                >
+                                  Invită părintele
+                                </Button>
+                              )}
                             </div>
+                            {parentLinks[s.id] && s.parentId === null && (
+                              <div className="mt-2 max-w-md space-y-1">
+                                <CopyLinkField
+                                  key={parentLinks[s.id].url}
+                                  id={`parent-invite-url-${s.id}`}
+                                  label={`Link pentru părintele lui ${s.fullName}`}
+                                  url={parentLinks[s.id].url}
+                                />
+                                <p className="text-xs text-muted-foreground">
+                                  O singură folosință · expiră {formatDate(parentLinks[s.id].expiresAt)} · un link nou
+                                  îl anulează pe acesta
+                                </p>
+                              </div>
+                            )}
                           </td>
                         </tr>
                       )

@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { verifyEmail } from '@/lib/api'
 import { usePageTitle } from '@/lib/usePageTitle'
 
-type VerifyState = 'verifying' | 'success' | 'error'
+type VerifyState = 'verifying' | 'active' | 'pending' | 'error'
 
 /** Shown when the page is opened without a token in the URL. */
 function InvalidLink() {
@@ -31,7 +31,7 @@ function VerifyResult({ token }: { token: string }) {
     if (started.current) return
     started.current = true
     verifyEmail(token)
-      .then(() => setState('success'))
+      .then((result) => setState(result.status === 'ACTIVE' ? 'active' : 'pending'))
       .catch(() => setState('error'))
   }, [token])
 
@@ -46,13 +46,15 @@ function VerifyResult({ token }: { token: string }) {
     )
   }
 
-  if (state === 'success') {
+  if (state === 'active' || state === 'pending') {
     return (
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">Email confirmat</CardTitle>
           <CardDescription>
-            Emailul tău a fost confirmat. Contul așteaptă acum aprobarea profesorului.
+            {state === 'active'
+              ? 'Emailul tău a fost confirmat și contul e activ. Te poți conecta.'
+              : 'Emailul tău a fost confirmat. Contul așteaptă acum aprobarea profesorului.'}
           </CardDescription>
         </CardHeader>
         <CardContent className="text-center">

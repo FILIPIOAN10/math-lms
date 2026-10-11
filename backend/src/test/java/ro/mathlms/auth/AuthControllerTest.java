@@ -33,14 +33,13 @@ class AuthControllerTest {
     private final RegistrationService registrationService = mock(RegistrationService.class);
     private final EmailService emailService = mock(EmailService.class);
     private final VerificationTokenService verificationTokenService = mock(VerificationTokenService.class);
-    private final InviteTokenService inviteTokenService = mock(InviteTokenService.class);
     private final LoginService loginService = mock(LoginService.class);
     private final JwtCookieFactory jwtCookieFactory = mock(JwtCookieFactory.class);
     private final PasswordResetService passwordResetService = mock(PasswordResetService.class);
     private final RefreshTokenService refreshTokenService = mock(RefreshTokenService.class);
     private final AuthController controller = new AuthController(
             userRepository, registrationService, emailService, verificationTokenService,
-            inviteTokenService, loginService, jwtCookieFactory, passwordResetService, refreshTokenService);
+            loginService, jwtCookieFactory, passwordResetService, refreshTokenService);
 
     @Test
     void meReturnsUserWhenAuthenticated() {
@@ -109,12 +108,11 @@ class AuthControllerTest {
     // --- Step 1.6f: register + verify-email ---
 
     @Test
-    void registerDerivesRoleFromInviteThenSendsVerificationEmail() {
+    void registerUsesTheInviteThenSendsVerificationEmail() {
         RegisterRequest request = new RegisterRequest(
                 "ana@scoala.ro", "Ana Pop", "parola123", "INVITE");
         User created = User.registerLocal("ana@scoala.ro", "Ana Pop", "HASH", Role.STUDENT);
-        when(inviteTokenService.verify("INVITE")).thenReturn(Role.STUDENT);
-        when(registrationService.register("ana@scoala.ro", "Ana Pop", "parola123", Role.STUDENT))
+        when(registrationService.registerWithInvite("ana@scoala.ro", "Ana Pop", "parola123", "INVITE"))
                 .thenReturn(created);
         when(verificationTokenService.generate("ana@scoala.ro", TokenPurpose.VERIFY_EMAIL))
                 .thenReturn("TOKEN");
@@ -126,42 +124,40 @@ class AuthControllerTest {
     }
 
     @Test
-    void registerRejectsInvalidInviteWithoutCreatingAccount() {
+    void registerWithAnInvalidInviteSendsNoEmail() {
         RegisterRequest request = new RegisterRequest(
                 "ana@scoala.ro", "Ana Pop", "parola123", "BAD");
-        when(inviteTokenService.verify("BAD")).thenThrow(new JwtException("bad invite"));
+        when(registrationService.registerWithInvite(anyString(), anyString(), anyString(), eq("BAD")))
+                .thenThrow(new JwtException("bad invite"));
 
         assertThatThrownBy(() -> controller.register(request))
                 .isInstanceOf(JwtException.class);
 
-        verify(registrationService, never()).register(anyString(), anyString(), anyString(), any());
         verify(emailService, never()).sendVerificationEmail(anyString(), anyString());
     }
 
     @Test
-    void verifyEmailConfirmsAndSavesAccount() {
+    void verifyEmailAnswersWithTheAccountsNewStatus() {
         User user = User.registerLocal("ana@scoala.ro", "Ana Pop", "HASH", Role.STUDENT);
+        user.verifyEmail();
         when(verificationTokenService.verify("TOKEN", TokenPurpose.VERIFY_EMAIL))
                 .thenReturn("ana@scoala.ro");
-        when(userRepository.findByEmail("ana@scoala.ro")).thenReturn(Optional.of(user));
+        when(registrationService.verifyEmail("ana@scoala.ro")).thenReturn(user);
 
-        ResponseEntity<Void> response = controller.verifyEmail("TOKEN");
+        ResponseEntity<VerifyEmailResponse> response = controller.verifyEmail("TOKEN");
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(user.isEmailVerified()).isTrue();
-        verify(userRepository).save(user);
+        assertThat(response.getBody()).isEqualTo(new VerifyEmailResponse(AccountStatus.PENDING_APPROVAL));
     }
 
     @Test
     void verifyEmailFailsWhenTokenHasNoAccount() {
         when(verificationTokenService.verify("TOKEN", TokenPurpose.VERIFY_EMAIL))
                 .thenReturn("fantoma@scoala.ro");
-        when(userRepository.findByEmail("fantoma@scoala.ro")).thenReturn(Optional.empty());
+        when(registrationService.verifyEmail("fantoma@scoala.ro")).thenThrow(new JwtException("No account"));
 
         assertThatThrownBy(() -> controller.verifyEmail("TOKEN"))
                 .isInstanceOf(JwtException.class);
-
-        verify(userRepository, never()).save(any(User.class));
     }
 
     @Test
@@ -171,6 +167,7 @@ class AuthControllerTest {
 
         assertThatThrownBy(() -> controller.verifyEmail("BAD"))
                 .isInstanceOf(JwtException.class);
+        verify(registrationService, never()).verifyEmail(anyString());
     }
 
     // --- Step 1.6g: local login ---

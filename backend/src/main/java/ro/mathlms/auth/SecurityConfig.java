@@ -102,6 +102,8 @@ public class SecurityConfig {
                                 "/api/auth/refresh", "/api/auth/logout").permitAll()
                         // GDPR erasure is confirmed via an emailed single-purpose token, no session.
                         .requestMatchers("/api/public/gdpr/erase/confirm").permitAll()
+                        // The register page asks what an invite link is for before the visitor has an account.
+                        .requestMatchers(HttpMethod.GET, "/api/public/invites/preview").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         // Feature endpoints (content, quiz — Faza 2+) require an approved account.
                         // A PENDING account is authenticated (can read /api/auth/me) but not ACTIVE.

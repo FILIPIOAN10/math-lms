@@ -8,11 +8,15 @@ import ro.mathlms.content.SchoolClass;
 import ro.mathlms.content.RoCount;
 import ro.mathlms.content.Chapter;
 import ro.mathlms.content.ChapterRepository;
+import ro.mathlms.content.Exercise;
+import ro.mathlms.content.ExerciseRepository;
 import ro.mathlms.content.SchoolClassRepository;
 import ro.mathlms.quiz.QuizDtos.ItemDto;
 import ro.mathlms.quiz.QuizDtos.QuizDetailDto;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /** Admin authoring of quizzes: quiz CRUD, publish, and item/option management. */
 @Service
@@ -24,13 +28,15 @@ public class QuizAdminService {
     private final QuizItemHintRepository hintRepository;
     private final SchoolClassRepository schoolClassRepository;
     private final ChapterRepository chapterRepository;
+    private final ExerciseRepository exerciseRepository;
     private final AfterCommitCacheEvictor cacheEvictor;
 
     public QuizAdminService(QuizRepository quizRepository, QuizItemRepository itemRepository,
                             QuizOptionRepository optionRepository, QuizItemHintRepository hintRepository,
-                            SchoolClassRepository schoolClassRepository,
-                            ChapterRepository chapterRepository, AfterCommitCacheEvictor cacheEvictor) {
+                            SchoolClassRepository schoolClassRepository, ChapterRepository chapterRepository,
+                            ExerciseRepository exerciseRepository, AfterCommitCacheEvictor cacheEvictor) {
         this.chapterRepository = chapterRepository;
+        this.exerciseRepository = exerciseRepository;
         this.quizRepository = quizRepository;
         this.itemRepository = itemRepository;
         this.optionRepository = optionRepository;
@@ -177,6 +183,36 @@ public class QuizAdminService {
             for (QuizItemHint hint : hintRepository.findByItemIdOrderByPosition(item.getId())) {
                 hintRepository.save(new QuizItemHint(itemCopy, hint.getPosition(), hint.getText()));
             }
+        }
+        return saved;
+    }
+
+    /**
+     * T2: a DRAFT quiz made of exercises from the content bank, so the teacher does not type them twice. It is for the
+     * chapter's class and tagged with the chapter (mastery map). Each exercise becomes an OPEN question (exercises have
+     * no answer options; the student uploads a photo) worth {@code points}, with the exercise's solution as the barem,
+     * in the chapter's order. The result is a copy: editing the quiz later does not touch the bank, and vice versa.
+     */
+    @Transactional
+    public Quiz createFromExercises(Long chapterId, String title, List<Long> exerciseIds, int points) {
+        Chapter chapter = chapterRepository.findById(chapterId)
+                .orElseThrow(() -> new QuizNotFoundException("Chapter", chapterId));
+        Set<Long> picked = new HashSet<>(exerciseIds);
+        List<Exercise> exercises = exerciseRepository.findByChapterIdOrderById(chapterId).stream()
+                .filter(e -> picked.contains(e.getId()))
+                .toList();
+        if (exercises.size() != picked.size()) {
+            throw new InvalidQuizException("Alege doar exerciții din capitolul „" + chapter.getTitle() + "”.");
+        }
+        Quiz quiz = new Quiz(title, null);
+        // Loaded (not the lazy proxy) so the summary returned after the transaction can still read its name.
+        quiz.assignToClass(findClass(chapter.getBook().getSchoolClass().getId()));
+        quiz.tagChapter(chapter);
+        Quiz saved = quizRepository.save(quiz);
+        int position = 1;
+        for (Exercise exercise : exercises) {
+            itemRepository.save(new QuizItem(saved, position++, QuizItemType.OPEN,
+                    exercise.getStatement(), points, exercise.getSolution()));
         }
         return saved;
     }

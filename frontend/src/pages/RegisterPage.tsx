@@ -1,10 +1,10 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { ApiError, register } from '@/lib/api'
+import { ApiError, previewInvite, register, type InvitePreview } from '@/lib/api'
 import { usePageTitle } from '@/lib/usePageTitle'
 
 /** Turns a failed registration into a message safe to show the user. */
@@ -16,8 +16,35 @@ function registerErrorMessage(error: unknown): string {
     if (error.status === 400) {
       return 'Linkul de invitație este invalid sau a expirat. Cere altul administratorului.'
     }
+    // A class/parent link that was revoked, expired or filled up: the server says which.
+    if (error.status === 410 && error.body) {
+      return error.body
+    }
   }
   return 'A apărut o eroare. Încearcă din nou.'
+}
+
+/** "Te alături clasei Clasa a 8-a" — what the newcomer is signing up for. */
+function inviteHeadline(preview: InvitePreview): string {
+  if (preview.className) return `Te alături clasei ${preview.className}`
+  return preview.role === 'PARENT' ? 'Cont de părinte' : 'Cont de elev'
+}
+
+/** Shown instead of the form when the link can no longer be used (revoked, expired, full, unknown). */
+function DeadInvite({ reason }: { reason: string }) {
+  return (
+    <Card className="w-full max-w-sm">
+      <CardHeader className="text-center">
+        <CardTitle className="text-2xl">Link indisponibil</CardTitle>
+        <CardDescription role="alert">{reason}</CardDescription>
+      </CardHeader>
+      <CardContent className="text-center">
+        <Link to="/login" className="text-sm text-primary underline-offset-4 hover:underline">
+          Înapoi la autentificare
+        </Link>
+      </CardContent>
+    </Card>
+  )
 }
 
 /** Shown when the register page is opened without an invite token in the URL. */
@@ -40,14 +67,16 @@ function MissingInvite() {
 }
 
 /** Success screen after the account is created and the verification email is sent. */
-function VerifyEmailNotice({ email }: { email: string }) {
+function VerifyEmailNotice({ email, direct }: { email: string; direct: boolean }) {
   return (
     <Card className="w-full max-w-sm">
       <CardHeader className="text-center">
         <CardTitle className="text-2xl">Verifică-ți emailul</CardTitle>
         <CardDescription>
-          Ți-am trimis un link de confirmare la <strong>{email}</strong>. Deschide-l ca să
-          îți activezi contul, apoi așteaptă aprobarea administratorului.
+          Ți-am trimis un link de confirmare la <strong>{email}</strong>.{' '}
+          {direct
+            ? 'Deschide-l și contul tău e gata — te poți conecta imediat.'
+            : 'Deschide-l ca să îți activezi contul, apoi așteaptă aprobarea profesorului.'}
         </CardDescription>
       </CardHeader>
       <CardContent className="text-center">
@@ -59,7 +88,7 @@ function VerifyEmailNotice({ email }: { email: string }) {
   )
 }
 
-function RegisterForm({ inviteToken }: { inviteToken: string }) {
+function RegisterForm({ inviteToken, preview }: { inviteToken: string; preview: InvitePreview | null }) {
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -93,13 +122,18 @@ function RegisterForm({ inviteToken }: { inviteToken: string }) {
   }
 
   if (done) {
-    return <VerifyEmailNotice email={email} />
+    return <VerifyEmailNotice email={email} direct={preview?.direct ?? false} />
   }
 
   return (
     <Card className="w-full max-w-sm">
       <CardHeader className="text-center">
         <CardTitle className="text-2xl">Creează-ți contul</CardTitle>
+        {preview && (
+          <p data-testid="invite-headline" className="font-medium">
+            {inviteHeadline(preview)}
+          </p>
+        )}
         <CardDescription>Completează datele ca să continui</CardDescription>
       </CardHeader>
       <CardContent>
@@ -163,6 +197,44 @@ function RegisterForm({ inviteToken }: { inviteToken: string }) {
   )
 }
 
+/**
+ * Asks the server what the link is for before showing the form, so a dead link is refused up front (not after the
+ * newcomer typed everything) and a class link can say which class. If the preview fails for another reason (network,
+ * server), the form is still offered — registering gives the definitive answer.
+ */
+function InvitedRegistration({ inviteToken }: { inviteToken: string }) {
+  const [preview, setPreview] = useState<InvitePreview | null>(null)
+  const [deadReason, setDeadReason] = useState<string | null>(null)
+  const [checked, setChecked] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    previewInvite(inviteToken)
+      .then((p) => {
+        if (!cancelled) setPreview(p)
+      })
+      .catch((e) => {
+        if (!cancelled && e instanceof ApiError && e.status === 410) {
+          setDeadReason(e.body || 'Linkul de invitație nu mai e valid. Cere profesorului unul nou.')
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setChecked(true)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [inviteToken])
+
+  if (!checked) {
+    return <p className="text-muted-foreground">Se verifică linkul…</p>
+  }
+  if (deadReason) {
+    return <DeadInvite reason={deadReason} />
+  }
+  return <RegisterForm inviteToken={inviteToken} preview={preview} />
+}
+
 export function RegisterPage() {
   usePageTitle('Creează-ți contul')
   const [searchParams] = useSearchParams()
@@ -170,7 +242,7 @@ export function RegisterPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted p-4">
-      {inviteToken ? <RegisterForm inviteToken={inviteToken} /> : <MissingInvite />}
+      {inviteToken ? <InvitedRegistration inviteToken={inviteToken} /> : <MissingInvite />}
     </div>
   )
 }

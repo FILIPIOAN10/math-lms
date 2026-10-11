@@ -72,6 +72,13 @@ public class User {
     @Column(name = "erased_at")
     private Instant erasedAt;
 
+    /**
+     * The stored class/parent invite link this account registered through (T1), or null. When the account becomes
+     * active it is enrolled / linked from there, with no admin step.
+     */
+    @Column(name = "invite_link_id")
+    private Long inviteLinkId;
+
     public User(String email, String fullName, Role role) {
         this.email = requireNonBlank(email, "email");
         this.fullName = requireNonBlank(fullName, "fullName");
@@ -125,6 +132,11 @@ public class User {
         user.emailVerified = true;
         user.status = AccountStatus.PENDING_APPROVAL;
         return user;
+    }
+
+    /** Records the stored invite link a brand-new account registered through. */
+    public void joinedThrough(Long inviteLinkId) {
+        this.inviteLinkId = Objects.requireNonNull(inviteLinkId, "inviteLinkId");
     }
 
     /** Confirms the email and moves the account to approval. */

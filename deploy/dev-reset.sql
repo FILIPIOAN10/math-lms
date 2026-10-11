@@ -1,7 +1,8 @@
 -- FULL reset of the DEV database to a clean slate for manual testing (never run it on production).
 --
 -- Deletes ALL content and quiz data: classes, books, chapters, exercises, enrollments, quizzes,
--- items, options, hints, attempts, answers, homework and queued emails (ids restart at 1).
+-- items, options, hints, attempts, answers, daily-review answers, homework, invite links and queued emails
+-- (ids restart at 1).
 -- Deletes every user EXCEPT the four seed accounts below, which are (re)created ACTIVE with the
 -- password Admin123!, no parent link and no Google link:
 --   admin@mathlms.local          ADMIN
@@ -18,11 +19,19 @@
 \set ON_ERROR_STOP on
 BEGIN;
 
-TRUNCATE item_responses, quiz_attempts, quiz_item_hints, quiz_options, quiz_items, assignments,
-         quizzes, exercises, chapters, books, enrollments, school_classes, outbox_event
+UPDATE users SET parent_id = NULL, invite_link_id = NULL;
+
+TRUNCATE review_answers, item_responses, quiz_attempts, quiz_item_hints, quiz_options, quiz_items, assignments,
+         quizzes, exercises, chapters, books, enrollments, outbox_event
          RESTART IDENTITY;
 
-UPDATE users SET parent_id = NULL;
+-- users references invite_links and invite_links references school_classes: TRUNCATE refuses a table that a table
+-- outside the list references (users is kept), so these two are deleted and their ids restarted by hand.
+DELETE FROM invite_links;
+DELETE FROM school_classes;
+ALTER TABLE invite_links ALTER COLUMN id RESTART WITH 1;
+ALTER TABLE school_classes ALTER COLUMN id RESTART WITH 1;
+
 DELETE FROM users WHERE email NOT IN ('admin@mathlms.local', 'parinte@mathlms.local',
                                       'student.activ@mathlms.local', 'student.nou@mathlms.local');
 

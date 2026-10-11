@@ -1,7 +1,7 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
+import { CopyLinkField } from '@/components/CopyLinkField'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { createInvite as createInviteRequest, type Invite, type Role } from '@/lib/api'
 
@@ -24,15 +24,12 @@ export function InviteLinkCard({ createInvite = createInviteRequest }: Props) {
   const [invite, setInvite] = useState<Invite | null>(null)
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [copied, setCopied] = useState(false)
-  const urlInput = useRef<HTMLInputElement>(null)
 
   async function handleGenerate() {
     setError(null)
     setGenerating(true)
     try {
       setInvite(await createInvite(role))
-      setCopied(false)
     } catch {
       setInvite(null)
       setError('Nu am putut genera linkul. Reîncearcă.')
@@ -41,31 +38,15 @@ export function InviteLinkCard({ createInvite = createInviteRequest }: Props) {
     }
   }
 
-  async function handleCopy() {
-    if (!invite) {
-      return
-    }
-    setError(null)
-    try {
-      await navigator.clipboard.writeText(invite.url)
-      setCopied(true)
-    } catch {
-      // Clipboard access can be refused (permissions, embedded browsers); fall back to a
-      // selection the admin only has to copy.
-      urlInput.current?.focus()
-      urlInput.current?.select()
-      setError('Browserul nu permite copierea automată — linkul e selectat, apasă Ctrl+C.')
-    }
-  }
-
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-xl">Invită utilizatori</CardTitle>
+        <CardTitle className="text-xl">Link general (cu aprobare)</CardTitle>
         <CardDescription>
-          Generează un link de înregistrare și trimite-l elevului sau părintelui. Linkul e valabil 7 zile
-          și poate fi folosit de mai multe persoane; după înregistrare și confirmarea emailului, contul
-          apare la „Conturi în așteptare”, unde îl aprobi.
+          Mai simplu: pentru elevi folosește <strong>Invită elevi</strong> din Conținut (pe rândul clasei), iar pentru
+          părinți <strong>Invită părintele</strong> din lista de mai jos — contul intră direct în clasă / se leagă
+          singur, fără aprobare. Linkul general de aici nu știe clasa: e valabil 7 zile, îl pot folosi mai multe
+          persoane, iar fiecare cont apare la „Conturi în așteptare”, unde îl aprobi, înscrii și legi tu.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -100,23 +81,17 @@ export function InviteLinkCard({ createInvite = createInviteRequest }: Props) {
 
         {invite && (
           <div className="space-y-1">
-            <Label htmlFor="invite-url">Link de invitație</Label>
+            <CopyLinkField
+              key={invite.url}
+              id="invite-url"
+              label="Link de invitație"
+              url={invite.url}
+              inputTestId="invite-url"
+              copyTestId="invite-copy"
+            />
             <p className="text-sm text-muted-foreground">
               Pentru rolul: <span data-testid="invite-role">{roleLabel(invite.role)}</span>
             </p>
-            <div className="flex gap-2">
-              <Input
-                id="invite-url"
-                ref={urlInput}
-                data-testid="invite-url"
-                readOnly
-                value={invite.url}
-                onFocus={(e) => e.currentTarget.select()}
-              />
-              <Button variant="outline" data-testid="invite-copy" onClick={handleCopy}>
-                {copied ? 'Copiat ✓' : 'Copiază'}
-              </Button>
-            </div>
           </div>
         )}
       </CardContent>

@@ -1,7 +1,7 @@
 # Testing guide
 
 Cum rulezi și testezi math-lms: stack local, date de test, teste automate și fluxuri manuale
-per feature. Actualizat la 2026-10-10 (`main` = `e349248`, migrări V1–V20).
+per feature. Actualizat la 2026-10-11 (migrări V1–V23).
 
 ## A. Pornește stack-ul
 
@@ -123,7 +123,7 @@ un subiect fără variante = subiect deschis (cu poză).
 Rulează asta înainte de orice commit.
 
 ```bash
-# Backend — 834 teste (necesită Docker pentru Testcontainers)
+# Backend — 870 de teste (necesită Docker pentru Testcontainers)
 cd math-lms/backend && ./mvnw test
 
 # Doar suita de conținut (Faza 2)
@@ -133,7 +133,7 @@ cd math-lms/backend && ./mvnw test
 cd math-lms/frontend && npm test && npm run build
 ```
 
-Frontend: **Vitest + Testing Library** (`npm test`, 245 teste în 33 fișiere): clientul API (header CSRF doar pe scrieri, refresh silențios la 401 cu o singură rotație pentru cereri paralele, fără refresh la login greșit), `AppShell` + paginile de start pe rol, `TakeQuizPage` (practică, indicii, navigator, dialogul de predare, cronometru, poze), `AttemptResultView` (nota, comentariile profesorului, poza proprie), `AdminGradingPage`, `AdminQuizzesPage` (meniul ⋯, editorul pe URL), `StudentQuizListPage`, `AccountPage` + `EraseAccountPage`, `PageHeader`, `RowMenu`, nota 1–10 (`grades.ts`), `RoleRoute`, `LoginPage`. Rulează și în CI. Fluxurile cap-coadă rămân în suita E2E (Selenium).
+Frontend: **Vitest + Testing Library** (`npm test`, 264 de teste în 37 de fișiere): clientul API (header CSRF doar pe scrieri, refresh silențios la 401 cu o singură rotație pentru cereri paralele, fără refresh la login greșit), `AppShell` + paginile de start pe rol, `TakeQuizPage` (practică, indicii, navigator, dialogul de predare, cronometru, poze), `AttemptResultView` (nota, comentariile profesorului, poza proprie), `AdminGradingPage`, `AdminQuizzesPage` (meniul ⋯, editorul pe URL), `StudentQuizListPage`, `AccountPage` + `EraseAccountPage`, `RegisterPage` (previzualizarea linkului), `AdminLinksPage` (Invită părintele), `ClassInviteDialog`, `ChapterQuizDialog`, `PageHeader`, `RowMenu`, nota 1–10 (`grades.ts`), `RoleRoute`, `LoginPage`. Rulează și în CI. Fluxurile cap-coadă rămân în suita E2E (Selenium).
 
 O rulare izolată poate pica rar în `VerificationTokenServiceTest.rejectsTamperedToken` (test instabil, cunoscut: modifică
 ultimele 2 caractere ale semnăturii, care uneori nu schimbă semnătura decodată) — rerulează; fixul e în așteptare.
@@ -195,8 +195,9 @@ backend `:8080`, Vite `:5173`) și a conturilor seed din secțiunea B. Sunt excl
 - alege un părinte pentru un student → **Leagă** → „Părinte curent" se actualizează; în DB `parent_id` setat
 - endpointul: `GET /api/admin/users?role=STUDENT|PARENT`, apoi `POST /api/admin/users/{id}/link-parent`
 
-### 4a. Admin — invitații (`/admin/links`, cardul „Invită utilizatori”, ca admin)
+### 4a. Admin — link general cu aprobare (`/admin/links`, cardul „Link general (cu aprobare)”, ca admin)
 Buton pe Dashboard: **Invitații și părinți**. Înregistrarea e doar pe bază de invitație — pe `/login` nu există (intenționat) un buton „Creează cont”.
+Calea simplă (fără aprobare) e la §18; linkul general rămâne pentru cazurile în care nu știi încă clasa.
 - alege **Rol** (Elev / Părinte — nu se pot genera invitații de admin din UI) → **Generează link** → apare „Link de invitație” + „Pentru rolul: …”
 - **Copiază** → „Copiat ✓”; dacă browserul refuză clipboard-ul, linkul rămâne selectat și apare „apasă Ctrl+C”
 - linkul e valabil **7 zile** și poate fi folosit de mai multe persoane (token semnat, nu se stochează); un link nou nu le invalidează pe cele vechi
@@ -476,6 +477,39 @@ răspunsurile din recapitulare). Răspunsurile din recapitulare contează și pe
   `docker exec -i mathlms-postgres psql -U mathlms -d mathlms -c "update quiz_attempts set started_at = started_at - interval '1 day' where mode='PRACTICE'"`
 - API: elev `GET /api/quiz/review/today`, `POST /api/quiz/review/items/{itemId}/answer {"optionId":…}` (întrebare nescadentă azi → 409);
   părinte `GET /api/parent/children/{id}/review`; profesor `GET /api/admin/classes/{id}/review`
+
+### 18. Invitație pe clasă și pentru părinte — fără aprobare (T1)
+**De ce:** înainte, un elev nou cerea 6 pași pe 3 pagini (link → cont → email → **aprobi** → **înscrii** → **legi părintele**).
+Acum linkul știe unde intră omul: după confirmarea emailului contul e **activ**, **înscris în clasă** / **legat de elev** — profesorul nu mai face nimic.
+**Reguli (decizia ta: „plafonat + revocabil”):** link stocat în baza de date (V23 `invite_links`), valabil **7 zile**, cu un număr maxim
+de folosiri (clasă: implicit **30**, 1–200; părinte: **1**), oprit oricând cu **Oprește linkul**. Folosirea se ia atomic la înregistrare
+(două persoane simultan nu pot depăși plafonul); dacă emailul e deja folosit, folosirea se dă înapoi. Cine s-a înregistrat **înainte**
+de oprire/expirare își termină intrarea. Linkurile vechi „pe rol” (§4a) merg ca înainte — contul așteaptă aprobarea.
+- **Profesor — elevi:** Conținut → pe rândul clasei **Invită elevi** → „Câți elevi îl pot folosi” (30) → **Generează link nou** → **Copiază**.
+  Lista arată fiecare link activ: „Folosit 2 / 30 · expiră …”, „plin — generează altul” când s-a umplut, **Oprește linkul**
+- **Profesor — părinte:** Invitații → tabelul „Părinții elevilor” → **Invită părintele** pe un elev fără părinte → link de o singură folosință
+  sub rând. Un link nou îl anulează pe cel nefolosit. Elev cu părinte deja legat → butonul lipsește (serverul: 409 „are deja un părinte legat”)
+- **Elevul / părintele** deschide linkul (fereastră privată): sus „**Te alături clasei Clasa a 8-a**” (sau „Cont de părinte”) → completează →
+  „Deschide-l și contul tău e gata” → linkul din email → „Email confirmat și contul e activ” → login direct pe pagina de start (nu `/pending`),
+  clasa apare la Conținut / copilul la „Copiii mei”
+- **Link mort** (oprit, expirat, plin, inexistent): pagina spune motivul **înainte** de formular („Link indisponibil — … a fost oprit de profesor”)
+- **Clasa ștearsă** între înregistrare și confirmare → contul ajunge la „Conturi în așteptare” (ca înainte), nu se pierde
+- **Google** printr-un link de clasă/părinte: contul e activ și înscris/legat imediat (Google a verificat deja emailul)
+- Confirmarea emailului cere SMTP-ul real din `.env` și o adresă pe care o citești (ca la §5); fluxul complet fără email e acoperit
+  de `InviteLinkIntegrationTest` (link → înregistrare → confirmare → activ + înscris / legat; plafon, oprire, expirare)
+- API: profesor `GET|POST /api/admin/classes/{id}/invites` (`{"maxUses":25}` opțional), `POST /api/admin/users/{elevId}/parent-invite`,
+  `DELETE /api/admin/invite-links/{id}`; public `GET /api/public/invites/preview?token=…` → `{role, className, direct}` sau **410** cu motivul
+- Verificare în DB: `select id, kind, uses, max_uses, expires_at, revoked_at from invite_links order by id desc;`
+
+### 19. Quiz din capitol (T2)
+**De ce:** exercițiile din Conținut și subiectele din quiz-uri erau două bănci separate — scriai totul de două ori.
+- Conținut → clasă → carte → capitol cu exerciții → **Creează quiz din capitol** (dezactivat când capitolul n-are exerciții)
+- dialogul: titlu („Fracții — test”), toate exercițiile bifate (Selectează / Deselectează tot), **Puncte pe subiect** (1–100) → **Creează quiz (n)**
+- se deschide editorul `/admin/quizzes/:id` pe o **ciornă**: pentru clasa capitolului, cu **Capitol** = capitolul (harta E6), fiecare exercițiu =
+  **subiect deschis** (poză) cu soluția exercițiului ca **barem**, în ordinea din capitol (nu în ordinea bifelor)
+- e o **copie**: modificările din quiz nu ating exercițiile și invers; o grilă se face din editor (alt tip de subiect → adaugă-l nou)
+- API: `POST /api/admin/chapters/{id}/quiz {"title":…,"exerciseIds":[…],"points":2}` → 201 + rezumatul quiz-ului; exercițiu din alt capitol → 400
+- Teste: `QuizFromChapterIntegrationTest`, `QuizAdminServiceTest`, `ChapterQuizDialog.test.tsx`
 
 ### Verificare rapidă prin API (ca admin, cu cookie)
 Scrierile (POST/PUT/DELETE, în afară de `/api/auth/**`) cer header-ul `X-XSRF-TOKEN` egal cu cookie-ul
