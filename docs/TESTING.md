@@ -118,6 +118,28 @@ R: $200 - 30 = 170$ lei (5p)
 Formatul importului: `*` marchează varianta corectă, `(Np)` dă punctajul, `R:` = rezolvare/barem, `I:` = indiciu (max 5),
 un subiect fără variante = subiect deschis (cu poză).
 
+**Format Evaluare Națională (secțiuni, V24):** un rând `SUBIECTUL I` / `SUBIECTUL al II-lea` începe o secțiune, rândurile de sub el (până
+la primul subiect) sunt instrucțiunea, iar punctajul poate sta în față: `5p 1. Rezultatul calculului … este:`. Fiecare subiect rămâne separat
+(punctaj, corectare automată, statistici), dar editorul, testul elevului, rezultatul, corectura și statisticile le arată grupate sub titlu,
+numerotate de la 1 în fiecare secțiune; în bara de jos a testului: `I.1 … I.6, II.1 …`. Secțiunea se poate scrie și de mână, în dialogul
+subiectului (**Secțiune (opțional)**); un subiect nou pornește cu secțiunea celui dinainte. Exemplu de lipit:
+```
+SUBIECTUL I
+Încercuiește litera corespunzătoare răspunsului corect. (30 de puncte)
+5p 1. Rezultatul calculului $6 - 6 : 2$ este egal cu:
+a) 0
+*b) 3
+c) 6
+d) 9
+5p 2. Cel mai mic număr natural de două cifre este:
+*a) 10
+b) 11
+SUBIECTUL al III-lea
+Scrie rezolvările complete. (30 de puncte)
+10p 1. Rezolvă ecuația $2x + 3 = 11$.
+R: $x = 4$
+```
+
 ## C. Testare automată
 
 Rulează asta înainte de orice commit.

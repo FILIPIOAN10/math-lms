@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from 'react'
+import { Fragment, useEffect, useId, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -8,6 +8,8 @@ import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { AttemptStatusBadge } from '@/components/AttemptStatusBadge'
 import { MathContent } from '@/components/MathContent'
 import { GradeByItem } from '@/components/GradeByItem'
+import { SectionHeadingView } from '@/components/SectionHeadingView'
+import { numberItems } from '@/lib/sections'
 import {
   attemptPhotoUrl,
   commentOnAttempt,
@@ -342,11 +344,13 @@ export function AdminGradingPage() {
               </CardContent>
             </Card>
 
-            {detail.items.map((item, index) => (
-              <Card key={item.itemId}>
+            {numberItems(detail.items).map(({ item, local, heading }) => (
+              <Fragment key={item.itemId}>
+              {heading && <SectionHeadingView heading={heading} />}
+              <Card>
                 <CardContent className="space-y-3 py-4">
                   <p className="text-sm font-medium">
-                    {index + 1}. {item.type === 'SINGLE_CHOICE' ? 'Grilă' : 'Rezolvare'} · {item.points} p
+                    {local}. {item.type === 'SINGLE_CHOICE' ? 'Grilă' : 'Rezolvare'} · {item.points} p
                   </p>
                   <MathContent className="text-sm">{item.statement}</MathContent>
 
@@ -377,6 +381,7 @@ export function AdminGradingPage() {
                   )}
                 </CardContent>
               </Card>
+              </Fragment>
             ))}
 
             <OverallComment key={detail.attemptId} attempt={detail} onSaved={() => open(detail.attemptId)} />

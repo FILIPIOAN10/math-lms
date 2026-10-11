@@ -60,4 +60,23 @@ class QuizItemTest {
         assertThat(item.getPoints()).isEqualTo(10);
         assertThat(item.getSolution()).isEqualTo("barem");
     }
+
+    @Test
+    void aSectionHeadingIsTrimmedAndABlankOneMeansNone() {
+        QuizItem item = new QuizItem(quiz, 0, QuizItemType.SINGLE_CHOICE, "x", 5, null);
+
+        item.placeInSection("  SUBIECTUL I\nÎncercuiește litera corespunzătoare răspunsului corect.  ");
+        assertThat(item.getSection()).isEqualTo("SUBIECTUL I\nÎncercuiește litera corespunzătoare răspunsului corect.");
+
+        item.placeInSection("   ");
+        assertThat(item.getSection()).isNull();
+    }
+
+    @Test
+    void aSectionHeadingHasALimit() {
+        QuizItem item = new QuizItem(quiz, 0, QuizItemType.OPEN, "x", 5, null);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> item.placeInSection("x".repeat(QuizItem.MAX_SECTION + 1)))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
 }

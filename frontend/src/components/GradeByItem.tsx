@@ -15,6 +15,7 @@ import {
 } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
 import { roCount } from '@/lib/format'
+import { numberItems, parseSection } from '@/lib/sections'
 import { cn } from '@/lib/utils'
 
 /** Same limit as the server (V20 columns). */
@@ -52,7 +53,7 @@ export function GradeByItem({
   const [papers, setPapers] = useState<AdminAttemptDetail[] | null>(null)
   // The quiz's open questions with the number students saw (their place in the quiz), fixed at load: papers leave
   // the list as they are finalised, the questions stay.
-  const [questions, setQuestions] = useState<{ item: AdminItemReview; number: number }[]>([])
+  const [questions, setQuestions] = useState<{ item: AdminItemReview; number: string }[]>([])
   const [itemId, setItemId] = useState<number | null>(null)
   const [index, setIndex] = useState(0)
   const [error, setError] = useState<string | null>(null)
@@ -66,8 +67,9 @@ export function GradeByItem({
       .then((list) => {
         if (cancelled) return
         setPapers(list)
-        const open = (list[0]?.items ?? [])
-          .map((item, i) => ({ item, number: i + 1 }))
+        // "3", or "III.1" in a test with EN sections - the number the students saw.
+        const open = numberItems(list[0]?.items ?? [])
+          .map((n) => ({ item: n.item, number: n.label }))
           .filter((q) => q.item.type === 'OPEN')
         setQuestions(open)
         // Start on the first open question that still has an answer without points, at the first such paper.
@@ -164,6 +166,11 @@ export function GradeByItem({
         <>
           <Card>
             <CardContent className="space-y-2 py-4">
+              {current.item.section && (
+                <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                  {parseSection(current.item.section).title}
+                </p>
+              )}
               <p className="text-sm font-medium">Subiectul {current.number} · {current.item.points} p</p>
               <MathContent className="text-sm">{current.item.statement}</MathContent>
               {current.item.barem && (

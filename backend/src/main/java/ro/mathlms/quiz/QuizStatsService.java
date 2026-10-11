@@ -63,7 +63,7 @@ public class QuizStatsService {
                     ? null : (double) correct / graded;
             Double averagePoints = graded == 0 ? null : (double) totalPoints / graded;
             itemStats.add(new ItemStatDto(item.getId(), item.getPosition(), item.getType(), item.getStatement(),
-                    item.getPoints(), correctRate, averagePoints));
+                    item.getPoints(), correctRate, averagePoints, item.getSection()));
         }
         return new QuizStatsDto(quiz.getId(), quiz.getTitle(), graded, maxScore, averageScore, averagePercent,
                 distribution(scores, maxScore), itemStats);

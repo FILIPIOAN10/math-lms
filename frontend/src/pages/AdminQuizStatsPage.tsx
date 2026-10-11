@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
 import { MathContent } from '@/components/MathContent'
+import { SectionHeadingView } from '@/components/SectionHeadingView'
+import { numberItems } from '@/lib/sections'
 import { getQuizStats, type QuizStatsDto } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
 import { PageHeader } from '@/components/PageHeader'
@@ -95,12 +97,14 @@ export function AdminQuizStatsPage() {
 
             <section className="space-y-2">
               <h2 className="font-medium">Pe subiecte</h2>
-              {stats.items.map((item, index) => (
-                <Card key={item.itemId}>
+              {numberItems(stats.items).map(({ item, label, heading }) => (
+                <Fragment key={item.itemId}>
+                {heading && <SectionHeadingView heading={heading} />}
+                <Card>
                   <CardContent className="space-y-2 py-3" data-testid="stats-item">
                     <div className="flex items-center justify-between gap-2 text-sm">
                       <span className="font-medium">
-                        Subiectul {index + 1} · {item.type === 'SINGLE_CHOICE' ? 'Grilă' : 'Deschis'} · {item.points} p
+                        Subiectul {label} · {item.type === 'SINGLE_CHOICE' ? 'Grilă' : 'Deschis'} · {item.points} p
                       </span>
                       {hardest?.itemId === item.itemId && (
                         <span className="rounded bg-rose-500/15 px-1.5 py-0.5 text-xs text-rose-700 dark:text-rose-300">
@@ -123,6 +127,7 @@ export function AdminQuizStatsPage() {
                     )}
                   </CardContent>
                 </Card>
+                </Fragment>
               ))}
             </section>
           </>

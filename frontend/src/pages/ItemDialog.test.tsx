@@ -19,6 +19,23 @@ async function submitted(onSubmit: ReturnType<typeof vi.fn>): Promise<ItemInput>
   return onSubmit.mock.calls[0][0]
 }
 
+describe('ItemDialog section', () => {
+  it('sends the heading the question sits under, and nothing when left empty', async () => {
+    const onSubmit = renderDialog({ ...openItem, section: 'SUBIECTUL al III-lea' })
+    expect(screen.getByLabelText('Secțiune (opțional)')).toHaveValue('SUBIECTUL al III-lea')
+
+    await userEvent.clear(screen.getByLabelText('Secțiune (opțional)'))
+    await userEvent.click(screen.getByRole('button', { name: 'Salvează' }))
+
+    expect((await submitted(onSubmit)).section).toBeNull()
+  })
+
+  it("starts a new question under the previous one's heading", () => {
+    render(<ItemDialog open onClose={vi.fn()} initial={null} onSubmit={vi.fn()} defaultSection="SUBIECTUL al II-lea" />)
+    expect(screen.getByLabelText('Secțiune (opțional)')).toHaveValue('SUBIECTUL al II-lea')
+  })
+})
+
 describe('ItemDialog hints editor', () => {
   it('starts empty for a new item and adds hint boxes one at a time', async () => {
     renderDialog(null)

@@ -40,7 +40,8 @@ public final class QuizDtos {
             String solution,
             List<OptionDto> options,
             List<String> hints, // progressive hints in order (the builder view; students get them one at a time)
-            Long chapterId // its own chapter; null = the quiz's
+            Long chapterId, // its own chapter; null = the quiz's
+            String section // the heading it sits under ("SUBIECTUL I"); null = none
     ) {
         public static ItemDto from(QuizItem item, List<QuizOption> options, List<QuizItemHint> hints) {
             return new ItemDto(
@@ -52,7 +53,8 @@ public final class QuizDtos {
                     item.getSolution(),
                     options.stream().map(OptionDto::from).toList(),
                     hints.stream().map(QuizItemHint::getText).toList(),
-                    item.getChapter() == null ? null : item.getChapter().getId());
+                    item.getChapter() == null ? null : item.getChapter().getId(),
+                    item.getSection());
         }
     }
 

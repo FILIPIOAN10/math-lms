@@ -420,7 +420,8 @@ public class QuizAttemptService {
                     selectedText, correctText, item.getSolution(), photoUploaded,
                     response == null ? 0 : response.getHintsUsed(),
                     hintCounts.getOrDefault(item.getId(), 0),
-                    response == null ? null : response.getTeacherComment()));
+                    response == null ? null : response.getTeacherComment(),
+                    item.getSection()));
         }
         return new AttemptResultViewDto(attempt.getId(), attempt.getQuiz().getTitle(),
                 attempt.getStatus(), attempt.getScore(), maxScore, itemResults, attempt.getMode(),
@@ -698,7 +699,8 @@ public class QuizAttemptService {
                     response == null ? null : response.getCorrect(),
                     response == null ? null : response.getAwardedPoints(),
                     response != null && response.getImageKey() != null,
-                    response == null ? null : response.getTeacherComment()));
+                    response == null ? null : response.getTeacherComment(),
+                    item.getSection()));
         }
         return new AdminAttemptDetailDto(attempt.getId(), attempt.getQuiz().getTitle(),
                 attempt.getStudent().getFullName(), attempt.getStatus(), attempt.getSubmittedAt(),

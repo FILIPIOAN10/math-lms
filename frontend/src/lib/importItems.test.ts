@@ -68,7 +68,7 @@ describe('parseItems', () => {
     ].join('\n'))
 
     expect(errors).toEqual([
-      'Linia 1: textul trebuie să înceapă cu un subiect numerotat („1. …”).',
+      'Linia 1: textul trebuie să înceapă cu un subiect numerotat („1. …”) sau cu „SUBIECTUL I”.',
       'Subiectul 3, linia 10: nu știu ce e „ceva rătăcit după variante” (variantele încep cu a), b)…, rezolvarea cu R:, indiciile cu I:).',
       'Subiectul 1: marchează cu * exact o variantă corectă (acum: 0).',
       'Subiectul 2: marchează cu * exact o variantă corectă (acum: 2).',
@@ -84,5 +84,58 @@ describe('parseItems', () => {
 
   it('finds nothing in an empty text', () => {
     expect(parseItems('  \n\n')).toEqual({ items: [], errors: [] })
+  })
+
+  describe('Evaluare Națională papers', () => {
+    const EN = `
+SUBIECTUL I
+Încercuiește litera corespunzătoare răspunsului corect. (30 de puncte)
+5p 1. Rezultatul calculului $6 - 6 : 2$ este egal cu:
+a) 0
+*b) 3
+c) 6
+d) 9
+5p 2. Cel mai mic număr natural de două cifre este:
+*a) 10
+b) 11
+SUBIECTUL al II-lea
+5p 1. Ana are 12 mere. Câte mere rămân dacă dă 5?
+*a) 7
+b) 8
+SUBIECTUL al III-lea
+Scrie rezolvările complete. (30 de puncte)
+10p 1. Rezolvă ecuația $2x + 3 = 11$.
+R: $x = 4$
+`
+
+    it('keeps every question separate, under its heading, with the points written first', () => {
+      const { items, errors } = parseItems(EN)
+
+      expect(errors).toEqual([])
+      expect(items).toHaveLength(4)
+      expect(items.map((i) => i.points)).toEqual([5, 5, 5, 10])
+      expect(items.map((i) => i.type)).toEqual(['SINGLE_CHOICE', 'SINGLE_CHOICE', 'SINGLE_CHOICE', 'OPEN'])
+      expect(items[0].statement).toBe('Rezultatul calculului $6 - 6 : 2$ este egal cu:')
+      expect(items[0].section).toBe('SUBIECTUL I\nÎncercuiește litera corespunzătoare răspunsului corect. (30 de puncte)')
+      expect(items[1].section).toBe(items[0].section)
+      expect(items[2].section).toBe('SUBIECTUL al II-lea')
+      expect(items[3].section).toBe('SUBIECTUL al III-lea\nScrie rezolvările complete. (30 de puncte)')
+      expect(items[3].solution).toBe('$x = 4$')
+    })
+
+    it('lets "(Np)" at the end win over points written first', () => {
+      const { items } = parseItems('SUBIECTUL I\n5p 1. Enunț (3p)\nR: x')
+      expect(items[0].points).toBe(3)
+    })
+
+    it('leaves a test without headings without sections', () => {
+      const { items } = parseItems('1. Enunț (2p)\nR: x')
+      expect(items[0].section).toBeNull()
+    })
+
+    it('names the section in an error', () => {
+      const { errors } = parseItems('SUBIECTUL al II-lea\n5p 1. Enunț\na) 1\nb) 2')
+      expect(errors).toEqual(['SUBIECTUL al II-lea, subiectul 1: marchează cu * exact o variantă corectă (acum: 0).'])
+    })
   })
 })

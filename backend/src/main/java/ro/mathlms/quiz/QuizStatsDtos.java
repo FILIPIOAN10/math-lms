@@ -17,7 +17,7 @@ public final class QuizStatsDtos {
      * hardest question; {@code averagePoints} for every item. Both are null until something is graded.
      */
     public record ItemStatDto(Long itemId, int position, QuizItemType type, String statement, int points,
-                              Double correctRate, Double averagePoints) {
+                              Double correctRate, Double averagePoints, String section) {
     }
 
     public record QuizStatsDto(Long quizId, String title, int gradedAttempts, int maxScore,

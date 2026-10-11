@@ -51,7 +51,8 @@ public final class AdminAttemptDtos {
             Boolean correct,
             Integer awardedPoints,
             boolean photoUploaded,
-            String teacherComment
+            String teacherComment,
+            String section // the heading it sits under; null = none
     ) {
     }
 

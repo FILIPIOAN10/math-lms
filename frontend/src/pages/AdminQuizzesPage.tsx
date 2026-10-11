@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent, type KeyboardEvent } from 'react'
+import { Fragment, useEffect, useState, type FormEvent, type KeyboardEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -12,6 +12,8 @@ import { PageHeader } from '@/components/PageHeader'
 import { RowMenu } from '@/components/RowMenu'
 import { TestsTabs } from '@/components/TestsTabs'
 import { PublishDialog } from '@/components/PublishDialog'
+import { SectionHeadingView } from '@/components/SectionHeadingView'
+import { numberItems } from '@/lib/sections'
 import { useConfirm } from '@/components/useConfirm'
 import {
   addQuizItem,
@@ -246,6 +248,7 @@ export function ItemDialog({
   onSubmit,
   chapters = [],
   quizChapterTitle = null,
+  defaultSection = null,
 }: {
   open: boolean
   onClose: () => void
@@ -255,6 +258,8 @@ export function ItemDialog({
   chapters?: ChapterOption[]
   /** What "inherit" means here, e.g. "Fracții". */
   quizChapterTitle?: string | null
+  /** For a new question: the heading of the last one, so a section keeps filling up ("SUBIECTUL al III-lea"). */
+  defaultSection?: string | null
 }) {
   const [type, setType] = useState<QuizItemType>(initial?.type ?? 'SINGLE_CHOICE')
   const [statement, setStatement] = useState(initial?.statement ?? '')
@@ -262,6 +267,7 @@ export function ItemDialog({
   const [solution, setSolution] = useState(initial?.solution ?? '')
   const [hints, setHints] = useState<string[]>(initial?.hints ?? [])
   const [chapterId, setChapterId] = useState(initial?.chapterId == null ? '' : String(initial.chapterId))
+  const [section, setSection] = useState(initial ? initial.section ?? '' : defaultSection ?? '')
   const [options, setOptions] = useState<OptionDraft[]>(
     initial && initial.options.length > 0
       ? initial.options.map((o) => ({ text: o.text, correct: o.correct }))
@@ -325,6 +331,7 @@ export function ItemDialog({
           : null,
       hints: hints.map((h) => h.trim()).filter((h) => h !== ''), // an empty box is just dropped
       chapterId: chapterId === '' ? null : Number(chapterId),
+      section: section.trim() || null,
     }
     setBusy(true)
     try {
@@ -373,6 +380,16 @@ export function ItemDialog({
             <option value="OPEN">Deschis (rezolvare completă)</option>
           </select>
           {isEdit && <p className="text-xs text-muted-foreground">Tipul nu se poate schimba după creare.</p>}
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="isection">Secțiune (opțional)</Label>
+          <Textarea id="isection" rows={2} maxLength={300} value={section} onChange={(e) => setSection(e.target.value)}
+                    placeholder={'SUBIECTUL I\nÎncercuiește litera corespunzătoare răspunsului corect.'} className="min-h-0" />
+          <p className="text-xs text-muted-foreground">
+            Ca la Evaluarea Națională: subiectele cu aceeași secțiune apar grupate sub titlu (primul rând) și numerotate de la 1.
+            Gol = fără secțiune.
+          </p>
         </div>
 
         {chapters.length > 0 && (
@@ -600,7 +617,7 @@ export function AdminQuizzesPage() {
     }
   }
 
-  async function removeItem(item: QuizItemDto, number: number) {
+  async function removeItem(item: QuizItemDto, number: string) {
     if (!quiz) return
     const yes = await confirm({ title: `Ștergi subiectul ${number}?`, confirmLabel: 'Șterge', destructive: true })
     if (!yes) return
@@ -664,12 +681,14 @@ export function AdminQuizzesPage() {
                 <p className="text-muted-foreground">Niciun subiect încă. Adaugă primul.</p>
               ) : (
                 <div className="space-y-2">
-                  {quiz.items.map((item, i) => (
-                    <Card key={item.id}>
+                  {numberItems(quiz.items).map(({ item, label, local, heading }) => (
+                    <Fragment key={item.id}>
+                    {heading && <SectionHeadingView heading={heading} />}
+                    <Card>
                       <CardContent className="space-y-2 py-3">
                         <div className="flex items-start justify-between gap-2">
                           <p className="text-sm font-medium">
-                            {i + 1}. {item.type === 'SINGLE_CHOICE' ? 'Grilă' : 'Deschis'} · {item.points} p
+                            {local}. {item.type === 'SINGLE_CHOICE' ? 'Grilă' : 'Deschis'} · {item.points} p
                             {item.chapterId !== null && (
                               <span className="ml-2 rounded-md bg-sky-500/15 px-1.5 py-0.5 text-xs font-medium text-sky-800 dark:text-sky-200">
                                 {chapterTitle(item.chapterId) ?? 'alt capitol'}
@@ -677,10 +696,10 @@ export function AdminQuizzesPage() {
                             )}
                           </p>
                           <div className="flex shrink-0 gap-2">
-                            <Button size="xs" variant="outline" onClick={() => setItemDialog({ item })} aria-label={`Editează subiectul ${i + 1}`}>
+                            <Button size="xs" variant="outline" onClick={() => setItemDialog({ item })} aria-label={`Editează subiectul ${label}`}>
                               Editează
                             </Button>
-                            <Button size="xs" variant="destructive" onClick={() => removeItem(item, i + 1)} aria-label={`Șterge subiectul ${i + 1}`}>
+                            <Button size="xs" variant="destructive" onClick={() => removeItem(item, label)} aria-label={`Șterge subiectul ${label}`}>
                               Șterge
                             </Button>
                           </div>
@@ -698,6 +717,7 @@ export function AdminQuizzesPage() {
                         )}
                       </CardContent>
                     </Card>
+                    </Fragment>
                   ))}
                 </div>
               )}
@@ -810,6 +830,7 @@ export function AdminQuizzesPage() {
           initial={itemDialog.item}
           chapters={chaptersForQuiz}
           quizChapterTitle={chapterTitle(quiz.chapterId)}
+          defaultSection={quiz.items.at(-1)?.section ?? null}
           onSubmit={async (input) => {
             if (itemDialog.item) {
               await updateQuizItem(itemDialog.item.id, input)

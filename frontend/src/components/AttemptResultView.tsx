@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { AttemptModeBadge } from '@/components/AttemptModeBadge'
 import { AttemptStatusBadge } from '@/components/AttemptStatusBadge'
 import { MathContent } from '@/components/MathContent'
+import { SectionHeadingView } from '@/components/SectionHeadingView'
+import { numberItems } from '@/lib/sections'
 import { ownPhotoUrl, type AttemptResultViewDto, type ItemResultDto } from '@/lib/api'
 import { formatGrade, romanianGrade } from '@/lib/grades'
 
@@ -22,12 +24,16 @@ export type ResultAudience = 'student' | 'parent'
 
 function ItemResult({
   item,
-  index,
+  label,
+  title,
   audience,
   attemptId,
 }: {
   item: ItemResultDto
-  index: number
+  /** "3" or "I.3" (a test with sections) */
+  label: string
+  /** What the card is headed with: "Subiectul 3", or just "3." under a section heading. */
+  title: string
   audience: ResultAudience
   attemptId: number
 }) {
@@ -43,7 +49,7 @@ function ItemResult({
     <Card>
       <CardContent className="space-y-3 py-4">
         <div className="flex items-center justify-between gap-2">
-          <p className="text-sm font-medium">Subiectul {index + 1}</p>
+          <p className="text-sm font-medium">{title}</p>
           <span className="text-sm text-muted-foreground">{points}</span>
         </div>
         <MathContent>{item.statement}</MathContent>
@@ -86,7 +92,7 @@ function ItemResult({
             <a href={ownPhotoUrl(attemptId, item.itemId)} target="_blank" rel="noreferrer" className="block w-fit">
               <img
                 src={ownPhotoUrl(attemptId, item.itemId)}
-                alt={`Poza ta pentru subiectul ${index + 1}`}
+                alt={`Poza ta pentru subiectul ${label}`}
                 className="max-h-64 rounded-lg border bg-background object-contain"
               />
             </a>
@@ -166,14 +172,17 @@ export function AttemptResultView({ result, audience = 'student' }: { result: At
         </CardContent>
       </Card>
 
-      {result.items.map((item, index) => (
-        <ItemResult
-          key={item.position + '-' + index}
-          item={item}
-          index={index}
-          audience={audience}
-          attemptId={result.attemptId}
-        />
+      {numberItems(result.items).map(({ item, label, local, heading }, index) => (
+        <Fragment key={item.position + '-' + index}>
+          {heading && <SectionHeadingView heading={heading} />}
+          <ItemResult
+            item={item}
+            label={label}
+            title={label.includes('.') ? `${local}.` : `Subiectul ${label}`}
+            audience={audience}
+            attemptId={result.attemptId}
+          />
+        </Fragment>
       ))}
     </>
   )

@@ -340,6 +340,26 @@ describe('TakeQuizPage', () => {
   })
 
   describe('finding your way around a test', () => {
+    it('groups an EN test under its headings and numbers again from 1 in each', async () => {
+      const attempt = startedThree()
+      attempt.quiz.items[0].section = 'SUBIECTUL I\nÎncercuiește litera corespunzătoare răspunsului corect.'
+      attempt.quiz.items[1].section = 'SUBIECTUL I\nÎncercuiește litera corespunzătoare răspunsului corect.'
+      attempt.quiz.items[2].section = 'SUBIECTUL al II-lea'
+      api.startQuizAttempt.mockResolvedValue(attempt)
+      renderPage('')
+      await userEvent.click(await screen.findByRole('button', { name: 'Începe testul' }))
+      await screen.findByText('Primul subiect')
+
+      expect(screen.getAllByTestId('section-heading').map((h) => h.textContent)).toEqual([
+        'SUBIECTUL IÎncercuiește litera corespunzătoare răspunsului corect.',
+        'SUBIECTUL al II-lea',
+      ])
+      expect(screen.getByRole('heading', { name: '1. · 2 p' })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: '1. · 4 p' })).toBeInTheDocument() // first under SUBIECTUL al II-lea
+      const nav = screen.getByRole('navigation', { name: 'Subiecte' })
+      expect(within(nav).getAllByRole('button').map((b) => b.textContent)).toEqual(['I.1', 'I.2', 'II.1'])
+    })
+
     it('numbers every item in the bottom bar and marks the answered ones', async () => {
       api.startQuizAttempt.mockResolvedValue(startedThree())
       api.saveQuizAnswer.mockResolvedValue(null)

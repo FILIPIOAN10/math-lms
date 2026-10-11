@@ -21,17 +21,24 @@ public record ItemRequest(
         String solution,
         @Valid List<OptionRequest> options,
         @Size(max = QuizItem.MAX_HINTS) List<@NotBlank @Size(max = 2000) String> hints, // optional progressive hints, in order
-        Long chapterId // optional: overrides the quiz's chapter for this question; null = inherit (E6)
+        Long chapterId, // optional: overrides the quiz's chapter for this question; null = inherit (E6)
+        @Size(max = QuizItem.MAX_SECTION) String section // optional heading it sits under ("SUBIECTUL I"); null = none
 ) {
+    /** An item without a section heading (what the builder sent before EN sections). */
+    public ItemRequest(QuizItemType type, int position, String statement, int points, String solution,
+                       List<OptionRequest> options, List<String> hints, Long chapterId) {
+        this(type, position, statement, points, solution, options, hints, chapterId, null);
+    }
+
     /** An item without hints (what the builder sent before E3). */
     public ItemRequest(QuizItemType type, int position, String statement, int points, String solution,
                        List<OptionRequest> options) {
-        this(type, position, statement, points, solution, options, null, null);
+        this(type, position, statement, points, solution, options, null, null, null);
     }
 
     /** An item without its own chapter (what the builder sent before E6). */
     public ItemRequest(QuizItemType type, int position, String statement, int points, String solution,
                        List<OptionRequest> options, List<String> hints) {
-        this(type, position, statement, points, solution, options, hints, null);
+        this(type, position, statement, points, solution, options, hints, null, null);
     }
 }

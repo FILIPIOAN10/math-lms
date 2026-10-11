@@ -59,6 +59,16 @@ public class QuizItem {
     @JoinColumn(name = "chapter_id")
     private Chapter chapter;
 
+    /**
+     * The heading this question sits under (EN style: "SUBIECTUL I", optionally followed on new lines by the
+     * instruction under it), or {@code null}. Layout and numbering only - points and grading stay per question.
+     */
+    @Column(length = MAX_SECTION)
+    private String section;
+
+    /** The most characters a section heading (with its instruction) may have - the column's length. */
+    public static final int MAX_SECTION = 300;
+
     /** The most hints one item may carry. */
     public static final int MAX_HINTS = 5;
 
@@ -83,6 +93,15 @@ public class QuizItem {
     /** Tags this question with its own chapter, or ({@code null}) lets it inherit the quiz's. */
     public void tagChapter(Chapter chapter) {
         this.chapter = chapter;
+    }
+
+    /** Puts this question under a heading; blank = no heading. */
+    public void placeInSection(String section) {
+        String trimmed = section == null ? null : section.strip();
+        if (trimmed != null && trimmed.length() > MAX_SECTION) {
+            throw new IllegalArgumentException("section must be at most " + MAX_SECTION + " characters");
+        }
+        this.section = trimmed == null || trimmed.isEmpty() ? null : trimmed;
     }
 
     private static int requireNonNegative(int points) {

@@ -176,6 +176,7 @@ public class QuizAdminService {
             QuizItem fresh = new QuizItem(saved, item.getPosition(), item.getType(),
                     item.getStatement(), item.getPoints(), item.getSolution());
             fresh.tagChapter(item.getChapter());
+            fresh.placeInSection(item.getSection());
             QuizItem itemCopy = itemRepository.save(fresh);
             for (QuizOption option : optionRepository.findByItemIdOrderByPosition(item.getId())) {
                 optionRepository.save(new QuizOption(itemCopy, option.getPosition(), option.getText(), option.isCorrect()));
@@ -258,6 +259,7 @@ public class QuizAdminService {
                 quiz, request.position(), request.type(), request.statement(),
                 request.points(), request.solution());
         fresh.tagChapter(chapterFitting(request.chapterId(), quiz.getSchoolClass()));
+        fresh.placeInSection(request.section());
         QuizItem item = itemRepository.save(fresh);
         List<QuizOption> options = saveOptionsIfSingleChoice(item, request);
         List<QuizItemHint> hints = saveHints(item, request.hints());
@@ -274,6 +276,7 @@ public class QuizAdminService {
         requireValidHints(request.hints());
         // The chapter tag is bookkeeping for the mastery map, not part of the grade: it may change even once taken.
         item.tagChapter(chapterFitting(request.chapterId(), item.getQuiz().getSchoolClass()));
+        item.placeInSection(request.section()); // layout only, like the chapter tag: allowed even once taken
         boolean taken = quizRepository.countAttempts(item.getQuiz().getId()) > 0;
         List<QuizOption> options;
         if (taken) {

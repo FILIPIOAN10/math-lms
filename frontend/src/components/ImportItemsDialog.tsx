@@ -4,6 +4,8 @@ import { Dialog } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { MathContent } from '@/components/MathContent'
+import { SectionHeadingView } from '@/components/SectionHeadingView'
+import { numberItems } from '@/lib/sections'
 import type { ItemInput } from '@/lib/api'
 import { roCount } from '@/lib/format'
 import { parseItems } from '@/lib/importItems'
@@ -57,7 +59,7 @@ export function ImportItemsDialog({
       open={open}
       onOpenChange={(o) => !o && onClose()}
       title="Importă subiecte din text"
-      description="Un subiect începe cu „1.”, variantele cu a), b)… (* marchează varianta corectă), rezolvarea cu R:, indiciile cu I:. „(2p)” la finalul enunțului dă punctajul (implicit 1)."
+      description="Un subiect începe cu „1.”, variantele cu a), b)… (* marchează varianta corectă), rezolvarea cu R:, indiciile cu I:. „(2p)” la finalul enunțului dă punctajul (implicit 1). Format Evaluare Națională: „SUBIECTUL I” (cu instrucțiunea pe rândul următor) grupează subiectele, iar „5p 1.” dă punctajul la început."
     >
       <div className="flex max-h-[75vh] flex-col gap-4 overflow-y-auto pr-1">
         <div className="flex flex-col gap-2">
@@ -78,14 +80,16 @@ export function ImportItemsDialog({
               {roCount(parsed.items.length, 'subiect', 'subiecte')}: {roCount(choices, 'grilă', 'grile')},{' '}
               {roCount(parsed.items.length - choices, 'deschis', 'deschise')} · Total: {total} p
             </p>
-            <ol className="list-decimal space-y-1 pl-5 text-sm">
-              {parsed.items.map((item, i) => (
+            <ul className="space-y-1 text-sm">
+              {numberItems(parsed.items).map(({ item, local, heading }, i) => (
                 <li key={i}>
+                  {heading && <SectionHeadingView heading={heading} className="pb-1" />}
+                  <span className="font-medium">{local}. </span>
                   <MathContent inline>{item.statement}</MathContent>{' '}
                   <span className="text-muted-foreground">({item.points} p)</span>
                 </li>
               ))}
-            </ol>
+            </ul>
           </div>
         )}
 

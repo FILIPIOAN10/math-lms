@@ -1,9 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { MathContent } from '@/components/MathContent'
+import { SectionHeadingView } from '@/components/SectionHeadingView'
+import { numberItems } from '@/lib/sections'
 import {
   ApiError,
   getMyAssignments,
@@ -366,7 +368,9 @@ export function TakeQuizPage() {
   // ----- Taking the quiz -----
   const items = attempt.quiz.items
   const answeredCount = items.filter(isAnswered).length
-  const unanswered = items.flatMap((item, index) => (isAnswered(item) ? [] : [{ item, number: index + 1 }]))
+  const numbered = numberItems(items)
+  const labelOf = new Map(numbered.map((n) => [n.item.id, n.label]))
+  const unanswered = numbered.flatMap((n) => (isAnswered(n.item) ? [] : [{ item: n.item, number: n.label }]))
   const askAboutUnanswered = !practice && !timeUp && unanswered.length > 0
   const tone = timeLeft !== null ? timerTone(timeLeft) : 'normal'
 
@@ -420,11 +424,13 @@ export function TakeQuizPage() {
           )}
         </div>
 
-        {items.map((item, index) => (
-          <Card key={item.id} className="scroll-mt-14">
+        {numbered.map(({ item, label, local, heading }) => (
+          <Fragment key={item.id}>
+          {heading && <SectionHeadingView heading={heading} />}
+          <Card className="scroll-mt-14">
             <CardContent className="space-y-3 py-4">
               <h2 id={headingId(item.id)} tabIndex={-1} className="scroll-mt-14 text-sm font-medium outline-none">
-                Subiectul {index + 1} · {item.points} p
+                {label.includes('.') ? `${local}.` : `Subiectul ${label}`} · {item.points} p
               </h2>
               <MathContent>{item.statement}</MathContent>
 
@@ -531,7 +537,7 @@ export function TakeQuizPage() {
                     >
                       <img
                         src={`${ownPhotoUrl(attempt.attemptId, item.id)}${photoVersion[item.id] ? `?v=${photoVersion[item.id]}` : ''}`}
-                        alt={`Poza ta pentru subiectul ${index + 1}`}
+                        alt={`Poza ta pentru subiectul ${labelOf.get(item.id)}`}
                         className="max-h-48 rounded-lg border bg-background object-contain"
                       />
                     </a>
@@ -579,6 +585,7 @@ export function TakeQuizPage() {
               {itemErrors[item.id] && <p className="text-sm text-destructive">{itemErrors[item.id]}</p>}
             </CardContent>
           </Card>
+          </Fragment>
         ))}
 
         {error && <p className="text-sm text-destructive">{error}</p>}
@@ -587,20 +594,20 @@ export function TakeQuizPage() {
       <div className="fixed inset-x-0 bottom-0 border-t bg-background p-3">
         <div className="mx-auto max-w-3xl space-y-2">
           <nav aria-label="Subiecte" className="flex gap-1.5 overflow-x-auto pb-1">
-            {items.map((item, index) => {
+            {numbered.map(({ item, label }) => {
               const done = isAnswered(item)
               return (
                 <button
                   key={item.id}
                   type="button"
-                  aria-label={`Subiectul ${index + 1}, ${done ? 'cu răspuns' : 'fără răspuns'}`}
+                  aria-label={`Subiectul ${label}, ${done ? 'cu răspuns' : 'fără răspuns'}`}
                   onClick={() => goToItem(item.id)}
                   className={cn(
-                    'size-9 shrink-0 rounded-lg border text-sm font-medium transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+                    'h-9 min-w-9 shrink-0 rounded-lg border px-1.5 text-sm font-medium transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
                     done ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background hover:bg-muted',
                   )}
                 >
-                  {index + 1}
+                  {label}
                 </button>
               )
             })}

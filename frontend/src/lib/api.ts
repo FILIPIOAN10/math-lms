@@ -512,6 +512,8 @@ export interface QuizItemDto {
   hints: string[]
   /** Its own chapter; null = the quiz's. */
   chapterId: number | null
+  /** The heading it sits under (EN style: "SUBIECTUL I" + optional instruction lines); null/absent = none. */
+  section?: string | null
 }
 
 export interface QuizDetail {
@@ -541,6 +543,8 @@ export interface ItemInput {
   hints: string[]
   /** Overrides the quiz's chapter; null/absent = inherit. */
   chapterId?: number | null
+  /** The heading it sits under (EN style: "SUBIECTUL I" + optional instruction lines); null/absent = none. */
+  section?: string | null
 }
 
 // ---------- Chapters + mastery map (E6) ----------
@@ -682,6 +686,8 @@ export interface QuizItemStat {
   /** 0..1, only for single-choice items; null until something is graded. */
   correctRate: number | null
   averagePoints: number | null
+  /** The heading it sits under (EN style: "SUBIECTUL I" + optional instruction lines); null/absent = none. */
+  section?: string | null
 }
 
 export interface QuizStatsDto {
@@ -788,6 +794,8 @@ export interface StudentItemDto {
   options: StudentOptionDto[]
   /** Hints this item has - only ever above 0 in a practice; a graded test hides even their existence. */
   hintCount: number
+  /** The heading it sits under (EN style: "SUBIECTUL I" + optional instruction lines); null/absent = none. */
+  section?: string | null
 }
 
 export interface StudentQuizDetailDto {
@@ -895,6 +903,8 @@ export interface ItemResultDto {
   hintsAvailable: number
   /** The teacher's comment on this answer (graded open items), or null. */
   teacherComment: string | null
+  /** The heading it sits under (EN style: "SUBIECTUL I" + optional instruction lines); null/absent = none. */
+  section?: string | null
 }
 
 export interface AttemptResultViewDto {
@@ -1097,6 +1107,8 @@ export interface AdminItemReview {
   awardedPoints: number | null
   photoUploaded: boolean
   teacherComment: string | null
+  /** The heading it sits under (EN style: "SUBIECTUL I" + optional instruction lines); null/absent = none. */
+  section?: string | null
 }
 
 export interface AdminAttemptDetail {
