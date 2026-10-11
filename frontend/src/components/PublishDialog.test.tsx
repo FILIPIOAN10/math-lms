@@ -39,7 +39,7 @@ describe('PublishDialog', () => {
 
     expect(publishAndAssign).toHaveBeenCalledWith(7, expect.objectContaining({ schoolClassId: 2 }))
     expect(setQuizPublished).not.toHaveBeenCalled()
-    expect(onPublished).toHaveBeenCalled()
+    expect(onPublished).toHaveBeenCalledWith({}) // the homework the server created, for the confirmation
     expect(onClose).toHaveBeenCalled()
   })
 

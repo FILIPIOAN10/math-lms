@@ -40,15 +40,12 @@ import {
 } from '@/lib/api'
 import { PageHeader } from '@/components/PageHeader'
 import { useConfirm } from '@/components/useConfirm'
+import { errorMessage } from '@/lib/errors'
 
 const DIFFICULTIES: Difficulty[] = ['EASY', 'MEDIUM', 'HARD']
 const selectClass =
   'h-9 rounded-lg border border-border bg-background px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50'
 
-function errorMessage(e: unknown): string {
-  const body = (e as { body?: string })?.body
-  return body && body.length > 0 ? body : 'Operația a eșuat. Reîncearcă.'
-}
 
 /** Create/edit dialog for a class, book or chapter (name/title + optional description). */
 function TitleDescriptionDialog({
@@ -423,16 +420,6 @@ export function AdminContentPage() {
               {!cls && <Button onClick={() => setDialog({ kind: 'class', item: null })}>Adaugă clasă</Button>}
               {cls && !book && <Button onClick={() => setDialog({ kind: 'book', item: null })}>Adaugă carte</Button>}
               {book && !chapter && <Button onClick={() => setDialog({ kind: 'chapter', item: null })}>Adaugă capitol</Button>}
-              {chapter && (
-                <Button
-                  variant="outline"
-                  disabled={exercises.length === 0}
-                  title={exercises.length === 0 ? 'Adaugă întâi exerciții în capitol' : undefined}
-                  onClick={() => setDialog({ kind: 'chapterQuiz' })}
-                >
-                  Creează quiz din capitol
-                </Button>
-              )}
               {chapter && <Button onClick={() => setDialog({ kind: 'exercise', item: null })}>Adaugă exercițiu</Button>}
             </>
           }
@@ -443,8 +430,19 @@ export function AdminContentPage() {
         {loading && <p className="text-muted-foreground">Se încarcă...</p>}
 
         {/* Exercises level */}
+        {!loading && chapter && exercises.length > 0 && (
+          <Card data-testid="chapter-quiz-cta" className="border-primary/30 bg-primary/5">
+            <CardContent className="flex flex-wrap items-center justify-between gap-3 py-3">
+              <p className="text-sm">
+                <span className="font-medium">Fă un test din aceste exerciții.</span>{' '}
+                <span className="text-muted-foreground">Alegi exercițiile, iar quiz-ul se creează pentru clasa capitolului.</span>
+              </p>
+              <Button size="sm" onClick={() => setDialog({ kind: 'chapterQuiz' })}>Creează quiz din capitol</Button>
+            </CardContent>
+          </Card>
+        )}
         {!loading && chapter && (
-          exercises.length === 0 ? <p className="text-muted-foreground">Niciun exercițiu.</p> : (
+          exercises.length === 0 ? <p className="text-muted-foreground">Niciun exercițiu. Adaugă exerciții, apoi poți face un test din ele.</p> : (
             <div className="space-y-2">
               {exercises.map((ex, i) => (
                 <Card key={ex.id}>

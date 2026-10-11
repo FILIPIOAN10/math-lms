@@ -143,6 +143,7 @@ export function AdminAssignmentsPage() {
   const [openId, setOpenId] = useState<number | null>(null)
   const [status, setStatus] = useState<AssignmentStudentStatus[] | null>(null)
   const [now, setNow] = useState(() => Date.now()) // refreshed whenever the list is (re)loaded
+  const [notice, setNotice] = useState<string | null>(null) // "✓ Tema … a fost dată …" after a change
   const preselectedQuiz = quizzes.find((q) => q.id === preselectedQuizId)
 
   useEffect(() => {
@@ -203,6 +204,11 @@ export function AdminAssignmentsPage() {
         />
         <TestsTabs current="assignments" />
 
+        {notice && (
+          <p role="status" className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-800 dark:text-emerald-200">
+            ✓ {notice}
+          </p>
+        )}
         {error && <p className="text-sm text-destructive">{error}</p>}
         {loading && <p className="text-muted-foreground">Se încarcă...</p>}
         {!loading && assignments.length === 0 && (
@@ -280,7 +286,8 @@ export function AdminAssignmentsPage() {
             if (preselectedQuizId) setSearchParams({}, { replace: true })
           }}
           onSubmit={async (input) => {
-            await createAssignment(input)
+            const created = await createAssignment(input)
+            setNotice(`Tema „${created.quizTitle}” a fost dată clasei ${created.schoolClassName}, termen ${formatDate(created.dueAt)}.`)
             await reload()
           }}
         />
@@ -292,7 +299,8 @@ export function AdminAssignmentsPage() {
           currentDueAt={moving.dueAt}
           onClose={() => setMoving(null)}
           onSubmit={async (input) => {
-            await rescheduleAssignment(moving.id, input.dueAt)
+            const moved = await rescheduleAssignment(moving.id, input.dueAt)
+            setNotice(`Termenul temei „${moved.quizTitle}” e acum ${formatDate(moved.dueAt)}.`)
             await reload()
           }}
         />

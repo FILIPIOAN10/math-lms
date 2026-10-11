@@ -21,6 +21,17 @@ cd math-lms/frontend && npm run dev
 - Frontend: http://localhost:5173
 - Health backend: http://localhost:8080/actuator/health
 
+**De pe telefon** (ex. linkul de confirmare din email deschis pe telefon): linkurile din emailuri folosesc `FRONTEND_BASE_URL`, implicit
+`http://localhost:5173`, iar „localhost” pe telefon e telefonul, nu calculatorul — de aici eroarea Safari „couldn't connect to the server”.
+Ca să meargă în rețeaua de acasă (telefonul și PC-ul pe același Wi-Fi):
+1. află adresa PC-ului: `ipconfig` → „IPv4 Address” al adaptorului Wi-Fi/Ethernet (ex. `192.168.1.133`)
+2. în `backend/.env`: `FRONTEND_BASE_URL=http://192.168.1.133:5173`, apoi repornește backend-ul
+3. pornește frontend-ul cu `npm run dev:lan` (în loc de `npm run dev`) — Vite ascultă și pe adresa de rețea; la primul start Windows
+   întreabă de firewall pentru Node.js → permite pe „Private networks”
+4. pe telefon deschide `http://192.168.1.133:5173` (sau linkul din email, care acum duce acolo)
+Emailurile trimise ÎNAINTE de schimbare au încă `localhost` — cere un link nou. Loginul cu Google nu merge pe adresa de rețea (Google
+acceptă doar adresele înregistrate); email + parolă merge. Când termini, revino la `localhost` dacă nu mai ai nevoie.
+
 ## B. Conturi de test
 
 Un set de conturi de dev (parola tuturor = `Admin123!`). Seed într-o singură comandă
@@ -145,7 +156,7 @@ R: $x = 4$
 Rulează asta înainte de orice commit.
 
 ```bash
-# Backend — 880 de teste (necesită Docker pentru Testcontainers)
+# Backend — 884 de teste (necesită Docker pentru Testcontainers)
 cd math-lms/backend && ./mvnw test
 
 # Doar suita de conținut (Faza 2)
@@ -155,7 +166,7 @@ cd math-lms/backend && ./mvnw test
 cd math-lms/frontend && npm test && npm run build
 ```
 
-Frontend: **Vitest + Testing Library** (`npm test`, 296 de teste în 40 de fișiere): clientul API (header CSRF doar pe scrieri, refresh silențios la 401 cu o singură rotație pentru cereri paralele, fără refresh la login greșit), `AppShell` + paginile de start pe rol, `TakeQuizPage` (practică, indicii, navigator, dialogul de predare, cronometru, poze), `AttemptResultView` (nota, comentariile profesorului, poza proprie), `AdminGradingPage`, `AdminQuizzesPage` (meniul ⋯, editorul pe URL), `StudentQuizListPage`, `AccountPage` + `EraseAccountPage`, `RegisterPage` (previzualizarea linkului), `AdminLinksPage` (Invită părintele), `ClassInviteDialog`, `ChapterQuizDialog`, `PageHeader`, `RowMenu`, nota 1–10 (`grades.ts`), `RoleRoute`, `LoginPage`. Rulează și în CI. Fluxurile cap-coadă rămân în suita E2E (Selenium).
+Frontend: **Vitest + Testing Library** (`npm test`, 312 teste în 43 de fișiere): clientul API (header CSRF doar pe scrieri, refresh silențios la 401 cu o singură rotație pentru cereri paralele, fără refresh la login greșit), `AppShell` + paginile de start pe rol, `TakeQuizPage` (practică, indicii, navigator, dialogul de predare, cronometru, poze), `AttemptResultView` (nota, comentariile profesorului, poza proprie), `AdminGradingPage`, `AdminQuizzesPage` (meniul ⋯, editorul pe URL), `StudentQuizListPage`, `AccountPage` + `EraseAccountPage`, `RegisterPage` (previzualizarea linkului), `AdminLinksPage` (Invită părintele), `ClassInviteDialog`, `ChapterQuizDialog`, `PageHeader`, `RowMenu`, nota 1–10 (`grades.ts`), `RoleRoute`, `LoginPage`. Rulează și în CI. Fluxurile cap-coadă rămân în suita E2E (Selenium).
 
 O rulare izolată poate pica rar în `VerificationTokenServiceTest.rejectsTamperedToken` (test instabil, cunoscut: modifică
 ultimele 2 caractere ale semnăturii, care uneori nu schimbă semnătura decodată) — rerulează; fixul e în așteptare.

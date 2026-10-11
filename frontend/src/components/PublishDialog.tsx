@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label'
 import {
   publishAndAssign as publishAndAssignRequest,
   setQuizPublished as setQuizPublishedRequest,
+  type AssignmentSummary,
   type SchoolClass,
 } from '@/lib/api'
 import { isoToLocalInput, localInputToIso } from '@/lib/assignments'
@@ -28,7 +29,8 @@ interface Props {
   /** The class the quiz is reserved for (it can only be homework there), or null for a quiz for every student. */
   quizClassId: number | null
   classes: SchoolClass[]
-  onPublished: () => Promise<void> | void
+  /** Called once published, with the homework given at the same time (null = published only). */
+  onPublished: (assigned: AssignmentSummary | null) => Promise<void> | void
   /** Injected in tests; default to the real API calls. */
   publishAndAssign?: typeof publishAndAssignRequest
   setQuizPublished?: typeof setQuizPublishedRequest
@@ -68,12 +70,13 @@ export function PublishDialog({
     }
     setBusy(true)
     try {
+      let assigned: AssignmentSummary | null = null
       if (assign) {
-        await publishAndAssign(quiz.id, { schoolClassId: Number(classId), dueAt: localInputToIso(due) })
+        assigned = await publishAndAssign(quiz.id, { schoolClassId: Number(classId), dueAt: localInputToIso(due) })
       } else {
         await setQuizPublished(quiz.id, true)
       }
-      await onPublished()
+      await onPublished(assigned)
       onClose()
     } catch (err) {
       setError(errorMessage(err))

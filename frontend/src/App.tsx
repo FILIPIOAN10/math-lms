@@ -7,6 +7,7 @@ import { AppShell } from '@/components/AppShell'
 import { RoleRoute } from '@/components/RoleRoute'
 import { LoginPage } from '@/pages/LoginPage'
 import { DashboardPage } from '@/pages/DashboardPage'
+import { NotFoundPage } from '@/pages/NotFoundPage'
 
 // Every other page is its own chunk, downloaded the first time it is opened:
 // a student on a phone never downloads the admin pages.
@@ -226,6 +227,8 @@ function App() {
                 </ProtectedRoute>
               }
             />
+            {/* Any other address: say so, instead of a blank screen. */}
+            <Route path="*" element={<NotFoundPage />} />
           </Route>
         </Routes>
         </Suspense>

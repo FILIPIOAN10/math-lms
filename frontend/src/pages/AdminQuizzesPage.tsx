@@ -37,15 +37,12 @@ import {
   type QuizInput,
   type SchoolClass,
 } from '@/lib/api'
-import { roCount } from '@/lib/format'
+import { formatDate, roCount } from '@/lib/format'
+import { errorMessage } from '@/lib/errors'
 
 const selectClass =
   'h-9 rounded-lg border border-border bg-background px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50'
 
-function errorMessage(e: unknown): string {
-  const body = (e as { body?: string })?.body
-  return body && body.length > 0 ? body : 'Operația a eșuat. Reîncearcă.'
-}
 
 // ---------- Quiz create/edit dialog ----------
 
@@ -510,6 +507,19 @@ export function ItemDialog({
 
 // ---------- Page ----------
 
+/** The confirmation after "Publică": what happened, and the way to the homework when one was given. */
+function PublishedNotice({ notice, onClose }: { notice: { text: string; homework: boolean }; onClose: () => void }) {
+  return (
+    <div role="status" className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-800 dark:text-emerald-200">
+      <span>✓ {notice.text}</span>
+      <span className="flex items-center gap-3">
+        {notice.homework && <Link to="/admin/assignments" className="font-medium underline-offset-4 hover:underline">Vezi tema</Link>}
+        <button type="button" onClick={onClose} aria-label="Închide mesajul" className="text-lg leading-none">×</button>
+      </span>
+    </div>
+  )
+}
+
 const statusBadge = (status: QuizSummary['status']) =>
   `rounded-md px-1.5 py-0.5 text-xs font-medium whitespace-nowrap ${
     status === 'PUBLISHED'
@@ -540,6 +550,8 @@ export function AdminQuizzesPage() {
   const [importing, setImporting] = useState(false)
   // "Publică" opens a dialog that can give the quiz as homework in the same step (T3).
   const [publishing, setPublishing] = useState<{ id: number; title: string; classId: number | null } | null>(null)
+  // What just happened, said in words: "published and given as homework to Clasa a 8-a, due …".
+  const [notice, setNotice] = useState<{ text: string; homework: boolean } | null>(null)
 
   useEffect(() => {
     listQuizzes()
@@ -675,6 +687,7 @@ export function AdminQuizzesPage() {
                 }
               />
 
+              {notice && <PublishedNotice notice={notice} onClose={() => setNotice(null)} />}
               {error && <p className="text-sm text-destructive">{error}</p>}
 
               {quiz.items.length === 0 ? (
@@ -732,6 +745,7 @@ export function AdminQuizzesPage() {
               actions={<Button size="sm" onClick={() => setQuizDialog({ item: null })}>Adaugă quiz</Button>}
             />
             <TestsTabs current="quizzes" />
+            {notice && <PublishedNotice notice={notice} onClose={() => setNotice(null)} />}
             {error && <p className="text-sm text-destructive">{error}</p>}
             {loading && <p className="text-muted-foreground">Se încarcă...</p>}
             {!loading && quizzes.length === 0 && <p className="text-muted-foreground">Niciun quiz. Adaugă primul.</p>}
@@ -816,7 +830,13 @@ export function AdminQuizzesPage() {
           quiz={publishing}
           quizClassId={publishing.classId}
           classes={classes}
-          onPublished={async () => {
+          onPublished={async (assigned) => {
+            setNotice(assigned
+              ? {
+                  text: `„${publishing.title}” e publicat și dat ca temă clasei ${assigned.schoolClassName}, termen ${formatDate(assigned.dueAt)}.`,
+                  homework: true,
+                }
+              : { text: `„${publishing.title}” e publicat — elevii îl văd la „Teste disponibile”.`, homework: false })
             await reloadList()
             if (quiz && quiz.id === publishing.id) await reloadQuiz(quiz.id)
           }}
