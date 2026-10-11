@@ -417,6 +417,10 @@ Prerechizit: adminul a legat elevul de părinte la **Elevi** (`/admin/students`)
 - titlul tab-ului se schimbă pe fiecare pagină („Corectură · Math LMS”, „Rezultat · Simulare EN · Math LMS”)
 - **Acasă — elev:** „De făcut” (temele nepredate, cu Începe/Continuă), „Teste începute” (teste neterminate care nu sunt teme),
   „Rezultate” (ultima notă `x / max puncte · nota n`, câte lucrări sunt în corectare)
+- **Acasă — profesor, primii pași (T7):** cât timp lipsește ceva, sus apare „Primii pași (n din 4)”: ① Creează o clasă → ② Invită elevii →
+  ③ Creează un test → ④ Dă-l ca temă. Fiecare pas se bifează singur din date (există o clasă / un elev activ / un quiz / o temă), doar
+  următorul pas are butonul **Începe**; când toți 4 sunt făcuți, cardul dispare. Probă: după `deploy/dev-reset.sql` cardul arată
+  „1 din 4” (conturile seed au deja elevi activi, deci pasul ② e bifat, iar **Începe** e pe ①)
 - **Acasă — profesor:** 3 plăci cu numere (lucrări de corectat, conturi de aprobat, teme deschise) care duc la pagina respectivă;
   „Termene” (temele deschise + cele depășite în ultimele 7 zile la care lipsesc elevi, cu „x / y predate”; clasă fără elevi →
   „Niciun elev în clasă”); „De corectat” (cine așteaptă nota)

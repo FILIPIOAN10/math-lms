@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { DashboardPage } from '@/pages/DashboardPage'
@@ -25,6 +25,9 @@ const api = vi.hoisted(() => ({
   listPendingUsers: vi.fn(),
   listAssignments: vi.fn(),
   listMyChildren: vi.fn(),
+  listClasses: vi.fn(),
+  listActiveUsers: vi.fn(),
+  listQuizzes: vi.fn(),
   getChildAttempts: vi.fn(),
   getChildProgress: vi.fn(),
   getChildAssignments: vi.fn(),
@@ -156,6 +159,34 @@ describe('DashboardPage — teacher', () => {
     api.listAttemptsForGrading.mockResolvedValue([submitted(1, 'Ana'), submitted(2, 'Radu')])
     api.listPendingUsers.mockResolvedValue([{}])
     api.listAssignments.mockResolvedValue([summary(1, 'Fracții', 3), summary(2, 'Ecuații', -1), summary(3, 'Vechi', -40)])
+    // A set-up teacher: the first-run checklist is complete, so it stays hidden.
+    api.listClasses.mockResolvedValue([{ id: 1, name: 'Clasa a 9-a', description: null }])
+    api.listActiveUsers.mockResolvedValue([{ id: 4 }])
+    api.listQuizzes.mockResolvedValue([{ id: 1 }])
+  })
+
+  it('walks a brand-new teacher through the first steps, the next one with a button', async () => {
+    api.listAttemptsForGrading.mockResolvedValue([])
+    api.listPendingUsers.mockResolvedValue([])
+    api.listAssignments.mockResolvedValue([])
+    api.listClasses.mockResolvedValue([{ id: 1, name: 'Clasa a 9-a', description: null }])
+    api.listActiveUsers.mockResolvedValue([])
+    api.listQuizzes.mockResolvedValue([])
+    renderHome()
+
+    const checklist = await screen.findByRole('region', { name: 'Primii pași (1 din 4)' })
+    expect(within(checklist).getByTestId('first-run-class')).toHaveAttribute('data-done', 'true')
+    const next = within(checklist).getByTestId('first-run-students')
+    expect(next).toHaveTextContent('Invită elevii')
+    expect(within(next).getByRole('link', { name: 'Începe' })).toHaveAttribute('href', '/admin/content')
+    expect(within(checklist).getAllByRole('link', { name: 'Începe' })).toHaveLength(1)
+  })
+
+  it('hides the checklist once everything is set up', async () => {
+    renderHome()
+    await screen.findByTestId('tile-grading')
+    await waitFor(() => expect(api.listQuizzes).toHaveBeenCalled())
+    expect(screen.queryByTestId('first-run')).not.toBeInTheDocument()
   })
 
   it('counts what is waiting, each count linking to where it is handled', async () => {

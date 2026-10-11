@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { latestGrade, todoAssignments, upcomingDeadlines } from '@/lib/home'
+import { firstRunSteps, latestGrade, todoAssignments, upcomingDeadlines } from '@/lib/home'
 import type { AssignmentSummary, ProgressPointDto, StudentAssignment } from '@/lib/api'
 
 const DAY = 86_400_000
@@ -53,5 +53,18 @@ describe('upcomingDeadlines', () => {
   it('shows at most `limit` rows', () => {
     const list = [1, 2, 3, 4, 5, 6, 7].map((d) => assignment(d, d))
     expect(upcomingDeadlines(list, NOW, 5)).toHaveLength(5)
+  })
+})
+
+describe('firstRunSteps', () => {
+  it('ticks nothing for a brand-new teacher', () => {
+    const steps = firstRunSteps({ classes: 0, students: 0, quizzes: 0, assignments: 0 })
+    expect(steps.map((s) => s.label)).toEqual(['Creează o clasă', 'Invită elevii', 'Creează un test', 'Dă-l ca temă'])
+    expect(steps.some((s) => s.done)).toBe(false)
+  })
+
+  it('ticks each step from the data, in any order', () => {
+    const steps = firstRunSteps({ classes: 2, students: 0, quizzes: 1, assignments: 0 })
+    expect(steps.map((s) => s.done)).toEqual([true, false, true, false])
   })
 })

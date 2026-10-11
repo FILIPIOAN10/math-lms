@@ -2,18 +2,22 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { FirstRunChecklist } from '@/components/home/FirstRunChecklist'
 import { HomeEmpty, HomeSection, StatTile } from '@/components/home/HomeBits'
 import {
+  listActiveUsers,
   listAssignments,
   listAttemptsForGrading,
+  listClasses,
   listPendingUsers,
+  listQuizzes,
   type AdminAttemptSummary,
   type AssignmentSummary,
 } from '@/lib/api'
 import { dueCountdown } from '@/lib/assignments'
 import { errorMessage } from '@/lib/errors'
 import { formatDate } from '@/lib/format'
-import { upcomingDeadlines } from '@/lib/home'
+import { firstRunSteps, upcomingDeadlines, type FirstRunStep } from '@/lib/home'
 
 const GRADING_PREVIEW = 5
 
@@ -31,12 +35,22 @@ interface TeacherData {
 export function TeacherHome() {
   const [data, setData] = useState<TeacherData | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [firstRun, setFirstRun] = useState<FirstRunStep[] | null>(null)
   const [loadedAt] = useState(() => Date.now())
 
   useEffect(() => {
     let cancelled = false
     Promise.all([listAttemptsForGrading('SUBMITTED'), listPendingUsers(), listAssignments()])
-      .then(([toGrade, pending, assignments]) => !cancelled && setData({ toGrade, pending: pending.length, assignments }))
+      .then(([toGrade, pending, assignments]) => {
+        if (cancelled) return
+        setData({ toGrade, pending: pending.length, assignments })
+        // The first-run checklist (T7) is a help, not the page: if these lists fail it is simply not shown.
+        Promise.all([listClasses(), listActiveUsers('STUDENT'), listQuizzes()])
+          .then(([classes, students, quizzes]) => !cancelled && setFirstRun(firstRunSteps({
+            classes: classes.length, students: students.length, quizzes: quizzes.length, assignments: assignments.length,
+          })))
+          .catch(() => undefined)
+      })
       .catch((e) => !cancelled && setError(errorMessage(e)))
     return () => {
       cancelled = true
@@ -51,6 +65,7 @@ export function TeacherHome() {
 
   return (
     <>
+      {firstRun && <FirstRunChecklist steps={firstRun} />}
       <div className="grid grid-cols-3 gap-3">
         <StatTile to="/admin/grading" value={data.toGrade.length} label="Lucrări de corectat" urgent testId="tile-grading" />
         <StatTile to="/admin/students" value={data.pending} label="Conturi de aprobat" urgent testId="tile-pending" />
