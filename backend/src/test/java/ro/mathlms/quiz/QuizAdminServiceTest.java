@@ -607,8 +607,8 @@ class QuizAdminServiceTest {
         // In the chapter's order, not the order of the ticks; the unticked exercise stays out.
         assertThat(items.getAllValues()).extracting(QuizItem::getPosition, QuizItem::getStatement, QuizItem::getSolution)
                 .containsExactly(
-                        org.assertj.core.groups.Tuple.tuple(1, "$\frac{1}{2}+\frac{1}{4}$", "$\frac{3}{4}$"),
-                        org.assertj.core.groups.Tuple.tuple(2, "Simplifică $\frac{6}{8}$", null));
+                        org.assertj.core.groups.Tuple.tuple(0, "$\frac{1}{2}+\frac{1}{4}$", "$\frac{3}{4}$"),
+                        org.assertj.core.groups.Tuple.tuple(1, "Simplifică $\frac{6}{8}$", null));
         assertThat(items.getAllValues()).allSatisfy(item -> {
             assertThat(item.getType()).isEqualTo(QuizItemType.OPEN);
             assertThat(item.getPoints()).isEqualTo(3);

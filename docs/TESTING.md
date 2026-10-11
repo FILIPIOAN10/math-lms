@@ -333,6 +333,12 @@ Din bara de sus: **Corectură** (numărul roșu = lucrări de corectat).
 - **Comentariu pentru toată lucrarea (opțional)** → **Salvează comentariul** → „✓ Comentariu salvat”; merge și pe o lucrare deja
   notată (inclusiv una doar cu grile, notată automat la predare); gol = șterge comentariul; max 2000 de caractere
 - **Finalizează nota** se deblochează când toate subiectele deschise au punctaj → dialog „Finalizezi nota?” → lucrarea trece la „Notate”
+- **Finalizează și treci la următoarea (n rămase)** (T4): aceeași confirmare, apoi se deschide direct următoarea lucrare din coadă (fără
+  întoarcere la listă); pe ultima lucrare butonul lipsește, iar după ea apare „Gata — nu mai e nicio lucrare de corectat. 🎉”
+- **Corectează pe subiect** (T4): în „De corectat”, câte un card per test („Simulare EN · 5 lucrări”) → filele „Subiectul 3 (2/5)” (numărul
+  e cel văzut de elevi) → enunțul + baremul o singură dată, apoi poza fiecărui elev pe rând, punctaj + comentariu → **Salvează și următoarea**
+  (← / → pentru a sări). Pornește pe primul subiect și prima lucrare fără punctaj. Jos: **Finalizează lucrările complete (k)** — doar
+  lucrările cu toate subiectele deschise notate; restul rămân „De corectat”
 - lista „Notate” arată „9 / 10 p · nota 9,10”
 - ca elev: rezultatul arată „9 / 10 puncte”, „Nota 9,10 · 90%”, **ambele comentarii** (chenar albastru) și propria poză
 - **nota** = 1 + 9 × procent (un punct „din oficiu”), cu 2 zecimale: 0% → 1, 50% → 5,50, 100% → 10; quiz fără puncte → fără notă

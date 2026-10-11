@@ -209,7 +209,7 @@ public class QuizAdminService {
         quiz.assignToClass(findClass(chapter.getBook().getSchoolClass().getId()));
         quiz.tagChapter(chapter);
         Quiz saved = quizRepository.save(quiz);
-        int position = 1;
+        int position = 0; // 0-based, like the builder and the text import
         for (Exercise exercise : exercises) {
             itemRepository.save(new QuizItem(saved, position++, QuizItemType.OPEN,
                     exercise.getStatement(), points, exercise.getSolution()));

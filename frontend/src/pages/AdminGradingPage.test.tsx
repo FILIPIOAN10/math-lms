@@ -114,4 +114,54 @@ describe('AdminGradingPage', () => {
     expect(await screen.findByText('Rezolvă')).toBeInTheDocument()
     expect(api.getAttemptForGrading).toHaveBeenCalledWith(50)
   })
+
+  it('goes straight on to the next paper waiting, without the list', async () => {
+    const graded = (id: number, name: string) => {
+      const d = detail({ attemptId: id, studentName: name })
+      d.items[0] = { ...d.items[0], awardedPoints: 3 }
+      return d
+    }
+    api.listAttemptsForGrading.mockResolvedValue([row({ attemptId: 50 }), row({ attemptId: 51, studentName: 'Radu' })])
+    api.getAttemptForGrading.mockImplementation((id: number) => Promise.resolve(graded(id, id === 50 ? 'Ana' : 'Radu')))
+    api.finalizeGrading.mockResolvedValue(undefined)
+    renderPage()
+    await userEvent.click((await screen.findAllByTestId('attempt-open'))[0])
+
+    api.listAttemptsForGrading.mockResolvedValue([row({ attemptId: 51, studentName: 'Radu' })])
+    await userEvent.click(await screen.findByRole('button', { name: 'Finalizează și treci la următoarea (1 rămasă)' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Finalizezi nota?' })
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Finalizează și treci mai departe' }))
+
+    expect(await screen.findByRole('heading', { name: 'Radu — Simulare EN' })).toBeInTheDocument()
+    expect(api.finalizeGrading).toHaveBeenCalledWith(50)
+    expect(api.getAttemptForGrading).toHaveBeenLastCalledWith(51)
+  })
+
+  it('offers no "next" button on the last paper waiting', async () => {
+    const d = detail()
+    d.items[0] = { ...d.items[0], awardedPoints: 3 }
+    await openAttempt(d)
+
+    expect(screen.getByTestId('grade-finalize')).toBeInTheDocument()
+    expect(screen.queryByTestId('grade-finalize-next')).not.toBeInTheDocument()
+  })
+
+  it('offers to grade each quiz question by question', async () => {
+    api.listAttemptsForGrading.mockResolvedValue([
+      row({ attemptId: 50 }), row({ attemptId: 51, studentName: 'Radu' }), row({ attemptId: 60, quizId: 2, quizTitle: 'Fracții' }),
+    ])
+    renderPage()
+
+    const groups = await screen.findAllByTestId('quiz-group')
+    expect(groups.map((g) => g.textContent)).toEqual([
+      expect.stringContaining('Simulare EN · 2 lucrări'),
+      expect.stringContaining('Fracții · 1 lucrare'),
+    ])
+    api.getAttemptForGrading.mockImplementation((id: number) => Promise.resolve(detail({ attemptId: id })))
+    await userEvent.click(within(groups[0]).getByRole('button', { name: 'Corectează pe subiect' }))
+
+    expect(await screen.findByRole('heading', { name: 'Simulare EN — pe subiect' })).toBeInTheDocument()
+    expect(api.getAttemptForGrading).toHaveBeenCalledWith(50)
+    expect(api.getAttemptForGrading).toHaveBeenCalledWith(51)
+  })
 })

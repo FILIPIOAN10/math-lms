@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { AttemptStatusBadge } from '@/components/AttemptStatusBadge'
 import { MathContent } from '@/components/MathContent'
+import { GradeByItem } from '@/components/GradeByItem'
 import {
   attemptPhotoUrl,
   commentOnAttempt,
@@ -21,6 +22,7 @@ import {
 } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
 import { scoreLine } from '@/lib/grades'
+import { roCount } from '@/lib/format'
 import { PageHeader } from '@/components/PageHeader'
 
 /** Same limit as the server (V20 columns). */
@@ -187,25 +189,46 @@ function OverallComment({ attempt, onSaved }: { attempt: AdminAttemptDetail; onS
 
 // ---------- The page ----------
 
-/** Teacher grading (Q10): the queue of submitted attempts, then one attempt at a time. */
+/** The quizzes in the queue with their waiting papers, in queue order — the way into "Corectează pe subiect" (T4). */
+function groupByQuiz(attempts: AdminAttemptSummary[]): { quizId: number; quizTitle: string; attemptIds: number[] }[] {
+  const groups = new Map<number, { quizId: number; quizTitle: string; attemptIds: number[] }>()
+  for (const a of attempts) {
+    const group = groups.get(a.quizId) ?? { quizId: a.quizId, quizTitle: a.quizTitle, attemptIds: [] }
+    group.attemptIds.push(a.attemptId)
+    groups.set(a.quizId, group)
+  }
+  return [...groups.values()]
+}
+
+/**
+ * Teacher grading (Q10): the queue of submitted attempts, then one attempt at a time — with "Finalizează și treci la
+ * următoarea" (T4) so a stack of papers is graded without going back to the list — or one question across all the
+ * papers of a quiz ("Corectează pe subiect").
+ */
 export function AdminGradingPage() {
   const [filter, setFilter] = useState<QuizAttemptStatus>('SUBMITTED')
   const [attempts, setAttempts] = useState<AdminAttemptSummary[]>([])
   const [detail, setDetail] = useState<AdminAttemptDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [finalizing, setFinalizing] = useState(false)
-  const [confirmingFinal, setConfirmingFinal] = useState(false)
+  // Which finalise button opened the confirmation: stay on the list, or go on to the next paper.
+  const [confirmingFinal, setConfirmingFinal] = useState<false | 'list' | 'next'>(false)
+  const [byItem, setByItem] = useState<{ quizTitle: string; attemptIds: number[] } | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   // `?attempt=12` opens that paper straight away (links from a student's page).
   const [searchParams, setSearchParams] = useSearchParams()
   const linkedAttempt = Number(searchParams.get('attempt')) || null
 
-  async function reloadList(status: QuizAttemptStatus = filter) {
+  async function reloadList(status: QuizAttemptStatus = filter): Promise<AdminAttemptSummary[]> {
     setLoading(true)
     try {
-      setAttempts(await listAttemptsForGrading(status))
+      const list = await listAttemptsForGrading(status)
+      setAttempts(list)
+      return list
     } catch (e) {
       setError(errorMessage(e))
+      return []
     } finally {
       setLoading(false)
     }
@@ -235,6 +258,7 @@ export function AdminGradingPage() {
 
   async function open(attemptId: number) {
     setError(null)
+    setNotice(null)
     try {
       setDetail(await getAttemptForGrading(attemptId))
     } catch (e) {
@@ -242,15 +266,24 @@ export function AdminGradingPage() {
     }
   }
 
-  async function finalize() {
+  async function finalize(then: 'list' | 'next') {
     if (!detail) return
     setConfirmingFinal(false)
     setFinalizing(true)
     setError(null)
     try {
       await finalizeGrading(detail.attemptId)
-      closeDetail()
-      await reloadList()
+      const before = attempts.map((a) => a.attemptId)
+      const remaining = filter === 'SUBMITTED' ? await reloadList() : await listAttemptsForGrading('SUBMITTED')
+      // The paper after this one in the queue the teacher was looking at, else the first one still waiting.
+      const after = before.slice(before.indexOf(detail.attemptId) + 1)
+      const next = remaining.find((a) => after.includes(a.attemptId)) ?? remaining[0]
+      if (then === 'next' && next) {
+        await open(next.attemptId)
+      } else {
+        closeDetail()
+        if (then === 'next') setNotice('Gata — nu mai e nicio lucrare de corectat. 🎉')
+      }
     } catch (e) {
       setError(errorMessage(e))
     } finally {
@@ -259,23 +292,37 @@ export function AdminGradingPage() {
   }
 
   const allOpenGraded = detail?.items.every((i) => i.type !== 'OPEN' || i.awardedPoints !== null) ?? false
+  const othersWaiting = detail ? attempts.filter((a) => a.status === 'SUBMITTED' && a.attemptId !== detail.attemptId).length : 0
   const pointsSoFar = detail?.items.reduce((sum, i) => sum + (i.awardedPoints ?? 0), 0) ?? 0
 
   return (
     <div className="p-4">
       <div className="mx-auto max-w-3xl space-y-4">
         <PageHeader
-          title={detail ? `${detail.studentName} — ${detail.quizTitle}` : 'Corectură'}
-          description={detail ? undefined : 'Lucrările predate, cu subiectele care așteaptă nota ta.'}
-          breadcrumbs={detail ? [
+          title={byItem ? `${byItem.quizTitle} — pe subiect` : detail ? `${detail.studentName} — ${detail.quizTitle}` : 'Corectură'}
+          description={byItem || detail ? undefined : 'Lucrările predate, cu subiectele care așteaptă nota ta.'}
+          breadcrumbs={byItem ? [
+            { label: 'Corectură', onClick: () => { setByItem(null); void reloadList() } },
+            { label: `${byItem.quizTitle} — pe subiect` },
+          ] : detail ? [
             { label: 'Corectură', onClick: closeDetail },
             { label: `${detail.studentName} — ${detail.quizTitle}` },
           ] : undefined}
         />
 
         {error && <p className="text-sm text-destructive">{error}</p>}
+        {notice && !detail && !byItem && <p role="status" className="text-sm text-emerald-700 dark:text-emerald-300">{notice}</p>}
 
-        {detail ? (
+        {byItem ? (
+          <GradeByItem
+            quizTitle={byItem.quizTitle}
+            attemptIds={byItem.attemptIds}
+            onExit={() => {
+              setByItem(null)
+              void reloadList()
+            }}
+          />
+        ) : detail ? (
           /* ----- One attempt ----- */
           <div className="space-y-4">
             <Card>
@@ -335,23 +382,33 @@ export function AdminGradingPage() {
             <OverallComment key={detail.attemptId} attempt={detail} onSaved={() => open(detail.attemptId)} />
 
             <ConfirmDialog
-              open={confirmingFinal}
+              open={confirmingFinal !== false}
               title="Finalizezi nota?"
-              confirmLabel="Finalizează"
-              onConfirm={() => void finalize()}
+              confirmLabel={confirmingFinal === 'next' ? 'Finalizează și treci mai departe' : 'Finalizează'}
+              onConfirm={() => void finalize(confirmingFinal === 'next' ? 'next' : 'list')}
               onCancel={() => setConfirmingFinal(false)}
             >
               După asta punctajele nu se mai pot modifica. Comentariul pentru toată lucrarea îl poți schimba și după.
             </ConfirmDialog>
 
             {detail.status === 'SUBMITTED' && (
-              <div className="flex items-center justify-end gap-3">
+              <div className="flex flex-wrap items-center justify-end gap-3">
                 {!allOpenGraded && (
                   <p className="text-sm text-muted-foreground">Notează toate subiectele cu rezolvare ca să poți finaliza.</p>
                 )}
-                <Button onClick={() => setConfirmingFinal(true)} disabled={!allOpenGraded || finalizing} data-testid="grade-finalize">
+                <Button
+                  variant={othersWaiting > 0 ? 'outline' : 'default'}
+                  onClick={() => setConfirmingFinal('list')}
+                  disabled={!allOpenGraded || finalizing}
+                  data-testid="grade-finalize"
+                >
                   {finalizing ? 'Se finalizează...' : 'Finalizează nota'}
                 </Button>
+                {othersWaiting > 0 && (
+                  <Button onClick={() => setConfirmingFinal('next')} disabled={!allOpenGraded || finalizing} data-testid="grade-finalize-next">
+                    Finalizează și treci la următoarea ({othersWaiting} {othersWaiting === 1 ? 'rămasă' : 'rămase'})
+                  </Button>
+                )}
               </div>
             )}
           </div>
@@ -374,6 +431,27 @@ export function AdminGradingPage() {
               </select>
             </div>
             {loading && <p className="text-muted-foreground">Se încarcă...</p>}
+            {!loading && filter === 'SUBMITTED' && attempts.length > 0 && (
+              <section aria-label="Pe subiect" className="space-y-2">
+                <p className="text-sm text-muted-foreground">
+                  Mai repede și mai unitar: același subiect la toate lucrările unui test, una după alta.
+                </p>
+                {groupByQuiz(attempts).map((g) => (
+                  <Card key={g.quizId}>
+                    <CardContent data-testid="quiz-group" className="flex flex-wrap items-center justify-between gap-3 py-3">
+                      <p className="font-medium">
+                        {g.quizTitle}{' '}
+                        <span className="font-normal text-muted-foreground">· {roCount(g.attemptIds.length, 'lucrare', 'lucrări')}</span>
+                      </p>
+                      <Button size="sm" variant="secondary" onClick={() => setByItem({ quizTitle: g.quizTitle, attemptIds: g.attemptIds })}>
+                        Corectează pe subiect
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+                <h3 className="pt-2 text-sm font-medium">Sau lucrare cu lucrare</h3>
+              </section>
+            )}
             {!loading && attempts.length === 0 && (
               <p className="text-muted-foreground">
                 {filter === 'SUBMITTED' ? 'Nicio lucrare de corectat. 🎉' : 'Nicio lucrare notată încă.'}
