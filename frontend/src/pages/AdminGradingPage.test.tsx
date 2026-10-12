@@ -9,6 +9,7 @@ const api = vi.hoisted(() => ({
   listAttemptsForGrading: vi.fn(),
   getAttemptForGrading: vi.fn(),
   gradeOpenItem: vi.fn(),
+  gradeOpenItemParts: vi.fn(),
   commentOnAttempt: vi.fn(),
   finalizeGrading: vi.fn(),
   listCommentSnippets: vi.fn(),
@@ -52,6 +53,7 @@ describe('AdminGradingPage', () => {
     Object.values(api).forEach((fn) => fn.mockReset())
     api.listAttemptsForGrading.mockResolvedValue([row()])
     api.gradeOpenItem.mockResolvedValue(undefined)
+    api.gradeOpenItemParts.mockResolvedValue(undefined)
     api.commentOnAttempt.mockResolvedValue(undefined)
     api.listCommentSnippets.mockResolvedValue([])
     api.markCommentSnippetUsed.mockResolvedValue(undefined)
@@ -229,5 +231,36 @@ describe('AdminGradingPage', () => {
     expect(await screen.findByRole('heading', { name: 'Simulare EN — pe subiect' })).toBeInTheDocument()
     expect(api.getAttemptForGrading).toHaveBeenCalledWith(50)
     expect(api.getAttemptForGrading).toHaveBeenCalledWith(51)
+  })
+
+  it('grades an EN problem requirement by requirement and finalises only when each has points', async () => {
+    const d = detail()
+    d.items[0] = {
+      ...d.items[0], points: 5,
+      parts: [
+        { id: 11, label: 'a', statement: 'Arată că $x=25$.', points: 2, barem: 'x = 25', awardedPoints: null },
+        { id: 12, label: 'b', statement: 'Calculează.', points: 3, barem: null, awardedPoints: null },
+      ],
+    }
+    await openAttempt(d)
+
+    expect(screen.getByText('Barem a):')).toBeInTheDocument()
+    const a = screen.getByRole('radiogroup', { name: 'Puncte cerința a)' })
+    expect(within(a).getAllByRole('radio')).toHaveLength(3) // 0, 1, 2
+    await userEvent.click(within(a).getByRole('radio', { name: '2' }))
+
+    await waitFor(() => expect(api.gradeOpenItemParts).toHaveBeenCalledWith(50, 101,
+      [{ partId: 11, points: 2 }, { partId: 12, points: null }], null))
+    expect(api.gradeOpenItem).not.toHaveBeenCalled()
+    expect(screen.getByTestId('part-total')).toHaveTextContent('Total: — / 5 p')
+    expect(screen.getByText(/lipsește punctajul la b\)/)).toBeInTheDocument()
+    expect(screen.getByTestId('grade-finalize')).toBeDisabled()
+
+    const b = screen.getByRole('radiogroup', { name: 'Puncte cerința b)' })
+    await userEvent.click(within(b).getByRole('radio', { name: '1' }))
+
+    await waitFor(() => expect(screen.getByTestId('part-total')).toHaveTextContent('Total: 3 / 5 p'))
+    expect(api.gradeOpenItemParts).toHaveBeenLastCalledWith(50, 101, [{ partId: 11, points: 2 }, { partId: 12, points: 1 }], null)
+    expect(screen.getByTestId('grade-finalize')).toBeEnabled()
   })
 })

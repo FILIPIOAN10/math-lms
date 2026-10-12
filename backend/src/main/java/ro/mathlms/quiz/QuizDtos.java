@@ -43,9 +43,15 @@ public final class QuizDtos {
             Long chapterId, // its own chapter; null = the quiz's
             String section, // the heading it sits under ("SUBIECTUL I"); null = none
             String image, // the picture under the statement: a version token for its URL, or null
-            boolean imageRequired // imported with "[imagine]" and still waiting for its picture
+            boolean imageRequired, // imported with "[imagine]" and still waiting for its picture
+            List<PartDtos.PartDto> parts // requirements a), b)... of an open problem; empty = none
     ) {
         public static ItemDto from(QuizItem item, List<QuizOption> options, List<QuizItemHint> hints) {
+            return from(item, options, hints, List.of());
+        }
+
+        public static ItemDto from(QuizItem item, List<QuizOption> options, List<QuizItemHint> hints,
+                                   List<QuizItemPart> parts) {
             return new ItemDto(
                     item.getId(),
                     item.getPosition(),
@@ -58,7 +64,8 @@ public final class QuizDtos {
                     item.getChapter() == null ? null : item.getChapter().getId(),
                     item.getSection(),
                     item.getImageKey(),
-                    item.isImageRequired());
+                    item.isImageRequired(),
+                    PartDtos.PartDto.of(parts));
         }
     }
 

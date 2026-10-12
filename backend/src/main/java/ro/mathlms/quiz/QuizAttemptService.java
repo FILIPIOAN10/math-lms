@@ -49,6 +49,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import ro.mathlms.content.RoCount;
 
 /**
  * The student side of quizzes: browse published quizzes, start (or resume) an attempt, record
@@ -80,13 +81,17 @@ public class QuizAttemptService {
      */
     static final Duration SUBMIT_GRACE = Duration.ofSeconds(30);
 
+    private final QuizItemPartRepository partRepository;
+
     public QuizAttemptService(QuizRepository quizRepository, QuizItemRepository itemRepository,
                               QuizOptionRepository optionRepository, QuizItemHintRepository hintRepository,
                               QuizAttemptRepository attemptRepository,
                               ItemResponseRepository responseRepository, UserRepository userRepository,
                               EnrollmentRepository enrollmentRepository, AfterCommitCacheEvictor cacheEvictor,
                               ResultNotifier resultNotifier, FileService fileService, AuditLog auditLog, Clock clock,
-                              @Value("${app.storage.quiz-photos-dir}") String quizPhotosDir) {
+                              @Value("${app.storage.quiz-photos-dir}") String quizPhotosDir,
+                              QuizItemPartRepository partRepository) {
+        this.partRepository = partRepository;
         this.auditLog = auditLog;
         this.quizRepository = quizRepository;
         this.itemRepository = itemRepository;
@@ -467,6 +472,7 @@ public class QuizAttemptService {
 
         Map<Long, Integer> hintCounts = attempt.getMode() == AttemptMode.PRACTICE
                 ? hintCounts(attempt.getQuiz().getId()) : Map.of();
+        Map<Long, List<QuizItemPart>> partsByItem = partsOf(items);
         int maxScore = 0;
         List<ItemResultDto> itemResults = new ArrayList<>();
         for (QuizItem item : items) {
@@ -495,7 +501,8 @@ public class QuizAttemptService {
                     response == null ? null : response.getTeacherComment(),
                     item.getSection(),
                     item.getImageKey(),
-                    response == null ? List.of() : response.photoIds()));
+                    response == null ? List.of() : response.photoIds(),
+                    PartDtos.GradedPartDto.of(partsByItem.getOrDefault(item.getId(), List.of()), response)));
         }
         return new AttemptResultViewDto(attempt.getId(), attempt.getQuiz().getTitle(),
                 attempt.getStatus(), attempt.getScore(), maxScore, itemResults, attempt.getMode(),
@@ -518,9 +525,11 @@ public class QuizAttemptService {
     /** The quiz as the student sees it; hint counts only exist in a practice - a graded test hides even that. */
     private StudentQuizDto studentQuiz(Quiz quiz, AttemptMode mode) {
         Map<Long, Integer> hintCounts = mode == AttemptMode.PRACTICE ? hintCounts(quiz.getId()) : Map.of();
-        List<StudentItemDto> items = itemRepository.findByQuizIdOrderByPosition(quiz.getId()).stream()
+        List<QuizItem> quizItems = itemRepository.findByQuizIdOrderByPosition(quiz.getId());
+        Map<Long, List<QuizItemPart>> parts = partsOf(quizItems);
+        List<StudentItemDto> items = quizItems.stream()
                 .map(item -> StudentItemDto.from(item, optionRepository.findByItemIdOrderByPosition(item.getId()),
-                        hintCounts.getOrDefault(item.getId(), 0)))
+                        hintCounts.getOrDefault(item.getId(), 0), parts.getOrDefault(item.getId(), List.of())))
                 .toList();
         return StudentQuizDto.of(quiz, items);
     }
@@ -662,6 +671,9 @@ public class QuizAttemptService {
             throw new InvalidQuizException(
                     "At most " + item.getPoints() + " points can be awarded for this item");
         }
+        if (!partRepository.findByItemIdOrderByPosition(itemId).isEmpty()) {
+            throw new InvalidQuizException("Subiectul are cerințe a), b): punctajul se dă pe fiecare cerință.");
+        }
 
         // Dacă elevul nu a răspuns nimic, creăm un răspuns gol ca să reținem punctajul (ex: 0)
         ItemResponse response = responseRepository.findByAttemptIdAndItemId(attemptId, itemId)
@@ -683,6 +695,67 @@ public class QuizAttemptService {
                         AuditText.question(attempt.getQuiz().getTitle(), number))
                 .about(attempt.getStudent())
                 .details(score + " din " + item.getPoints() + (commentChange == null ? "" : ", " + commentChange)));
+    }
+
+    /**
+     * Grades a problem with requirements a), b)... one requirement at a time (some may still be missing: a null takes a
+     * requirement's points away). The answer's points are the sum once every requirement has some.
+     */
+    @Transactional
+    public void gradeOpenResponseParts(Long attemptId, Long itemId, Map<Long, Integer> partPoints, String comment) {
+        QuizAttempt attempt = attemptRepository.findById(attemptId)
+                .orElseThrow(() -> new QuizNotFoundException("QuizAttempt", attemptId));
+        if (attempt.getStatus() != QuizAttemptStatus.SUBMITTED) {
+            throw new InvalidQuizException("Attempt-ul trebuie să fie SUBMITTED pentru corectură");
+        }
+        QuizItem item = itemRepository.findById(itemId)
+                .orElseThrow(() -> new QuizNotFoundException("QuizItem", itemId));
+        if (item.getType() != QuizItemType.OPEN || !item.getQuiz().getId().equals(attempt.getQuiz().getId())) {
+            throw new InvalidQuizException("Item does not belong to this quiz");
+        }
+        List<QuizItemPart> parts = partRepository.findByItemIdOrderByPosition(itemId);
+        if (parts.isEmpty()) {
+            throw new InvalidQuizException("Acest subiect nu are cerințe a), b): dă un singur punctaj.");
+        }
+        for (Map.Entry<Long, Integer> grade : partPoints.entrySet()) {
+            QuizItemPart part = parts.stream().filter(p -> p.getId().equals(grade.getKey())).findFirst()
+                    .orElseThrow(() -> new InvalidQuizException("Cerința nu ține de acest subiect."));
+            if (grade.getValue() != null && grade.getValue() > part.getPoints()) {
+                throw new InvalidQuizException("La cerința " + part.label() + ") se pot da cel mult "
+                        + RoCount.of(part.getPoints(), "punct", "puncte") + ".");
+            }
+        }
+        ItemResponse response = responseRepository.findByAttemptIdAndItemId(attemptId, itemId)
+                .orElseGet(() -> new ItemResponse(attempt, item));
+        Map<Long, Integer> before = new java.util.HashMap<>(response.getPartPoints());
+        String commentBefore = response.getTeacherComment();
+        response.gradeParts(parts, partPoints, comment);
+        responseRepository.save(response);
+
+        String commentChange = commentChange(commentBefore, response.getTeacherComment());
+        if (before.equals(response.getPartPoints()) && commentChange == null) {
+            return; // saved again unchanged (autosave): nothing new to journal
+        }
+        String perPart = parts.stream()
+                .filter(p -> response.getPartPoints().containsKey(p.getId()))
+                .map(p -> p.label() + ") " + response.getPartPoints().get(p.getId()) + "/" + p.getPoints())
+                .collect(Collectors.joining(", "));
+        String number = QuestionNumbers.of(item, itemRepository.findByQuizIdOrderByPosition(item.getQuiz().getId()));
+        auditLog.record(AuditEvent.of(AuditAction.ANSWER_GRADED, attemptId,
+                        AuditText.question(attempt.getQuiz().getTitle(), number))
+                .about(attempt.getStudent())
+                .details((perPart.isEmpty() ? "fără punctaj" : perPart) + " p"
+                        + (response.getAwardedPoints() == null ? "" : " = " + response.getAwardedPoints() + " din " + item.getPoints())
+                        + (commentChange == null ? "" : ", " + commentChange)));
+    }
+
+    /** The requirements a), b)... of each item of a quiz, by item id (most items have none). */
+    private Map<Long, List<QuizItemPart>> partsOf(List<QuizItem> items) {
+        if (items.isEmpty()) {
+            return Map.of();
+        }
+        return partRepository.findByItemIdInOrderByItemIdAscPositionAsc(items.stream().map(QuizItem::getId).toList())
+                .stream().collect(Collectors.groupingBy(p -> p.getItem().getId()));
     }
 
     /** "comentariu adăugat / modificat / șters", or null when the comment stayed the same. */
@@ -789,6 +862,7 @@ public class QuizAttemptService {
         Map<Long, ItemResponse> byItem = responseRepository.findByAttemptId(attemptId).stream()
                 .collect(Collectors.toMap(r -> r.getItem().getId(), Function.identity()));
 
+        Map<Long, List<QuizItemPart>> partsByItem = partsOf(items);
         int maxScore = 0;
         List<AdminItemReviewDto> reviews = new ArrayList<>();
         for (QuizItem item : items) {
@@ -814,7 +888,8 @@ public class QuizAttemptService {
                     response == null ? null : response.getTeacherComment(),
                     item.getSection(),
                     item.getImageKey(),
-                    response == null ? List.of() : response.photoIds()));
+                    response == null ? List.of() : response.photoIds(),
+                    PartDtos.GradedPartDto.of(partsByItem.getOrDefault(item.getId(), List.of()), response)));
         }
         return new AdminAttemptDetailDto(attempt.getId(), attempt.getQuiz().getTitle(),
                 attempt.getStudent().getFullName(), attempt.getStatus(), attempt.getSubmittedAt(),

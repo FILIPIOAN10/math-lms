@@ -11,6 +11,7 @@ import {
   finalizeGrading as finalizeGradingRequest,
   getAttemptForGrading as getAttemptForGradingRequest,
   gradeOpenItem as gradeOpenItemRequest,
+  gradeOpenItemParts as gradeOpenItemPartsRequest,
   type AdminAttemptDetail,
   type AdminItemReview,
 } from '@/lib/api'
@@ -19,6 +20,7 @@ import { roCount } from '@/lib/format'
 import { numberItems, parseSection } from '@/lib/sections'
 import { cn } from '@/lib/utils'
 import { EMPTY_BANK, type SnippetBank } from '@/lib/useCommentSnippets'
+import { gradedItem, hasParts, partsPayload, type GradeValue } from '@/lib/grading'
 
 interface Props {
   quizTitle: string
@@ -30,6 +32,7 @@ interface Props {
   /** Injected in tests; default to the real API calls. */
   getAttemptForGrading?: typeof getAttemptForGradingRequest
   gradeOpenItem?: typeof gradeOpenItemRequest
+  gradeOpenItemParts?: typeof gradeOpenItemPartsRequest
   finalizeGrading?: typeof finalizeGradingRequest
   attemptPhotoUrl?: typeof attemptPhotoUrlDefault
 }
@@ -49,6 +52,7 @@ export function GradeByItem({
   bank = EMPTY_BANK,
   getAttemptForGrading = getAttemptForGradingRequest,
   gradeOpenItem = gradeOpenItemRequest,
+  gradeOpenItemParts = gradeOpenItemPartsRequest,
   finalizeGrading = finalizeGradingRequest,
   attemptPhotoUrl = attemptPhotoUrlDefault,
 }: Props) {
@@ -127,10 +131,10 @@ export function GradeByItem({
   }
 
   /** A grade the server accepted: shown without fetching the paper again. */
-  function graded(attemptId: number, id: number, points: number, comment: string | null) {
+  function graded(attemptId: number, updated: AdminItemReview) {
     setPapers((prev) => prev!.map((p) => (p.attemptId !== attemptId ? p : {
       ...p,
-      items: p.items.map((i) => (i.itemId === id ? { ...i, awardedPoints: points, teacherComment: comment } : i)),
+      items: p.items.map((i) => (i.itemId === updated.itemId ? updated : i)),
     })))
   }
 
@@ -217,9 +221,15 @@ export function GradeByItem({
             photoUrl={(photoId) => attemptPhotoUrl(paper.attemptId, current.item.itemId, photoId)}
             bank={bank}
             registerFlush={registerFlush}
-            save={async (points, comment) => {
-              await gradeOpenItem(paper.attemptId, current.item.itemId, points, comment)
-              graded(paper.attemptId, current.item.itemId, points, comment)
+            save={async (grade) => {
+              const answer = answerOf(paper, current.item.itemId)
+              const comment = grade.comment.trim() === '' ? null : grade.comment.trim()
+              if (hasParts(answer)) {
+                await gradeOpenItemParts(paper.attemptId, answer.itemId, partsPayload(answer, grade), comment)
+              } else {
+                await gradeOpenItem(paper.attemptId, answer.itemId, grade.points!, comment)
+              }
+              graded(paper.attemptId, gradedItem(answer, grade))
             }}
             onPrevious={index > 0 ? () => void goTo(index - 1) : undefined}
             onNext={index < papers.length - 1 ? () => void goTo(index + 1) : undefined}
@@ -270,7 +280,7 @@ function AnswerGrader({
   /** The address of one page of this answer. */
   photoUrl: (photoId: number) => string
   bank: SnippetBank
-  save: (points: number, comment: string | null) => Promise<void>
+  save: (grade: GradeValue) => Promise<void>
   registerFlush: (flush: (() => Promise<boolean>) | null) => void
   onPrevious?: () => void
   onNext?: () => void

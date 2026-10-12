@@ -7,6 +7,7 @@ import { AttemptStatusBadge } from '@/components/AttemptStatusBadge'
 import { MathContent } from '@/components/MathContent'
 import { PhotoPages } from '@/components/PhotoPages'
 import { QuestionImage } from '@/components/QuestionImage'
+import { PartsView } from '@/components/PartsView'
 import { SectionHeadingView } from '@/components/SectionHeadingView'
 import { numberItems } from '@/lib/sections'
 import { ownPhotoUrl, type AttemptResultViewDto, type ItemResultDto } from '@/lib/api'
@@ -96,6 +97,15 @@ function ItemResult({
         </div>
         <MathContent>{item.statement}</MathContent>
         <QuestionImage itemId={item.itemId} image={item.image} />
+        <PartsView
+          parts={(item.parts ?? []).map((p) => ({
+            label: p.label,
+            statement: p.statement,
+            points: p.points,
+            awardedPoints: p.awardedPoints,
+            barem: showBarem ? p.barem : null,
+          }))}
+        />
         {item.hintsAvailable > 0 && (
           <p data-testid="hints-used" className="text-xs text-muted-foreground">
             Indicii folosite: {item.hintsUsed} din {item.hintsAvailable}
@@ -142,12 +152,12 @@ function ItemResult({
           <TeacherNote text={item.teacherComment} testId="item-teacher-comment" title="Comentariul profesorului" />
         )}
 
-        {item.barem && (
+        {(item.barem || (item.parts ?? []).some((p) => p.barem)) && (
           <div className="space-y-2">
             <Button size="xs" variant="outline" onClick={() => setShowBarem((v) => !v)}>
               {showBarem ? 'Ascunde baremul' : 'Arată baremul'}
             </Button>
-            {showBarem && (
+            {showBarem && item.barem && (
               <div className="rounded-lg bg-muted p-3 text-sm">
                 <MathContent>{item.barem}</MathContent>
               </div>

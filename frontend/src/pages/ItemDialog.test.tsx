@@ -227,3 +227,41 @@ describe('ItemDialog chapter', () => {
     expect(screen.queryByLabelText('Capitol')).not.toBeInTheDocument()
   })
 })
+
+describe('ItemDialog requirements a), b) (EN Subiectul III)', () => {
+  it('splits an open problem into requirements with their own points; the problem is worth their sum', async () => {
+    const onSubmit = renderDialog({ ...openItem, hints: [] })
+
+    await userEvent.click(screen.getByRole('button', { name: 'Adaugă cerința a)' }))
+    await userEvent.type(screen.getByLabelText('Cerința a)'), 'Arată că x = 25.')
+    await userEvent.click(screen.getByRole('button', { name: 'Adaugă cerința b)' }))
+    await userEvent.type(screen.getByLabelText('Cerința b)'), 'Calculează x la pătrat.')
+    await userEvent.type(screen.getByLabelText('Barem cerința b)'), '625')
+
+    expect(screen.getByLabelText('Punctaj')).toHaveValue(5) // 2 + 3, filled in
+    expect(screen.getByLabelText('Punctaj')).toBeDisabled()
+    await userEvent.click(screen.getByRole('button', { name: 'Salvează' }))
+
+    const input = await submitted(onSubmit)
+    expect(input.points).toBe(5)
+    expect(input.parts).toEqual([
+      { statement: 'Arată că x = 25.', points: 2, solution: null },
+      { statement: 'Calculează x la pătrat.', points: 3, solution: '625' },
+    ])
+  })
+
+  it('shows the requirements a stored problem has, and a grilă never has any', async () => {
+    renderDialog({
+      ...openItem,
+      points: 5,
+      parts: [
+        { id: 1, position: 0, label: 'a', statement: 'Arată că x = 25.', points: 2, solution: null },
+        { id: 2, position: 1, label: 'b', statement: 'Calculează.', points: 3, solution: '-1' },
+      ],
+    })
+
+    expect(screen.getByLabelText('Cerința a)')).toHaveValue('Arată că x = 25.')
+    expect(screen.getByLabelText('Barem cerința b)')).toHaveValue('-1')
+    expect(screen.getByRole('button', { name: 'Adaugă cerința c)' })).toBeInTheDocument()
+  })
+})

@@ -14,6 +14,7 @@ import { RowMenu } from '@/components/RowMenu'
 import { TestsTabs } from '@/components/TestsTabs'
 import { PublishDialog } from '@/components/PublishDialog'
 import { SectionHeadingView } from '@/components/SectionHeadingView'
+import { PartsView } from '@/components/PartsView'
 import { numberItems } from '@/lib/sections'
 import { useConfirm } from '@/components/useConfirm'
 import {
@@ -45,6 +46,16 @@ import {
 import { formatDate, roCount } from '@/lib/format'
 import { errorMessage } from '@/lib/errors'
 import { shrinkImage } from '@/lib/image'
+
+/** A requirement a), b)... while it is being edited (points as typed). */
+interface PartDraft {
+  statement: string
+  points: string
+  solution: string
+}
+
+/** Same limit as the server (QuizItemPart.MAX_PARTS). */
+const MAX_PARTS = 6
 
 /** What the question dialog does with the picture under the statement. */
 export type ImageChange = 'keep' | 'remove' | File
@@ -280,6 +291,11 @@ export function ItemDialog({
       ? initial.options.map((o) => ({ text: o.text, correct: o.correct }))
       : emptyOptions(),
   )
+  // EN Subiectul III: requirements a), b)... each with its points and barem; the question's points are their sum.
+  const [parts, setParts] = useState<PartDraft[]>(
+    (initial?.parts ?? []).map((p) => ({ statement: p.statement, points: String(p.points), solution: p.solution ?? '' })),
+  )
+  const partsTotal = parts.reduce((sum, p) => sum + (Number(p.points) || 0), 0)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(0) // items added with "Salvează și adaugă încă unul" while the dialog stayed open
@@ -341,8 +357,23 @@ export function ItemDialog({
     setOptions((prev) => (prev.length <= 2 ? prev : prev.filter((_, i) => i !== index)))
   }
 
+  function setPart(index: number, change: Partial<PartDraft>) {
+    setParts((prev) => prev.map((p, i) => (i === index ? { ...p, ...change } : p)))
+  }
+
   async function save(addAnother: boolean) {
     setError(null)
+    const withParts = type === 'OPEN' && parts.length > 0
+    if (withParts) {
+      if (parts.some((p) => p.statement.trim() === '')) {
+        setError('Completează enunțul fiecărei cerințe.')
+        return
+      }
+      if (parts.some((p) => !/^\d+$/.test(p.points.trim()))) {
+        setError('Fiecare cerință are nevoie de un punctaj (număr întreg).')
+        return
+      }
+    }
     if (type === 'SINGLE_CHOICE') {
       if (options.some((o) => o.text.trim() === '')) {
         setError('Completează textul fiecărei variante.')
@@ -357,7 +388,7 @@ export function ItemDialog({
       type,
       position: initial?.position ?? 0,
       statement: statement.trim(),
-      points: Number(points) || 0,
+      points: withParts ? partsTotal : Number(points) || 0,
       solution: solution.trim() || null,
       options:
         type === 'SINGLE_CHOICE'
@@ -366,6 +397,10 @@ export function ItemDialog({
       hints: hints.map((h) => h.trim()).filter((h) => h !== ''), // an empty box is just dropped
       chapterId: chapterId === '' ? null : Number(chapterId),
       section: section.trim() || null,
+      parts:
+        type === 'OPEN'
+          ? parts.map((p) => ({ statement: p.statement.trim(), points: Number(p.points), solution: p.solution.trim() || null }))
+          : null,
     }
     setBusy(true)
     try {
@@ -375,6 +410,7 @@ export function ItemDialog({
         setStatement('')
         setSolution('')
         setHints([])
+        setParts([])
         setOptions(emptyOptions())
         setImage('keep')
         setSaved((n) => n + 1)
@@ -483,8 +519,80 @@ export function ItemDialog({
 
         <div className="flex flex-col gap-2">
           <Label htmlFor="ipoints">Punctaj</Label>
-          <Input id="ipoints" type="number" min={0} value={points} onChange={(e) => setPoints(e.target.value)} className="w-28" />
+          <Input
+            id="ipoints"
+            type="number"
+            min={0}
+            value={type === 'OPEN' && parts.length > 0 ? String(partsTotal) : points}
+            onChange={(e) => setPoints(e.target.value)}
+            disabled={type === 'OPEN' && parts.length > 0}
+            className="w-28"
+          />
+          {type === 'OPEN' && parts.length > 0 && (
+            <p className="text-xs text-muted-foreground">Suma cerințelor de mai jos.</p>
+          )}
         </div>
+
+        {type === 'OPEN' && (
+          <div className="flex flex-col gap-2" data-testid="parts-editor">
+            <Label>Cerințe a), b)… (opțional, ca la Subiectul III)</Label>
+            {parts.map((part, i) => {
+              const label = String.fromCharCode(97 + i)
+              return (
+                <div key={i} className="space-y-2 rounded-lg border p-2">
+                  <div className="flex items-start gap-2">
+                    <span className="mt-2 w-5 shrink-0 text-sm font-semibold">{label})</span>
+                    <Textarea
+                      value={part.statement}
+                      onChange={(e) => setPart(i, { statement: e.target.value })}
+                      placeholder={i === 0 ? 'Arată că $x = 25$.' : 'Calculează …'}
+                      aria-label={`Cerința ${label})`}
+                      className="min-h-14"
+                    />
+                    <Input
+                      type="number"
+                      min={0}
+                      value={part.points}
+                      onChange={(e) => setPart(i, { points: e.target.value })}
+                      aria-label={`Puncte cerința ${label})`}
+                      className="w-16 shrink-0"
+                    />
+                    <span className="mt-2 text-sm text-muted-foreground">p</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => setParts((prev) => prev.filter((_, j) => j !== i))}
+                      aria-label={`Șterge cerința ${label})`}
+                    >
+                      ×
+                    </Button>
+                  </div>
+                  <Textarea
+                    value={part.solution}
+                    onChange={(e) => setPart(i, { solution: e.target.value })}
+                    placeholder={`Barem ${label}) (opțional)`}
+                    aria-label={`Barem cerința ${label})`}
+                    className="ml-7 min-h-12 w-[calc(100%-1.75rem)]"
+                  />
+                </div>
+              )
+            })}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="self-start"
+              disabled={parts.length >= MAX_PARTS}
+              onClick={() => setParts((prev) => [...prev, { statement: '', points: prev.length === 0 ? '2' : '3', solution: '' }])}
+            >
+              Adaugă cerința {String.fromCharCode(97 + parts.length)})
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              Fiecare cerință se notează separat la corectură; elevul trimite o singură rezolvare (poze) pentru tot subiectul.
+            </p>
+          </div>
+        )}
 
         {type === 'SINGLE_CHOICE' ? (
           <div className="flex flex-col gap-2">
@@ -801,6 +909,9 @@ export function AdminQuizzesPage() {
                             ⚠ Lipsește imaginea — apasă „Editează” și lipește figura (Ctrl+V).
                           </p>
                         )}
+                        <PartsView
+                          parts={(item.parts ?? []).map((p) => ({ label: p.label, statement: p.statement, points: p.points, barem: p.solution }))}
+                        />
                         {item.type === 'SINGLE_CHOICE' && (
                           <ul className="space-y-1 text-sm">
                             {item.options.map((o) => (

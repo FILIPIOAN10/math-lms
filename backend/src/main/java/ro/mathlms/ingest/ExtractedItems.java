@@ -1,6 +1,7 @@
 package ro.mathlms.ingest;
 
 import ro.mathlms.quiz.QuizItem;
+import ro.mathlms.quiz.QuizItemPart;
 import ro.mathlms.quiz.QuizItemType;
 
 import java.util.ArrayList;
@@ -65,13 +66,47 @@ final class ExtractedItems {
             if (item.hasFigure()) {
                 warnings.add(FIGURE);
             }
+            List<ExtractedItem.Part> parts = new ArrayList<>();
+            if (type == QuizItemType.OPEN && item.parts() != null) {
+                for (ExtractedItem.Part part : item.parts()) {
+                    String text = part == null ? null : cap(trim(withoutPartLabel(part.statement())), MAX_STATEMENT);
+                    if (text != null && parts.size() < QuizItemPart.MAX_PARTS) {
+                        Integer partPoints = part.points() == null || part.points() < 0 || part.points() > MAX_POINTS
+                                ? null : part.points();
+                        parts.add(new ExtractedItem.Part(text, partPoints));
+                    }
+                }
+                if (parts.stream().anyMatch(p -> !balancedMath(p.statement()))) {
+                    warnings.add(UNBALANCED_MATH);
+                }
+            }
             Integer points = item.points() == null || item.points() < 0 || item.points() > MAX_POINTS ? null : item.points();
+            if (!parts.isEmpty() && parts.stream().allMatch(p -> p.points() != null)) {
+                points = parts.stream().mapToInt(ExtractedItem.Part::points).sum(); // the printed parts are what counts
+            }
             int page = Math.clamp(item.page(), 1, Math.max(1, pageCount));
-            out.add(new ExtractedItem(page, cap(trim(item.section()), QuizItem.MAX_SECTION), type, statement,
-                    List.copyOf(options), points, item.hasFigure(), List.copyOf(warnings)));
+            out.add(new ExtractedItem(page, cap(enHeading(trim(item.section())), QuizItem.MAX_SECTION), type, statement,
+                    List.copyOf(options), points, item.hasFigure(), List.copyOf(warnings), List.copyOf(parts)));
         }
         return out;
     }
+
+    /**
+     * The EN headings as printed: "SUBIECTUL II-lea" (a reading that dropped the word) becomes "SUBIECTUL al II-lea";
+     * "SUBIECTUL I" stays as it is.
+     */
+    static String enHeading(String section) {
+        return section == null ? null : EN_HEADING.matcher(section).replaceFirst("SUBIECTUL al $1-lea");
+    }
+
+    private static final Pattern EN_HEADING = Pattern.compile("^SUBIECTUL\\s+(?:AL\\s+)?([IVX]{2,4})-LEA", Pattern.CASE_INSENSITIVE);
+
+    /** "a) Arată că..." / "(2p) b) Calculează..." -> the text alone: the label comes from the order, the points apart. */
+    static String withoutPartLabel(String statement) {
+        return statement == null ? null : PART_LABEL.matcher(statement).replaceFirst("");
+    }
+
+    private static final Pattern PART_LABEL = Pattern.compile("^\\s*(?:\\(\\s*\\d{1,3}\\s*p\\s*\\)\\s*)?[a-f]\\)\\s+");
 
     /** An even number of unescaped {@code $}: every inline formula is closed ({@code $$} counts as two). */
     static boolean balancedMath(String text) {

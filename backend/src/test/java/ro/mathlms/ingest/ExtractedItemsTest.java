@@ -77,6 +77,31 @@ class ExtractedItemsTest {
     }
 
     @Test
+    void aProblemsRequirementsKeepTheirPointsAndGiveTheTotal() {
+        ExtractedItem problem = new ExtractedItem(2, "SUBIECTUL al III-lea", QuizItemType.OPEN, "1. Se consideră $x$.",
+                List.of(), null, false, List.of(), List.of(
+                        new ExtractedItem.Part("(2p) a) Arată că $x=25$.", 2),
+                        new ExtractedItem.Part("b) Calculează $(8y-x)^{27}$.", 3),
+                        new ExtractedItem.Part("  ", 1)));
+
+        ExtractedItem out = ExtractedItems.normalize(List.of(problem), 4).getFirst();
+
+        assertThat(out.statement()).isEqualTo("Se consideră $x$.");
+        assertThat(out.parts()).containsExactly(new ExtractedItem.Part("Arată că $x=25$.", 2),
+                new ExtractedItem.Part("Calculează $(8y-x)^{27}$.", 3));
+        assertThat(out.points()).isEqualTo(5);
+    }
+
+    @Test
+    void enHeadingsReadAsPrinted() {
+        assertThat(ExtractedItems.enHeading("SUBIECTUL II-lea\nÎncercuiește litera"))
+                .isEqualTo("SUBIECTUL al II-lea\nÎncercuiește litera");
+        assertThat(ExtractedItems.enHeading("SUBIECTUL AL III-LEA")).isEqualTo("SUBIECTUL al III-lea");
+        assertThat(ExtractedItems.enHeading("SUBIECTUL I")).isEqualTo("SUBIECTUL I");
+        assertThat(ExtractedItems.enHeading("Exerciții de consolidare")).isEqualTo("Exerciții de consolidare");
+    }
+
+    @Test
     void anEscapedDollarIsNotAFormula() {
         assertThat(ExtractedItems.balancedMath("Costă 5 \\$ și $x=2$")).isTrue();
         assertThat(ExtractedItems.balancedMath("$$x^2$$")).isTrue();

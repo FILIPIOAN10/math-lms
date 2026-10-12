@@ -1,6 +1,8 @@
 package ro.mathlms.quiz;
 
+import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
@@ -8,6 +10,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.MapKeyColumn;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
@@ -18,7 +21,9 @@ import lombok.NoArgsConstructor;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -87,6 +92,16 @@ public class ItemResponse {
 
     @Column(name = "client_seq")
     private Long clientSeq;
+
+    /**
+     * The teacher's points per requirement (EN "(2p) a)", "(3p) b)") of a problem that has them, by part id (V32).
+     * {@link #awardedPoints} is their sum once every requirement has points, null before.
+     */
+    @ElementCollection
+    @CollectionTable(name = "response_part_points", joinColumns = @JoinColumn(name = "response_id"))
+    @MapKeyColumn(name = "part_id")
+    @Column(name = "points")
+    private Map<Long, Integer> partPoints = new HashMap<>();
 
     public ItemResponse(QuizAttempt attempt, QuizItem item) {
         this.attempt = Objects.requireNonNull(attempt, "attempt");
@@ -177,6 +192,30 @@ public class ItemResponse {
     public void gradeManual(int awardedPoints, String comment) {
         requireType(QuizItemType.OPEN);
         this.awardedPoints = requireNonNegative(awardedPoints);
+        this.teacherComment = TeacherComment.normalize(comment);
+    }
+
+    /**
+     * Records the teacher's points for some of an OPEN problem's requirements (null takes them away) and the comment on
+     * the whole answer. The answer's points become the sum once every requirement of {@code parts} has some - until
+     * then they stay null, so the paper cannot be finalised half graded.
+     */
+    public void gradeParts(List<QuizItemPart> parts, Map<Long, Integer> grades, String comment) {
+        requireType(QuizItemType.OPEN);
+        for (Map.Entry<Long, Integer> grade : grades.entrySet()) {
+            QuizItemPart part = parts.stream().filter(p -> Objects.equals(p.getId(), grade.getKey())).findFirst()
+                    .orElseThrow(() -> new IllegalArgumentException("part " + grade.getKey() + " is not one of this item's"));
+            Integer points = grade.getValue();
+            if (points == null) {
+                partPoints.remove(part.getId());
+            } else if (points < 0 || points > part.getPoints()) {
+                throw new IllegalArgumentException("part " + part.label() + " is worth 0.." + part.getPoints());
+            } else {
+                partPoints.put(part.getId(), points);
+            }
+        }
+        boolean complete = parts.stream().allMatch(p -> partPoints.containsKey(p.getId()));
+        this.awardedPoints = complete ? parts.stream().mapToInt(p -> partPoints.get(p.getId())).sum() : null;
         this.teacherComment = TeacherComment.normalize(comment);
     }
 

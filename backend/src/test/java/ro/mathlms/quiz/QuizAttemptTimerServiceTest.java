@@ -59,7 +59,7 @@ class QuizAttemptTimerServiceTest {
     private final QuizAttemptService service = new QuizAttemptService(
             quizRepository, itemRepository, optionRepository, mock(QuizItemHintRepository.class), attemptRepository, responseRepository,
             userRepository, mock(EnrollmentRepository.class), mock(AfterCommitCacheEvictor.class),
-            resultNotifier, fileService, mock(AuditLog.class), clock, "uploads/quiz-photos");
+            resultNotifier, fileService, mock(AuditLog.class), clock, "uploads/quiz-photos", mock(QuizItemPartRepository.class));
 
     private final User student = withId(new User(EMAIL, "Elev Pop", Role.STUDENT), 1L);
     private final Quiz timedQuiz = timed(withId(new Quiz("Simulare EN", null), 10L), 30);

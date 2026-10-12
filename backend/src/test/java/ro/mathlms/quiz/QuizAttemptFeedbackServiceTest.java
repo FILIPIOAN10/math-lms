@@ -45,7 +45,7 @@ class QuizAttemptFeedbackServiceTest {
             quizRepository, itemRepository, optionRepository,
             mock(QuizItemHintRepository.class), attemptRepository, responseRepository, userRepository,
             mock(EnrollmentRepository.class), mock(AfterCommitCacheEvictor.class), mock(ResultNotifier.class),
-            mock(FileService.class), mock(AuditLog.class), Clock.systemUTC(), "uploads/quiz-photos");
+            mock(FileService.class), mock(AuditLog.class), Clock.systemUTC(), "uploads/quiz-photos", mock(QuizItemPartRepository.class));
 
     private static final String EMAIL = "elev@scoala.ro";
 

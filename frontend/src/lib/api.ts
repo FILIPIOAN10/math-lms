@@ -518,6 +518,36 @@ export interface QuizItemDto {
   image?: string | null
   /** Imported with "[imagine]" and still waiting for its picture. */
   imageRequired?: boolean
+  /** An open problem's requirements a), b)... (EN Subiectul III); empty/absent = none. */
+  parts?: ItemPart[]
+}
+
+/** One requirement of an open problem: "(2p) a) Arată că x = 25.", with its barem. */
+export interface ItemPart {
+  id: number
+  position: number
+  /** "a", "b"... */
+  label: string
+  statement: string
+  points: number
+  solution: string | null
+}
+
+/** A requirement when authoring; its letter follows from the order. */
+export interface PartInput {
+  statement: string
+  points: number
+  solution: string | null
+}
+
+/** A requirement on a paper being graded or graded: its barem and the points given (null = not yet). */
+export interface GradedPart {
+  id: number
+  label: string
+  statement: string
+  points: number
+  barem: string | null
+  awardedPoints: number | null
 }
 
 export interface QuizDetail {
@@ -553,6 +583,8 @@ export interface ItemInput {
   image?: string | null
   /** Imported with "[imagine]": the question still needs its picture (only read when it is created). */
   imageRequired?: boolean
+  /** OPEN only: requirements a), b)... with their own points; the item's points become their sum. */
+  parts?: PartInput[] | null
 }
 
 // ---------- Chapters + mastery map (E6) ----------
@@ -773,6 +805,8 @@ export interface ExtractedItem {
   /** It refers to a drawing the teacher adds as the question's picture. */
   hasFigure: boolean
   warnings: string[]
+  /** An open problem's requirements a), b)... with their printed points; absent on older readings. */
+  parts?: { statement: string; points: number | null }[] | null
 }
 
 export interface AiImport {
@@ -925,6 +959,8 @@ export interface StudentItemDto {
   section?: string | null
   /** The picture under the statement: a version token for questionImageUrl(), or null/absent = none. */
   image?: string | null
+  /** An open problem's requirements a), b)... (no barem); empty/absent = none. */
+  parts?: { id: number; label: string; statement: string; points: number }[]
 }
 
 export interface StudentQuizDetailDto {
@@ -1042,6 +1078,8 @@ export interface ItemResultDto {
   section?: string | null
   /** The picture under the statement: a version token for questionImageUrl(), or null/absent = none. */
   image?: string | null
+  /** Requirements a), b)... with their barem and points; empty/absent = none. */
+  parts?: GradedPart[]
 }
 
 export interface AttemptResultViewDto {
@@ -1278,6 +1316,8 @@ export interface AdminItemReview {
   section?: string | null
   /** The picture under the statement: a version token for questionImageUrl(), or null/absent = none. */
   image?: string | null
+  /** Requirements a), b)... graded one by one; empty/absent = one grade for the whole answer. */
+  parts?: GradedPart[]
 }
 
 export interface AdminAttemptDetail {
@@ -1306,6 +1346,16 @@ export async function getAttemptForGrading(attemptId: number): Promise<AdminAtte
 /** Points for one open answer, with an optional comment for the student (blank = none). */
 export async function gradeOpenItem(attemptId: number, itemId: number, points: number, comment: string | null = null): Promise<void> {
   await putJson(`/admin/quiz/attempts/${attemptId}/responses/${itemId}/grade`, { points, comment })
+}
+
+/** A problem with requirements a), b)...: points per requirement (null = not yet), one comment for the whole answer. */
+export async function gradeOpenItemParts(
+  attemptId: number,
+  itemId: number,
+  parts: { partId: number; points: number | null }[],
+  comment: string | null = null,
+): Promise<void> {
+  await putJson(`/admin/quiz/attempts/${attemptId}/responses/${itemId}/grade`, { comment, parts })
 }
 
 // ---------- Saved grading comments ("comentarii frecvente") ----------

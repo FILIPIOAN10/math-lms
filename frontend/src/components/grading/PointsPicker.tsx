@@ -16,12 +16,18 @@ export function PointsPicker({
   onChange,
   disabled = false,
   autoFocus = false,
+  label = 'Puncte acordate',
+  testId = 'grade-points',
 }: {
   max: number
   value: number | null
   onChange: (points: number | null, commit: boolean) => void
   disabled?: boolean
   autoFocus?: boolean
+  /** What a screen reader calls the group (one per requirement on an EN problem). */
+  label?: string
+  /** The group's data-testid; each button is `${testId}-${n}`. */
+  testId?: string
 }) {
   const buttons = useRef<(HTMLButtonElement | null)[]>([])
   const [text, setText] = useState(value === null ? '' : String(value))
@@ -35,7 +41,7 @@ export function PointsPicker({
       <span className="flex items-center gap-2">
         <Input
           type="number"
-          data-testid="grade-points"
+          data-testid={testId}
           min={0}
           max={max}
           value={text}
@@ -46,7 +52,7 @@ export function PointsPicker({
           onBlur={() => onChange(parse(text), true)}
           disabled={disabled}
           className="w-24"
-          aria-label="Puncte acordate"
+          aria-label={label}
           aria-invalid={text.trim() !== '' && parse(text) === null}
           autoFocus={autoFocus}
         />
@@ -75,8 +81,8 @@ export function PointsPicker({
     <span className="flex flex-wrap items-center gap-2">
       <span
         role="radiogroup"
-        aria-label="Puncte acordate"
-        data-testid="grade-points"
+        aria-label={label}
+        data-testid={testId}
         className="flex flex-wrap gap-1"
         onBlur={(e) => {
           if (!e.currentTarget.contains(e.relatedTarget as Node | null)) onChange(value, true)
@@ -90,7 +96,7 @@ export function PointsPicker({
             role="radio"
             aria-checked={value === n}
             tabIndex={n === focusable ? 0 : -1}
-            data-testid={`grade-points-${n}`}
+            data-testid={`${testId}-${n}`}
             disabled={disabled}
             autoFocus={autoFocus && n === focusable}
             onClick={() => onChange(n, true)}

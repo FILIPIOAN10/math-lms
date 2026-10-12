@@ -64,7 +64,16 @@ public class AdminQuizAttemptController {
     @PutMapping("/{attemptId}/responses/{itemId}/grade")
     public ResponseEntity<Void> gradeItem(@PathVariable Long attemptId, @PathVariable Long itemId,
                                           @Valid @RequestBody GradeRequestDto request) {
-        service.gradeOpenResponse(attemptId, itemId, request.points(), request.comment());
+        if (request.parts() != null && !request.parts().isEmpty()) {
+            java.util.Map<Long, Integer> parts = new java.util.HashMap<>();
+            request.parts().forEach(p -> parts.put(p.partId(), p.points()));
+            service.gradeOpenResponseParts(attemptId, itemId, parts, request.comment());
+        } else {
+            if (request.points() == null) {
+                throw new InvalidQuizException("Punctajul este obligatoriu");
+            }
+            service.gradeOpenResponse(attemptId, itemId, request.points(), request.comment());
+        }
         return ResponseEntity.noContent().build();
     }
 

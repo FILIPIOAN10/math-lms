@@ -42,7 +42,7 @@ class QuizAttemptHintServiceTest {
     private final QuizAttemptService service = new QuizAttemptService(
             quizRepository, itemRepository, optionRepository, hintRepository, attemptRepository, responseRepository,
             userRepository, mock(EnrollmentRepository.class), mock(AfterCommitCacheEvictor.class),
-            mock(ResultNotifier.class), mock(FileService.class), mock(AuditLog.class), Clock.systemUTC(), "uploads/quiz-photos");
+            mock(ResultNotifier.class), mock(FileService.class), mock(AuditLog.class), Clock.systemUTC(), "uploads/quiz-photos", mock(QuizItemPartRepository.class));
 
     private final User student = withId(new User(EMAIL, "Elev Pop", Role.STUDENT), 1L);
     private final Quiz quiz = practiceQuiz();

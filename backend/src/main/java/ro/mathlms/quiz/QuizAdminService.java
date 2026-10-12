@@ -40,12 +40,14 @@ public class QuizAdminService {
     private final AfterCommitCacheEvictor cacheEvictor;
     private final QuestionImageService imageService;
     private final AuditLog auditLog;
+    private final QuizItemPartRepository partRepository;
 
     public QuizAdminService(QuizRepository quizRepository, QuizItemRepository itemRepository,
                             QuizOptionRepository optionRepository, QuizItemHintRepository hintRepository,
                             SchoolClassRepository schoolClassRepository, ChapterRepository chapterRepository,
                             ExerciseRepository exerciseRepository, AfterCommitCacheEvictor cacheEvictor,
-                            QuestionImageService imageService, AuditLog auditLog) {
+                            QuestionImageService imageService, AuditLog auditLog, QuizItemPartRepository partRepository) {
+        this.partRepository = partRepository;
         this.imageService = imageService;
         this.auditLog = auditLog;
         this.chapterRepository = chapterRepository;
@@ -79,7 +81,8 @@ public class QuizAdminService {
         Quiz quiz = getQuiz(id);
         List<ItemDto> items = itemRepository.findByQuizIdOrderByPosition(id).stream()
                 .map(item -> ItemDto.from(item, optionRepository.findByItemIdOrderByPosition(item.getId()),
-                        hintRepository.findByItemIdOrderByPosition(item.getId())))
+                        hintRepository.findByItemIdOrderByPosition(item.getId()),
+                        partRepository.findByItemIdOrderByPosition(item.getId())))
                 .toList();
         return QuizDetailDto.of(quiz, items);
     }
@@ -252,6 +255,10 @@ public class QuizAdminService {
             for (QuizItemHint hint : hintRepository.findByItemIdOrderByPosition(item.getId())) {
                 hintRepository.save(new QuizItemHint(itemCopy, hint.getPosition(), hint.getText()));
             }
+            for (QuizItemPart part : partRepository.findByItemIdOrderByPosition(item.getId())) {
+                partRepository.save(new QuizItemPart(itemCopy, part.getPosition(), part.getStatement(), part.getPoints(),
+                        part.getSolution()));
+            }
         }
         auditLog.record(AuditEvent.of(AuditAction.QUIZ_COPIED, saved.getId(), saved.getTitle())
                 .details("copie după „" + source.getTitle() + "”"));
@@ -330,22 +337,24 @@ public class QuizAdminService {
         Quiz quiz = getQuiz(quizId);
         requireNotTaken(quiz, "nu mai poți adăuga subiecte");
         requireValidHints(request.hints()); // before anything is written
+        requireValidParts(request);
         QuizItem fresh = new QuizItem(
                 quiz, request.position(), request.type(), request.statement(),
-                request.points(), request.solution());
+                pointsOf(request), request.solution());
         fresh.tagChapter(chapterFitting(request.chapterId(), quiz.getSchoolClass()));
         fresh.placeInSection(request.section());
         fresh.requireImage(Boolean.TRUE.equals(request.imageRequired()));
         QuizItem item = itemRepository.save(fresh);
         List<QuizOption> options = saveOptionsIfSingleChoice(item, request);
         List<QuizItemHint> hints = saveHints(item, request.hints());
+        List<QuizItemPart> parts = saveParts(item, request.parts());
         dropScoreCaches();
         if (seenByStudents(quiz)) {
             recordQuestion(AuditAction.QUESTION_ADDED, item,
                     QuestionNumbers.of(item, itemRepository.findByQuizIdOrderByPosition(quizId)),
                     item.getPoints() + " p");
         }
-        return ItemDto.from(item, options, hints);
+        return ItemDto.from(item, options, hints, parts);
     }
 
     @Transactional
@@ -355,6 +364,7 @@ public class QuizAdminService {
             throw new InvalidQuizException("The item type cannot be changed");
         }
         requireValidHints(request.hints());
+        requireValidParts(request);
         boolean journalled = seenByStudents(item.getQuiz());
         ItemSnapshot before = journalled ? snapshot(item) : null;
         // The chapter tag is bookkeeping for the mastery map, not part of the grade: it may change even once taken.
@@ -362,33 +372,38 @@ public class QuizAdminService {
         item.placeInSection(request.section()); // layout only, like the chapter tag: allowed even once taken
         boolean taken = quizRepository.countAttempts(item.getQuiz().getId()) > 0;
         List<QuizOption> options;
+        List<QuizItemPart> parts;
         if (taken) {
             // Students' answers point at these options and their grades at these points: only texts may change.
             options = correctTextsInPlace(item, request);
+            parts = correctPartTextsInPlace(item, request);
             item.update(request.position(), request.statement(), item.getPoints(), request.solution());
             itemRepository.save(item);
         } else {
-            item.update(request.position(), request.statement(), request.points(), request.solution());
+            item.update(request.position(), request.statement(), pointsOf(request), request.solution());
             itemRepository.save(item);
-            // Replace options wholesale for a single-choice item.
+            // Replace options and requirements wholesale.
             optionRepository.deleteByItemId(itemId);
             options = saveOptionsIfSingleChoice(item, request);
+            partRepository.deleteByItemId(itemId);
+            parts = saveParts(item, request.parts());
         }
         hintRepository.deleteByItemId(itemId); // hints are replaced wholesale too
         List<QuizItemHint> hints = saveHints(item, request.hints());
         dropScoreCaches();
         if (journalled) {
-            String changes = before.changesTo(snapshot(item, options, hints));
+            String changes = before.changesTo(snapshot(item, options, hints, parts));
             if (changes != null) { // re-saved unchanged (e.g. only moved): not worth a row
                 recordQuestion(AuditAction.QUESTION_UPDATED, item, before.number(), changes);
             }
         }
-        return ItemDto.from(item, options, hints);
+        return ItemDto.from(item, options, hints, parts);
     }
 
     /** What a question looked like, to word what an edit changed ("punctaj 3 → 5, răspuns corect"). */
     private record ItemSnapshot(String number, String statement, int points, String solution, List<String> options,
-                                int correctOption, List<String> hints, String section, Long chapterId) {
+                                int correctOption, List<String> hints, String section, Long chapterId,
+                                List<String> parts) {
 
         String changesTo(ItemSnapshot after) {
             return new AuditText.Changes()
@@ -401,16 +416,19 @@ public class QuizAdminService {
                     .addIfDifferent(hints, after.hints, "indicii")
                     .addIfDifferent(section, after.section, "secțiune")
                     .addIfDifferent(chapterId, after.chapterId, "capitol")
+                    .addIfDifferent(parts, after.parts, "cerințe")
                     .joined();
         }
     }
 
     private ItemSnapshot snapshot(QuizItem item) {
         return snapshot(item, optionRepository.findByItemIdOrderByPosition(item.getId()),
-                hintRepository.findByItemIdOrderByPosition(item.getId()));
+                hintRepository.findByItemIdOrderByPosition(item.getId()),
+                partRepository.findByItemIdOrderByPosition(item.getId()));
     }
 
-    private ItemSnapshot snapshot(QuizItem item, List<QuizOption> options, List<QuizItemHint> hints) {
+    private ItemSnapshot snapshot(QuizItem item, List<QuizOption> options, List<QuizItemHint> hints,
+                                  List<QuizItemPart> parts) {
         List<QuizOption> ordered = options.stream()
                 .sorted(java.util.Comparator.comparingInt(QuizOption::getPosition)).toList();
         int correct = -1;
@@ -423,7 +441,8 @@ public class QuizAdminService {
                 item.getStatement(), item.getPoints(), item.getSolution(),
                 ordered.stream().map(QuizOption::getText).toList(), correct,
                 hints.stream().map(QuizItemHint::getText).toList(), item.getSection(),
-                item.getChapter() == null ? null : item.getChapter().getId());
+                item.getChapter() == null ? null : item.getChapter().getId(),
+                parts.stream().map(p -> p.label() + ") " + p.getPoints() + "p " + p.getStatement() + " | " + p.getSolution()).toList());
     }
 
     @Transactional
@@ -442,6 +461,7 @@ public class QuizAdminService {
         }
         optionRepository.deleteByItemId(itemId);
         hintRepository.deleteByItemId(itemId);
+        partRepository.deleteByItemId(itemId);
         imageService.deleteAfterCommit(item.getImageKey());
         itemRepository.delete(item);
         dropScoreCaches();
@@ -465,7 +485,7 @@ public class QuizAdminService {
         String refusal = "Quiz-ul „" + item.getQuiz().getTitle() + "” a fost deja dat de elevi: la acest subiect poți "
                 + "corecta doar textele (enunț, variante, rezolvare, indicii) — punctajul, numărul de variante și "
                 + "varianta corectă nu se mai pot schimba.";
-        if (request.points() != item.getPoints()) {
+        if (pointsOf(request) != item.getPoints()) {
             throw new QuizInUseException(refusal);
         }
         if (item.getType() != QuizItemType.SINGLE_CHOICE) {
@@ -485,6 +505,62 @@ public class QuizAdminService {
         for (int i = 0; i < existing.size(); i++) {
             existing.get(i).changeText(requested.get(i).text());
             optionRepository.save(existing.get(i));
+        }
+        return existing;
+    }
+
+    /** An item's points: given, or - for a problem with requirements a), b)... - their sum. */
+    private static int pointsOf(ItemRequest request) {
+        return request.parts() == null || request.parts().isEmpty()
+                ? request.points()
+                : request.parts().stream().mapToInt(PartDtos.PartRequest::points).sum();
+    }
+
+    private static void requireValidParts(ItemRequest request) {
+        List<PartDtos.PartRequest> parts = request.parts();
+        if (parts == null || parts.isEmpty()) {
+            return;
+        }
+        if (request.type() != QuizItemType.OPEN) {
+            throw new InvalidQuizException("Doar un subiect cu rezolvare poate avea cerințe a), b).");
+        }
+        if (parts.size() > QuizItemPart.MAX_PARTS) {
+            throw new InvalidQuizException("Un subiect are cel mult " + QuizItemPart.MAX_PARTS + " cerințe.");
+        }
+        if (parts.stream().anyMatch(p -> p.statement() == null || p.statement().isBlank())) {
+            throw new InvalidQuizException("Fiecare cerință are nevoie de un enunț.");
+        }
+    }
+
+    /** Persists an open problem's requirements in order (a, b, c...). Null/empty = none. */
+    private List<QuizItemPart> saveParts(QuizItem item, List<PartDtos.PartRequest> parts) {
+        if (parts == null || parts.isEmpty()) {
+            return List.of();
+        }
+        List<QuizItemPart> saved = new java.util.ArrayList<>();
+        for (int i = 0; i < parts.size(); i++) {
+            PartDtos.PartRequest part = parts.get(i);
+            saved.add(partRepository.save(new QuizItemPart(item, i, part.statement(), part.points(), part.solution())));
+        }
+        return saved;
+    }
+
+    /** On a taken problem: the same requirements with the same points - only their texts and barem change. */
+    private List<QuizItemPart> correctPartTextsInPlace(QuizItem item, ItemRequest request) {
+        List<QuizItemPart> existing = partRepository.findByItemIdOrderByPosition(item.getId());
+        List<PartDtos.PartRequest> requested = request.parts() == null ? List.of() : request.parts();
+        boolean same = existing.size() == requested.size();
+        for (int i = 0; same && i < existing.size(); i++) {
+            same = existing.get(i).getPoints() == requested.get(i).points();
+        }
+        if (!same) {
+            throw new QuizInUseException("Quiz-ul „" + item.getQuiz().getTitle() + "” a fost deja dat de elevi: la "
+                    + "acest subiect poți corecta doar textele cerințelor și baremul — numărul lor și punctajele nu se "
+                    + "mai pot schimba.");
+        }
+        for (int i = 0; i < existing.size(); i++) {
+            existing.get(i).update(requested.get(i).statement(), requested.get(i).solution());
+            partRepository.save(existing.get(i));
         }
         return existing;
     }

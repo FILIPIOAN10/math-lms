@@ -8,6 +8,24 @@ const read = (over: Partial<ExtractedItem> = {}): ExtractedItem => ({
 })
 
 describe('aiImport', () => {
+  it("keeps a problem's requirements a), b) with their points, the total being their sum", () => {
+    const [problem] = toDrafts([read({
+      type: 'OPEN', options: [], points: 5, statement: 'Se consideră $x$.',
+      parts: [{ statement: 'Arată că $x=25$.', points: 2 }, { statement: 'Calculează $x^2$.', points: null }],
+    })])
+    problem.parts[1].points = 3
+
+    expect(toItemInputs([problem])[0]).toMatchObject({
+      points: 5,
+      parts: [
+        { statement: 'Arată că $x=25$.', points: 2, solution: null },
+        { statement: 'Calculează $x^2$.', points: 3, solution: null },
+      ],
+    })
+    problem.parts[0].statement = ' '
+    expect(draftProblems([problem])).toEqual(['Subiectul 1: o cerință nu are enunț.'])
+  })
+
   it('starts every question included, with no answer marked and printed points kept', () => {
     const [grila, open] = toDrafts([read(), read({ type: 'OPEN', options: [], points: null, hasFigure: true, section: null })])
 
@@ -61,12 +79,12 @@ describe('aiImport', () => {
     expect(toItemInputs(drafts)).toEqual([
       {
         type: 'SINGLE_CHOICE', position: 0, statement: 'Cât face $2+3$?', points: 5, solution: null, hints: [],
-        section: 'SUBIECTUL I', imageRequired: false,
+        section: 'SUBIECTUL I', imageRequired: false, parts: null,
         options: [{ position: 0, text: '4', correct: false }, { position: 1, text: '5', correct: true }],
       },
       {
         type: 'OPEN', position: 1, statement: 'Rezolvă', points: 5, solution: 'x = 2', hints: [], section: null,
-        imageRequired: true, options: null,
+        imageRequired: true, options: null, parts: null,
       },
     ])
   })

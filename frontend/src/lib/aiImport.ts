@@ -20,7 +20,17 @@ export interface DraftItem {
   /** Has a drawing: the question waits for its picture in the editor. */
   imageRequired: boolean
   warnings: string[]
+  /** An open problem's requirements a), b)... (EN Subiectul III); the question's points are then their sum. */
+  parts: DraftPart[]
 }
+
+export interface DraftPart {
+  statement: string
+  points: number
+}
+
+/** A question's points: its own, or the sum of its requirements. */
+export const draftPoints = (d: DraftItem) => (d.parts.length > 0 ? d.parts.reduce((s, p) => s + p.points, 0) : d.points)
 
 export function toDrafts(items: ExtractedItem[]): DraftItem[] {
   return items.map((item, index) => ({
@@ -36,6 +46,9 @@ export function toDrafts(items: ExtractedItem[]): DraftItem[] {
     solution: '',
     imageRequired: item.hasFigure,
     warnings: item.warnings,
+    parts: item.type === 'OPEN'
+      ? (item.parts ?? []).map((p) => ({ statement: p.statement, points: p.points ?? 0 }))
+      : [],
   }))
 }
 
@@ -47,8 +60,11 @@ export function draftProblems(drafts: DraftItem[]): string[] {
     if (d.statement.trim() === '') {
       problems.push(`${label}: enunțul e gol.`)
     }
-    if (!Number.isInteger(d.points) || d.points < 0 || d.points > 100) {
+    if (!Number.isInteger(draftPoints(d)) || draftPoints(d) < 0 || draftPoints(d) > 100) {
       problems.push(`${label}: punctajul trebuie să fie între 0 și 100.`)
+    }
+    if (d.type === 'OPEN' && d.parts.some((p) => p.statement.trim() === '')) {
+      problems.push(`${label}: o cerință nu are enunț.`)
     }
     if (d.type === 'SINGLE_CHOICE') {
       const filled = d.options.filter((o) => o.trim() !== '').length
@@ -75,12 +91,15 @@ export function toItemInputs(drafts: DraftItem[]): ItemInput[] {
       type: d.type,
       position: index,
       statement: d.statement.trim(),
-      points: d.points,
+      points: draftPoints(d),
       solution: d.solution.trim() === '' ? null : d.solution.trim(),
       options,
       hints: [],
       section: d.section.trim() === '' ? null : d.section.trim(),
       imageRequired: d.imageRequired,
+      parts: d.type === 'OPEN' && d.parts.length > 0
+        ? d.parts.map((p) => ({ statement: p.statement.trim(), points: p.points, solution: null }))
+        : null,
     }
   })
 }

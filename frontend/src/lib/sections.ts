@@ -9,6 +9,8 @@ export interface SectionHeading {
   title: string
   /** The lines under it (the instruction), or null. */
   note: string | null
+  /** The points of the questions under it ("30 de puncte" on the EN paper); absent when unknown. */
+  total?: number
 }
 
 export interface NumberedItem<T> {
@@ -29,8 +31,15 @@ export function parseSection(section: string): SectionHeading {
   return { title: first.trim(), note: note === '' ? null : note }
 }
 
-export function numberItems<T extends { section?: string | null }>(items: T[]): NumberedItem<T>[] {
+export function numberItems<T extends { section?: string | null; points?: number }>(items: T[]): NumberedItem<T>[] {
   const sectioned = items.some((i) => i.section)
+  // The points of each run of questions under the same heading, by the index of its first question.
+  const totals = new Map<number, number>()
+  let runStart = 0
+  items.forEach((item, index) => {
+    if (index > 0 && (item.section ?? null) !== (items[index - 1].section ?? null)) runStart = index
+    totals.set(runStart, (totals.get(runStart) ?? 0) + (item.points ?? 0))
+  })
   let group = 0
   let local = 0
   let previous: string | null | undefined
@@ -51,6 +60,7 @@ export function numberItems<T extends { section?: string | null }>(items: T[]): 
     }
     const heading = parseSection(section)
     const short = ROMAN.exec(heading.title)?.[1].toUpperCase() ?? String(group)
-    return { item, local, label: `${short}.${local}`, heading: starts ? heading : null }
+    const total = items.some((i) => i.points !== undefined) ? totals.get(index) : undefined
+    return { item, local, label: `${short}.${local}`, heading: starts ? { ...heading, total } : null }
   })
 }

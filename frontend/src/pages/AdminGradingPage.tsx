@@ -18,6 +18,7 @@ import {
   finalizeGrading,
   getAttemptForGrading,
   gradeOpenItem,
+  gradeOpenItemParts,
   listAttemptsForGrading,
   type AdminAttemptDetail,
   type AdminAttemptSummary,
@@ -29,6 +30,7 @@ import { scoreLine } from '@/lib/grades'
 import { roCount } from '@/lib/format'
 import { PageHeader } from '@/components/PageHeader'
 import { useAutosave, type SaveStatus } from '@/lib/useAutosave'
+import { gradedItem, hasParts, partsPayload } from '@/lib/grading'
 import { useCommentSnippets, type SnippetBank } from '@/lib/useCommentSnippets'
 
 /** Same limit as the server (V20 columns). */
@@ -54,8 +56,8 @@ function OpenItemGrader({
   attempt: AdminAttemptDetail
   item: AdminItemReview
   bank: SnippetBank
-  /** The grade the server accepted, to update the page without fetching the paper again. */
-  onGraded: (itemId: number, points: number, comment: string | null) => void
+  /** The answer as graded once the server accepted it, to update the page without fetching the paper again. */
+  onGraded: (item: AdminItemReview) => void
   registerFlush: (flush: (() => Promise<boolean>) | null) => void
   onStatus: (status: SaveStatus) => void
 }) {
@@ -84,9 +86,14 @@ function OpenItemGrader({
         bank={bank}
         registerFlush={registerFlush}
         onStatus={onStatus}
-        save={async (points, comment) => {
-          await gradeOpenItem(attempt.attemptId, item.itemId, points, comment)
-          onGraded(item.itemId, points, comment)
+        save={async (grade) => {
+          const comment = grade.comment.trim() === '' ? null : grade.comment.trim()
+          if (hasParts(item)) {
+            await gradeOpenItemParts(attempt.attemptId, item.itemId, partsPayload(item, grade), comment)
+          } else {
+            await gradeOpenItem(attempt.attemptId, item.itemId, grade.points!, comment)
+          }
+          onGraded(gradedItem(item, grade))
         }}
       />
     </div>
@@ -219,8 +226,8 @@ export function AdminGradingPage() {
   }
 
   /** A grade the server accepted: shown on the page without fetching the paper again. */
-  const graded = useCallback((itemId: number, points: number, comment: string | null) => {
-    setDetail((d) => d && { ...d, items: d.items.map((i) => (i.itemId === itemId ? { ...i, awardedPoints: points, teacherComment: comment } : i)) })
+  const graded = useCallback((updated: AdminItemReview) => {
+    setDetail((d) => d && { ...d, items: d.items.map((i) => (i.itemId === updated.itemId ? updated : i)) })
   }, [])
   const [error, setError] = useState<string | null>(null)
   // `?attempt=12` opens that paper straight away (links from a student's page).

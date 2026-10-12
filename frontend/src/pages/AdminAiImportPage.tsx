@@ -26,7 +26,7 @@ import {
   type QuizItemType,
   type SchoolClass,
 } from '@/lib/api'
-import { draftProblems, toDrafts, toItemInputs, type DraftItem } from '@/lib/aiImport'
+import { draftPoints, draftProblems, toDrafts, toItemInputs, type DraftItem } from '@/lib/aiImport'
 import { errorMessage } from '@/lib/errors'
 import { formatDate, roCount } from '@/lib/format'
 import { shrinkImage } from '@/lib/image'
@@ -453,7 +453,8 @@ function DraftCard({ draft: d, onChange }: { draft: DraftItem; onChange: (change
           </select>
           <label className="flex items-center gap-2 text-sm">
             Puncte
-            <Input type="number" min={0} max={100} className="w-20" value={d.points} disabled={!d.include}
+            <Input type="number" min={0} max={100} className="w-20" value={draftPoints(d)}
+                   disabled={!d.include || d.parts.length > 0}
                    onChange={(e) => onChange({ points: e.target.value === '' ? 0 : Number(e.target.value) })} />
           </label>
         </div>
@@ -491,6 +492,30 @@ function DraftCard({ draft: d, onChange }: { draft: DraftItem; onChange: (change
                 ))}
                 <Button type="button" variant="outline" size="xs" onClick={() => onChange({ options: [...d.options, ''] })}
                         disabled={d.options.length >= 6}>Adaugă variantă</Button>
+              </fieldset>
+            )}
+            {d.type === 'OPEN' && d.parts.length > 0 && (
+              <fieldset className="space-y-2" data-testid="ai-parts">
+                <legend className="text-sm font-medium">Cerințe (fiecare se notează separat)</legend>
+                {d.parts.map((part, i) => {
+                  const letter = String.fromCharCode(97 + i)
+                  const setPart = (change: Partial<{ statement: string; points: number }>) =>
+                    onChange({ parts: d.parts.map((p, j) => (j === i ? { ...p, ...change } : p)) })
+                  return (
+                    <div key={i} className="space-y-1">
+                      <div className="flex items-start gap-2">
+                        <span className="mt-2 w-5 shrink-0 text-sm font-semibold">{letter})</span>
+                        <Textarea rows={2} value={part.statement} aria-label={`Cerința ${letter})`}
+                                  onChange={(e) => setPart({ statement: e.target.value })} />
+                        <Input type="number" min={0} max={100} className="w-16 shrink-0" value={part.points}
+                               aria-label={`Puncte cerința ${letter})`}
+                               onChange={(e) => setPart({ points: e.target.value === '' ? 0 : Number(e.target.value) })} />
+                        <span className="mt-2 text-sm text-muted-foreground">p</span>
+                      </div>
+                      <MathContent className="ml-7 rounded-md bg-muted/40 p-2 text-sm">{part.statement}</MathContent>
+                    </div>
+                  )
+                })}
               </fieldset>
             )}
             <div className="flex flex-col gap-2">

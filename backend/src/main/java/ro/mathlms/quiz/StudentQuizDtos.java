@@ -31,9 +31,15 @@ public final class StudentQuizDtos {
             List<StudentOptionDto> options,
             int hintCount, // hints this item has - only ever > 0 in practice mode; a graded test hides even their existence
             String section, // the heading it sits under ("SUBIECTUL I"); null = none
-            String image // the picture under the statement: a version token for its URL, or null
+            String image, // the picture under the statement: a version token for its URL, or null
+            List<PartDtos.StudentPartDto> parts // requirements a), b)... of an open problem (no barem); empty = none
     ) {
         public static StudentItemDto from(QuizItem item, List<QuizOption> options, int hintCount) {
+            return from(item, options, hintCount, List.of());
+        }
+
+        public static StudentItemDto from(QuizItem item, List<QuizOption> options, int hintCount,
+                                          List<QuizItemPart> parts) {
             return new StudentItemDto(
                     item.getId(),
                     item.getPosition(),
@@ -43,7 +49,8 @@ public final class StudentQuizDtos {
                     options.stream().map(StudentOptionDto::from).toList(),
                     hintCount,
                     item.getSection(),
-                    item.getImageKey());
+                    item.getImageKey(),
+                    PartDtos.StudentPartDto.of(parts));
         }
     }
 
@@ -195,7 +202,8 @@ public final class StudentQuizDtos {
             String teacherComment,
             String section, // the heading it sits under; null = none
             String image, // the picture under the statement: a version token for its URL, or null
-            List<Long> photoIds // S2: the pages of an OPEN answer, oldest first (only the student's own API serves them)
+            List<Long> photoIds, // S2: the pages of an OPEN answer, oldest first (only the student's own API serves them)
+            List<PartDtos.GradedPartDto> parts // requirements a), b)... with their barem and points; empty = none
     ) {}
 
     /** The student's graded attempt: the score plus a per-item breakdown. */

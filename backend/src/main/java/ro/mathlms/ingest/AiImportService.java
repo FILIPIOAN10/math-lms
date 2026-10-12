@@ -251,7 +251,7 @@ public class AiImportService {
         for (ItemRequest item : request.items()) {
             quizAdminService.addItem(quiz.getId(), new ItemRequest(item.type(), position++, item.statement(),
                     item.points(), item.solution(), item.options(), item.hints(), item.chapterId(), item.section(),
-                    item.imageRequired()));
+                    item.imageRequired(), item.parts()));
         }
         List<StoredPage> pages = pages(ai);
         ai.linkQuiz(quiz.getId());

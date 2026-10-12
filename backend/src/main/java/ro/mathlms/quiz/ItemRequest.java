@@ -11,7 +11,8 @@ import java.util.List;
 /**
  * Create/update payload for a quiz item. For a {@link QuizItemType#SINGLE_CHOICE} item,
  * {@code options} must have at least two entries with exactly one correct (checked in the
- * service); for {@link QuizItemType#OPEN}, {@code options} is ignored.
+ * service); for {@link QuizItemType#OPEN}, {@code options} is ignored and {@code parts} may split it into
+ * requirements a), b)... graded one by one.
  */
 public record ItemRequest(
         @NotNull QuizItemType type,
@@ -23,8 +24,18 @@ public record ItemRequest(
         @Size(max = QuizItem.MAX_HINTS) List<@NotBlank @Size(max = 2000) String> hints, // optional progressive hints, in order
         Long chapterId, // optional: overrides the quiz's chapter for this question; null = inherit (E6)
         @Size(max = QuizItem.MAX_SECTION) String section, // optional heading it sits under ("SUBIECTUL I"); null = none
-        Boolean imageRequired // optional: the question still needs its picture (import "[imagine]"); only read on create
+        Boolean imageRequired, // optional: the question still needs its picture (import "[imagine]"); only read on create
+        // optional, OPEN only: the requirements a), b)... with their own points and barem (EN Subiectul III); when given,
+        // the item's points are their sum and {@code points} is ignored
+        @Valid @Size(max = QuizItemPart.MAX_PARTS) List<PartDtos.PartRequest> parts
 ) {
+    /** An item without requirements a), b) (what the builder sent before V32). */
+    public ItemRequest(QuizItemType type, int position, String statement, int points, String solution,
+                       List<OptionRequest> options, List<String> hints, Long chapterId, String section,
+                       Boolean imageRequired) {
+        this(type, position, statement, points, solution, options, hints, chapterId, section, imageRequired, null);
+    }
+
     /** An item that needs no picture (what the builder sent before question images). */
     public ItemRequest(QuizItemType type, int position, String statement, int points, String solution,
                        List<OptionRequest> options, List<String> hints, Long chapterId, String section) {

@@ -54,7 +54,8 @@ public final class AdminAttemptDtos {
             String teacherComment,
             String section, // the heading it sits under; null = none
             String image, // the picture under the statement: a version token for its URL, or null
-            List<Long> photoIds // S2: the pages of the answer, oldest first
+            List<Long> photoIds, // S2: the pages of the answer, oldest first
+            List<PartDtos.GradedPartDto> parts // requirements a), b)... graded one by one; empty = none
     ) {
     }
 

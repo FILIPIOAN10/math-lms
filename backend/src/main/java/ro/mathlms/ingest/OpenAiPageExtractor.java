@@ -63,12 +63,18 @@ public class OpenAiPageExtractor implements PageExtractor {
             - Write all mathematics in LaTeX between single dollar signs, e.g. $\\frac{2}{3}$, $x^2 - 4 = 0$, $\\sqrt{5}$.
             - type = "SINGLE_CHOICE" when the exercise lists answer choices (a, b, c, d / A, B, C, D); put the choices in \
             "options" in order, WITHOUT their letters. Otherwise type = "OPEN" and "options" is [].
-            - An exercise with sub-points a), b), c) that are separate tasks (not answer choices) stays ONE open item: keep \
-            the sub-points in the statement, each on its own line.
+            - An exercise with sub-points a), b), c) that are separate tasks (not answer choices) stays ONE open item: \
+            "statement" is only the shared text above the sub-points, and each sub-point goes in "parts" in order, with \
+            its own text (without the letter) and the points printed next to it (e.g. "(2p) a) Arată că $x=25$." -> \
+            {"statement": "Arată că $x=25$.", "points": 2}). The item's "points" is then their sum. Without \
+            sub-points, "parts" is [].
             - "section": the heading the exercise sits under (e.g. "SUBIECTUL I", "Exerciții de consolidare"), followed by \
             its instruction line, if one is printed, on a new line (e.g. "SUBIECTUL I\\nÎncercuiește litera \
             corespunzătoare răspunsului corect."); null when there is no heading.
-            - "points": the points printed next to the exercise (e.g. "5p" -> 5), or null when none are printed.
+            - "points": the points printed next to the exercise (e.g. "5p" -> 5), or the sum of its sub-points' points, or \
+            null when none are printed.
+            - An exercise may continue on the next page (e.g. sub-point b) at the top of the following photo): it is still \
+            ONE item, on the page where it starts.
             - "hasFigure": true when the exercise needs a drawing, graph or table that is shown only as a picture.
             - "page": the N of the "Pagina N" label of the image the exercise is on.
             - "warnings": short notes in Romanian for anything you could not read with certainty (e.g. "Un cuvânt \
@@ -200,8 +206,18 @@ public class OpenAiPageExtractor implements PageExtractor {
         ObjectNode warnings = props.putObject("warnings");
         warnings.put("type", "array");
         warnings.putObject("items").put("type", "string");
+        ObjectNode part = objectMapper.createObjectNode();
+        part.put("type", "object");
+        part.put("additionalProperties", false);
+        ObjectNode partProps = part.putObject("properties");
+        partProps.putObject("statement").put("type", "string");
+        partProps.putObject("points").putArray("type").add("integer").add("null");
+        part.putArray("required").add("statement").add("points");
+        ObjectNode parts = props.putObject("parts");
+        parts.put("type", "array");
+        parts.set("items", part);
         item.putArray("required").add("page").add("section").add("type").add("statement").add("options")
-                .add("points").add("hasFigure").add("warnings");
+                .add("points").add("hasFigure").add("warnings").add("parts");
 
         ObjectNode root = objectMapper.createObjectNode();
         root.put("type", "object");
