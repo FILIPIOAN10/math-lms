@@ -7,8 +7,11 @@ export function roleLabel(role: Role | null): string {
   return role ? LABELS[role] : ''
 }
 
-/** Which count from the teacher's work queue a link carries. */
-export type NavCount = 'grading' | 'pending'
+/** Which count a link carries: the teacher's work queue, or the student's new grades (S3). */
+export type NavCount = 'grading' | 'pending' | 'newResults'
+
+/** Fired after something that changes a count (the student opened a new result), so the links re-read them now. */
+export const NAV_COUNTS_CHANGED = 'mathlms:nav-counts-changed'
 
 export interface NavItem {
   to: string
@@ -22,7 +25,7 @@ export interface NavItem {
 const NAV: Record<Role, NavItem[]> = {
   STUDENT: [
     { to: '/', label: 'Acasă' },
-    { to: '/quizzes', label: 'Testele mele' },
+    { to: '/quizzes', label: 'Testele mele', count: 'newResults' },
     { to: '/review', label: 'Recapitulare' },
     { to: '/progress', label: 'Progresul meu', testId: 'my-progress' },
     { to: '/content', label: 'Conținut' },

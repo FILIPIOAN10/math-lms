@@ -903,6 +903,8 @@ export interface MyAttemptDto {
   mode: AttemptMode
   /** The quiz's total points, so a score reads "8 / 11". */
   maxScore: number
+  /** S3: a graded test (or a new teacher comment on it) the student has not opened yet. */
+  newResult: boolean
 }
 
 /** One point of the progress chart: a graded attempt as points and as a percent of the quiz's max. */
@@ -950,6 +952,9 @@ export interface AttemptResultViewDto {
   mode: AttemptMode
   /** The teacher's comment on the whole paper, or null. */
   teacherComment: string | null
+  quizId: number
+  /** S4: the quiz is published and open for practice, so "Exersează doar ce ai greșit" can start one. */
+  practiceAllowed: boolean
 }
 
 // ----- Parent (Phase 5): read-only view of one's own children -----
@@ -1111,6 +1116,11 @@ export async function submitQuizAttempt(attemptId: number): Promise<SubmitResult
 export async function getAttemptResult(attemptId: number): Promise<AttemptResultViewDto> {
   const response = await apiFetch(`/quiz/attempts/${attemptId}/result`)
   return response.json()
+}
+
+/** S3: the student opened this result, so it is no longer "Nou" (idempotent; a result still waiting stays new). */
+export async function markResultSeen(attemptId: number): Promise<void> {
+  await apiFetch(`/quiz/attempts/${attemptId}/result-seen`, { method: 'PUT' })
 }
 
 // ---------- Teacher grading (Q10) ----------

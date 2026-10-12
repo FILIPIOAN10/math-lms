@@ -46,7 +46,7 @@ const homework = (id: number, title: string, state: StudentAssignment['state']):
 })
 const attempt = (over: Partial<MyAttemptDto>): MyAttemptDto => ({
   attemptId: 1, quizId: 1, quizTitle: 'Test', status: 'GRADED', startedAt: inDays(-1), submittedAt: inDays(-1),
-  score: 8, mode: 'TEST', maxScore: 11, ...over,
+  score: 8, mode: 'TEST', maxScore: 11, newResult: false, ...over,
 })
 const point = (over: Partial<ProgressPointDto>): ProgressPointDto => ({
   attemptId: 7, quizId: 3, quizTitle: 'Simulare EN', submittedAt: inDays(-1), score: 8, maxScore: 11, percent: 73, ...over,
@@ -135,6 +135,29 @@ describe('DashboardPage — student', () => {
     expect(grade).toHaveTextContent('Simulare EN')
     expect(within(grade).getByRole('link', { name: 'Vezi rezultatul' })).toHaveAttribute('href', '/quizzes/attempts/7/result')
     expect(screen.getByTestId('awaiting-grading')).toHaveTextContent('1')
+  })
+
+  it('S3: puts a grade not yet opened at the top, with its result one click away', async () => {
+    api.getMyAttempts.mockResolvedValue([
+      attempt({ attemptId: 30, quizTitle: 'Teză', score: 8, maxScore: 11, newResult: true }),
+      attempt({ attemptId: 31, quizTitle: 'Veche', newResult: false }),
+    ])
+    renderHome()
+
+    expect(await screen.findByRole('heading', { name: 'Ai o notă nouă' })).toBeInTheDocument()
+    const rows = screen.getAllByTestId('home-new-result')
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toHaveTextContent('NouTeză')
+    expect(rows[0]).toHaveTextContent('8 / 11 p · nota 7,55')
+    expect(within(rows[0]).getByRole('link', { name: 'Vezi rezultatul' })).toHaveAttribute('href', '/quizzes/attempts/30/result')
+  })
+
+  it('shows no "new grade" section once every result was opened', async () => {
+    api.getMyAttempts.mockResolvedValue([attempt({ newResult: false })])
+    renderHome()
+
+    await screen.findByTestId('latest-grade')
+    expect(screen.queryByTestId('home-new-result')).not.toBeInTheDocument()
   })
 
   it('shows the error instead of an empty home when the data cannot be loaded', async () => {

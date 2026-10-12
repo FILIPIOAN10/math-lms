@@ -1,5 +1,6 @@
 import { Fragment, useState } from 'react'
-import { Button } from '@/components/ui/button'
+import { Link } from 'react-router-dom'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { AttemptModeBadge } from '@/components/AttemptModeBadge'
 import { AttemptStatusBadge } from '@/components/AttemptStatusBadge'
@@ -8,7 +9,9 @@ import { QuestionImage } from '@/components/QuestionImage'
 import { SectionHeadingView } from '@/components/SectionHeadingView'
 import { numberItems } from '@/lib/sections'
 import { ownPhotoUrl, type AttemptResultViewDto, type ItemResultDto } from '@/lib/api'
+import { roCount } from '@/lib/format'
 import { formatGrade, romanianGrade } from '@/lib/grades'
+import { mistakesOf, practiceMistakesHref } from '@/lib/mistakes'
 
 /** The teacher's words, set apart from the app's own text so they read as a note from a person. */
 function TeacherNote({ text, testId, title }: { text: string; testId: string; title: string }) {
@@ -17,6 +20,43 @@ function TeacherNote({ text, testId, title }: { text: string; testId: string; ti
       <p className="text-xs font-medium text-sky-800 dark:text-sky-200">{title}</p>
       <p className="whitespace-pre-line">{text}</p>
     </div>
+  )
+}
+
+/**
+ * S4, on the student's own graded test: which questions to go back to, that the wrong grile come back in the daily
+ * review, and - when the teacher opened the quiz for practice - a practice of just those questions.
+ */
+function PracticeMistakes({ result }: { result: AttemptResultViewDto }) {
+  const mistakes = mistakesOf(result.items)
+  if (mistakes.labels.length === 0) return null
+  const many = mistakes.labels.length > 1
+  return (
+    <Card data-testid="practice-mistakes">
+      <CardContent className="space-y-2 py-4 text-sm">
+        <p className="font-medium">Exersează ce ai greșit</p>
+        <p>
+          {many ? 'Subiectele ' : 'Subiectul '}
+          <span className="font-medium">{mistakes.labels.join(', ')}</span>
+          {many ? ' nu au ieșit complet' : ' nu a ieșit complet'}: uită-te mai jos la răspunsul corect și la barem.
+        </p>
+        {mistakes.wrongChoices > 0 && (
+          <p className="text-muted-foreground">
+            {roCount(mistakes.wrongChoices, 'grilă greșită revine', 'grile greșite revin')} în{' '}
+            <Link to="/review" className="text-primary hover:underline">recapitularea zilnică</Link>, începând de mâine.
+          </p>
+        )}
+        {result.practiceAllowed && (
+          <Link
+            to={practiceMistakesHref(result.quizId, mistakes.itemIds)}
+            className={buttonVariants({ size: 'sm' })}
+            data-testid="practice-mistakes-link"
+          >
+            Exersează doar ce ai greșit
+          </Link>
+        )}
+      </CardContent>
+    </Card>
   )
 }
 
@@ -173,6 +213,8 @@ export function AttemptResultView({ result, audience = 'student' }: { result: At
           )}
         </CardContent>
       </Card>
+
+      {audience === 'student' && !practice && result.status === 'GRADED' && <PracticeMistakes result={result} />}
 
       {numberItems(result.items).map(({ item, label, local, heading }, index) => (
         <Fragment key={item.position + '-' + index}>

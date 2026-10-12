@@ -73,6 +73,10 @@ public class QuizAttempt {
     @Column(name = "teacher_comment", length = TeacherComment.MAX_LENGTH)
     private String teacherComment;
 
+    /** S3: when the student first opened this graded test's result; null on a GRADED test = "Nou". */
+    @Column(name = "result_seen_at")
+    private Instant resultSeenAt;
+
     public QuizAttempt(Quiz quiz, User student) {
         this(quiz, student, Instant.now());
     }
@@ -133,7 +137,23 @@ public class QuizAttempt {
         if (status == QuizAttemptStatus.IN_PROGRESS) {
             throw new IllegalStateException("Only a handed-in attempt can be commented on");
         }
-        this.teacherComment = TeacherComment.normalize(comment);
+        String normalized = TeacherComment.normalize(comment);
+        if (normalized != null && !normalized.equals(teacherComment)) {
+            this.resultSeenAt = null; // a new word from the teacher on a graded paper is news again
+        }
+        this.teacherComment = normalized;
+    }
+
+    /** S3: a graded test whose result (or latest teacher comment) the student has not opened yet. */
+    public boolean hasUnseenResult() {
+        return mode == AttemptMode.TEST && status == QuizAttemptStatus.GRADED && resultSeenAt == null;
+    }
+
+    /** The student opened the result. Only a graded test's result counts: one still waiting stays "Nou" once graded. */
+    public void markResultSeen(Instant at) {
+        if (hasUnseenResult()) {
+            this.resultSeenAt = at;
+        }
     }
 
     /** Records the final total once every item is scored. Only valid after submission. */

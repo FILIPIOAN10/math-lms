@@ -145,12 +145,13 @@ public final class StudentQuizDtos {
             Instant submittedAt,
             Integer score,
             AttemptMode mode,
-            int maxScore        // the quiz's total points, so a score reads "8 / 11"
+            int maxScore,       // the quiz's total points, so a score reads "8 / 11"
+            boolean newResult   // S3: graded (or newly commented) and not yet opened by the student
     ) {
         public static MyAttemptDto from(QuizAttempt attempt, int maxScore) {
             return new MyAttemptDto(attempt.getId(), attempt.getQuiz().getId(), attempt.getQuiz().getTitle(),
                     attempt.getStatus(), attempt.getStartedAt(), attempt.getSubmittedAt(), attempt.getScore(),
-                    attempt.getMode(), maxScore);
+                    attempt.getMode(), maxScore, attempt.hasUnseenResult());
         }
     }
 
@@ -200,6 +201,8 @@ public final class StudentQuizDtos {
             int maxScore,
             List<ItemResultDto> items,
             AttemptMode mode,
-            String teacherComment // on the whole paper
+            String teacherComment, // on the whole paper
+            Long quizId,
+            boolean practiceAllowed // S4: whether "Exersează ce ai greșit" can open a practice of this quiz
     ) {}
 }

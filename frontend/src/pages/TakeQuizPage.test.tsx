@@ -111,6 +111,29 @@ describe('TakeQuizPage', () => {
   })
 
   describe('practice mode (?mode=practice)', () => {
+    it('S4: with ?only shows just the questions got wrong, keeping the numbers of the test', async () => {
+      api.startQuizAttempt.mockResolvedValue({ ...startedThree(), mode: 'PRACTICE' })
+      renderPage('?mode=practice&only=101,102')
+      await userEvent.click(await screen.findByRole('button', { name: 'Începe practica' }))
+
+      expect(await screen.findByText('Al doilea subiect')).toBeInTheDocument()
+      expect(screen.getByText('Al treilea subiect')).toBeInTheDocument()
+      expect(screen.queryByText('Primul subiect')).not.toBeInTheDocument()
+      expect(screen.getByTestId('practice-only')).toHaveTextContent('Exersezi doar ce ai greșit: 2 subiecte')
+      expect(screen.getByRole('link', { name: 'Exersează tot testul' })).toHaveAttribute('href', '/quizzes/7/take?mode=practice')
+      expect(screen.getByRole('button', { name: 'Subiectul 2, fără răspuns' })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /Subiectul 1,/ })).not.toBeInTheDocument()
+    })
+
+    it('a graded test ignores ?only: it is always taken whole', async () => {
+      api.startQuizAttempt.mockResolvedValue(startedThree())
+      renderPage('?only=101')
+      await userEvent.click(await screen.findByRole('button', { name: /Începe/ }))
+
+      expect(await screen.findByText('Primul subiect')).toBeInTheDocument()
+      expect(screen.queryByTestId('practice-only')).not.toBeInTheDocument()
+    })
+
     it('starts the attempt in PRACTICE mode and says so, with no countdown', async () => {
       api.startQuizAttempt.mockResolvedValue(started('PRACTICE'))
       renderPage('?mode=practice')

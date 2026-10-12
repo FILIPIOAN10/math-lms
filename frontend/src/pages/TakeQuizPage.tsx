@@ -6,7 +6,8 @@ import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { MathContent } from '@/components/MathContent'
 import { QuestionImage } from '@/components/QuestionImage'
 import { SectionHeadingView } from '@/components/SectionHeadingView'
-import { numberItems } from '@/lib/sections'
+import { parseOnly } from '@/lib/mistakes'
+import { numberItems, parseSection } from '@/lib/sections'
 import {
   ApiError,
   getMyAssignments,
@@ -86,6 +87,8 @@ export function TakeQuizPage() {
   const [searchParams] = useSearchParams()
   const mode: AttemptMode = searchParams.get('mode') === 'practice' ? 'PRACTICE' : 'TEST'
   const practice = mode === 'PRACTICE'
+  // S4 "Exersează doar ce ai greșit": a practice may show just some questions (never a test, which is graded whole).
+  const only = practice ? parseOnly(searchParams.get('only')) : null
 
   const [attempt, setAttempt] = useState<StartedAttemptDto | null>(null)
   const [selected, setSelected] = useState<Record<number, number>>({})
@@ -367,9 +370,20 @@ export function TakeQuizPage() {
   }
 
   // ----- Taking the quiz -----
-  const items = attempt.quiz.items
+  // Numbered over the whole quiz, so a filtered practice keeps the numbers of the test ("I.3"), headings re-shown
+  // above the first visible question of each section.
+  const numberedAll = numberItems(attempt.quiz.items)
+  const focused = only ? numberedAll.filter((n) => only.has(n.item.id)) : []
+  const filtered = focused.length > 0
+  const numbered = filtered
+    ? focused.map((n, i) => ({
+        ...n,
+        heading:
+          n.item.section && (i === 0 || focused[i - 1].item.section !== n.item.section) ? parseSection(n.item.section) : null,
+      }))
+    : numberedAll
+  const items = numbered.map((n) => n.item)
   const answeredCount = items.filter(isAnswered).length
-  const numbered = numberItems(items)
   const labelOf = new Map(numbered.map((n) => [n.item.id, n.label]))
   const unanswered = numbered.flatMap((n) => (isAnswered(n.item) ? [] : [{ item: n.item, number: n.label }]))
   const askAboutUnanswered = !practice && !timeUp && unanswered.length > 0
@@ -422,6 +436,14 @@ export function TakeQuizPage() {
           <h1 className="text-2xl font-semibold">{attempt.quiz.title}</h1>
           {attempt.quiz.description && (
             <p className="text-sm text-muted-foreground">{attempt.quiz.description}</p>
+          )}
+          {filtered && (
+            <p data-testid="practice-only" className="mt-1 text-sm">
+              Exersezi doar ce ai greșit: {roCount(items.length, 'subiect', 'subiecte')} ·{' '}
+              <Link to={`/quizzes/${quizId}/take?mode=practice`} replace className="text-primary hover:underline">
+                Exersează tot testul
+              </Link>
+            </p>
           )}
         </div>
 

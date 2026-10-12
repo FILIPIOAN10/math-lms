@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AppShell } from '@/components/AppShell'
 import type { User } from '@/lib/api'
+import { NAV_COUNTS_CHANGED } from '@/lib/roles'
 
 const auth = vi.hoisted(() => ({ value: { user: null as User | null, loading: false, logout: vi.fn() } }))
 vi.mock('@/context/AuthContext', () => ({ useAuth: () => auth.value }))
@@ -11,6 +12,7 @@ vi.mock('@/context/AuthContext', () => ({ useAuth: () => auth.value }))
 const api = vi.hoisted(() => ({
   listPendingUsers: vi.fn(),
   listAttemptsForGrading: vi.fn(),
+  getMyAttempts: vi.fn(),
 }))
 vi.mock('@/lib/api', async (original) => ({ ...(await original<typeof import('@/lib/api')>()), ...api }))
 
@@ -42,6 +44,7 @@ describe('AppShell', () => {
     auth.value = { user: null, loading: false, logout: vi.fn() }
     api.listPendingUsers.mockResolvedValue([])
     api.listAttemptsForGrading.mockResolvedValue([])
+    api.getMyAttempts.mockResolvedValue([])
   })
 
   it('renders only the page when nobody is signed in (the route guard decides where to go)', () => {
@@ -110,6 +113,18 @@ describe('AppShell', () => {
     renderShell()
     await waitFor(() => expect(api.listPendingUsers).toHaveBeenCalled())
     expect(within(nav()).getByRole('link', { name: 'Corectură' })).toBeInTheDocument()
+  })
+
+  it('S3: shows the student how many new grades wait, and re-reads it when a result is opened', async () => {
+    auth.value.user = user({})
+    api.getMyAttempts.mockResolvedValue([{ newResult: true }, { newResult: true }, { newResult: false }])
+    renderShell()
+
+    expect(await within(nav()).findByRole('link', { name: 'Testele mele, 2 note noi' })).toBeInTheDocument()
+
+    api.getMyAttempts.mockResolvedValue([{ newResult: true }])
+    window.dispatchEvent(new Event(NAV_COUNTS_CHANGED))
+    expect(await within(nav()).findByRole('link', { name: 'Testele mele, 1 notă nouă' })).toBeInTheDocument()
   })
 
   it('does not ask a student for the teacher counts', () => {

@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { AssignmentsSection } from '@/components/AssignmentsSection'
 import { AttemptModeBadge } from '@/components/AttemptModeBadge'
 import { AttemptStatusBadge } from '@/components/AttemptStatusBadge'
+import { NewResultBadge } from '@/components/NewResultBadge'
 import {
   getMyAssignments,
   getMyAttempts,
@@ -154,6 +155,7 @@ export function StudentQuizListPage() {
                         <p className="truncate font-medium">{a.quizTitle}</p>
                         <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                           {a.mode === 'PRACTICE' ? <AttemptModeBadge mode={a.mode} /> : <AttemptStatusBadge status={a.status} />}
+                          {a.newResult && <NewResultBadge />}
                           <span>{formatDate(a.submittedAt ?? a.startedAt)}</span>
                           {a.score !== null && <span className="text-foreground">{scoreLine(a.score, a.maxScore)}</span>}
                         </p>
@@ -168,7 +170,7 @@ export function StudentQuizListPage() {
                       ) : (
                         <Link
                           to={`/quizzes/attempts/${a.attemptId}/result`}
-                          className={buttonVariants({ size: 'sm', variant: 'outline' })}
+                          className={buttonVariants({ size: 'sm', variant: a.newResult ? 'default' : 'outline' })}
                         >
                           Vezi rezultatul
                         </Link>

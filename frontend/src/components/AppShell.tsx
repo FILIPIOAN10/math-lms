@@ -2,33 +2,46 @@ import { Suspense, useEffect, useState } from 'react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/context/AuthContext'
-import { listAttemptsForGrading, listPendingUsers } from '@/lib/api'
+import { getMyAttempts, listAttemptsForGrading, listPendingUsers, type Role } from '@/lib/api'
 import { roCount } from '@/lib/format'
-import { isNavActive, navItems, roleLabel, type NavCount } from '@/lib/roles'
+import { isNavActive, NAV_COUNTS_CHANGED, navItems, roleLabel, type NavCount } from '@/lib/roles'
 import { cn } from '@/lib/utils'
 
 type Counts = Record<NavCount, number | null>
 
 /**
- * The teacher's work queue sizes, shown next to their links. Re-read on every page change, so the number drops as
- * soon as the teacher comes back from grading. Only hints: if a call fails the link simply shows no number.
+ * The numbers next to the links: the teacher's work queue sizes, the student's new grades (S3). Re-read on every page
+ * change - and when a page says a count changed - so the number drops as soon as the teacher comes back from grading
+ * or the student opens the result. Only hints: if a call fails the link simply shows no number.
  */
-function useTeacherCounts(enabled: boolean, pathname: string): Counts {
-  const [counts, setCounts] = useState<Counts>({ grading: null, pending: null })
+function useNavCounts(role: Role | null, pathname: string): Counts {
+  const [counts, setCounts] = useState<Counts>({ grading: null, pending: null, newResults: null })
+  const [changed, setChanged] = useState(0)
 
   useEffect(() => {
-    if (!enabled) return
+    const bump = () => setChanged((n) => n + 1)
+    window.addEventListener(NAV_COUNTS_CHANGED, bump)
+    return () => window.removeEventListener(NAV_COUNTS_CHANGED, bump)
+  }, [])
+
+  useEffect(() => {
     let cancelled = false
-    listAttemptsForGrading('SUBMITTED')
-      .then((list) => !cancelled && setCounts((c) => ({ ...c, grading: list.length })))
-      .catch(() => undefined)
-    listPendingUsers()
-      .then((list) => !cancelled && setCounts((c) => ({ ...c, pending: list.length })))
-      .catch(() => undefined)
+    if (role === 'ADMIN') {
+      listAttemptsForGrading('SUBMITTED')
+        .then((list) => !cancelled && setCounts((c) => ({ ...c, grading: list.length })))
+        .catch(() => undefined)
+      listPendingUsers()
+        .then((list) => !cancelled && setCounts((c) => ({ ...c, pending: list.length })))
+        .catch(() => undefined)
+    } else if (role === 'STUDENT') {
+      getMyAttempts()
+        .then((list) => !cancelled && setCounts((c) => ({ ...c, newResults: list.filter((a) => a.newResult).length })))
+        .catch(() => undefined)
+    }
     return () => {
       cancelled = true
     }
-  }, [enabled, pathname])
+  }, [role, pathname, changed])
 
   return counts
 }
@@ -36,6 +49,7 @@ function useTeacherCounts(enabled: boolean, pathname: string): Counts {
 const COUNT_WORDS: Record<NavCount, (n: number) => string> = {
   grading: (n) => `${roCount(n, 'lucrare', 'lucrări')} de corectat`,
   pending: (n) => `${roCount(n, 'cont', 'conturi')} de aprobat`,
+  newResults: (n) => roCount(n, 'notă nouă', 'note noi'),
 }
 
 /** The number on a link: seen as a badge, heard as words ("Corectură, 3 lucrări de corectat"). */
@@ -62,7 +76,7 @@ export function AppShell() {
   const { user, logout } = useAuth()
   const { pathname } = useLocation()
   const signedIn = user !== null && user.status === 'ACTIVE' && user.role !== null
-  const counts = useTeacherCounts(signedIn && user?.role === 'ADMIN', pathname)
+  const counts = useNavCounts(signedIn ? user.role : null, pathname)
 
   if (!signedIn || !user.role) {
     return <Outlet />

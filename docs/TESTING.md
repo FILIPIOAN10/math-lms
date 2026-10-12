@@ -156,7 +156,7 @@ R: $x = 4$
 Rulează asta înainte de orice commit.
 
 ```bash
-# Backend — 921 de teste (necesită Docker pentru Testcontainers)
+# Backend — 926 de teste (necesită Docker pentru Testcontainers)
 cd math-lms/backend && ./mvnw test
 
 # Doar suita de conținut (Faza 2)
@@ -166,7 +166,7 @@ cd math-lms/backend && ./mvnw test
 cd math-lms/frontend && npm test && npm run build
 ```
 
-Frontend: **Vitest + Testing Library** (`npm test`, 327 de teste în 45 de fișiere): clientul API (header CSRF doar pe scrieri, refresh silențios la 401 cu o singură rotație pentru cereri paralele, fără refresh la login greșit), `AppShell` + paginile de start pe rol, `TakeQuizPage` (practică, indicii, navigator, dialogul de predare, cronometru, poze), `AttemptResultView` (nota, comentariile profesorului, poza proprie), `AdminGradingPage`, `AdminQuizzesPage` (meniul ⋯, editorul pe URL), `StudentQuizListPage`, `AccountPage` + `EraseAccountPage`, `RegisterPage` (previzualizarea linkului), `AdminLinksPage` (Invită părintele), `ClassInviteDialog`, `ChapterQuizDialog`, `PageHeader`, `RowMenu`, nota 1–10 (`grades.ts`), `RoleRoute`, `LoginPage`. Rulează și în CI. Fluxurile cap-coadă rămân în suita E2E (Selenium).
+Frontend: **Vitest + Testing Library** (`npm test`, 341 de teste în 47 de fișiere): clientul API (header CSRF doar pe scrieri, refresh silențios la 401 cu o singură rotație pentru cereri paralele, fără refresh la login greșit), `AppShell` + paginile de start pe rol, `TakeQuizPage` (practică, indicii, navigator, dialogul de predare, cronometru, poze), `AttemptResultView` (nota, comentariile profesorului, poza proprie), `AdminGradingPage`, `AdminQuizzesPage` (meniul ⋯, editorul pe URL), `StudentQuizListPage`, `AccountPage` + `EraseAccountPage`, `RegisterPage` (previzualizarea linkului), `AdminLinksPage` (Invită părintele), `ClassInviteDialog`, `ChapterQuizDialog`, `PageHeader`, `RowMenu`, nota 1–10 (`grades.ts`), `RoleRoute`, `LoginPage`. Rulează și în CI. Fluxurile cap-coadă rămân în suita E2E (Selenium).
 
 O rulare izolată poate pica rar în `VerificationTokenServiceTest.rejectsTamperedToken` (test instabil, cunoscut: modifică
 ultimele 2 caractere ale semnăturii, care uneori nu schimbă semnătura decodată) — rerulează; fixul e în așteptare.
@@ -599,6 +599,26 @@ de oprire/expirare își termină intrarea. Linkurile vechi „pe rol” (§4a) 
 - API: `GET /api/admin/audit-log?category=&studentId=&from=2026-10-01&to=2026-10-11&before=&limit=50` →
   `{entries:[…], nextBefore}`; elev/părinte → 403; categorie necunoscută → 400
 - Teste: `AuditLogIntegrationTest`, `QuestionNumbersTest`, testele de serviciu (`*ServiceTest`), `AdminAuditPage.test.tsx`, `audit.test.ts`
+
+### 23. „Ai o notă nouă” (S3, V27) și „Exersează ce ai greșit” (S4) — ca elev
+**De ce:** elevul află singur că i-ai pus nota și trece direct la ce a greșit, fără să caute.
+- **S3:** un test notat pe care elevul nu i-a deschis încă rezultatul e **„Nou”**: secțiunea **Ai o notă nouă** sus pe Acasă (cu nota și
+  **Vezi rezultatul**), insigna **Nou** în **Testele mele → Încercările mele** (butonul rezultatului devine plin) și un număr lângă linkul
+  **Testele mele** din bară (citit „1 notă nouă”). Deschiderea rezultatului îl marchează văzut, iar numărul dispare imediat
+- un **comentariu nou** al profesorului pe toată lucrarea, după notare, o face din nou „Nou”; ștergerea comentariului nu
+- nu contează: un rezultat deschis cât încă aștepta corectura (rămâne „Nou” când e notat), practica, notele date înainte de V27
+  (migrarea le consideră văzute)
+- **S4:** pe rezultatul unui test notat, cardul **Exersează ce ai greșit**: subiectele care n-au ieșit complet (grilă greșită sau goală,
+  subiect deschis sub punctajul maxim), numerotate ca pe ecran („I.3”); câte grile greșite **revin în recapitularea zilnică** de mâine
+  (cele goale nu, n-au răspuns de reluat); dacă testul e publicat și are **practica permisă**, butonul **Exersează doar ce ai greșit** →
+  practica arată doar acele subiecte, cu numerele din test, plus „Exersează tot testul”. Lucrare perfectă / părinte / test în corectare →
+  fără card
+- Verificare rapidă: ca profesor, un test cu 2 grile, practică permisă, publicat; ca elev îl dai cu una greșită → pe Acasă „Ai o notă
+  nouă” + numărul de lângă Testele mele → deschizi rezultatul → numărul dispare, cardul arată „Subiectul 2…” și butonul de practică
+- API: `GET /api/quiz/attempts` are `newResult`; `PUT /api/quiz/attempts/{id}/result-seen` → 204 (altcineva / inexistent → 404);
+  rezultatul are `quizId` + `practiceAllowed`
+- Teste: `ResultSeenIntegrationTest`, `QuizAttemptTest`, `AttemptResultView.test.tsx`, `AttemptResultPage.test.tsx`, `mistakes.test.ts`,
+  `TakeQuizPage.test.tsx`, `DashboardPage.test.tsx`, `StudentQuizListPage.test.tsx`, `AppShell.test.tsx`
 
 ### 20. Pagina unui elev (T5) — `/admin/students/:id`, ca admin
 **De ce:** ca să vorbești despre Ana nu mai treci prin 4 pagini (Teme, Corectură, Pe capitole, Recapitulare).

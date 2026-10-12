@@ -122,4 +122,11 @@ public class QuizAttemptController {
     public AttemptResultViewDto result(@PathVariable Long attemptId, Authentication auth) {
         return service.getResult(attemptId, auth.getName());
     }
+
+    /** S3: the student has opened the result - it stops being "Nou". Idempotent; 204. */
+    @PutMapping("/api/quiz/attempts/{attemptId}/result-seen")
+    public ResponseEntity<Void> resultSeen(@PathVariable Long attemptId, Authentication auth) {
+        service.markResultSeen(attemptId, auth.getName());
+        return ResponseEntity.noContent().build();
+    }
 }

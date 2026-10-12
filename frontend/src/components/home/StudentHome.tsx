@@ -16,7 +16,8 @@ import {
 } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
 import { formatDate, roCount } from '@/lib/format'
-import { formatGrade, romanianGrade } from '@/lib/grades'
+import { formatGrade, romanianGrade, scoreLine } from '@/lib/grades'
+import { NewResultBadge } from '@/components/NewResultBadge'
 import { latestGrade, todoAssignments } from '@/lib/home'
 
 interface StudentData {
@@ -59,8 +60,31 @@ export function StudentHome() {
   const awaiting = data.attempts.filter((a) => a.mode === 'TEST' && a.status === 'SUBMITTED').length
   const last = latestGrade(data.progress)
 
+  const newResults = data.attempts.filter((a) => a.newResult)
+
   return (
     <>
+      {newResults.length > 0 && (
+        <HomeSection title={newResults.length === 1 ? 'Ai o notă nouă' : 'Ai note noi'}>
+          {newResults.map((a) => (
+            <Card key={a.attemptId} data-testid="home-new-result">
+              <CardContent className="flex flex-wrap items-center justify-between gap-3 py-3">
+                <div className="min-w-0 space-y-1">
+                  <p className="flex items-center gap-2">
+                    <NewResultBadge />
+                    <span className="truncate font-medium">{a.quizTitle}</span>
+                  </p>
+                  {a.score !== null && <p className="text-sm text-muted-foreground">{scoreLine(a.score, a.maxScore)}</p>}
+                </div>
+                <Link to={`/quizzes/attempts/${a.attemptId}/result`} className={buttonVariants({ size: 'sm' })}>
+                  Vezi rezultatul
+                </Link>
+              </CardContent>
+            </Card>
+          ))}
+        </HomeSection>
+      )}
+
       {todo.length > 0 ? (
         <AssignmentsSection assignments={todo} title="De făcut" />
       ) : (

@@ -220,4 +220,47 @@ class QuizAttemptTest {
         assertThatThrownBy(() -> practice.commentOverall("Nu se notează"))
                 .isInstanceOf(IllegalStateException.class);
     }
+
+    // --- S3: "Ai o notă nouă" ---
+
+    @Test
+    void aGradedTestIsNewUntilTheStudentOpensItsResult() {
+        QuizAttempt attempt = new QuizAttempt(quiz, student);
+        attempt.submit();
+        attempt.markResultSeen(Instant.now()); // opened while still waiting for the teacher: does not count
+        assertThat(attempt.hasUnseenResult()).isFalse(); // nothing graded yet, nothing new
+
+        attempt.markGraded(7);
+        assertThat(attempt.hasUnseenResult()).isTrue();
+
+        attempt.markResultSeen(Instant.parse("2026-10-11T10:00:00Z"));
+        attempt.markResultSeen(Instant.parse("2026-10-12T10:00:00Z"));
+        assertThat(attempt.hasUnseenResult()).isFalse();
+        assertThat(attempt.getResultSeenAt()).isEqualTo(Instant.parse("2026-10-11T10:00:00Z")); // the first time
+    }
+
+    @Test
+    void aNewTeacherCommentOnAGradedTestMakesItNewAgainButAClearedOneDoesNot() {
+        QuizAttempt attempt = new QuizAttempt(quiz, student);
+        attempt.submit();
+        attempt.markGraded(7);
+        attempt.markResultSeen(Instant.now());
+
+        attempt.commentOverall("Bravo!");
+        assertThat(attempt.hasUnseenResult()).isTrue();
+
+        attempt.markResultSeen(Instant.now());
+        attempt.commentOverall("Bravo!"); // the same words again
+        attempt.commentOverall(" ");      // removed
+        assertThat(attempt.hasUnseenResult()).isFalse();
+    }
+
+    @Test
+    void aPracticeIsNeverANewGrade() {
+        QuizAttempt practice = new QuizAttempt(quiz, student, Instant.now(), AttemptMode.PRACTICE);
+        practice.submit();
+        practice.completePractice();
+
+        assertThat(practice.hasUnseenResult()).isFalse();
+    }
 }

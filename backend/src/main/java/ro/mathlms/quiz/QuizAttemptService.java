@@ -433,7 +433,20 @@ public class QuizAttemptService {
         }
         return new AttemptResultViewDto(attempt.getId(), attempt.getQuiz().getTitle(),
                 attempt.getStatus(), attempt.getScore(), maxScore, itemResults, attempt.getMode(),
-                attempt.getTeacherComment());
+                attempt.getTeacherComment(), attempt.getQuiz().getId(),
+                attempt.getQuiz().isPracticeAllowed() && attempt.getQuiz().getStatus() == QuizStatus.PUBLISHED);
+    }
+
+    /**
+     * S3: the student opened their result, so it is no longer "Nou". Only their own attempt (anyone else's is the same
+     * 404 as one that does not exist); a result still waiting for the teacher stays new for when it is graded.
+     */
+    @Transactional
+    public void markResultSeen(Long attemptId, String studentEmail) {
+        QuizAttempt attempt = attemptRepository.findById(attemptId)
+                .filter(a -> a.getStudent().getEmail().equals(studentEmail))
+                .orElseThrow(() -> new QuizNotFoundException("QuizAttempt", attemptId));
+        attempt.markResultSeen(Instant.now(clock));
     }
 
     /** The quiz as the student sees it; hint counts only exist in a practice - a graded test hides even that. */

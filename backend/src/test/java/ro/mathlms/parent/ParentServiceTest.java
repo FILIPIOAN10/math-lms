@@ -46,7 +46,7 @@ class ParentServiceTest {
     }
 
     private MyAttemptDto attempt(long id) {
-        return new MyAttemptDto(id, 10L, "Simulare EN", QuizAttemptStatus.GRADED, Instant.now(), Instant.now(), 13, AttemptMode.TEST, 35);
+        return new MyAttemptDto(id, 10L, "Simulare EN", QuizAttemptStatus.GRADED, Instant.now(), Instant.now(), 13, AttemptMode.TEST, 35, false);
     }
 
     // --- children ---

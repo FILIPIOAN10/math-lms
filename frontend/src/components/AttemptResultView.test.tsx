@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
 import { AttemptResultView } from '@/components/AttemptResultView'
 import type { AttemptResultViewDto } from '@/lib/api'
@@ -24,25 +25,27 @@ const graded: AttemptResultViewDto = {
     },
   ],
   teacherComment: 'Lucrare îngrijită, bravo!',
+  quizId: 10,
+  practiceAllowed: false,
 }
 
 describe('AttemptResultView', () => {
   it('shows the student their own photo next to the open item', () => {
-    render(<AttemptResultView result={graded} />)
+    render(<AttemptResultView result={graded} />, { wrapper: MemoryRouter })
 
     const img = screen.getByRole('img', { name: 'Poza ta pentru subiectul 2' })
     expect(img).toHaveAttribute('src', '/api/quiz/attempts/50/responses/101/photo')
   })
 
   it('does not try to show the photo to a parent (no endpoint of theirs serves it)', () => {
-    render(<AttemptResultView result={graded} audience="parent" />)
+    render(<AttemptResultView result={graded} audience="parent" />, { wrapper: MemoryRouter })
 
     expect(screen.queryByRole('img')).not.toBeInTheDocument()
     expect(screen.getByText('Elevul a trimis o poză cu rezolvarea.')).toBeInTheDocument()
   })
 
   it('shows the big final score once the attempt is graded', () => {
-    render(<AttemptResultView result={graded} />)
+    render(<AttemptResultView result={graded} />, { wrapper: MemoryRouter })
 
     expect(screen.getByTestId('result-score')).toHaveTextContent('13 / 15 puncte')
     expect(screen.getByTestId('result-grade')).toHaveTextContent('Nota 8,80')
@@ -50,7 +53,7 @@ describe('AttemptResultView', () => {
   })
 
   it("shows the teacher's comment on the paper and on each answer", () => {
-    render(<AttemptResultView result={graded} />)
+    render(<AttemptResultView result={graded} />, { wrapper: MemoryRouter })
 
     expect(screen.getByTestId('teacher-comment')).toHaveTextContent('Lucrare îngrijită, bravo!')
     const itemComments = screen.getAllByTestId('item-teacher-comment')
@@ -59,14 +62,14 @@ describe('AttemptResultView', () => {
   })
 
   it("shows the teacher's comments to a parent too", () => {
-    render(<AttemptResultView result={graded} audience="parent" />)
+    render(<AttemptResultView result={graded} audience="parent" />, { wrapper: MemoryRouter })
 
     expect(screen.getByTestId('teacher-comment')).toHaveTextContent('Lucrare îngrijită, bravo!')
     expect(screen.getByTestId('item-teacher-comment')).toHaveTextContent('Ai uitat unitatea de măsură.')
   })
 
   it('shows no comment block when the teacher wrote none', () => {
-    render(<AttemptResultView result={{ ...graded, teacherComment: null, items: [graded.items[0]] }} />)
+    render(<AttemptResultView result={{ ...graded, teacherComment: null, items: [graded.items[0]] }} />, { wrapper: MemoryRouter })
 
     expect(screen.queryByTestId('teacher-comment')).not.toBeInTheDocument()
     expect(screen.queryByTestId('item-teacher-comment')).not.toBeInTheDocument()
@@ -80,7 +83,7 @@ describe('AttemptResultView', () => {
       items: [graded.items[0], { ...graded.items[1], awardedPoints: null }],
     }
 
-    render(<AttemptResultView result={waiting} />)
+    render(<AttemptResultView result={waiting} />, { wrapper: MemoryRouter })
 
     expect(screen.queryByTestId('result-score')).not.toBeInTheDocument()
     expect(screen.getByText(/Grilele sunt corectate \(5 puncte până acum\)/)).toBeInTheDocument()
@@ -88,7 +91,7 @@ describe('AttemptResultView', () => {
   })
 
   it('words the student view in the second person and the parent view about the student', () => {
-    const { rerender } = render(<AttemptResultView result={graded} audience="student" />)
+    const { rerender } = render(<AttemptResultView result={graded} audience="student" />, { wrapper: MemoryRouter })
     expect(screen.getByText(/Răspunsul tău:/)).toBeInTheDocument()
     expect(screen.getByText('Ai trimis o poză cu rezolvarea.')).toBeInTheDocument()
 
@@ -99,7 +102,7 @@ describe('AttemptResultView', () => {
   })
 
   it('reveals the barem only when asked', async () => {
-    render(<AttemptResultView result={graded} />)
+    render(<AttemptResultView result={graded} />, { wrapper: MemoryRouter })
     expect(screen.queryByText('x1 = 2')).not.toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: 'Arată baremul' }))
@@ -114,7 +117,7 @@ describe('AttemptResultView', () => {
       items: [{ ...graded.items[0], correct: false, awardedPoints: 0, selectedOptionText: 'Varianta A' }],
     }
 
-    render(<AttemptResultView result={wrong} />)
+    render(<AttemptResultView result={wrong} />, { wrapper: MemoryRouter })
 
     expect(screen.getByText(/Răspunsul tău:/)).toHaveTextContent('✗')
     expect(screen.getByText(/Răspuns corect:/)).toHaveTextContent('Varianta B')
@@ -123,7 +126,7 @@ describe('AttemptResultView', () => {
   it('says a practice is not marked and shows how many choice questions were right, instead of a score', () => {
     const practice: AttemptResultViewDto = { ...graded, mode: 'PRACTICE', finalScore: null }
 
-    render(<AttemptResultView result={practice} />)
+    render(<AttemptResultView result={practice} />, { wrapper: MemoryRouter })
 
     expect(screen.queryByTestId('result-score')).not.toBeInTheDocument()
     expect(screen.getByTestId('result-practice')).toHaveTextContent('fără notă')
@@ -132,7 +135,7 @@ describe('AttemptResultView', () => {
   })
 
   it('shows no practice badge on a graded test', () => {
-    render(<AttemptResultView result={graded} />)
+    render(<AttemptResultView result={graded} />, { wrapper: MemoryRouter })
 
     expect(screen.queryByTestId('mode-badge')).not.toBeInTheDocument()
   })
@@ -148,7 +151,7 @@ describe('AttemptResultView', () => {
       ],
     }
 
-    render(<AttemptResultView result={practice} />)
+    render(<AttemptResultView result={practice} />, { wrapper: MemoryRouter })
 
     expect(screen.getAllByTestId('hints-used').map((n) => n.textContent)).toEqual([
       'Indicii folosite: 1 din 2',
@@ -158,9 +161,46 @@ describe('AttemptResultView', () => {
   })
 
   it('says nothing about hints when the items had none', () => {
-    render(<AttemptResultView result={{ ...graded, mode: 'PRACTICE', finalScore: null }} />)
+    render(<AttemptResultView result={{ ...graded, mode: 'PRACTICE', finalScore: null }} />, { wrapper: MemoryRouter })
 
     expect(screen.queryByTestId('hints-used')).not.toBeInTheDocument()
     expect(screen.getByTestId('result-practice')).not.toHaveTextContent('Indicii')
+  })
+
+  // --- S4: "Exersează ce ai greșit" ---
+
+  const withMistakes: AttemptResultViewDto = {
+    ...graded,
+    practiceAllowed: true,
+    items: [{ ...graded.items[0], correct: false, awardedPoints: 0, selectedOptionText: 'Varianta A' }, graded.items[1]],
+  }
+
+  it('names what to go back to, sends the wrong grilă to the review and offers a practice of just those', () => {
+    render(<AttemptResultView result={withMistakes} />, { wrapper: MemoryRouter })
+
+    const card = screen.getByTestId('practice-mistakes')
+    expect(card).toHaveTextContent('Subiectele 1, 2 nu au ieșit complet')
+    expect(card).toHaveTextContent('1 grilă greșită revine în recapitularea zilnică, începând de mâine.')
+    expect(screen.getByRole('link', { name: 'recapitularea zilnică' })).toHaveAttribute('href', '/review')
+    expect(screen.getByTestId('practice-mistakes-link')).toHaveAttribute('href', '/quizzes/10/take?mode=practice&only=100,101')
+  })
+
+  it('offers no practice link when the teacher did not open the quiz for practice', () => {
+    render(<AttemptResultView result={{ ...withMistakes, practiceAllowed: false }} />, { wrapper: MemoryRouter })
+
+    expect(screen.getByTestId('practice-mistakes')).toBeInTheDocument()
+    expect(screen.queryByTestId('practice-mistakes-link')).not.toBeInTheDocument()
+  })
+
+  it('has nothing to say on a perfect paper, to a parent, or while the teacher is still grading', () => {
+    const perfect = { ...graded, items: [graded.items[0], { ...graded.items[1], awardedPoints: 10 }] }
+    const { rerender } = render(<AttemptResultView result={perfect} />, { wrapper: MemoryRouter })
+    expect(screen.queryByTestId('practice-mistakes')).not.toBeInTheDocument()
+
+    rerender(<AttemptResultView result={withMistakes} audience="parent" />)
+    expect(screen.queryByTestId('practice-mistakes')).not.toBeInTheDocument()
+
+    rerender(<AttemptResultView result={{ ...withMistakes, status: 'SUBMITTED', finalScore: null }} />)
+    expect(screen.queryByTestId('practice-mistakes')).not.toBeInTheDocument()
   })
 })

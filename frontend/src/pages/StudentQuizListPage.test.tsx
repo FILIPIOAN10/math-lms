@@ -17,7 +17,7 @@ const quiz = (id: number, title: string, over: Partial<QuizSummary> = {}): QuizS
 })
 const attempt = (over: Partial<MyAttemptDto>): MyAttemptDto => ({
   attemptId: 1, quizId: 1, quizTitle: 'Q', status: 'GRADED', startedAt: '2026-10-01T10:00:00Z',
-  submittedAt: '2026-10-01T10:30:00Z', score: 8, mode: 'TEST', maxScore: 11, ...over,
+  submittedAt: '2026-10-01T10:30:00Z', score: 8, mode: 'TEST', maxScore: 11, newResult: false, ...over,
 })
 const homework = (quizId: number, state: StudentAssignment['state']): StudentAssignment => ({
   assignmentId: quizId, quizId, quizTitle: `Tema ${quizId}`, schoolClassName: 'Clasa a 8-a',
@@ -103,5 +103,19 @@ describe('StudentQuizListPage', () => {
     renderPage()
 
     expect(await screen.findByText('8 / 11 p · nota 7,55')).toBeInTheDocument()
+  })
+
+  it('S3: marks a grade not yet opened as "Nou" and makes its result the main button', async () => {
+    api.getStudentQuizzes.mockResolvedValue([])
+    api.getMyAttempts.mockResolvedValue([
+      attempt({ attemptId: 1, quizTitle: 'Nouă', newResult: true }),
+      attempt({ attemptId: 2, quizTitle: 'Văzută', newResult: false }),
+    ])
+    renderPage()
+
+    expect(await screen.findAllByTestId('new-result')).toHaveLength(1)
+    const links = screen.getAllByRole('link', { name: 'Vezi rezultatul' })
+    expect(links[0]).toHaveAttribute('href', '/quizzes/attempts/1/result')
+    expect(links[0]).not.toHaveClass('border-border') // the filled button, not the outline one
   })
 })
