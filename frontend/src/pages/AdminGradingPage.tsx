@@ -1,8 +1,7 @@
-import { Fragment, useEffect, useId, useState } from 'react'
+import { Fragment, useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { AttemptStatusBadge } from '@/components/AttemptStatusBadge'
@@ -10,6 +9,7 @@ import { MathContent } from '@/components/MathContent'
 import { PhotoPages } from '@/components/PhotoPages'
 import { QuestionImage } from '@/components/QuestionImage'
 import { GradeByItem } from '@/components/GradeByItem'
+import { ItemGradeForm } from '@/components/grading/ItemGradeForm'
 import { SectionHeadingView } from '@/components/SectionHeadingView'
 import { numberItems } from '@/lib/sections'
 import {
@@ -28,6 +28,8 @@ import { errorMessage } from '@/lib/errors'
 import { scoreLine } from '@/lib/grades'
 import { roCount } from '@/lib/format'
 import { PageHeader } from '@/components/PageHeader'
+import { useAutosave, type SaveStatus } from '@/lib/useAutosave'
+import { useCommentSnippets, type SnippetBank } from '@/lib/useCommentSnippets'
 
 /** Same limit as the server (V20 columns). */
 const MAX_COMMENT = 2000
@@ -44,37 +46,19 @@ function formatDate(iso: string | null): string {
 function OpenItemGrader({
   attempt,
   item,
-  onSaved,
+  bank,
+  onGraded,
+  registerFlush,
+  onStatus,
 }: {
   attempt: AdminAttemptDetail
   item: AdminItemReview
-  onSaved: () => Promise<void>
+  bank: SnippetBank
+  /** The grade the server accepted, to update the page without fetching the paper again. */
+  onGraded: (itemId: number, points: number, comment: string | null) => void
+  registerFlush: (flush: (() => Promise<boolean>) | null) => void
+  onStatus: (status: SaveStatus) => void
 }) {
-  const [points, setPoints] = useState(item.awardedPoints === null ? '' : String(item.awardedPoints))
-  const [comment, setComment] = useState(item.teacherComment ?? '')
-  const commentId = useId()
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const readOnly = attempt.status !== 'SUBMITTED'
-
-  async function save() {
-    const value = Number(points)
-    if (points.trim() === '' || !Number.isInteger(value) || value < 0 || value > item.points) {
-      setError(`Punctajul trebuie să fie un număr întreg între 0 și ${item.points}.`)
-      return
-    }
-    setBusy(true)
-    setError(null)
-    try {
-      await gradeOpenItem(attempt.attemptId, item.itemId, value, comment.trim() === '' ? null : comment.trim())
-      await onSaved()
-    } catch (e) {
-      setError(errorMessage(e))
-    } finally {
-      setBusy(false)
-    }
-  }
-
   return (
     <div className="space-y-3">
       {item.photoIds.length > 0 ? (
@@ -94,42 +78,17 @@ function OpenItemGrader({
         </div>
       )}
 
-      <div className="space-y-1">
-        <label htmlFor={commentId} className="text-sm font-medium">Comentariu pentru elev (opțional)</label>
-        <Textarea
-          id={commentId}
-          value={comment}
-          maxLength={MAX_COMMENT}
-          onChange={(e) => setComment(e.target.value)}
-          disabled={readOnly || busy}
-          placeholder="Ex.: Raționament corect, dar ai uitat unitatea de măsură."
-          className="min-h-16"
-        />
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2">
-        <Input
-          type="number"
-          data-testid="grade-points"
-          min={0}
-          max={item.points}
-          value={points}
-          onChange={(e) => setPoints(e.target.value)}
-          disabled={readOnly || busy}
-          className="w-24"
-          aria-label="Puncte acordate"
-        />
-        <span className="text-sm text-muted-foreground">/ {item.points} p</span>
-        {!readOnly && (
-          <Button size="sm" onClick={save} disabled={busy} data-testid="grade-save">
-            {busy ? 'Se salvează...' : 'Salvează nota și comentariul'}
-          </Button>
-        )}
-        {item.awardedPoints !== null && (
-          <span className="text-sm text-emerald-700 dark:text-emerald-300">✓ notat cu {item.awardedPoints} p</span>
-        )}
-      </div>
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      <ItemGradeForm
+        item={item}
+        readOnly={attempt.status !== 'SUBMITTED'}
+        bank={bank}
+        registerFlush={registerFlush}
+        onStatus={onStatus}
+        save={async (points, comment) => {
+          await gradeOpenItem(attempt.attemptId, item.itemId, points, comment)
+          onGraded(item.itemId, points, comment)
+        }}
+      />
     </div>
   )
 }
@@ -137,30 +96,35 @@ function OpenItemGrader({
 // ---------- The comment on the whole paper ----------
 
 /**
- * One comment for the whole paper. Open while grading AND after: an all-grilă test is graded the moment it is handed
- * in, and the teacher may still want to say something about it.
+ * One comment for the whole paper, saved when the teacher leaves the box. Open while grading AND after: an all-grilă
+ * test is graded the moment it is handed in, and the teacher may still want to say something about it.
  */
-function OverallComment({ attempt, onSaved }: { attempt: AdminAttemptDetail; onSaved: () => Promise<void> }) {
-  const [comment, setComment] = useState(attempt.teacherComment ?? '')
-  const [busy, setBusy] = useState(false)
-  const [saved, setSaved] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+function OverallComment({
+  attempt,
+  registerFlush,
+  onStatus,
+}: {
+  attempt: AdminAttemptDetail
+  registerFlush: (flush: (() => Promise<boolean>) | null) => void
+  onStatus: (status: SaveStatus) => void
+}) {
   const id = useId()
-
-  async function save() {
-    setBusy(true)
-    setSaved(false)
-    setError(null)
-    try {
-      await commentOnAttempt(attempt.attemptId, comment.trim())
-      setSaved(true)
-      await onSaved()
-    } catch (e) {
-      setError(errorMessage(e))
-    } finally {
-      setBusy(false)
-    }
-  }
+  const { value, setValue, status, error, flush } = useAutosave<string>(
+    attempt.teacherComment ?? '',
+    (comment) => commentOnAttempt(attempt.attemptId, comment.trim()),
+    { equals: (a, b) => a.trim() === b.trim(), isReady: () => true },
+  )
+  const register = useRef(registerFlush)
+  const report = useRef(onStatus)
+  useLayoutEffect(() => {
+    register.current = registerFlush
+    report.current = onStatus
+  })
+  useEffect(() => {
+    register.current(flush)
+    return () => register.current(null)
+  }, [flush])
+  useEffect(() => report.current(status), [status])
 
   return (
     <Card>
@@ -168,22 +132,22 @@ function OverallComment({ attempt, onSaved }: { attempt: AdminAttemptDetail; onS
         <label htmlFor={id} className="text-sm font-medium">Comentariu pentru toată lucrarea (opțional)</label>
         <Textarea
           id={id}
-          value={comment}
+          value={value}
           maxLength={MAX_COMMENT}
-          onChange={(e) => {
-            setComment(e.target.value)
-            setSaved(false)
-          }}
-          disabled={busy}
-          placeholder="Îl văd elevul și părintele, împreună cu rezultatul."
+          onChange={(e) => setValue(e.target.value)}
+          onBlur={() => void flush()}
+          placeholder="Îl văd elevul și părintele, împreună cu rezultatul. Se salvează singur."
         />
-        <div className="flex flex-wrap items-center gap-3">
-          <Button size="sm" variant="outline" onClick={save} disabled={busy}>
-            {busy ? 'Se salvează...' : 'Salvează comentariul'}
-          </Button>
-          {saved && <span className="text-sm text-emerald-700 dark:text-emerald-300">✓ Comentariu salvat</span>}
-        </div>
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        <p role="status" className="text-sm">
+          {status === 'saving' && <span className="text-muted-foreground">Se salvează…</span>}
+          {status === 'saved' && <span className="text-emerald-700 dark:text-emerald-300">✓ Comentariu salvat</span>}
+          {status === 'error' && (
+            <span className="text-destructive">
+              Nesalvat: {errorMessage(error)}{' '}
+              <Button type="button" size="xs" variant="outline" onClick={() => void flush()}>Reîncearcă</Button>
+            </span>
+          )}
+        </p>
       </CardContent>
     </Card>
   )
@@ -217,6 +181,47 @@ export function AdminGradingPage() {
   const [confirmingFinal, setConfirmingFinal] = useState<false | 'list' | 'next'>(false)
   const [byItem, setByItem] = useState<{ quizTitle: string; attemptIds: number[] } | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  const bank = useCommentSnippets()
+  // Every form on the open paper: how it stands, and how to send what it still holds (before finalising).
+  const flushes = useRef(new Map<string, () => Promise<boolean>>())
+  const [statuses, setStatuses] = useState<Record<string, SaveStatus>>({})
+  const registerFlush = useCallback((key: string, flush: (() => Promise<boolean>) | null) => {
+    if (flush) flushes.current.set(key, flush)
+    else flushes.current.delete(key)
+  }, [])
+  const reportStatus = useCallback((key: string, status: SaveStatus) => {
+    setStatuses((all) => (all[key] === status ? all : { ...all, [key]: status }))
+  }, [])
+  const unsaved = Object.values(statuses).some((st) => st === 'dirty' || st === 'saving' || st === 'error' || st === 'incomplete')
+
+  // Closing the tab with something not yet on the server: the browser asks first.
+  useEffect(() => {
+    if (!unsaved) return
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault()
+    window.addEventListener('beforeunload', warn)
+    return () => window.removeEventListener('beforeunload', warn)
+  }, [unsaved])
+
+  /** Sends everything still pending on the open paper; false if something could not be saved. */
+  async function flushAll(): Promise<boolean> {
+    const results = await Promise.all([...flushes.current.values()].map((f) => f()))
+    return results.every(Boolean)
+  }
+
+  /** "Finalizează": first whatever is still being typed, then the confirmation. */
+  async function askToFinalize(then: 'list' | 'next') {
+    setError(null)
+    if (!(await flushAll())) {
+      setError('Unele punctaje sau comentarii nu s-au salvat. Verifică subiectele marcate, apoi finalizează.')
+      return
+    }
+    setConfirmingFinal(then)
+  }
+
+  /** A grade the server accepted: shown on the page without fetching the paper again. */
+  const graded = useCallback((itemId: number, points: number, comment: string | null) => {
+    setDetail((d) => d && { ...d, items: d.items.map((i) => (i.itemId === itemId ? { ...i, awardedPoints: points, teacherComment: comment } : i)) })
+  }, [])
   const [error, setError] = useState<string | null>(null)
   // `?attempt=12` opens that paper straight away (links from a student's page).
   const [searchParams, setSearchParams] = useSearchParams()
@@ -262,7 +267,9 @@ export function AdminGradingPage() {
     setError(null)
     setNotice(null)
     try {
-      setDetail(await getAttemptForGrading(attemptId))
+      const paper = await getAttemptForGrading(attemptId)
+      setStatuses({}) // the forms of the paper before are gone
+      setDetail(paper)
     } catch (e) {
       setError(errorMessage(e))
     }
@@ -317,6 +324,7 @@ export function AdminGradingPage() {
 
         {byItem ? (
           <GradeByItem
+            bank={bank}
             quizTitle={byItem.quizTitle}
             attemptIds={byItem.attemptIds}
             onExit={() => {
@@ -377,7 +385,10 @@ export function AdminGradingPage() {
                       key={`${detail.attemptId}-${item.itemId}`}
                       attempt={detail}
                       item={item}
-                      onSaved={() => open(detail.attemptId)}
+                      bank={bank}
+                      onGraded={graded}
+                      registerFlush={(f) => registerFlush(`item-${item.itemId}`, f)}
+                      onStatus={(st) => reportStatus(`item-${item.itemId}`, st)}
                     />
                   )}
                 </CardContent>
@@ -385,7 +396,12 @@ export function AdminGradingPage() {
               </Fragment>
             ))}
 
-            <OverallComment key={detail.attemptId} attempt={detail} onSaved={() => open(detail.attemptId)} />
+            <OverallComment
+              key={detail.attemptId}
+              attempt={detail}
+              registerFlush={(f) => registerFlush('overall', f)}
+              onStatus={(st) => reportStatus('overall', st)}
+            />
 
             <ConfirmDialog
               open={confirmingFinal !== false}
@@ -404,14 +420,14 @@ export function AdminGradingPage() {
                 )}
                 <Button
                   variant={othersWaiting > 0 ? 'outline' : 'default'}
-                  onClick={() => setConfirmingFinal('list')}
+                  onClick={() => void askToFinalize('list')}
                   disabled={!allOpenGraded || finalizing}
                   data-testid="grade-finalize"
                 >
                   {finalizing ? 'Se finalizează...' : 'Finalizează nota'}
                 </Button>
                 {othersWaiting > 0 && (
-                  <Button onClick={() => setConfirmingFinal('next')} disabled={!allOpenGraded || finalizing} data-testid="grade-finalize-next">
+                  <Button onClick={() => void askToFinalize('next')} disabled={!allOpenGraded || finalizing} data-testid="grade-finalize-next">
                     Finalizează și treci la următoarea ({othersWaiting} {othersWaiting === 1 ? 'rămasă' : 'rămase'})
                   </Button>
                 )}

@@ -1,12 +1,11 @@
-import { useEffect, useId, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { MathContent } from '@/components/MathContent'
 import { PhotoPages } from '@/components/PhotoPages'
 import { QuestionImage } from '@/components/QuestionImage'
+import { ItemGradeForm } from '@/components/grading/ItemGradeForm'
 import {
   attemptPhotoUrl as attemptPhotoUrlDefault,
   finalizeGrading as finalizeGradingRequest,
@@ -19,15 +18,15 @@ import { errorMessage } from '@/lib/errors'
 import { roCount } from '@/lib/format'
 import { numberItems, parseSection } from '@/lib/sections'
 import { cn } from '@/lib/utils'
-
-/** Same limit as the server (V20 columns). */
-const MAX_COMMENT = 2000
+import { EMPTY_BANK, type SnippetBank } from '@/lib/useCommentSnippets'
 
 interface Props {
   quizTitle: string
   /** The quiz's papers waiting for a grade, in queue order. */
   attemptIds: number[]
   onExit: () => void
+  /** The teacher's saved comments (loaded once by the grading page). */
+  bank?: SnippetBank
   /** Injected in tests; default to the real API calls. */
   getAttemptForGrading?: typeof getAttemptForGradingRequest
   gradeOpenItem?: typeof gradeOpenItemRequest
@@ -47,6 +46,7 @@ export function GradeByItem({
   quizTitle,
   attemptIds,
   onExit,
+  bank = EMPTY_BANK,
   getAttemptForGrading = getAttemptForGradingRequest,
   gradeOpenItem = gradeOpenItemRequest,
   finalizeGrading = finalizeGradingRequest,
@@ -62,6 +62,11 @@ export function GradeByItem({
   const [confirming, setConfirming] = useState(false)
   const [finalizing, setFinalizing] = useState(false)
   const [finalized, setFinalized] = useState<number | null>(null)
+  // The answer on screen: send what it still holds before moving to another one or finalising.
+  const flushCurrent = useRef<(() => Promise<boolean>) | null>(null)
+  const registerFlush = useCallback((flush: (() => Promise<boolean>) | null) => {
+    flushCurrent.current = flush
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -104,16 +109,34 @@ export function GradeByItem({
   const paper = papers[Math.min(index, papers.length - 1)]
   const ready = papers.filter(complete)
 
-  function chooseItem(id: number) {
+  /** Moves on only once the answer on screen is saved (a failed save stays on screen with its error). */
+  async function leaveCurrent(): Promise<boolean> {
+    return flushCurrent.current ? flushCurrent.current() : true
+  }
+
+  async function goTo(to: number) {
+    if (await leaveCurrent()) setIndex(to)
+  }
+
+  async function chooseItem(id: number) {
+    if (!(await leaveCurrent())) return
     setItemId(id)
     // Open the first paper still missing points for this question.
     const todo = papers!.findIndex((p) => answerOf(p, id).awardedPoints === null)
     setIndex(todo === -1 ? 0 : todo)
   }
 
-  async function saved(attemptId: number) {
-    const fresh = await getAttemptForGrading(attemptId)
-    setPapers((prev) => prev!.map((p) => (p.attemptId === attemptId ? fresh : p)))
+  /** A grade the server accepted: shown without fetching the paper again. */
+  function graded(attemptId: number, id: number, points: number, comment: string | null) {
+    setPapers((prev) => prev!.map((p) => (p.attemptId !== attemptId ? p : {
+      ...p,
+      items: p.items.map((i) => (i.itemId === id ? { ...i, awardedPoints: points, teacherComment: comment } : i)),
+    })))
+  }
+
+  async function askToFinalize() {
+    setError(null)
+    if (await leaveCurrent()) setConfirming(true)
   }
 
   async function finalizeReady() {
@@ -145,7 +168,7 @@ export function GradeByItem({
             size="sm"
             variant={item.itemId === itemId ? 'default' : 'outline'}
             aria-pressed={item.itemId === itemId}
-            onClick={() => chooseItem(item.itemId)}
+            onClick={() => void chooseItem(item.itemId)}
           >
             Subiectul {number} ({gradedCount(item.itemId)}/{papers.length})
           </Button>
@@ -192,18 +215,19 @@ export function GradeByItem({
             position={index + 1}
             total={papers.length}
             photoUrl={(photoId) => attemptPhotoUrl(paper.attemptId, current.item.itemId, photoId)}
-            onSave={async (points, comment) => {
+            bank={bank}
+            registerFlush={registerFlush}
+            save={async (points, comment) => {
               await gradeOpenItem(paper.attemptId, current.item.itemId, points, comment)
-              await saved(paper.attemptId)
-              if (index < papers.length - 1) setIndex(index + 1)
+              graded(paper.attemptId, current.item.itemId, points, comment)
             }}
-            onPrevious={index > 0 ? () => setIndex(index - 1) : undefined}
-            onNext={index < papers.length - 1 ? () => setIndex(index + 1) : undefined}
+            onPrevious={index > 0 ? () => void goTo(index - 1) : undefined}
+            onNext={index < papers.length - 1 ? () => void goTo(index + 1) : undefined}
           />
 
           <div className="flex flex-wrap items-center justify-between gap-3">
             <Button variant="outline" onClick={onExit}>Înapoi la lucrări</Button>
-            <Button onClick={() => setConfirming(true)} disabled={ready.length === 0 || finalizing} data-testid="finalize-ready">
+            <Button onClick={() => void askToFinalize()} disabled={ready.length === 0 || finalizing} data-testid="finalize-ready">
               {finalizing ? 'Se finalizează...' : `Finalizează lucrările complete (${ready.length})`}
             </Button>
           </div>
@@ -223,14 +247,19 @@ export function GradeByItem({
   )
 }
 
-/** One student's answer to the chosen question: photo, points, comment — "Salvează și următoarea". */
+/**
+ * One student's answer to the chosen question: photo, points, comment. Each grade saves itself (see ItemGradeForm);
+ * "Următoarea" (or Enter in a points box) moves on once it is saved.
+ */
 function AnswerGrader({
   paper,
   answer,
   position,
   total,
   photoUrl,
-  onSave,
+  bank,
+  save,
+  registerFlush,
   onPrevious,
   onNext,
 }: {
@@ -240,31 +269,15 @@ function AnswerGrader({
   total: number
   /** The address of one page of this answer. */
   photoUrl: (photoId: number) => string
-  onSave: (points: number, comment: string | null) => Promise<void>
+  bank: SnippetBank
+  save: (points: number, comment: string | null) => Promise<void>
+  registerFlush: (flush: (() => Promise<boolean>) | null) => void
   onPrevious?: () => void
   onNext?: () => void
 }) {
-  const [points, setPoints] = useState(answer.awardedPoints === null ? '' : String(answer.awardedPoints))
-  const [comment, setComment] = useState(answer.teacherComment ?? '')
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const commentId = useId()
-
-  async function submit(e: FormEvent) {
+  function submit(e: FormEvent) {
     e.preventDefault()
-    const value = Number(points)
-    if (points.trim() === '' || !Number.isInteger(value) || value < 0 || value > answer.points) {
-      setError(`Punctajul trebuie să fie un număr întreg între 0 și ${answer.points}.`)
-      return
-    }
-    setBusy(true)
-    setError(null)
-    try {
-      await onSave(value, comment.trim() === '' ? null : comment.trim())
-    } catch (err) {
-      setError(errorMessage(err))
-      setBusy(false)
-    }
+    onNext?.()
   }
 
   return (
@@ -274,9 +287,6 @@ function AnswerGrader({
           <p className="font-medium">
             {paper.studentName} <span className="font-normal text-muted-foreground">· lucrarea {position} din {total}</span>
           </p>
-          {answer.awardedPoints !== null && (
-            <span className="text-sm text-emerald-700 dark:text-emerald-300">✓ notat cu {answer.awardedPoints} p</span>
-          )}
         </div>
 
         {answer.photoIds.length > 0 ? (
@@ -289,41 +299,13 @@ function AnswerGrader({
           <p className="text-sm text-muted-foreground">Elevul nu a trimis nicio poză.</p>
         )}
 
-        <form className="space-y-3" onSubmit={submit} noValidate>
-          <div className="space-y-1">
-            <label htmlFor={commentId} className="text-sm font-medium">Comentariu pentru elev (opțional)</label>
-            <Textarea
-              id={commentId}
-              value={comment}
-              maxLength={MAX_COMMENT}
-              onChange={(e) => setComment(e.target.value)}
-              disabled={busy}
-              className="min-h-16"
-            />
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Input
-              type="number"
-              min={0}
-              max={answer.points}
-              value={points}
-              onChange={(e) => setPoints(e.target.value)}
-              disabled={busy}
-              className="w-24"
-              aria-label="Puncte acordate"
-              autoFocus
-            />
-            <span className="text-sm text-muted-foreground">/ {answer.points} p</span>
-            <Button type="submit" size="sm" disabled={busy}>
-              {busy ? 'Se salvează...' : position < total ? 'Salvează și următoarea' : 'Salvează'}
-            </Button>
-          </div>
-          {error && <p className="text-sm text-destructive">{error}</p>}
+        <form onSubmit={submit} noValidate>
+          <ItemGradeForm item={answer} save={save} bank={bank} autoFocus registerFlush={registerFlush} />
         </form>
 
         <div className={cn('flex justify-between gap-2', !onPrevious && 'justify-end')}>
           {onPrevious && <Button size="sm" variant="ghost" onClick={onPrevious}>← Lucrarea anterioară</Button>}
-          {onNext && <Button size="sm" variant="ghost" onClick={onNext}>Lucrarea următoare →</Button>}
+          {onNext && <Button size="sm" onClick={onNext}>Următoarea lucrare →</Button>}
         </div>
       </CardContent>
     </Card>

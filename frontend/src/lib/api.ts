@@ -1303,6 +1303,35 @@ export async function gradeOpenItem(attemptId: number, itemId: number, points: n
   await putJson(`/admin/quiz/attempts/${attemptId}/responses/${itemId}/grade`, { points, comment })
 }
 
+// ---------- Saved grading comments ("comentarii frecvente") ----------
+
+/** One of the teacher's reusable grading comments; the list comes most used first. */
+export interface CommentSnippet {
+  id: number
+  text: string
+  useCount: number
+}
+
+export async function listCommentSnippets(): Promise<CommentSnippet[]> {
+  const response = await apiFetch('/admin/comment-snippets')
+  return response.json()
+}
+
+/** Saves a comment for reuse; one the teacher already has (whatever the case) comes back as it is. */
+export async function createCommentSnippet(text: string): Promise<CommentSnippet> {
+  const response = await postJson('/admin/comment-snippets', { text })
+  return response.json()
+}
+
+export async function deleteCommentSnippet(id: number): Promise<void> {
+  await del(`/admin/comment-snippets/${id}`)
+}
+
+/** Counts one more use (moves it up the list). */
+export async function markCommentSnippetUsed(id: number): Promise<void> {
+  await postJson(`/admin/comment-snippets/${id}/use`, {})
+}
+
 /** The teacher's comment on the whole paper, while grading or after; blank removes it. */
 export async function commentOnAttempt(attemptId: number, comment: string): Promise<void> {
   await putJson(`/admin/quiz/attempts/${attemptId}/comment`, { comment })

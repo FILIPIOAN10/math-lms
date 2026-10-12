@@ -2,7 +2,6 @@ package ro.mathlms.e2e;
 
 import org.junit.jupiter.api.Test;
 import org.openqa.selenium.By;
-import org.openqa.selenium.Keys;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 
@@ -15,7 +14,6 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class GradeByItemAndJournalE2eTest extends E2eBase {
 
-    private static final By POINTS = By.cssSelector("[data-testid='answer-grader'] input[aria-label='Puncte acordate']");
 
     @Test
     void oneQuestionAcrossTwoPapersThenTheJournalTellsWhoGotWhat() {
@@ -39,8 +37,9 @@ class GradeByItemAndJournalE2eTest extends E2eBase {
                 "//*[@data-testid='quiz-group'][contains(normalize-space(.), '" + quizTitle + "')]"
                         + "//button[normalize-space()='Corectează pe subiect']"))).click();
 
-        givePoints(7, "lucrarea 1 din 2", "Salvează și următoarea");
-        givePoints(9, "lucrarea 2 din 2", "Salvează");
+        givePoints(7, "lucrarea 1 din 2");
+        clickText("Următoarea lucrare →");
+        givePoints(9, "lucrarea 2 din 2");
 
         // The count goes 1 -> 2 when the second save comes back: wait for it rather than read it straight away
         By finalize = By.cssSelector("[data-testid='finalize-ready']");
@@ -64,11 +63,12 @@ class GradeByItemAndJournalE2eTest extends E2eBase {
                 .contains("de Prof Admin");
     }
 
-    /** Types the points for the paper on screen (checked by its "lucrarea x din y") and saves. */
-    private void givePoints(int points, String paper, String saveLabel) {
+    /** Taps the points for the paper on screen (checked by its "lucrarea x din y"); the tap saves them. */
+    private void givePoints(int points, String paper) {
         wait.until(ExpectedConditions.textToBePresentInElementLocated(By.cssSelector("[data-testid='answer-grader']"), paper));
-        WebElement input = wait.until(ExpectedConditions.elementToBeClickable(POINTS));
-        input.sendKeys(Keys.chord(Keys.CONTROL, "a"), String.valueOf(points));
-        clickText(saveLabel);
+        wait.until(ExpectedConditions.elementToBeClickable(
+                By.cssSelector("[data-testid='answer-grader'] [data-testid='grade-points-" + points + "']"))).click();
+        wait.until(ExpectedConditions.textToBePresentInElementLocated(
+                By.cssSelector("[data-testid='answer-grader'] [data-testid='grade-status']"), "Salvat"));
     }
 }

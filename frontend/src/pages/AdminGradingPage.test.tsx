@@ -11,6 +11,10 @@ const api = vi.hoisted(() => ({
   gradeOpenItem: vi.fn(),
   commentOnAttempt: vi.fn(),
   finalizeGrading: vi.fn(),
+  listCommentSnippets: vi.fn(),
+  createCommentSnippet: vi.fn(),
+  deleteCommentSnippet: vi.fn(),
+  markCommentSnippetUsed: vi.fn(),
 }))
 vi.mock('@/lib/api', async (original) => ({ ...(await original<typeof import('@/lib/api')>()), ...api }))
 
@@ -49,6 +53,8 @@ describe('AdminGradingPage', () => {
     api.listAttemptsForGrading.mockResolvedValue([row()])
     api.gradeOpenItem.mockResolvedValue(undefined)
     api.commentOnAttempt.mockResolvedValue(undefined)
+    api.listCommentSnippets.mockResolvedValue([])
+    api.markCommentSnippetUsed.mockResolvedValue(undefined)
   })
 
   it('shows graded papers as "x / max p · nota"', async () => {
@@ -57,14 +63,74 @@ describe('AdminGradingPage', () => {
     expect(await screen.findByText('8 / 11 p · nota 7,55')).toBeInTheDocument()
   })
 
-  it('saves a comment for the student together with the points', async () => {
+  it('saves a comment for the student together with the points, with no Save button', async () => {
     await openAttempt()
 
-    await userEvent.type(screen.getByTestId('grade-points'), '3')
+    expect(screen.queryByTestId('grade-save')).not.toBeInTheDocument()
     await userEvent.type(screen.getByLabelText('Comentariu pentru elev (opțional)'), 'Ai uitat unitatea.')
-    await userEvent.click(screen.getByTestId('grade-save'))
+    expect(api.gradeOpenItem).not.toHaveBeenCalled() // no points yet: nothing to save
+    await userEvent.click(screen.getByRole('radio', { name: '3' }))
 
     await waitFor(() => expect(api.gradeOpenItem).toHaveBeenCalledWith(50, 101, 3, 'Ai uitat unitatea.'))
+    expect(await screen.findByText('Salvat ✓')).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: '3' })).toHaveAttribute('aria-checked', 'true')
+  })
+
+  it('saves a comment written after the points when the teacher leaves the box', async () => {
+    await openAttempt()
+
+    await userEvent.click(screen.getByRole('radio', { name: '4' }))
+    await waitFor(() => expect(api.gradeOpenItem).toHaveBeenCalledWith(50, 101, 4, null))
+    await userEvent.type(screen.getByLabelText('Comentariu pentru elev (opțional)'), 'Perfect')
+    expect(api.gradeOpenItem).toHaveBeenCalledTimes(1) // not on every key
+    await userEvent.tab()
+
+    await waitFor(() => expect(api.gradeOpenItem).toHaveBeenLastCalledWith(50, 101, 4, 'Perfect'))
+  })
+
+  it('sends what is still being typed before asking to finalise', async () => {
+    const d = detail()
+    d.items[0] = { ...d.items[0], awardedPoints: 3 }
+    api.finalizeGrading.mockResolvedValue(undefined)
+    await openAttempt(d)
+
+    await userEvent.type(screen.getByLabelText('Comentariu pentru elev (opțional)'), 'Bine')
+    await userEvent.click(screen.getByTestId('grade-finalize'))
+
+    await waitFor(() => expect(api.gradeOpenItem).toHaveBeenCalledWith(50, 101, 3, 'Bine'))
+    expect(await screen.findByRole('dialog', { name: 'Finalizezi nota?' })).toBeInTheDocument()
+  })
+
+  it('keeps a failed save on screen and retries it', async () => {
+    api.gradeOpenItem.mockRejectedValueOnce(Object.assign(new Error('x'), { status: 500, body: 'Serverul nu răspunde.' }))
+    await openAttempt()
+
+    await userEvent.click(screen.getByRole('radio', { name: '2' }))
+    expect(await screen.findByText(/Nesalvat: Serverul nu răspunde/)).toBeInTheDocument()
+    expect(screen.getByTestId('grade-finalize')).toBeDisabled()
+    await userEvent.click(screen.getByRole('button', { name: 'Reîncearcă' }))
+
+    expect(await screen.findByText('Salvat ✓')).toBeInTheDocument()
+    expect(api.gradeOpenItem).toHaveBeenCalledTimes(2)
+    expect(screen.getByTestId('grade-finalize')).toBeEnabled()
+  })
+
+  it('adds a saved comment with one tap and keeps a new one for next time', async () => {
+    api.listCommentSnippets.mockResolvedValue([{ id: 7, text: 'Atenție la semn.', useCount: 2 }])
+    api.createCommentSnippet.mockResolvedValue({ id: 8, text: 'Lipsește unitatea.', useCount: 0 })
+    await openAttempt()
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Atenție la semn.' }))
+    const box = screen.getByLabelText('Comentariu pentru elev (opțional)')
+    expect(box).toHaveValue('Atenție la semn.')
+    expect(api.markCommentSnippetUsed).toHaveBeenCalledWith(7)
+
+    await userEvent.clear(box)
+    await userEvent.type(box, 'Lipsește unitatea.')
+    await userEvent.click(screen.getByRole('button', { name: '⭐ Salvează ca frecvent' }))
+    expect(api.createCommentSnippet).toHaveBeenCalledWith('Lipsește unitatea.')
+    expect(await screen.findByRole('button', { name: 'Lipsește unitatea.' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '⭐ E în comentariile frecvente' })).toBeDisabled()
   })
 
   it('starts from the comment already written', async () => {
@@ -79,7 +145,7 @@ describe('AdminGradingPage', () => {
     await openAttempt()
 
     await userEvent.type(screen.getByLabelText('Comentariu pentru toată lucrarea (opțional)'), 'Lucrare bună.')
-    await userEvent.click(screen.getByRole('button', { name: 'Salvează comentariul' }))
+    await userEvent.tab()
 
     await waitFor(() => expect(api.commentOnAttempt).toHaveBeenCalledWith(50, 'Lucrare bună.'))
     expect(await screen.findByText('✓ Comentariu salvat')).toBeInTheDocument()

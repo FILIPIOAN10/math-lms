@@ -64,25 +64,44 @@ describe('GradeByItem', () => {
     const user = userEvent.setup()
     const { gradeOpenItem } = setup([paper(50, 'Ana'), paper(51, 'Radu')])
 
-    await user.type(await screen.findByLabelText('Puncte acordate'), '4')
+    await user.click(await screen.findByRole('radio', { name: '4' }))
     await user.type(screen.getByLabelText('Comentariu pentru elev (opțional)'), 'Bine')
-    await user.click(screen.getByRole('button', { name: 'Salvează și următoarea' }))
+    await user.click(screen.getByRole('button', { name: 'Următoarea lucrare →' }))
 
-    expect(gradeOpenItem).toHaveBeenCalledWith(50, 2, 4, 'Bine')
+    expect(gradeOpenItem).toHaveBeenLastCalledWith(50, 2, 4, 'Bine')
     expect(await screen.findByText(/Radu/)).toBeInTheDocument()
     expect(screen.getByTestId('answer-grader')).toHaveTextContent('lucrarea 2 din 2')
     expect(screen.getByRole('button', { name: 'Subiectul 2 (1/2)' })).toBeInTheDocument()
   })
 
-  it('refuses points above what the question is worth', async () => {
+  it('does not move on from an answer whose comment has no points yet', async () => {
     const user = userEvent.setup()
-    const { gradeOpenItem } = setup([paper(50, 'Ana')])
+    const { gradeOpenItem } = setup([paper(50, 'Ana'), paper(51, 'Radu')])
 
-    await user.type(await screen.findByLabelText('Puncte acordate'), '9')
-    await user.click(screen.getByRole('button', { name: 'Salvează' }))
+    await user.type(await screen.findByLabelText('Comentariu pentru elev (opțional)'), 'Bine')
+    await user.click(screen.getByRole('button', { name: 'Următoarea lucrare →' }))
 
-    expect(screen.getByText('Punctajul trebuie să fie un număr întreg între 0 și 5.')).toBeInTheDocument()
+    expect(screen.getByText('Alege punctajul (0–5) ca să se salveze.')).toBeInTheDocument()
+    expect(screen.getByTestId('answer-grader')).toHaveTextContent('lucrarea 1 din 2')
     expect(gradeOpenItem).not.toHaveBeenCalled()
+  })
+
+  it('uses a number box above 10 points and refuses more than the question is worth', async () => {
+    const user = userEvent.setup()
+    const big = paper(50, 'Ana')
+    big.items[1] = { ...big.items[1], points: 12 }
+    const { gradeOpenItem } = setup([big])
+
+    const box = await screen.findByLabelText('Puncte acordate')
+    await user.type(box, '15')
+    await user.tab()
+    expect(screen.getByText('Punctajul e un număr întreg de la 0 la 12.')).toBeInTheDocument()
+    expect(gradeOpenItem).not.toHaveBeenCalled()
+
+    await user.clear(box)
+    await user.type(box, '11')
+    await user.tab()
+    await waitFor(() => expect(gradeOpenItem).toHaveBeenCalledWith(50, 2, 11, null))
   })
 
   it('finalises only the papers whose every open question has points', async () => {
@@ -95,7 +114,7 @@ describe('GradeByItem', () => {
 
     await waitFor(() => expect(finalizeGrading).toHaveBeenCalledTimes(1))
     expect(finalizeGrading).toHaveBeenCalledWith(50)
-    expect(await screen.findByRole('status')).toHaveTextContent('1 lucrare finalizată')
+    expect(await screen.findByText(/1 lucrare finalizată/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Subiectul 2 (1/1)' })).toBeInTheDocument()
   })
 
