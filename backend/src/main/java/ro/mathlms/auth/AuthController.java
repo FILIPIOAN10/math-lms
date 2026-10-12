@@ -1,6 +1,5 @@
 package ro.mathlms.auth;
 
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -163,11 +162,7 @@ public class AuthController {
     }
 
     private void clearCookies(HttpServletResponse response) {
-        Cookie access = new Cookie(JwtCookieSuccessHandler.COOKIE_NAME, "");
-        access.setHttpOnly(true);
-        access.setPath("/");
-        access.setMaxAge(0);
-        response.addCookie(access);
+        response.addCookie(jwtCookieFactory.expired());
         response.addHeader(HttpHeaders.SET_COOKIE, refreshTokenService.cleanRefreshCookie().toString());
     }
 }

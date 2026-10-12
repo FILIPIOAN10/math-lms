@@ -29,13 +29,20 @@ public class JwtCookieFactory {
     }
 
     public Cookie create(User user) {
-        String token = jwtService.generateToken(user);
+        return cookie(jwtService.generateToken(user), expirationMinutes * 60);
+    }
 
-        Cookie cookie = new Cookie(JwtCookieSuccessHandler.COOKIE_NAME, token);
+    /** The logout version: same name and attributes, empty and already expired, so the browser drops its copy. */
+    public Cookie expired() {
+        return cookie("", 0);
+    }
+
+    private Cookie cookie(String value, int maxAgeSeconds) {
+        Cookie cookie = new Cookie(JwtCookieSuccessHandler.COOKIE_NAME, value);
         cookie.setHttpOnly(true);
         cookie.setSecure(cookieSecure);
         cookie.setPath("/");
-        cookie.setMaxAge(expirationMinutes * 60);
+        cookie.setMaxAge(maxAgeSeconds);
         cookie.setAttribute("SameSite", "Lax");
         return cookie;
     }

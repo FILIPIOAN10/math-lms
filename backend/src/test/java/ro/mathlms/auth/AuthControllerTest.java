@@ -2,6 +2,7 @@ package ro.mathlms.auth;
 
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.http.Cookie;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
@@ -40,6 +41,15 @@ class AuthControllerTest {
     private final AuthController controller = new AuthController(
             userRepository, registrationService, emailService, verificationTokenService,
             loginService, jwtCookieFactory, passwordResetService, refreshTokenService);
+
+    @BeforeEach
+    void logoutCookieFromTheFactory() {
+        // The real shape of factory.expired() (JwtCookieFactoryTest checks its attributes).
+        Cookie expired = new Cookie(JwtCookieSuccessHandler.COOKIE_NAME, "");
+        expired.setHttpOnly(true);
+        expired.setMaxAge(0);
+        when(jwtCookieFactory.expired()).thenReturn(expired);
+    }
 
     @Test
     void meReturnsUserWhenAuthenticated() {

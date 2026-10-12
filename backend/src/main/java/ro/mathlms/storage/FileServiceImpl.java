@@ -29,7 +29,6 @@ public class FileServiceImpl implements FileService {
     @Override
     public String uploadImage(String path, MultipartFile file) throws IOException {
         String fileName = UUID.randomUUID() + extensionOf(file.getOriginalFilename());
-        String filePath = path + File.separator + fileName;
 
         // mkdirs (not mkdir) so nested paths like "uploads/quiz-photos" are created.
         File folder = new File(path);
@@ -37,7 +36,12 @@ public class FileServiceImpl implements FileService {
             throw new IOException("Could not create storage directory: " + folder.getAbsolutePath());
         }
 
-        Files.copy(file.getInputStream(), Paths.get(filePath));
+        Path base = Paths.get(path).toAbsolutePath().normalize();
+        Path target = base.resolve(fileName).normalize();
+        if (!target.getParent().equals(base)) { // defense in depth, like loadImage: never outside the folder
+            throw new IOException("Invalid file name: " + fileName);
+        }
+        Files.copy(file.getInputStream(), target);
         return fileName;
     }
 
@@ -66,12 +70,21 @@ public class FileServiceImpl implements FileService {
     }
 
     /** ".jpg" for "photo.jpg"; "" when there is no filename or no dot. */
-    private static String extensionOf(String originalFilename) {
-        if (originalFilename == null || !originalFilename.contains(".")) {
+    /**
+     * ".jpg" from the browser-sent file name - which the uploader controls, so anything but a short alphanumeric
+     * extension (".b/../../x", ".ph p") is dropped: the stored name is then just the UUID. The content type was
+     * already checked by the caller; the extension only helps a human browsing the folder.
+     */
+    static String extensionOf(String originalFilename) {
+        if (originalFilename == null) {
             return "";
         }
-        return originalFilename.substring(originalFilename.lastIndexOf('.'));
+        int dot = originalFilename.lastIndexOf('.');
+        String extension = dot < 0 ? "" : originalFilename.substring(dot + 1);
+        return SAFE_EXTENSION.matcher(extension).matches() ? "." + extension : "";
     }
+
+    private static final java.util.regex.Pattern SAFE_EXTENSION = java.util.regex.Pattern.compile("[A-Za-z0-9]{1,5}");
     @Override
     public Resource loadImage(String path, String imageName) throws IOException {
         Path base = Paths.get(path).toAbsolutePath().normalize();

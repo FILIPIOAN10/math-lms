@@ -51,4 +51,17 @@ class JwtCookieFactoryTest {
 
         assertThat(cookie.getSecure()).isFalse();
     }
+
+    @Test
+    void theLogoutCookieMatchesTheOneItDeletesButIsEmptyAndExpired() {
+        Cookie cleared = factory.expired();
+
+        assertThat(cleared.getName()).isEqualTo(JwtCookieSuccessHandler.COOKIE_NAME);
+        assertThat(cleared.getValue()).isEmpty();
+        assertThat(cleared.getMaxAge()).isZero();
+        assertThat(cleared.isHttpOnly()).isTrue();
+        assertThat(cleared.getSecure()).isTrue(); // was missing: CodeQL java/insecure-cookie
+        assertThat(cleared.getPath()).isEqualTo("/");
+        assertThat(cleared.getAttribute("SameSite")).isEqualTo("Lax");
+    }
 }

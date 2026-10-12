@@ -51,6 +51,31 @@ class FileServiceImplTest {
     }
 
     @Test
+    void anUploadedFileNameCannotSteerWhereTheFileGoes(@TempDir Path dir) throws Exception {
+        // The browser-sent name is attacker-controlled: "a.b/../../x" used to become the extension ".b/../../x"
+        // (CodeQL java/path-injection #6). Only a short alphanumeric extension is kept now.
+        Path store = dir.resolve("store");
+        MockMultipartFile crafted = new MockMultipartFile(
+                "file", "a.b/../../escaped", "image/png", "bytes".getBytes());
+
+        String stored = fileService.uploadImage(store.toString(), crafted);
+
+        assertThat(stored).doesNotContain("/").doesNotContain("\\").doesNotContain("..");
+        assertThat(store.resolve(stored)).exists();
+        assertThat(dir.resolve("escaped")).doesNotExist();
+    }
+
+    @Test
+    void keepsOnlyAPlainExtension() throws Exception {
+        assertThat(FileServiceImpl.extensionOf("Rezolvare.JPEG")).isEqualTo(".JPEG");
+        assertThat(FileServiceImpl.extensionOf("poza.webp")).isEqualTo(".webp");
+        assertThat(FileServiceImpl.extensionOf("fara-extensie")).isEmpty();
+        assertThat(FileServiceImpl.extensionOf("x.ph p")).isEmpty();
+        assertThat(FileServiceImpl.extensionOf("x.verylongext")).isEmpty();
+        assertThat(FileServiceImpl.extensionOf(null)).isEmpty();
+    }
+
+    @Test
     void loadRejectsPathTraversal(@TempDir Path dir) {
         // A crafted name must not escape the storage directory.
         assertThatThrownBy(() -> fileService.loadImage(dir.resolve("quiz-photos").toString(), "../../secret.txt"))
