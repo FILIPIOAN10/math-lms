@@ -187,7 +187,7 @@ class QuizAttemptHintServiceTest {
         stubReveal(attempt);
 
         assertThatThrownBy(() -> service.revealHint(50L, 100L, 1, "alt.elev@scoala.ro"))
-                .isInstanceOf(QuizAccessException.class);
+                .isInstanceOf(QuizNotFoundException.class);
     }
 
     @Test

@@ -514,11 +514,10 @@ public class QuizAttemptService {
     }
 
     private QuizAttempt requireOwnedInProgress(Long attemptId, String studentEmail) {
+        // Another student's attempt is the same 404 as one that does not exist: a guessed id confirms nothing.
         QuizAttempt attempt = attemptRepository.findByIdForUpdate(attemptId)
+                .filter(a -> a.getStudent().getEmail().equals(studentEmail))
                 .orElseThrow(() -> new QuizNotFoundException("QuizAttempt", attemptId));
-        if (!attempt.getStudent().getEmail().equals(studentEmail)) {
-            throw new QuizAccessException("This attempt belongs to another student");
-        }
         if (attempt.getStatus() != QuizAttemptStatus.IN_PROGRESS) {
             throw new InvalidQuizException("This attempt is no longer in progress");
         }

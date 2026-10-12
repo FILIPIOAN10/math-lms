@@ -28,6 +28,8 @@
 		<!-- Override peste BOM-ul Spring Boot: 42.7.11 are CVE-2026-54291 (HIGH, downgrade SCRAM-PLUS),
 		     reparat in 42.7.12. De scos cand un Boot 3.5.x nou aduce >= 42.7.12. -->
 		<postgresql.version>42.7.12</postgresql.version>
+		<!-- Empty default so @{argLine} below resolves even when JaCoCo's prepare-agent does not run (e.g. -Djacoco.skip). -->
+		<argLine></argLine>
 	</properties>
 
 	<dependencies>
@@ -172,6 +174,27 @@
 
 	<build>
 		<plugins>
+			<!-- Mockito as a -javaagent (its documented setup for JDK 21+): without it Mockito attaches itself at run time and the
+			     JVM warns that dynamic agent loading will be disallowed in a future release. `properties` exposes the jar's path
+			     as ${org.mockito:mockito-core:jar}; @{argLine} keeps JaCoCo's agent, which prepare-agent puts in argLine. -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-dependency-plugin</artifactId>
+				<executions>
+					<execution>
+						<goals>
+							<goal>properties</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<configuration>
+					<argLine>@{argLine} -javaagent:${org.mockito:mockito-core:jar}</argLine>
+				</configuration>
+			</plugin>
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>

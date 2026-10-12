@@ -302,7 +302,7 @@ class QuizAttemptServiceTest {
         when(attemptRepository.findByIdForUpdate(50L)).thenReturn(Optional.of(attempt));
 
         assertThatThrownBy(() -> service.saveResponse(50L, 100L, 1000L, EMAIL))
-                .isInstanceOf(QuizAccessException.class);
+                .isInstanceOf(QuizNotFoundException.class);
     }
 
     @Test
@@ -415,7 +415,7 @@ class QuizAttemptServiceTest {
         when(attemptRepository.findByIdForUpdate(50L)).thenReturn(Optional.of(attempt));
 
         assertThatThrownBy(() -> service.submit(50L, EMAIL))
-                .isInstanceOf(QuizAccessException.class);
+                .isInstanceOf(QuizNotFoundException.class);
     }
 
     // --- uploadOpenPhoto ---
@@ -498,7 +498,7 @@ class QuizAttemptServiceTest {
         when(attemptRepository.findByIdForUpdate(50L)).thenReturn(Optional.of(attempt(50L, other)));
 
         assertThatThrownBy(() -> service.deleteOpenPhoto(50L, 101L, 7L, EMAIL))
-                .isInstanceOf(QuizAccessException.class);
+                .isInstanceOf(QuizNotFoundException.class);
         verify(responseRepository, never()).save(any());
     }
 
@@ -547,7 +547,7 @@ class QuizAttemptServiceTest {
         when(attemptRepository.findByIdForUpdate(50L)).thenReturn(Optional.of(attempt));
 
         assertThatThrownBy(() -> service.uploadOpenPhoto(50L, 101L, image(), EMAIL))
-                .isInstanceOf(QuizAccessException.class);
+                .isInstanceOf(QuizNotFoundException.class);
     }
     @Test
     void gradeOpenResponse_Success() {

@@ -110,7 +110,7 @@ class ResponsePhotosIntegrationTest {
                 .andExpect(status().isOk()));
         assertThat(left).containsExactly(after.get(0), after.get(2), after.get(3), after.get(4));
         mockMvc.perform(get(photoPath(after.get(1))).with(as(student))).andExpect(status().isNotFound());
-        mockMvc.perform(delete(photoPath(after.get(0))).with(as(other)).with(csrf())).andExpect(status().isForbidden());
+        mockMvc.perform(delete(photoPath(after.get(0))).with(as(other)).with(csrf())).andExpect(status().isNotFound());
     }
 
     @Test
