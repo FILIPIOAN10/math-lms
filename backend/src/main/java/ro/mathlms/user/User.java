@@ -178,8 +178,10 @@ public class User {
         if (this.role != Role.STUDENT) {
             throw new IllegalStateException("Only a STUDENT can be linked to a parent, was " + this.role);
         }
-        if (parent.role != Role.PARENT) {
-            throw new IllegalStateException("Parent account must have role PARENT, was " + parent.role);
+        // Through the getter, never the field: `parent` may be a lazy Hibernate proxy (re-linking the parent already
+        // loaded in this transaction), whose own fields are null until a method initialises it.
+        if (parent.getRole() != Role.PARENT) {
+            throw new IllegalStateException("Parent account must have role PARENT, was " + parent.getRole());
         }
         if (parent == this) {
             throw new IllegalArgumentException("An account cannot be its own parent");
