@@ -467,8 +467,9 @@ function DraftCard({ draft: d, onChange }: { draft: DraftItem; onChange: (change
             )}
             <div className="flex flex-col gap-2">
               <Label htmlFor={`${id}-section`}>Secțiunea</Label>
-              <Input id={`${id}-section`} value={d.section} maxLength={300} placeholder="ex. SUBIECTUL I"
-                     onChange={(e) => onChange({ section: e.target.value })} />
+              {/* Two lines: the heading, then its instruction ("Încercuiește litera…"), as the quiz builder shows them. */}
+              <Textarea id={`${id}-section`} rows={2} value={d.section} maxLength={300} placeholder="ex. SUBIECTUL I"
+                        onChange={(e) => onChange({ section: e.target.value })} />
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor={`${id}-statement`}>Enunțul</Label>

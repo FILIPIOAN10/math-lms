@@ -77,6 +77,12 @@ services:
       RATE_LIMIT_TRUST_XFF: "true"          # nginx (the only way in) sets X-Forwarded-For
       SECURITY_LOG_LEVEL: ${SECURITY_LOG_LEVEL:-INFO}
       LOG_FORMAT: ${LOG_FORMAT:-logstash}     # structured JSON logs (one object per line, with requestId)
+      # Faza 3 - quiz from textbook photos. OFF unless AI_IMPORT_ENABLED=true and OPENAI_API_KEY is set.
+      AI_IMPORT_ENABLED: ${AI_IMPORT_ENABLED:-false}
+      AI_PROVIDER: ${AI_PROVIDER:-openai}
+      AI_DAILY_PAGE_LIMIT: ${AI_DAILY_PAGE_LIMIT:-50}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-6-luna}
     volumes:
       # Student solution photos: lose this volume and the photos are gone (see backup, step 6.7).
       - uploads:/app/uploads

@@ -66,6 +66,17 @@ class ExtractedItemsTest {
     }
 
     @Test
+    void theQuizNumbersQuestionsSoPrintedNumbersGo() {
+        assertThat(ExtractedItems.withoutNumber("1. Calculează $2+3$")).isEqualTo("Calculează $2+3$");
+        assertThat(ExtractedItems.withoutNumber("12) Arată că")).isEqualTo("Arată că");
+        assertThat(ExtractedItems.withoutNumber("Ex. 3. Rezolvă")).isEqualTo("Rezolvă");
+        assertThat(ExtractedItems.withoutNumber("2.5 este un număr zecimal")).isEqualTo("2.5 este un număr zecimal");
+        assertThat(ExtractedItems.withoutNumber("3 + 4 = ?")).isEqualTo("3 + 4 = ?");
+        assertThat(ExtractedItems.normalize(List.of(item(QuizItemType.OPEN, "4. Rezolvă", List.of())), 1).getFirst()
+                .statement()).isEqualTo("Rezolvă");
+    }
+
+    @Test
     void anEscapedDollarIsNotAFormula() {
         assertThat(ExtractedItems.balancedMath("Costă 5 \\$ și $x=2$")).isTrue();
         assertThat(ExtractedItems.balancedMath("$$x^2$$")).isTrue();

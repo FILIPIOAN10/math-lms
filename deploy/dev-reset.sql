@@ -1,7 +1,8 @@
 -- FULL reset of the DEV database to a clean slate for manual testing (never run it on production).
 --
 -- Deletes ALL content and quiz data: classes, books, chapters, exercises, enrollments, quizzes,
--- items, options, hints, attempts, answers, daily-review answers, homework, invite links and queued emails
+-- items, options, hints, attempts, answers (and their photo pages), daily-review answers, homework, invite links,
+-- queued emails, AI imports (from textbook photos) and the teachers' journal
 -- (ids restart at 1).
 -- Deletes every user EXCEPT the four seed accounts below, which are (re)created ACTIVE with the
 -- password Admin123!, no parent link and no Google link:
@@ -21,8 +22,8 @@ BEGIN;
 
 UPDATE users SET parent_id = NULL, invite_link_id = NULL;
 
-TRUNCATE review_answers, item_responses, quiz_attempts, quiz_item_hints, quiz_options, quiz_items, assignments,
-         quizzes, exercises, chapters, books, enrollments, outbox_event
+TRUNCATE review_answers, response_photos, item_responses, quiz_attempts, quiz_item_hints, quiz_options, quiz_items, assignments,
+         quizzes, exercises, chapters, books, enrollments, outbox_event, ai_imports, admin_audit_log
          RESTART IDENTITY;
 
 -- users references invite_links and invite_links references school_classes: TRUNCATE refuses a table that a table

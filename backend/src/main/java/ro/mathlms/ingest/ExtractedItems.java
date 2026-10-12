@@ -6,6 +6,7 @@ import ro.mathlms.quiz.QuizItemType;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.regex.Pattern;
 
 /**
  * Tidies what a provider returned before the teacher sees it: trims, drops empty questions, caps sizes, and warns
@@ -36,7 +37,7 @@ final class ExtractedItems {
             if (item == null || out.size() == MAX_ITEMS) {
                 continue;
             }
-            String statement = cap(trim(item.statement()), MAX_STATEMENT);
+            String statement = cap(trim(withoutNumber(item.statement())), MAX_STATEMENT);
             if (statement == null) {
                 continue;
             }
@@ -84,6 +85,17 @@ final class ExtractedItems {
         }
         return dollars % 2 == 0;
     }
+
+    /**
+     * "1. Calculați..." -> "Calculați...": the quiz numbers its questions itself. Only a number followed by "." or ")"
+     * and a space is dropped, so "2.5 este" or "3 + 4" stay as they are.
+     */
+    static String withoutNumber(String statement) {
+        return statement == null ? null : LEADING_NUMBER.matcher(statement).replaceFirst("");
+    }
+
+    private static final Pattern LEADING_NUMBER =
+            Pattern.compile("^\\s*(?:(?i:ex(?:ercițiul|\\.)?)\\s*)?\\d{1,3}\\s*[.)]\\s+");
 
     private static String trim(String text) {
         if (text == null) {

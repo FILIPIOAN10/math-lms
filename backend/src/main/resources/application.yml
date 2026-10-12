@@ -139,6 +139,13 @@ app:
     pages-dir: ${AI_PAGES_DIR:uploads/ai-pages}
     keep-pages-days: ${AI_KEEP_PAGES_DAYS:7}
     fake-delay-ms: ${AI_FAKE_DELAY_MS:2000}
+    # The OpenAI reader (AI_PROVIDER=openai). The key lives only in .env (gitignored). gpt-6-luna is OpenAI's model for
+    # cost-sensitive, high-volume work ($0.10 in / $0.50 out per 1M tokens, 2026-10); OPENAI_MODEL switches it.
+    openai:
+      api-key: ${OPENAI_API_KEY:}
+      model: ${OPENAI_MODEL:gpt-6-luna}
+      reasoning-effort: ${OPENAI_REASONING_EFFORT:low}
+      image-detail: ${OPENAI_IMAGE_DETAIL:high}
 
 # Rate limiting (Phase 6.1): per-endpoint fixed windows in Redis, rules in RateLimitConfig.
 rate:
