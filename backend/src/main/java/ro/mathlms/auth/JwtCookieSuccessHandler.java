@@ -2,6 +2,7 @@ package ro.mathlms.auth;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler;
@@ -17,10 +18,14 @@ public class JwtCookieSuccessHandler extends SimpleUrlAuthenticationSuccessHandl
 
     private final JwtCookieFactory jwtCookieFactory;
     private final RefreshTokenService refreshTokenService;
+    /** Where the browser goes after Google sign-in: the app itself (FRONTEND_BASE_URL), never a dev address. */
+    private final String frontendBaseUrl;
 
-    public JwtCookieSuccessHandler(JwtCookieFactory jwtCookieFactory, RefreshTokenService refreshTokenService) {
+    public JwtCookieSuccessHandler(JwtCookieFactory jwtCookieFactory, RefreshTokenService refreshTokenService,
+                                   @Value("${app.frontend.base-url}") String frontendBaseUrl) {
         this.jwtCookieFactory = jwtCookieFactory;
         this.refreshTokenService = refreshTokenService;
+        this.frontendBaseUrl = frontendBaseUrl;
     }
 
     @Override
@@ -33,6 +38,6 @@ public class JwtCookieSuccessHandler extends SimpleUrlAuthenticationSuccessHandl
         String refreshToken = refreshTokenService.createSession(user.getEmail());
         response.addHeader(HttpHeaders.SET_COOKIE, refreshTokenService.refreshCookie(refreshToken).toString());
 
-        getRedirectStrategy().sendRedirect(request, response, "http://localhost:5173");
+        getRedirectStrategy().sendRedirect(request, response, frontendBaseUrl);
     }
 }
