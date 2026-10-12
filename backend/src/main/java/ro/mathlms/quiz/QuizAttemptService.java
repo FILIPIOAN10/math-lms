@@ -437,15 +437,14 @@ public class QuizAttemptService {
     /**
      * The student's own graded attempt (Q8). Available once submitted; the correct option and the
      * barem — withheld before submit — are revealed here. OPEN items show their teacher-awarded points
-     * (null while still pending). Only the owner may view it.
+     * (null while still pending). Only the owner may view it: anyone else's attempt is the same 404 as one that does
+     * not exist (a guessed id must not confirm that the attempt is there).
      */
     @Transactional(readOnly = true)
     public AttemptResultViewDto getResult(Long attemptId, String studentEmail) {
         QuizAttempt attempt = attemptRepository.findById(attemptId)
+                .filter(a -> a.getStudent().getEmail().equals(studentEmail))
                 .orElseThrow(() -> new QuizNotFoundException("QuizAttempt", attemptId));
-        if (!attempt.getStudent().getEmail().equals(studentEmail)) {
-            throw new QuizAccessException("This attempt belongs to another student");
-        }
         if (attempt.getStatus() == QuizAttemptStatus.IN_PROGRESS) {
             throw new InvalidQuizException("Submit the attempt to see the result");
         }

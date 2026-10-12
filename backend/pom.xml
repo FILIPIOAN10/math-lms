@@ -180,6 +180,8 @@
 			<plugin>
 				<groupId>org.jacoco</groupId>
 				<artifactId>jacoco-maven-plugin</artifactId>
+				<!-- Pinned: without a version Maven picks whatever is newest (and warns), so a release could change the build. -->
+				<version>0.8.15</version>
 				<executions>
 					<execution>
 						<id>prepare-agent</id>

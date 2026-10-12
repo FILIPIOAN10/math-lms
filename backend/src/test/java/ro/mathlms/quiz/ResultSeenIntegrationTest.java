@@ -98,6 +98,10 @@ class ResultSeenIntegrationTest {
                 .andExpect(status().isNotFound());
         mockMvc.perform(put("/api/quiz/attempts/999999999/result-seen").with(asStudent()).with(csrf()))
                 .andExpect(status().isNotFound());
+        // ...and so is reading their result (it was a 403, which confirmed the attempt exists)
+        mockMvc.perform(get("/api/quiz/attempts/" + attempt.getId() + "/result")
+                        .with(user("altcineva@scoala.ro").authorities(STUDENT)))
+                .andExpect(status().isNotFound());
 
         assertThat(isNew()).isTrue();
     }

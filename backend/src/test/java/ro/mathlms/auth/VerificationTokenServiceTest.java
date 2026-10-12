@@ -59,7 +59,13 @@ class VerificationTokenServiceTest {
     @Test
     void rejectsTamperedToken() {
         String token = service.generate("ana@scoala.ro", TokenPurpose.VERIFY_EMAIL);
-        String tampered = token.substring(0, token.length() - 2) + "xx";
+        // Change one character in the MIDDLE of the signature, always to a different one. (It used to overwrite the last
+        // two with "xx": a no-op when the token already ended that way, and the final base64url character carries bits
+        // the decoder ignores - so now and then the "tampered" token was still valid and the test failed.)
+        int at = token.lastIndexOf('.') + 10;
+        char swapped = token.charAt(at) == 'A' ? 'B' : 'A';
+        String tampered = token.substring(0, at) + swapped + token.substring(at + 1);
+        assertThat(tampered).isNotEqualTo(token);
 
         assertThatThrownBy(() -> service.verify(tampered, TokenPurpose.VERIFY_EMAIL))
                 .isInstanceOf(JwtException.class);

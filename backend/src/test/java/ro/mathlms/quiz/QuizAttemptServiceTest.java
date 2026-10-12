@@ -713,8 +713,9 @@ class QuizAttemptServiceTest {
         attempt.submit();
         when(attemptRepository.findById(50L)).thenReturn(Optional.of(attempt));
 
+        // 404, like an id that does not exist: a guessed id must not confirm the attempt is there (project rule, §0.4)
         assertThatThrownBy(() -> service.getResult(50L, EMAIL))
-                .isInstanceOf(QuizAccessException.class);
+                .isInstanceOf(QuizNotFoundException.class);
     }
 
     @Test
