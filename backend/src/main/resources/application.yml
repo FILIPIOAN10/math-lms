@@ -127,6 +127,18 @@ app:
     quiz-photos-dir: ${QUIZ_PHOTOS_DIR:uploads/quiz-photos}
     # Pictures under question statements (EN figures); inside the same uploads volume, so backups include them.
     question-images-dir: ${QUESTION_IMAGES_DIR:uploads/question-images}
+  # Faza 3: a quiz from photographed textbook pages (only textbook pages - never student work or personal data).
+  # OFF by default. AI_PROVIDER=openai needs OPENAI_API_KEY in .env; AI_PROVIDER=fake reads made-up questions (dev).
+  ai:
+    enabled: ${AI_IMPORT_ENABLED:false}
+    provider: ${AI_PROVIDER:openai}
+    max-pages: ${AI_MAX_PAGES:5}
+    # Per teacher per day (Romanian midnight to midnight): bounds the provider bill.
+    daily-page-limit: ${AI_DAILY_PAGE_LIMIT:50}
+    # Inside the uploads volume; files are deleted once the quiz is made, or after keep-pages-days.
+    pages-dir: ${AI_PAGES_DIR:uploads/ai-pages}
+    keep-pages-days: ${AI_KEEP_PAGES_DAYS:7}
+    fake-delay-ms: ${AI_FAKE_DELAY_MS:2000}
 
 # Rate limiting (Phase 6.1): per-endpoint fixed windows in Redis, rules in RateLimitConfig.
 rate:

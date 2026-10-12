@@ -32,6 +32,8 @@ public enum AuditAction {
     QUESTION_DELETED(AuditCategory.QUIZ),
     QUESTION_IMAGE_SET(AuditCategory.QUIZ),
     QUESTION_IMAGE_REMOVED(AuditCategory.QUIZ),
+    /** A draft quiz made from photographed textbook pages (Faza 3); the quiz's own QUIZ_CREATED row comes with it. */
+    QUIZ_FROM_PHOTOS(AuditCategory.QUIZ),
 
     ANSWER_GRADED(AuditCategory.GRADING),
     PAPER_COMMENTED(AuditCategory.GRADING),

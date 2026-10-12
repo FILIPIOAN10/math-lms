@@ -15,6 +15,7 @@ const api = vi.hoisted(() => ({
   deleteQuizItem: vi.fn(),
   listChapterOptions: vi.fn(),
   createQuiz: vi.fn(),
+  getAiImportSettings: vi.fn(),
 }))
 vi.mock('@/lib/api', async (original) => ({ ...(await original<typeof import('@/lib/api')>()), ...api }))
 
@@ -64,6 +65,17 @@ describe('AdminQuizzesPage', () => {
       { id: 1, title: 'Fracții', bookId: 1, bookTitle: 'Algebra', schoolClassId: 8, schoolClassName: 'Clasa a 8-a' },
       { id: 3, title: 'Funcții', bookId: 2, bookTitle: 'Analiză', schoolClassId: 9, schoolClassName: 'Clasa a 9-a' },
     ])
+    api.getAiImportSettings.mockResolvedValue({ enabled: false, maxPages: 0, dailyPageLimit: 0, pagesUsedToday: 0 })
+  })
+
+  it('offers a quiz from textbook photos only where the server reads them', async () => {
+    renderAt('/admin/quizzes')
+    await row('Simulare EN')
+    expect(screen.queryByRole('link', { name: 'Din poze (AI)' })).not.toBeInTheDocument()
+
+    api.getAiImportSettings.mockResolvedValue({ enabled: true, maxPages: 5, dailyPageLimit: 50, pagesUsedToday: 0 })
+    renderAt('/admin/quizzes')
+    expect(await screen.findByRole('link', { name: 'Din poze (AI)' })).toHaveAttribute('href', '/admin/quizzes/ai-import')
   })
 
   it('names the page and the browser tab', async () => {
@@ -161,6 +173,7 @@ describe('AdminQuizzesPage — chapter tag', () => {
     ])
     api.createQuiz.mockResolvedValue({ ...summary(20, 'Nou'), status: 'DRAFT' })
     api.getQuiz.mockResolvedValue(detail({ id: 20, title: 'Nou', items: [] }))
+    api.getAiImportSettings.mockResolvedValue({ enabled: false, maxPages: 0, dailyPageLimit: 0, pagesUsedToday: 0 })
   })
 
   it("offers only the chosen class's chapters and sends the one picked", async () => {

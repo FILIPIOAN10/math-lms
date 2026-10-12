@@ -36,6 +36,7 @@ const AccountPage = lazy(() => import('@/pages/AccountPage').then((m) => ({ defa
 const EraseAccountPage = lazy(() => import('@/pages/EraseAccountPage').then((m) => ({ default: m.EraseAccountPage })))
 const ParentAttemptResultPage = lazy(() => import('@/pages/ParentAttemptResultPage').then((m) => ({ default: m.ParentAttemptResultPage })))
 const AdminAuditPage = lazy(() => import('@/pages/AdminAuditPage').then((m) => ({ default: m.AdminAuditPage })))
+const AdminAiImportPage = lazy(() => import('@/pages/AdminAiImportPage').then((m) => ({ default: m.AdminAiImportPage })))
 
 function LoginRoute() {
   const { user, loading } = useAuth()
@@ -129,6 +130,22 @@ function App() {
               element={
                 <AdminRoute>
                   <AdminMasteryPage />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/quizzes/ai-import"
+              element={
+                <AdminRoute>
+                  <AdminAiImportPage />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/quizzes/ai-import/:importId"
+              element={
+                <AdminRoute>
+                  <AdminAiImportPage />
                 </AdminRoute>
               }
             />

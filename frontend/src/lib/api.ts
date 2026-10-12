@@ -747,6 +747,104 @@ export async function createQuizFromChapter(chapterId: number, input: ChapterQui
   return response.json()
 }
 
+// ---------- Quiz from textbook photos (Faza 3, AI) ----------
+
+/** Whether the "Din poze (AI)" button shows, and how many pages are left today. */
+export interface AiImportSettings {
+  enabled: boolean
+  maxPages: number
+  dailyPageLimit: number
+  pagesUsedToday: number
+}
+
+export type AiImportStatus = 'QUEUED' | 'RUNNING' | 'DONE' | 'FAILED'
+
+/** One question as the AI read it from a page. Never an answer: the teacher marks the correct option. */
+export interface ExtractedItem {
+  /** The photo it is on, 1-based. */
+  page: number
+  section: string | null
+  type: QuizItemType
+  statement: string
+  /** A grilă's choices, without letters; empty for an open question. */
+  options: string[]
+  /** The points printed next to it; null = none printed. */
+  points: number | null
+  /** It refers to a drawing the teacher adds as the question's picture. */
+  hasFigure: boolean
+  warnings: string[]
+}
+
+export interface AiImport {
+  id: number
+  status: AiImportStatus
+  pageCount: number
+  /** False once the photos are deleted (quiz made, or a week passed): no page previews, no retry. */
+  pagesAvailable: boolean
+  itemCount: number | null
+  error: string | null
+  schoolClassId: number | null
+  chapterId: number | null
+  quizId: number | null
+  createdAt: string
+  finishedAt: string | null
+  /** Only on getAiImport (null in the list). */
+  items: ExtractedItem[] | null
+}
+
+export async function getAiImportSettings(): Promise<AiImportSettings> {
+  const response = await apiFetch('/admin/ai-imports/settings')
+  return response.json()
+}
+
+/** Uploads 1–5 textbook pages to be read; answers at once (QUEUED), poll getAiImport until DONE or FAILED. */
+export async function createAiImport(pages: File[], schoolClassId: number | null, chapterId: number | null): Promise<AiImport> {
+  const formData = new FormData()
+  pages.forEach((page) => formData.append('files', page))
+  if (schoolClassId !== null) formData.append('schoolClassId', String(schoolClassId))
+  if (chapterId !== null) formData.append('chapterId', String(chapterId))
+  const response = await apiFetch('/admin/ai-imports', { method: 'POST', body: formData })
+  return response.json()
+}
+
+export async function listAiImports(): Promise<AiImport[]> {
+  const response = await apiFetch('/admin/ai-imports')
+  return response.json()
+}
+
+export async function getAiImport(id: number): Promise<AiImport> {
+  const response = await apiFetch(`/admin/ai-imports/${id}`)
+  return response.json()
+}
+
+/** Page `page` (1-based) of an import, for the review screen. */
+export function aiImportPageUrl(id: number, page: number): string {
+  return `/api/admin/ai-imports/${id}/pages/${page}`
+}
+
+export async function retryAiImport(id: number): Promise<AiImport> {
+  const response = await postJson(`/admin/ai-imports/${id}/retry`, {})
+  return response.json()
+}
+
+export async function discardAiImport(id: number): Promise<void> {
+  await del(`/admin/ai-imports/${id}`)
+}
+
+export interface QuizFromImportInput {
+  title: string
+  schoolClassId: number | null
+  chapterId: number | null
+  /** The kept questions in order (positions are assigned by the server). */
+  items: ItemInput[]
+}
+
+/** The reviewed questions become a DRAFT quiz; returns its id. */
+export async function createQuizFromAiImport(id: number, input: QuizFromImportInput): Promise<number> {
+  const response = await postJson(`/admin/ai-imports/${id}/quiz`, input)
+  return (await response.json()).quizId
+}
+
 export async function createQuiz(input: QuizInput): Promise<QuizSummary> {
   const response = await postJson('/admin/quizzes', input)
   return response.json()
@@ -1328,7 +1426,7 @@ export type AuditAction =
   | 'CHAPTER_CREATED' | 'CHAPTER_UPDATED' | 'CHAPTER_DELETED'
   | 'EXERCISE_CREATED' | 'EXERCISE_UPDATED' | 'EXERCISE_DELETED'
   | 'QUIZ_CREATED' | 'QUIZ_UPDATED' | 'QUIZ_COPIED' | 'QUIZ_PUBLISHED' | 'QUIZ_UNPUBLISHED' | 'QUIZ_DELETED'
-  | 'QUESTION_ADDED' | 'QUESTION_UPDATED' | 'QUESTION_DELETED' | 'QUESTION_IMAGE_SET' | 'QUESTION_IMAGE_REMOVED'
+  | 'QUESTION_ADDED' | 'QUESTION_UPDATED' | 'QUESTION_DELETED' | 'QUESTION_IMAGE_SET' | 'QUESTION_IMAGE_REMOVED' | 'QUIZ_FROM_PHOTOS'
   | 'ANSWER_GRADED' | 'PAPER_COMMENTED' | 'PAPER_GRADED'
   | 'HOMEWORK_ASSIGNED' | 'HOMEWORK_RESCHEDULED' | 'HOMEWORK_DELETED'
   | 'ACCOUNT_APPROVED' | 'ACCOUNT_REJECTED' | 'PARENT_LINKED' | 'STUDENT_ENROLLED' | 'STUDENT_UNENROLLED'

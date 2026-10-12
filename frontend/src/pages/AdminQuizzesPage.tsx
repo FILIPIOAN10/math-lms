@@ -22,6 +22,7 @@ import {
   createQuiz,
   deleteQuiz,
   deleteQuizItem,
+  getAiImportSettings,
   getQuiz,
   listChapterOptions,
   listClasses,
@@ -623,6 +624,8 @@ export function AdminQuizzesPage() {
   const [publishing, setPublishing] = useState<{ id: number; title: string; classId: number | null } | null>(null)
   // What just happened, said in words: "published and given as homework to Clasa a 8-a, due …".
   const [notice, setNotice] = useState<{ text: string; homework: boolean } | null>(null)
+  // Faza 3: the "Din poze (AI)" button only where the server has the reader switched on.
+  const [aiImportOn, setAiImportOn] = useState(false)
 
   useEffect(() => {
     listQuizzes()
@@ -635,6 +638,9 @@ export function AdminQuizzesPage() {
     listChapterOptions()
       .then(setChapters)
       .catch(() => undefined) // only the chapter choice is missing without it
+    getAiImportSettings()
+      .then((s) => setAiImportOn(s.enabled))
+      .catch(() => undefined) // the button just stays hidden
   }, [])
 
   // The builder follows the address. What is shown is derived from it, so a quiz loaded for an earlier address never
@@ -819,7 +825,16 @@ export function AdminQuizzesPage() {
             <PageHeader
               title="Quiz-uri"
               description="Creează teste, publică-le și dă-le ca temă. Deschide un quiz ca să-i adaugi subiecte."
-              actions={<Button size="sm" onClick={() => setQuizDialog({ item: null })}>Adaugă quiz</Button>}
+              actions={
+                <>
+                  {aiImportOn && (
+                    <Link to="/admin/quizzes/ai-import" className={buttonVariants({ size: 'sm', variant: 'outline' })}>
+                      Din poze (AI)
+                    </Link>
+                  )}
+                  <Button size="sm" onClick={() => setQuizDialog({ item: null })}>Adaugă quiz</Button>
+                </>
+              }
             />
             <TestsTabs current="quizzes" />
             {notice && <PublishedNotice notice={notice} onClose={() => setNotice(null)} />}

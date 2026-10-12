@@ -34,6 +34,7 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   QUESTION_DELETED: 'Subiect șters',
   QUESTION_IMAGE_SET: 'Imagine pusă la subiect',
   QUESTION_IMAGE_REMOVED: 'Imagine scoasă de la subiect',
+  QUIZ_FROM_PHOTOS: 'Test generat din poze',
   ANSWER_GRADED: 'Punctaj dat',
   PAPER_COMMENTED: 'Comentariu pe lucrare',
   PAPER_GRADED: 'Lucrare notată',
