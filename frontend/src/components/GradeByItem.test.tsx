@@ -6,7 +6,7 @@ import type { AdminAttemptDetail, AdminItemReview } from '@/lib/api'
 
 const item = (itemId: number, over: Partial<AdminItemReview> = {}): AdminItemReview => ({
   itemId, position: itemId, type: 'OPEN', statement: `Enunț ${itemId}`, points: 5, barem: `Barem ${itemId}`,
-  selectedOptionText: null, correctOptionText: null, correct: null, awardedPoints: null, photoUploaded: true,
+  selectedOptionText: null, correctOptionText: null, correct: null, awardedPoints: null, photoUploaded: true, photoIds: [41],
   teacherComment: null, ...over,
 })
 
@@ -16,7 +16,7 @@ function paper(attemptId: number, studentName: string, points: [number | null, n
     attemptId, quizTitle: 'Simulare EN', studentName, status: 'SUBMITTED', submittedAt: '2026-10-11T10:00:00Z',
     score: null, maxScore: 12, teacherComment: null,
     items: [
-      item(1, { type: 'SINGLE_CHOICE', points: 2, awardedPoints: 2, correct: true, photoUploaded: false }),
+      item(1, { type: 'SINGLE_CHOICE', points: 2, awardedPoints: 2, correct: true, photoUploaded: false, photoIds: [] }),
       item(2, { awardedPoints: points[0] }),
       item(3, { awardedPoints: points[1] }),
     ],
@@ -37,7 +37,7 @@ function setup(papers: AdminAttemptDetail[]) {
     <GradeByItem
       quizTitle="Simulare EN" attemptIds={papers.map((p) => p.attemptId)} onExit={onExit}
       getAttemptForGrading={getAttemptForGrading} gradeOpenItem={gradeOpenItem} finalizeGrading={finalizeGrading}
-      attemptPhotoUrl={(a, i) => `/photo/${a}/${i}`}
+      attemptPhotoUrl={(a, i, p) => `/photo/${a}/${i}/${p}`}
     />,
   )
   return { getAttemptForGrading, gradeOpenItem, finalizeGrading, onExit }
@@ -57,7 +57,7 @@ describe('GradeByItem', () => {
     expect(await screen.findByRole('button', { name: 'Subiectul 2 (1/2)' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByTestId('answer-grader')).toHaveTextContent('Radu · lucrarea 2 din 2')
     expect(screen.getByText('Barem 2')).toBeInTheDocument()
-    expect(screen.getByRole('img', { name: 'Rezolvarea lui Radu' })).toHaveAttribute('src', '/photo/51/2')
+    expect(screen.getByRole('img', { name: 'Rezolvarea lui Radu, pagina 1 din 1' })).toHaveAttribute('src', '/photo/51/2/41')
   })
 
   it('saves the points and moves on to the next paper of the same question', async () => {

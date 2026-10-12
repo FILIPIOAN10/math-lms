@@ -632,6 +632,24 @@ de oprire/expirare își termină intrarea. Linkurile vechi „pe rol” (§4a) 
 - Teste: `ResultSeenIntegrationTest`, `QuizAttemptTest`, `AttemptResultView.test.tsx`, `AttemptResultPage.test.tsx`, `mistakes.test.ts`,
   `TakeQuizPage.test.tsx`, `DashboardPage.test.tsx`, `StudentQuizListPage.test.tsx`, `AppShell.test.tsx`
 
+### 24. Mai multe poze per subiect + „Fă o poză” (S2, V28) — ca elev, apoi profesor
+**De ce:** o rezolvare are des 2–3 pagini; de pe telefon, elevul fotografiază direct, fără să treacă prin galerie.
+- **Elev**, la un subiect cu rezolvare: **📷 Fă o poză** (pe telefon deschide direct camera din spate; pe calculator e alegerea
+  unui fișier) și **🖼️ Alege o poză din galerie** / **Adaugă încă o pagină**. Fiecare pagină apare ca miniatură „Pagina 1, 2…” cu
+  **Șterge**; mesajul „✓ Poză încărcată · 2 pagini trimise”. Cel mult **5 pagini**: la 5, butoanele dispar („Șterge una ca să pui
+  alta în locul ei”); o a 6-a prin API → 400. Pozele se micșorează în browser înainte de trimitere (ca până acum)
+- se pot adăuga/șterge doar cât lucrarea e deschisă și în timp (după termen + 30 s → 409); după predare nu se mai schimbă nimic
+- **Rezultatul elevului** arată toate paginile, în ordine; **părintele** vede doar „Elevul a trimis 2 pagini cu rezolvarea.”
+- **Profesorul**, la corectură (pe lucrare și pe subiect): paginile una sub alta, mari, fiecare se deschide în tab nou
+- Pozele vechi (o singură poză) au fost mutate de V28 ca „pagina 1”; coloana veche `item_responses.image_key` a rămas neatinsă
+  pentru un eventual rollback la v0.3.0 (se șterge într-o migrare după v0.4.0)
+- **GDPR:** exportul pune toate paginile în ZIP (`photos/`), ștergerea contului șterge toate fișierele și rândurile lor
+- API: `POST /api/quiz/attempts/{a}/responses/{i}/photo` (adaugă o pagină) → `{photoIds, feedback}`;
+  `DELETE …/responses/{i}/photos/{photoId}` → paginile rămase; `GET …/photos/{photoId}` (elevul lui, altcineva → 404);
+  profesor `GET /api/admin/quiz/attempts/{a}/responses/{i}/photos/{photoId}`; rezultatul și detaliul au `photoIds`
+- Teste: `ResponsePhotosIntegrationTest`, `ItemResponseTest`, `QuizAttemptServiceTest`, `TakeQuizPage.test.tsx`,
+  `AttemptResultView.test.tsx`, `GradeByItem.test.tsx`, `api.test.ts`
+
 ### 20. Pagina unui elev (T5) — `/admin/students/:id`, ca admin
 **De ce:** ca să vorbești despre Ana nu mai treci prin 4 pagini (Teme, Corectură, Pe capitole, Recapitulare).
 - Ajungi aici din: **Elevi** (numele din tabel), tabelul **Pe capitole** al clasei, starea unei teme (**Teste → Teme → Stare**), lista

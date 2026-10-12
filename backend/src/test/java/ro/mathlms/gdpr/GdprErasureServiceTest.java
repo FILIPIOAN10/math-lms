@@ -17,6 +17,7 @@ import ro.mathlms.content.SchoolClass;
 import ro.mathlms.content.SchoolClassRepository;
 import ro.mathlms.quiz.ItemResponse;
 import ro.mathlms.quiz.ItemResponseRepository;
+import ro.mathlms.quiz.ResponsePhotoRepository;
 import ro.mathlms.quiz.Quiz;
 import ro.mathlms.quiz.QuizAttempt;
 import ro.mathlms.quiz.QuizAttemptRepository;
@@ -44,6 +45,7 @@ class GdprErasureServiceTest {
     @Autowired private QuizItemRepository quizItemRepository;
     @Autowired private QuizAttemptRepository attemptRepository;
     @Autowired private ItemResponseRepository responseRepository;
+    @Autowired private ResponsePhotoRepository photoRepository;
     @Autowired private PasswordEncoder passwordEncoder;
     @Autowired private VerificationTokenService tokenService;
     @MockitoBean private EmailService emailService;
@@ -69,7 +71,7 @@ class GdprErasureServiceTest {
         attemptRepository.save(attempt);
 
         ItemResponse response = new ItemResponse(attempt, open);
-        response.answerOpen("rezolvare.jpg");
+        response.addPhoto("rezolvare.jpg", java.time.Instant.EPOCH);
         response.gradeManual(25, "Ana, verifică semnul.");
         response = responseRepository.save(response);
 
@@ -93,9 +95,9 @@ class GdprErasureServiceTest {
 
         // Personal state gone.
         assertThat(enrollmentRepository.findByStudentId(seed.userId())).isEmpty();
-        // Grades kept, but the photo detached and its key cleared.
+        // Grades kept, but the photos gone (rows and files).
         assertThat(attemptRepository.findById(seed.attemptId())).isPresent();
-        assertThat(responseRepository.findById(seed.responseId()).orElseThrow().getImageKey()).isNull();
+        assertThat(photoRepository.findImageKeysByStudentId(seed.userId())).isEmpty();
         // Free text about the person may name them: the teacher's comments go too, the points stay.
         assertThat(attemptRepository.findById(seed.attemptId()).orElseThrow().getTeacherComment()).isNull();
         ItemResponse kept = responseRepository.findById(seed.responseId()).orElseThrow();

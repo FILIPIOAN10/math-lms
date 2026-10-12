@@ -114,7 +114,7 @@ class QuizAttemptFeedbackServiceTest {
         QuizItem item = open(100L);
         QuizAttempt attempt = submitted(50L, quiz);
         ItemResponse response = new ItemResponse(attempt, item);
-        response.answerOpen("p.jpg");
+        response.addPhoto("p.jpg", java.time.Instant.EPOCH);
         when(attemptRepository.findById(50L)).thenReturn(Optional.of(attempt));
         when(itemRepository.findById(100L)).thenReturn(Optional.of(item));
         when(responseRepository.findByAttemptIdAndItemId(50L, 100L)).thenReturn(Optional.of(response));
@@ -159,7 +159,7 @@ class QuizAttemptFeedbackServiceTest {
         QuizItem item = open(100L);
         QuizAttempt attempt = submitted(50L, quiz);
         ItemResponse response = new ItemResponse(attempt, item);
-        response.answerOpen("p.jpg");
+        response.addPhoto("p.jpg", java.time.Instant.EPOCH);
         response.gradeManual(8, "Ai uitat semnul.");
         attempt.commentOverall("Bravo!");
         when(attemptRepository.findById(50L)).thenReturn(Optional.of(attempt));

@@ -233,9 +233,9 @@ class QuizAttemptPracticeServiceTest {
         when(fileService.uploadImage(eq("uploads/quiz-photos"), any())).thenReturn("stored.jpg");
         MockMultipartFile photo = new MockMultipartFile("file", "p.jpg", "image/jpeg", new byte[]{1});
 
-        Optional<AnswerFeedbackDto> feedback = service.uploadOpenPhoto(50L, 101L, photo, EMAIL);
+        AnswerFeedbackDto feedback = service.uploadOpenPhoto(50L, 101L, photo, EMAIL).feedback();
 
-        assertThat(feedback).contains(new AnswerFeedbackDto(null, null, "barem deschis")); // open: no auto-verdict
+        assertThat(feedback).isEqualTo(new AnswerFeedbackDto(null, null, "barem deschis")); // open: no auto-verdict
     }
 
     @Test
@@ -245,7 +245,10 @@ class QuizAttemptPracticeServiceTest {
         when(fileService.uploadImage(eq("uploads/quiz-photos"), any())).thenReturn("stored.jpg");
         MockMultipartFile photo = new MockMultipartFile("file", "p.jpg", "image/jpeg", new byte[]{1});
 
-        assertThat(service.uploadOpenPhoto(50L, 101L, photo, EMAIL)).isEmpty();
+        StudentQuizDtos.PhotosDto photos = service.uploadOpenPhoto(50L, 101L, photo, EMAIL);
+
+        assertThat(photos.feedback()).isNull();
+        assertThat(photos.photoIds()).hasSize(1); // only what was sent comes back
     }
 
     // --- finishing ---

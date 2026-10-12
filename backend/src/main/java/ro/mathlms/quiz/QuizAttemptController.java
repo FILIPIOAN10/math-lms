@@ -9,6 +9,7 @@ import org.springframework.http.MediaTypeFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import ro.mathlms.quiz.QuizDtos.QuizSummaryDto;
 import ro.mathlms.quiz.StudentQuizDtos.AnswerFeedbackDto;
+import ro.mathlms.quiz.StudentQuizDtos.PhotosDto;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultDto;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultViewDto;
 import ro.mathlms.quiz.StudentQuizDtos.HintDto;
@@ -80,20 +82,25 @@ public class QuizAttemptController {
         return feedbackOrNoContent(service.saveResponse(attemptId, itemId, request.optionId(), auth.getName()));
     }
 
+    /** S2: adds one page (up to 5) to an OPEN answer; returns the answer's photo ids (+ the barem in a practice). */
     @PostMapping("/api/quiz/attempts/{attemptId}/responses/{itemId}/photo")
-    public ResponseEntity<AnswerFeedbackDto> uploadPhoto(@PathVariable Long attemptId, @PathVariable Long itemId,
-                                                         @RequestParam("file") MultipartFile file, Authentication auth) {
-        return feedbackOrNoContent(service.uploadOpenPhoto(attemptId, itemId, file, auth.getName()));
+    public PhotosDto uploadPhoto(@PathVariable Long attemptId, @PathVariable Long itemId,
+                                 @RequestParam("file") MultipartFile file, Authentication auth) {
+        return service.uploadOpenPhoto(attemptId, itemId, file, auth.getName());
     }
 
-    /**
-     * The student's own photo of an OPEN item. Never cached: a re-upload replaces it under the same URL, and the
-     * thumbnail must show the new one.
-     */
-    @GetMapping("/api/quiz/attempts/{attemptId}/responses/{itemId}/photo")
+    /** S2: takes one page off the answer while the attempt is open; returns the photo ids left. */
+    @DeleteMapping("/api/quiz/attempts/{attemptId}/responses/{itemId}/photos/{photoId}")
+    public PhotosDto deletePhoto(@PathVariable Long attemptId, @PathVariable Long itemId, @PathVariable Long photoId,
+                                 Authentication auth) {
+        return service.deleteOpenPhoto(attemptId, itemId, photoId, auth.getName());
+    }
+
+    /** One page of the student's own answer to an OPEN item. Never cached (it is a minor's photographed work). */
+    @GetMapping("/api/quiz/attempts/{attemptId}/responses/{itemId}/photos/{photoId}")
     public ResponseEntity<Resource> ownPhoto(@PathVariable Long attemptId, @PathVariable Long itemId,
-                                             Authentication auth) {
-        Resource file = service.getOwnPhoto(attemptId, itemId, auth.getName());
+                                             @PathVariable Long photoId, Authentication auth) {
+        Resource file = service.getOwnPhoto(attemptId, itemId, photoId, auth.getName());
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + file.getFilename() + "\"")
                 .cacheControl(CacheControl.noStore())

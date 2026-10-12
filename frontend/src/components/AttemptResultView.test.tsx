@@ -15,12 +15,12 @@ const graded: AttemptResultViewDto = {
   items: [
     {
       itemId: 100, position: 1, type: 'SINGLE_CHOICE', statement: 'Alege B', points: 5, awardedPoints: 5, correct: true,
-      selectedOptionText: 'Varianta B', correctOptionText: 'Varianta B', barem: null, photoUploaded: false,
+      selectedOptionText: 'Varianta B', correctOptionText: 'Varianta B', barem: null, photoUploaded: false, photoIds: [],
       hintsUsed: 0, hintsAvailable: 0, teacherComment: null,
     },
     {
       itemId: 101, position: 2, type: 'OPEN', statement: 'Rezolvă', points: 10, awardedPoints: 8, correct: null,
-      selectedOptionText: null, correctOptionText: null, barem: 'x1 = 2', photoUploaded: true,
+      selectedOptionText: null, correctOptionText: null, barem: 'x1 = 2', photoUploaded: true, photoIds: [41, 42],
       hintsUsed: 0, hintsAvailable: 0, teacherComment: 'Ai uitat unitatea de măsură.',
     },
   ],
@@ -30,18 +30,20 @@ const graded: AttemptResultViewDto = {
 }
 
 describe('AttemptResultView', () => {
-  it('shows the student their own photo next to the open item', () => {
+  it('shows the student every page of their own photographed solution, in order (S2)', () => {
     render(<AttemptResultView result={graded} />, { wrapper: MemoryRouter })
 
-    const img = screen.getByRole('img', { name: 'Poza ta pentru subiectul 2' })
-    expect(img).toHaveAttribute('src', '/api/quiz/attempts/50/responses/101/photo')
+    expect(screen.getByRole('img', { name: 'Poza ta pentru subiectul 2, pagina 1' }))
+      .toHaveAttribute('src', '/api/quiz/attempts/50/responses/101/photos/41')
+    expect(screen.getByRole('img', { name: 'Poza ta pentru subiectul 2, pagina 2' }))
+      .toHaveAttribute('src', '/api/quiz/attempts/50/responses/101/photos/42')
   })
 
   it('does not try to show the photo to a parent (no endpoint of theirs serves it)', () => {
     render(<AttemptResultView result={graded} audience="parent" />, { wrapper: MemoryRouter })
 
     expect(screen.queryByRole('img')).not.toBeInTheDocument()
-    expect(screen.getByText('Elevul a trimis o poză cu rezolvarea.')).toBeInTheDocument()
+    expect(screen.getByText('Elevul a trimis 2 pagini cu rezolvarea.')).toBeInTheDocument()
   })
 
   it('shows the big final score once the attempt is graded', () => {
@@ -93,11 +95,11 @@ describe('AttemptResultView', () => {
   it('words the student view in the second person and the parent view about the student', () => {
     const { rerender } = render(<AttemptResultView result={graded} audience="student" />, { wrapper: MemoryRouter })
     expect(screen.getByText(/Răspunsul tău:/)).toBeInTheDocument()
-    expect(screen.getByText('Ai trimis o poză cu rezolvarea.')).toBeInTheDocument()
+    expect(screen.getByText('Ai trimis 2 pagini cu rezolvarea.')).toBeInTheDocument()
 
     rerender(<AttemptResultView result={graded} audience="parent" />)
     expect(screen.getByText(/Răspunsul elevului:/)).toBeInTheDocument()
-    expect(screen.getByText('Elevul a trimis o poză cu rezolvarea.')).toBeInTheDocument()
+    expect(screen.getByText('Elevul a trimis 2 pagini cu rezolvarea.')).toBeInTheDocument()
     expect(screen.queryByText(/Răspunsul tău:/)).not.toBeInTheDocument()
   })
 

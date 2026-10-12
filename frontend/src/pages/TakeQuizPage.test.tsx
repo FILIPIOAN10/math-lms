@@ -16,6 +16,7 @@ const api = vi.hoisted(() => ({
   startQuizAttempt: vi.fn(),
   saveQuizAnswer: vi.fn(),
   uploadQuizPhoto: vi.fn(),
+  deleteQuizPhoto: vi.fn(),
   submitQuizAttempt: vi.fn(),
   revealQuizHint: vi.fn(),
   getStudentQuizzes: vi.fn(),
@@ -177,7 +178,7 @@ describe('TakeQuizPage', () => {
 
     it('restores the feedback of earlier answers when a practice is resumed', async () => {
       api.startQuizAttempt.mockResolvedValue(started('PRACTICE', [
-        { itemId: 100, selectedOptionId: 1001, photoUploaded: false,
+        { itemId: 100, selectedOptionId: 1001, photoUploaded: false, photoIds: [],
           feedback: { correct: false, correctOptionId: 1000, solution: null } },
       ]))
       renderPage('?mode=practice')
@@ -448,7 +449,7 @@ describe('TakeQuizPage', () => {
 
     it('hands in only after the student confirms in the dialog', async () => {
       api.startQuizAttempt.mockResolvedValue(started('TEST', [
-        { itemId: 100, selectedOptionId: 1000, photoUploaded: false, feedback: null },
+        { itemId: 100, selectedOptionId: 1000, photoUploaded: false, feedback: null, photoIds: [] },
       ]))
       api.submitQuizAttempt.mockResolvedValue({})
       renderPage('')
@@ -494,32 +495,69 @@ describe('TakeQuizPage', () => {
   })
 
   describe('photographed solutions', () => {
-    it('shows a thumbnail of the photo the server has, also when the attempt is resumed', async () => {
-      const resumed = startedThree()
-      resumed.answers = [{ itemId: 102, selectedOptionId: null, photoUploaded: true, feedback: null }]
+    const begin = async (resumed = startedThree()) => {
       api.startQuizAttempt.mockResolvedValue(resumed)
       renderPage('')
       await userEvent.click(await screen.findByRole('button', { name: 'Începe testul' }))
+    }
 
-      const img = await screen.findByRole('img', { name: 'Poza ta pentru subiectul 3' })
-      expect(img.getAttribute('src')).toMatch(/^\/api\/quiz\/attempts\/50\/responses\/102\/photo/)
-      expect(screen.getByText('Înlocuiește poza')).toBeInTheDocument()
+    it('shows every page the server has, also when the attempt is resumed (S2)', async () => {
+      const resumed = startedThree()
+      resumed.answers = [{ itemId: 102, selectedOptionId: null, photoUploaded: true, feedback: null, photoIds: [41, 42] }]
+      await begin(resumed)
+
+      expect(await screen.findByRole('img', { name: 'Pagina 1 a rezolvării, subiectul 3' }))
+        .toHaveAttribute('src', '/api/quiz/attempts/50/responses/102/photos/41')
+      expect(screen.getByRole('img', { name: 'Pagina 2 a rezolvării, subiectul 3' }))
+        .toHaveAttribute('src', '/api/quiz/attempts/50/responses/102/photos/42')
+      expect(screen.getByText('Adaugă încă o pagină')).toBeInTheDocument()
+      expect(screen.getByRole('status')).toHaveTextContent('Poză încărcată · 2 pagini trimise')
     })
 
-    it('refreshes the thumbnail after a new upload', async () => {
-      api.startQuizAttempt.mockResolvedValue(startedThree())
-      api.uploadQuizPhoto.mockResolvedValue(null)
-      renderPage('')
-      await userEvent.click(await screen.findByRole('button', { name: 'Începe testul' }))
-      expect(await screen.findByText('Încarcă poza rezolvării')).toBeInTheDocument()
+    it('adds a page with each upload and says so (the E2E suite waits for "Poză încărcată")', async () => {
+      api.uploadQuizPhoto.mockResolvedValueOnce({ photoIds: [41], feedback: null })
+      api.uploadQuizPhoto.mockResolvedValueOnce({ photoIds: [41, 42], feedback: null })
+      await begin()
+      expect(await screen.findByText('Alege o poză din galerie')).toBeInTheDocument()
 
-      const file = new File(['x'], 'rezolvare.png', { type: 'image/png' })
-      await userEvent.upload(screen.getByTestId('item-photo'), file)
+      await userEvent.upload(screen.getByTestId('item-photo'), new File(['x'], 'p1.png', { type: 'image/png' }))
+      expect(await screen.findByRole('img', { name: 'Pagina 1 a rezolvării, subiectul 3' })).toBeInTheDocument()
+      await userEvent.upload(screen.getByTestId('item-photo'), new File(['y'], 'p2.png', { type: 'image/png' }))
 
-      const img = await screen.findByRole('img', { name: 'Poza ta pentru subiectul 3' })
-      expect(img.getAttribute('src')).toContain('v=1')
-      // a plain-words confirmation as well (the E2E suite waits for it too)
-      expect(screen.getByRole('status')).toHaveTextContent('Poză încărcată')
+      expect(await screen.findByRole('img', { name: 'Pagina 2 a rezolvării, subiectul 3' })).toBeInTheDocument()
+      expect(screen.getByRole('status')).toHaveTextContent('Poză încărcată · 2 pagini trimise')
+      expect(api.uploadQuizPhoto).toHaveBeenCalledTimes(2)
+    })
+
+    it('"Fă o poză" asks a phone for its back camera', async () => {
+      await begin()
+
+      expect(await screen.findByTestId('item-camera')).toHaveAttribute('capture', 'environment')
+      expect(screen.getByTestId('item-photo')).not.toHaveAttribute('capture')
+    })
+
+    it('a page can be taken off, and the others stay', async () => {
+      const resumed = startedThree()
+      resumed.answers = [{ itemId: 102, selectedOptionId: null, photoUploaded: true, feedback: null, photoIds: [41, 42] }]
+      api.deleteQuizPhoto.mockResolvedValue({ photoIds: [42], feedback: null })
+      await begin(resumed)
+
+      await userEvent.click(await screen.findByRole('button', { name: 'Șterge pagina 1' }))
+
+      expect(api.deleteQuizPhoto).toHaveBeenCalledWith(50, 102, 41)
+      await waitFor(() => expect(screen.queryByRole('img', { name: /Pagina 2/ })).not.toBeInTheDocument())
+      expect(screen.getByRole('img', { name: 'Pagina 1 a rezolvării, subiectul 3' }))
+        .toHaveAttribute('src', '/api/quiz/attempts/50/responses/102/photos/42')
+    })
+
+    it('at five pages there is nothing more to pick, only to take off', async () => {
+      const resumed = startedThree()
+      resumed.answers = [{ itemId: 102, selectedOptionId: null, photoUploaded: true, feedback: null, photoIds: [1, 2, 3, 4, 5] }]
+      await begin(resumed)
+
+      expect(await screen.findByText(/Ai 5 pagini, cât se poate trimite/)).toBeInTheDocument()
+      expect(screen.queryByTestId('item-photo')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('item-camera')).not.toBeInTheDocument()
     })
   })
 })

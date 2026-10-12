@@ -173,7 +173,7 @@ class MasteryServiceIntegrationTest {
         Instant t0 = Instant.parse("2026-10-03T10:00:00Z");
         QuizAttempt test = attempt(quiz, w.ana(), AttemptMode.TEST, t0);
         ItemResponse photo = new ItemResponse(test, open);
-        photo.answerOpen("p.jpg");
+        photo.addPhoto("p.jpg", java.time.Instant.EPOCH);
         photo = responseRepository.save(photo);
         handIn(test, t0.plusSeconds(600), null); // SUBMITTED, waiting for the teacher
 

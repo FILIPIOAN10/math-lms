@@ -92,10 +92,11 @@ public final class StudentQuizDtos {
 
     /**
      * What the student already saved on an in-progress attempt, so a resumed page can restore it.
-     * Only the student's own choice (option id / "photo sent") — never whether it is correct.
+     * Only the student's own choice (option id / the photos sent) — never whether it is correct.
      */
     public record SavedAnswerDto(Long itemId, Long selectedOptionId, boolean photoUploaded,
-                                 AnswerFeedbackDto feedback // PRACTICE only; always null in a graded TEST
+                                 AnswerFeedbackDto feedback, // PRACTICE only; always null in a graded TEST
+                                 List<Long> photoIds         // S2: the pages sent, oldest first
     ) {
         public static SavedAnswerDto from(ItemResponse response) {
             return from(response, null);
@@ -105,10 +106,14 @@ public final class StudentQuizDtos {
             return new SavedAnswerDto(
                     response.getItem().getId(),
                     response.getSelectedOption() == null ? null : response.getSelectedOption().getId(),
-                    response.getImageKey() != null,
-                    feedback);
+                    response.hasPhotos(),
+                    feedback,
+                    response.photoIds());
         }
     }
+
+    /** S2: an answer's photos after one was added or deleted (oldest first), with the practice feedback (null in a test). */
+    public record PhotosDto(List<Long> photoIds, AnswerFeedbackDto feedback) {}
 
     /**
      * The attempt the student is now working on, the answer-hidden quiz to fill in, and the answers
@@ -189,7 +194,8 @@ public final class StudentQuizDtos {
             int hintsAvailable, // practice only; 0 in a graded test
             String teacherComment,
             String section, // the heading it sits under; null = none
-            String image // the picture under the statement: a version token for its URL, or null
+            String image, // the picture under the statement: a version token for its URL, or null
+            List<Long> photoIds // S2: the pages of an OPEN answer, oldest first (only the student's own API serves them)
     ) {}
 
     /** The student's graded attempt: the score plus a per-item breakdown. */

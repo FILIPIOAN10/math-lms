@@ -90,9 +90,9 @@ class AdminQuizAttemptControllerTest {
                 return "photo.png";
             }
         };
-        when(service.getOpenPhotoResource(1L, 2L)).thenReturn(mockResource);
+        when(service.getOpenPhotoResource(1L, 2L, 3L)).thenReturn(mockResource);
 
-        mockMvc.perform(get("/api/admin/quiz/attempts/1/responses/2/photo"))
+        mockMvc.perform(get("/api/admin/quiz/attempts/1/responses/2/photos/3"))
                 .andExpect(status().isOk())
                 .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"photo.png\""))
                 .andExpect(content().contentType(MediaType.IMAGE_PNG));

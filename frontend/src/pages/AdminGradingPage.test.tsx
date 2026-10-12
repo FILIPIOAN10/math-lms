@@ -23,7 +23,7 @@ const detail = (over: Partial<AdminAttemptDetail> = {}): AdminAttemptDetail => (
   score: null, maxScore: 11, teacherComment: null,
   items: [{
     itemId: 101, position: 1, type: 'OPEN', statement: 'Rezolvă', points: 4, barem: null, selectedOptionText: null,
-    correctOptionText: null, correct: null, awardedPoints: null, photoUploaded: false, teacherComment: null,
+    correctOptionText: null, correct: null, awardedPoints: null, photoUploaded: false, photoIds: [], teacherComment: null,
   }],
   ...over,
 })

@@ -425,7 +425,7 @@ class QuizAttemptServiceTest {
     }
 
     @Test
-    void uploadStoresPhotoAndSetsImageKey() throws Exception {
+    void uploadStoresThePhotoAsAPageOfTheAnswer() throws Exception {
         QuizItem openItem = open(101L, 30);
         QuizAttempt attempt = attempt(50L, student);
         when(attemptRepository.findByIdForUpdate(50L)).thenReturn(Optional.of(attempt));
@@ -436,16 +436,16 @@ class QuizAttemptServiceTest {
         service.uploadOpenPhoto(50L, 101L, image(), EMAIL);
 
         ArgumentCaptor<ItemResponse> saved = ArgumentCaptor.forClass(ItemResponse.class);
-        verify(responseRepository).save(saved.capture());
-        assertThat(saved.getValue().getImageKey()).isEqualTo("stored.jpg");
+        verify(responseRepository).saveAndFlush(saved.capture());
+        assertThat(saved.getValue().getPhotos()).extracting(ResponsePhoto::getImageKey).containsExactly("stored.jpg");
     }
 
     @Test
-    void uploadReplacesOldPhotoAndDeletesPrevious() throws Exception {
+    void anotherUploadAddsAPageAndKeepsTheEarlierOnes() throws Exception {
         QuizItem openItem = open(101L, 30);
         QuizAttempt attempt = attempt(50L, student);
         ItemResponse existing = new ItemResponse(attempt, openItem);
-        existing.answerOpen("old.jpg");
+        existing.addPhoto("old.jpg", java.time.Instant.EPOCH);
         when(attemptRepository.findByIdForUpdate(50L)).thenReturn(Optional.of(attempt));
         when(itemRepository.findById(101L)).thenReturn(Optional.of(openItem));
         when(responseRepository.findByAttemptIdAndItemId(50L, 101L)).thenReturn(Optional.of(existing));
@@ -453,8 +453,53 @@ class QuizAttemptServiceTest {
 
         service.uploadOpenPhoto(50L, 101L, image(), EMAIL);
 
-        assertThat(existing.getImageKey()).isEqualTo("new.jpg");
-        verify(fileService).deleteImage("uploads/quiz-photos", "old.jpg");
+        assertThat(existing.getPhotos()).extracting(ResponsePhoto::getImageKey).containsExactly("old.jpg", "new.jpg");
+        verify(fileService, never()).deleteImage(any(), any());
+    }
+
+    @Test
+    void aSixthPhotoIsRefusedBeforeAnyFileIsStored() throws Exception {
+        QuizItem openItem = open(101L, 30);
+        QuizAttempt attempt = attempt(50L, student);
+        ItemResponse full = new ItemResponse(attempt, openItem);
+        for (int page = 1; page <= ItemResponse.MAX_PHOTOS; page++) {
+            full.addPhoto("p" + page + ".jpg", java.time.Instant.EPOCH);
+        }
+        when(attemptRepository.findByIdForUpdate(50L)).thenReturn(Optional.of(attempt));
+        when(itemRepository.findById(101L)).thenReturn(Optional.of(openItem));
+        when(responseRepository.findByAttemptIdAndItemId(50L, 101L)).thenReturn(Optional.of(full));
+
+        assertThatThrownBy(() -> service.uploadOpenPhoto(50L, 101L, image(), EMAIL))
+                .isInstanceOf(InvalidQuizException.class)
+                .hasMessageContaining("5 poze");
+        verify(fileService, never()).uploadImage(any(), any());
+    }
+
+    @Test
+    void aPageCanBeTakenOffWhileTheAttemptIsOpenAndItsFileGoes() throws Exception {
+        QuizItem openItem = open(101L, 30);
+        QuizAttempt attempt = attempt(50L, student);
+        ItemResponse answer = new ItemResponse(attempt, openItem);
+        ReflectionTestUtils.setField(answer.addPhoto("p1.jpg", java.time.Instant.EPOCH), "id", 7L);
+        ReflectionTestUtils.setField(answer.addPhoto("p2.jpg", java.time.Instant.EPOCH), "id", 8L);
+        when(attemptRepository.findByIdForUpdate(50L)).thenReturn(Optional.of(attempt));
+        when(responseRepository.findByAttemptIdAndItemId(50L, 101L)).thenReturn(Optional.of(answer));
+
+        assertThat(service.deleteOpenPhoto(50L, 101L, 7L, EMAIL).photoIds()).containsExactly(8L);
+        verify(fileService).deleteImage("uploads/quiz-photos", "p1.jpg"); // no transaction here: deleted at once
+
+        assertThatThrownBy(() -> service.deleteOpenPhoto(50L, 101L, 99L, EMAIL))
+                .isInstanceOf(QuizNotFoundException.class);
+    }
+
+    @Test
+    void anotherStudentCannotTakeOffAPage() {
+        User other = withId(new User("altul@scoala.ro", "Altul", Role.STUDENT), 2L);
+        when(attemptRepository.findByIdForUpdate(50L)).thenReturn(Optional.of(attempt(50L, other)));
+
+        assertThatThrownBy(() -> service.deleteOpenPhoto(50L, 101L, 7L, EMAIL))
+                .isInstanceOf(QuizAccessException.class);
+        verify(responseRepository, never()).save(any());
     }
 
     @Test
@@ -510,7 +555,7 @@ class QuizAttemptServiceTest {
         QuizAttempt attempt = attempt(50L, student);
         attempt.submit();
         ItemResponse response = new ItemResponse(attempt, deschis);
-        response.answerOpen("poza.jpg");
+        response.addPhoto("poza.jpg", java.time.Instant.EPOCH);
         when(attemptRepository.findById(50L)).thenReturn(Optional.of(attempt));
         when(itemRepository.findById(101L)).thenReturn(Optional.of(deschis));
         when(responseRepository.findByAttemptIdAndItemId(50L, 101L)).thenReturn(Optional.of(response));
@@ -527,7 +572,7 @@ class QuizAttemptServiceTest {
         QuizAttempt attempt = attempt(50L, student);
         attempt.submit();
         ItemResponse response = new ItemResponse(attempt, item);
-        response.answerOpen("poza.jpg");
+        response.addPhoto("poza.jpg", java.time.Instant.EPOCH);
         when(attemptRepository.findById(50L)).thenReturn(Optional.of(attempt));
         when(itemRepository.findById(item.getId())).thenReturn(Optional.of(item));
         when(itemRepository.findByQuizIdOrderByPosition(10L)).thenReturn(List.of(singleChoice(100L, 5), item));
@@ -769,7 +814,7 @@ class QuizAttemptServiceTest {
         ItemResponse r1 = new ItemResponse(existing, grila);
         r1.answerSingleChoice(chosen);
         ItemResponse r2 = new ItemResponse(existing, deschis);
-        r2.answerOpen("poza.jpg");
+        r2.addPhoto("poza.jpg", java.time.Instant.EPOCH);
         when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(student));
         when(quizRepository.findById(10L)).thenReturn(Optional.of(quiz));
         when(attemptRepository.findByQuizIdAndStudentIdAndStatusAndMode(10L, 1L, QuizAttemptStatus.IN_PROGRESS, AttemptMode.TEST))
@@ -835,7 +880,7 @@ class QuizAttemptServiceTest {
         r1.answerSingleChoice(wrong);
         r1.gradeAuto(false, 0);
         ItemResponse r2 = new ItemResponse(attempt, deschis);
-        r2.answerOpen("poza.jpg");
+        r2.addPhoto("poza.jpg", java.time.Instant.EPOCH);
         attempt.submit();
         when(attemptRepository.findById(50L)).thenReturn(Optional.of(attempt));
         when(itemRepository.findByQuizIdOrderByPosition(10L)).thenReturn(List.of(grila, deschis));

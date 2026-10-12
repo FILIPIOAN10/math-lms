@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ApiError, createQuiz, listClasses, login, revealQuizHint, saveQuizAnswer, startQuizAttempt, uploadQuizPhoto } from '@/lib/api'
+import {
+  ApiError, createQuiz, deleteQuizPhoto, listClasses, login, revealQuizHint, saveQuizAnswer, startQuizAttempt, uploadQuizPhoto,
+} from '@/lib/api'
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
@@ -132,17 +134,27 @@ describe('API client', () => {
 
     it('returns null for a graded test: the server answers 204 and reveals nothing', async () => {
       fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }))
-      fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }))
 
       await expect(saveQuizAnswer(5, 6, 7)).resolves.toBeNull()
-      await expect(uploadQuizPhoto(5, 6, new File(['x'], 'p.jpg', { type: 'image/jpeg' }))).resolves.toBeNull()
     })
 
-    it('returns the barem a practice photo comes back with', async () => {
+    it("a photo comes back as the answer's pages, with the barem only in a practice (S2)", async () => {
       const feedback = { correct: null, correctOptionId: null, solution: 'barem' }
-      fetchMock.mockResolvedValueOnce(json(feedback))
+      fetchMock.mockResolvedValueOnce(json({ photoIds: [3], feedback: null }))
+      fetchMock.mockResolvedValueOnce(json({ photoIds: [3, 4], feedback }))
 
-      await expect(uploadQuizPhoto(5, 6, new File(['x'], 'p.jpg', { type: 'image/jpeg' }))).resolves.toEqual(feedback)
+      const photo = new File(['x'], 'p.jpg', { type: 'image/jpeg' })
+      await expect(uploadQuizPhoto(5, 6, photo)).resolves.toEqual({ photoIds: [3], feedback: null })
+      await expect(uploadQuizPhoto(5, 6, photo)).resolves.toEqual({ photoIds: [3, 4], feedback })
+    })
+
+    it('takes one page off with a DELETE on its own address', async () => {
+      fetchMock.mockResolvedValueOnce(json({ photoIds: [4], feedback: null }))
+
+      await expect(deleteQuizPhoto(5, 6, 3)).resolves.toEqual({ photoIds: [4], feedback: null })
+      const [url, init] = fetchMock.mock.calls[0]
+      expect(url).toContain('/api/quiz/attempts/5/responses/6/photos/3')
+      expect(init.method).toBe('DELETE')
     })
   })
 

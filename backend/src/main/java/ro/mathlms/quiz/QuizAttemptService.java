@@ -4,6 +4,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 import ro.mathlms.audit.AuditAction;
 import ro.mathlms.audit.AuditEvent;
@@ -22,6 +24,7 @@ import ro.mathlms.quiz.StudentQuizDtos.RevealedHintsDto;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultViewDto;
 import ro.mathlms.quiz.StudentQuizDtos.ItemResultDto;
 import ro.mathlms.quiz.StudentQuizDtos.MyAttemptDto;
+import ro.mathlms.quiz.StudentQuizDtos.PhotosDto;
 import ro.mathlms.quiz.StudentQuizDtos.ProgressPointDto;
 import ro.mathlms.quiz.StudentQuizDtos.QuizPreviewDto;
 import ro.mathlms.quiz.StudentQuizDtos.SavedAnswerDto;
@@ -173,7 +176,7 @@ public class QuizAttemptService {
         // A row that exists only because the student asked for a hint is not an answer: it must not come back as one
         // (its "feedback" would hand over the solution of a question they have not tried).
         List<SavedAnswerDto> answers = responses.stream()
-                .filter(response -> response.getSelectedOption() != null || response.getImageKey() != null)
+                .filter(response -> response.getSelectedOption() != null || response.hasPhotos())
                 .map(response -> attempt.getMode() == AttemptMode.PRACTICE
                         ? SavedAnswerDto.from(response, feedbackFor(response.getItem(), response))
                         : SavedAnswerDto.from(response))
@@ -265,12 +268,12 @@ public class QuizAttemptService {
     }
 
     /**
-     * Stores the uploaded rezolvare photo for one OPEN item and points the response at it. Replacing
-     * an earlier photo deletes the old file. The correct/points stay null — a teacher grades it later. In a PRACTICE
-     * the barem comes back to compare with; in a graded TEST nothing does.
+     * S2: adds one page of the rezolvare to an OPEN item's answer (at most {@link ItemResponse#MAX_PHOTOS}). The
+     * correct/points stay null — a teacher grades it later. In a PRACTICE the barem comes back to compare with; in a
+     * graded TEST only the photo ids do. A failed transaction removes the file it just stored.
      */
     @Transactional
-    public Optional<AnswerFeedbackDto> uploadOpenPhoto(Long attemptId, Long itemId, MultipartFile file, String studentEmail) {
+    public PhotosDto uploadOpenPhoto(Long attemptId, Long itemId, MultipartFile file, String studentEmail) {
         QuizAttempt attempt = requireOwnedInProgress(attemptId, studentEmail);
         requireTimeLeft(attempt);
         QuizItem item = itemRepository.findById(itemId)
@@ -285,26 +288,77 @@ public class QuizAttemptService {
 
         ItemResponse response = responseRepository.findByAttemptIdAndItemId(attemptId, itemId)
                 .orElseGet(() -> new ItemResponse(attempt, item));
-        String previous = response.getImageKey();
+        if (response.getPhotos().size() >= ItemResponse.MAX_PHOTOS) {
+            throw new InvalidQuizException("Ai deja " + ItemResponse.MAX_PHOTOS
+                    + " poze la acest subiect. Șterge una ca să adaugi alta.");
+        }
         String stored;
         try {
             stored = fileService.uploadImage(quizPhotosDir, file);
         } catch (IOException e) {
             throw new UncheckedIOException("Could not store the photo", e);
         }
-        response.answerOpen(stored);
-        responseRepository.save(response);
+        deleteFileIfRolledBack(stored);
+        response.addPhoto(stored, Instant.now(clock));
+        responseRepository.saveAndFlush(response); // the new photo's id is part of the answer
 
-        if (previous != null) {
-            try {
-                fileService.deleteImage(quizPhotosDir, previous);
-            } catch (IOException ignored) {
-                // The new photo is saved; a leftover old file is not worth failing the request.
-            }
+        return new PhotosDto(response.photoIds(),
+                attempt.getMode() == AttemptMode.PRACTICE ? feedbackFor(item, response) : null);
+    }
+
+    /**
+     * S2: takes one page off the answer while the attempt is still open (the same deadline as adding one). Another
+     * student's attempt, or a photo of another answer, is the same 404 as one that does not exist. The file goes once
+     * the deletion is committed.
+     */
+    @Transactional
+    public PhotosDto deleteOpenPhoto(Long attemptId, Long itemId, Long photoId, String studentEmail) {
+        QuizAttempt attempt = requireOwnedInProgress(attemptId, studentEmail);
+        requireTimeLeft(attempt);
+        ItemResponse response = responseRepository.findByAttemptIdAndItemId(attemptId, itemId)
+                .orElseThrow(() -> new QuizNotFoundException("ResponsePhoto", photoId));
+        String key = response.removePhoto(photoId)
+                .orElseThrow(() -> new QuizNotFoundException("ResponsePhoto", photoId));
+        responseRepository.save(response);
+        deleteFileAfterCommit(key);
+        return new PhotosDto(response.photoIds(), null);
+    }
+
+    /** A file stored for a request whose transaction then fails is referenced by nothing: remove it again. */
+    private void deleteFileIfRolledBack(String key) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            return;
         }
-        return attempt.getMode() == AttemptMode.PRACTICE
-                ? Optional.of(feedbackFor(item, response))
-                : Optional.empty();
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCompletion(int status) {
+                if (status == STATUS_ROLLED_BACK) {
+                    deleteQuietly(key);
+                }
+            }
+        });
+    }
+
+    /** Deletes a removed photo's file only once the removal is committed (a rollback keeps the row - and its file). */
+    private void deleteFileAfterCommit(String key) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            deleteQuietly(key);
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                deleteQuietly(key);
+            }
+        });
+    }
+
+    private void deleteQuietly(String key) {
+        try {
+            fileService.deleteImage(quizPhotosDir, key);
+        } catch (IOException ignored) {
+            // A leftover file is not worth failing the request for.
+        }
     }
 
     /**
@@ -418,7 +472,7 @@ public class QuizAttemptService {
                     selectedText = response.getSelectedOption().getText();
                 }
             } else {
-                photoUploaded = response != null && response.getImageKey() != null;
+                photoUploaded = response != null && response.hasPhotos();
             }
             itemResults.add(new ItemResultDto(
                     item.getId(), item.getPosition(), item.getType(), item.getStatement(), item.getPoints(),
@@ -429,7 +483,8 @@ public class QuizAttemptService {
                     hintCounts.getOrDefault(item.getId(), 0),
                     response == null ? null : response.getTeacherComment(),
                     item.getSection(),
-                    item.getImageKey()));
+                    item.getImageKey(),
+                    response == null ? List.of() : response.photoIds()));
         }
         return new AttemptResultViewDto(attempt.getId(), attempt.getQuiz().getTitle(),
                 attempt.getStatus(), attempt.getScore(), maxScore, itemResults, attempt.getMode(),
@@ -555,27 +610,21 @@ public class QuizAttemptService {
      * Somebody else's attempt is a 404 - the same answer as an id that does not exist.
      */
     @Transactional(readOnly = true)
-    public Resource getOwnPhoto(Long attemptId, Long itemId, String studentEmail) {
+    public Resource getOwnPhoto(Long attemptId, Long itemId, Long photoId, String studentEmail) {
         attemptRepository.findById(attemptId)
                 .filter(a -> a.getStudent().getEmail().equals(studentEmail))
                 .orElseThrow(() -> new QuizNotFoundException("QuizAttempt", attemptId));
-        return getOpenPhotoResource(attemptId, itemId);
+        return getOpenPhotoResource(attemptId, itemId, photoId);
     }
 
-    /** Fetch pentru poza uploadată, folosit de admin/profesor. */
-    public Resource getOpenPhotoResource(Long attemptId, Long itemId) {
-        QuizAttempt attempt = attemptRepository.findById(attemptId)
-                .orElseThrow(() -> new QuizNotFoundException("QuizAttempt", attemptId));
-
-        ItemResponse response = responseRepository.findByAttemptIdAndItemId(attemptId, itemId)
-                .orElseThrow(() -> new InvalidQuizException("Nu există răspuns pentru acest subiect"));
-
-        if (response.getImageKey() == null) {
-            throw new InvalidQuizException("Nu a fost încărcată nicio poză pentru acest răspuns");
-        }
-
+    /** One page of an answer, for the teacher (and, through {@link #getOwnPhoto}, its student). Unknown = 404. */
+    @Transactional(readOnly = true)
+    public Resource getOpenPhotoResource(Long attemptId, Long itemId, Long photoId) {
+        String key = responseRepository.findByAttemptIdAndItemId(attemptId, itemId)
+                .flatMap(response -> response.photoKey(photoId))
+                .orElseThrow(() -> new QuizNotFoundException("ResponsePhoto", photoId));
         try {
-            return fileService.loadImage(quizPhotosDir, response.getImageKey());
+            return fileService.loadImage(quizPhotosDir, key);
         } catch (IOException e) {
             throw new UncheckedIOException("Nu am putut citi poza", e);
         }
@@ -751,10 +800,11 @@ public class QuizAttemptService {
                     item.getSolution(), selectedText, correctText,
                     response == null ? null : response.getCorrect(),
                     response == null ? null : response.getAwardedPoints(),
-                    response != null && response.getImageKey() != null,
+                    response != null && response.hasPhotos(),
                     response == null ? null : response.getTeacherComment(),
                     item.getSection(),
-                    item.getImageKey()));
+                    item.getImageKey(),
+                    response == null ? List.of() : response.photoIds()));
         }
         return new AdminAttemptDetailDto(attempt.getId(), attempt.getQuiz().getTitle(),
                 attempt.getStudent().getFullName(), attempt.getStatus(), attempt.getSubmittedAt(),

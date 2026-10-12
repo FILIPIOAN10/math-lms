@@ -855,6 +855,8 @@ export interface SavedAnswerDto {
   photoUploaded: boolean
   /** Practice only; null in a graded test. */
   feedback: AnswerFeedback | null
+  /** S2: the pages sent for an open question, oldest first. */
+  photoIds: number[]
 }
 
 /** One revealed hint: its 1-based number, its text and how many hints the item has in all. */
@@ -931,6 +933,8 @@ export interface ItemResultDto {
   correctOptionText: string | null
   barem: string | null
   photoUploaded: boolean
+  /** S2: the pages of the open answer, oldest first. */
+  photoIds: number[]
   /** Practice only (0 in a graded test). */
   hintsUsed: number
   hintsAvailable: number
@@ -1051,9 +1055,9 @@ export async function getQuizPreview(quizId: number): Promise<QuizPreview> {
   return response.json()
 }
 
-/** The student's own photo of an OPEN item (served only to them; never cached, so add `?v=` after a re-upload). */
-export function ownPhotoUrl(attemptId: number, itemId: number): string {
-  return `/api/quiz/attempts/${attemptId}/responses/${itemId}/photo`
+/** One page of the student's own answer to an OPEN item (served only to them, never cached). */
+export function ownPhotoUrl(attemptId: number, itemId: number, photoId: number): string {
+  return `/api/quiz/attempts/${attemptId}/responses/${itemId}/photos/${photoId}`
 }
 
 export async function getStudentQuizzes(): Promise<QuizSummary[]> {
@@ -1090,16 +1094,31 @@ export async function saveQuizAnswer(
   return feedbackOrNull(await putJson(`/quiz/attempts/${attemptId}/responses/${itemId}`, { optionId }))
 }
 
-export async function uploadQuizPhoto(attemptId: number, itemId: number, file: File): Promise<AnswerFeedback | null> {
+/** S2: an open answer's pages after one was added or taken off, with the barem in a practice (null in a test). */
+export interface AnswerPhotos {
+  photoIds: number[]
+  feedback: AnswerFeedback | null
+}
+
+/** S2: the most pages one open answer may have (the server enforces it too). */
+export const MAX_PHOTOS = 5
+
+/** Adds one page (up to MAX_PHOTOS) to an open answer. */
+export async function uploadQuizPhoto(attemptId: number, itemId: number, file: File): Promise<AnswerPhotos> {
   const formData = new FormData()
   formData.append('file', file)
   // No Content-Type header: the browser sets multipart/form-data with the boundary itself.
-  return feedbackOrNull(
-    await apiFetch(`/quiz/attempts/${attemptId}/responses/${itemId}/photo`, {
-      method: 'POST',
-      body: formData,
-    }),
-  )
+  const response = await apiFetch(`/quiz/attempts/${attemptId}/responses/${itemId}/photo`, {
+    method: 'POST',
+    body: formData,
+  })
+  return response.json()
+}
+
+/** Takes one page off an open answer while the attempt is still open. */
+export async function deleteQuizPhoto(attemptId: number, itemId: number, photoId: number): Promise<AnswerPhotos> {
+  const response = await apiFetch(`/quiz/attempts/${attemptId}/responses/${itemId}/photos/${photoId}`, { method: 'DELETE' })
+  return response.json()
 }
 
 /** Reveals hint `number` (1-based) of an item - practice only, in order; asking again for one already shown is harmless. */
@@ -1149,6 +1168,8 @@ export interface AdminItemReview {
   correct: boolean | null
   awardedPoints: number | null
   photoUploaded: boolean
+  /** S2: the pages of the open answer, oldest first. */
+  photoIds: number[]
   teacherComment: string | null
   /** The heading it sits under (EN style: "SUBIECTUL I" + optional instruction lines); null/absent = none. */
   section?: string | null
@@ -1194,8 +1215,8 @@ export async function finalizeGrading(attemptId: number): Promise<void> {
 }
 
 /** A plain GET the browser makes itself for an <img>; the auth cookie rides along via the /api proxy. */
-export function attemptPhotoUrl(attemptId: number, itemId: number): string {
-  return `/api/admin/quiz/attempts/${attemptId}/responses/${itemId}/photo`
+export function attemptPhotoUrl(attemptId: number, itemId: number, photoId: number): string {
+  return `/api/admin/quiz/attempts/${attemptId}/responses/${itemId}/photos/${photoId}`
 }
 
 // ---------- Homework (E7) ----------

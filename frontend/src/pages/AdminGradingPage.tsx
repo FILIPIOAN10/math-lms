@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { AttemptStatusBadge } from '@/components/AttemptStatusBadge'
 import { MathContent } from '@/components/MathContent'
+import { PhotoPages } from '@/components/PhotoPages'
 import { QuestionImage } from '@/components/QuestionImage'
 import { GradeByItem } from '@/components/GradeByItem'
 import { SectionHeadingView } from '@/components/SectionHeadingView'
@@ -76,14 +77,12 @@ function OpenItemGrader({
 
   return (
     <div className="space-y-3">
-      {item.photoUploaded ? (
-        <a href={attemptPhotoUrl(attempt.attemptId, item.itemId)} target="_blank" rel="noreferrer">
-          <img
-            src={attemptPhotoUrl(attempt.attemptId, item.itemId)}
-            alt="Rezolvarea trimisă de elev"
-            className="max-h-96 rounded-lg border object-contain"
-          />
-        </a>
+      {item.photoIds.length > 0 ? (
+        <PhotoPages
+          stacked
+          urls={item.photoIds.map((photoId) => attemptPhotoUrl(attempt.attemptId, item.itemId, photoId))}
+          alt={(page) => `Rezolvarea trimisă de elev, pagina ${page} din ${item.photoIds.length}`}
+        />
       ) : (
         <p className="text-sm text-muted-foreground">Elevul nu a trimis nicio poză.</p>
       )}

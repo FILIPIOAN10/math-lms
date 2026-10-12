@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -18,6 +18,8 @@ import {
   startQuizAttempt,
   submitQuizAttempt,
   uploadQuizPhoto,
+  deleteQuizPhoto,
+  MAX_PHOTOS,
   type AnswerFeedback,
   type AttemptMode,
   type QuizPreview,
@@ -63,6 +65,51 @@ const TIMER_ANNOUNCEMENTS: Record<TimerTone, string> = {
 const headingId = (itemId: number) => `item-heading-${itemId}`
 
 /**
+ * A button that opens the file picker - with `capture`, the phone's camera directly (S2). The input sits inside the
+ * label (visually hidden but focusable), so the whole button is the click target and the keyboard focus ring.
+ */
+function PhotoPicker({
+  testId,
+  capture = false,
+  primary,
+  disabled,
+  onPick,
+  children,
+}: {
+  testId: string
+  capture?: boolean
+  primary: boolean
+  disabled: boolean
+  onPick: (file: File) => void
+  children: ReactNode
+}) {
+  return (
+    <label
+      className={cn(
+        buttonVariants({ variant: primary ? 'default' : 'outline' }),
+        'h-10 cursor-pointer px-4 has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50',
+        disabled && 'pointer-events-none opacity-50',
+      )}
+    >
+      <input
+        type="file"
+        className="sr-only"
+        data-testid={testId}
+        accept="image/*"
+        capture={capture ? 'environment' : undefined}
+        disabled={disabled}
+        onChange={(e) => {
+          const file = e.target.files?.[0]
+          if (file) onPick(file)
+          e.target.value = '' // lets the student pick the same file again after an error
+        }}
+      />
+      {children}
+    </label>
+  )
+}
+
+/**
  * Taking one quiz. Nothing is created until the student presses "Începe" (the start call creates
  * the attempt, or resumes the one in progress). Before that the page shows what the student is walking into: the
  * title, how many items and points, the clock and, for homework, the deadline. Every answer is saved to the server
@@ -92,8 +139,7 @@ export function TakeQuizPage() {
 
   const [attempt, setAttempt] = useState<StartedAttemptDto | null>(null)
   const [selected, setSelected] = useState<Record<number, number>>({})
-  const [photos, setPhotos] = useState<Record<number, boolean>>({})
-  const [photoVersion, setPhotoVersion] = useState<Record<number, number>>({}) // bumps the thumbnail URL after a re-upload
+  const [photos, setPhotos] = useState<Record<number, number[]>>({}) // itemId -> the pages sent (photo ids), oldest first
   const [feedback, setFeedback] = useState<Record<number, AnswerFeedback | undefined>>({}) // practice only
   const [hints, setHints] = useState<Record<number, string[]>>({}) // itemId -> hints revealed so far (practice only)
   const [hintBusy, setHintBusy] = useState<Record<number, boolean>>({})
@@ -181,8 +227,11 @@ export function TakeQuizPage() {
     setItemErrors((s) => ({ ...s, [itemId]: message }))
   }
 
+  /** The pages already sent for an open question (photo ids, oldest first). */
+  const pagesOf = (itemId: number): number[] => photos[itemId] ?? []
+
   function isAnswered(item: StudentItemDto): boolean {
-    return item.type === 'SINGLE_CHOICE' ? selected[item.id] !== undefined : photos[item.id] === true
+    return item.type === 'SINGLE_CHOICE' ? selected[item.id] !== undefined : (photos[item.id]?.length ?? 0) > 0
   }
 
   /** Scrolls an item into view and moves focus to its heading, so keyboard and screen-reader users land there too. */
@@ -210,11 +259,11 @@ export function TakeQuizPage() {
         }
       }
       const restoredChoices: Record<number, number> = {}
-      const restoredPhotos: Record<number, boolean> = {}
+      const restoredPhotos: Record<number, number[]> = {}
       const restoredFeedback: Record<number, AnswerFeedback | undefined> = {}
       for (const answer of data.answers) {
         if (answer.selectedOptionId !== null) restoredChoices[answer.itemId] = answer.selectedOptionId
-        if (answer.photoUploaded) restoredPhotos[answer.itemId] = true
+        if (answer.photoIds.length > 0) restoredPhotos[answer.itemId] = answer.photoIds
         if (answer.feedback) restoredFeedback[answer.itemId] = answer.feedback
       }
       setSelected(restoredChoices)
@@ -285,9 +334,24 @@ export function TakeQuizPage() {
         return
       }
       const result = await uploadQuizPhoto(attempt.attemptId, itemId, toSend)
-      setPhotos((s) => ({ ...s, [itemId]: true }))
-      setPhotoVersion((v) => ({ ...v, [itemId]: (v[itemId] ?? 0) + 1 }))
-      setFeedback((s) => ({ ...s, [itemId]: result ?? undefined }))
+      setPhotos((s) => ({ ...s, [itemId]: result.photoIds }))
+      setFeedback((s) => ({ ...s, [itemId]: result.feedback ?? undefined }))
+    } catch (e) {
+      setItemError(itemId, errorMessage(e))
+      if (isTimeUpConflict(e)) void submitBecauseTimeIsUp()
+    } finally {
+      setItemBusy(itemId, false)
+    }
+  }
+
+  /** S2: takes one page off an open answer (the attempt is still open, so it can change). */
+  async function removePhoto(itemId: number, photoId: number) {
+    if (!attempt) return
+    setItemError(itemId, undefined)
+    setItemBusy(itemId, true)
+    try {
+      const result = await deleteQuizPhoto(attempt.attemptId, itemId, photoId)
+      setPhotos((s) => ({ ...s, [itemId]: result.photoIds }))
     } catch (e) {
       setItemError(itemId, errorMessage(e))
       if (isTimeUpConflict(e)) void submitBecauseTimeIsUp()
@@ -523,48 +587,68 @@ export function TakeQuizPage() {
               ) : (
                 <div className="space-y-3 text-sm">
                   <p className="text-muted-foreground">
-                    Rezolvă pe hârtie, apoi fotografiază rezolvarea și încarc-o aici.
+                    Rezolvă pe hârtie, apoi fotografiază rezolvarea și încarc-o aici — până la {MAX_PHOTOS} pagini, în ordine.
                   </p>
-                  <label
-                    className={cn(
-                      buttonVariants({ variant: photos[item.id] ? 'outline' : 'default' }),
-                      'h-10 cursor-pointer px-4 has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50',
-                      (saving[item.id] || timeUp) && 'pointer-events-none opacity-50',
-                    )}
-                  >
-                    <input
-                      type="file"
-                      className="sr-only"
-                      data-testid="item-photo"
-                      accept="image/*"
-                      disabled={saving[item.id] || timeUp}
-                      onChange={(e) => {
-                        const file = e.target.files?.[0]
-                        if (file) upload(item.id, file)
-                        e.target.value = '' // lets the student pick the same file again after an error
-                      }}
-                    />
-                    <span aria-hidden="true">📷</span>
-                    <span>{photos[item.id] ? 'Înlocuiește poza' : 'Încarcă poza rezolvării'}</span>
-                  </label>
-                  {photos[item.id] && (
-                    <p role="status" className="text-emerald-700 dark:text-emerald-300">
-                      ✓ Poză încărcată. Poți alege alta ca să o înlocuiești.
+                  {pagesOf(item.id).length > 0 && (
+                    <ul className="flex flex-wrap gap-3" aria-label={`Pozele tale pentru subiectul ${labelOf.get(item.id)}`}>
+                      {pagesOf(item.id).map((photoId, index) => (
+                        <li key={photoId} className="flex flex-col items-start gap-1" data-testid="item-photo-page">
+                          <a href={ownPhotoUrl(attempt.attemptId, item.id, photoId)} target="_blank" rel="noreferrer">
+                            <img
+                              src={ownPhotoUrl(attempt.attemptId, item.id, photoId)}
+                              alt={`Pagina ${index + 1} a rezolvării, subiectul ${labelOf.get(item.id)}`}
+                              className="h-32 w-auto rounded-lg border bg-background object-contain"
+                            />
+                          </a>
+                          <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                            Pagina {index + 1}
+                            <Button
+                              type="button"
+                              size="xs"
+                              variant="ghost"
+                              disabled={saving[item.id] || timeUp}
+                              onClick={() => removePhoto(item.id, photoId)}
+                              aria-label={`Șterge pagina ${index + 1}`}
+                            >
+                              Șterge
+                            </Button>
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {pagesOf(item.id).length < MAX_PHOTOS ? (
+                    <div className="flex flex-wrap gap-2">
+                      {/* On a phone `capture` opens the camera straight away; on a computer it is a file picker. */}
+                      <PhotoPicker
+                        testId="item-camera"
+                        capture
+                        primary={pagesOf(item.id).length === 0}
+                        disabled={saving[item.id] || timeUp}
+                        onPick={(file) => upload(item.id, file)}
+                      >
+                        <span aria-hidden="true">📷</span>
+                        <span>Fă o poză</span>
+                      </PhotoPicker>
+                      <PhotoPicker
+                        testId="item-photo"
+                        primary={false}
+                        disabled={saving[item.id] || timeUp}
+                        onPick={(file) => upload(item.id, file)}
+                      >
+                        <span aria-hidden="true">🖼️</span>
+                        <span>{pagesOf(item.id).length > 0 ? 'Adaugă încă o pagină' : 'Alege o poză din galerie'}</span>
+                      </PhotoPicker>
+                    </div>
+                  ) : (
+                    <p className="text-muted-foreground">
+                      Ai {MAX_PHOTOS} pagini, cât se poate trimite. Șterge una ca să pui alta în locul ei.
                     </p>
                   )}
-                  {photos[item.id] && (
-                    <a
-                      href={ownPhotoUrl(attempt.attemptId, item.id)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="block w-fit"
-                    >
-                      <img
-                        src={`${ownPhotoUrl(attempt.attemptId, item.id)}${photoVersion[item.id] ? `?v=${photoVersion[item.id]}` : ''}`}
-                        alt={`Poza ta pentru subiectul ${labelOf.get(item.id)}`}
-                        className="max-h-48 rounded-lg border bg-background object-contain"
-                      />
-                    </a>
+                  {pagesOf(item.id).length > 0 && (
+                    <p role="status" className="text-emerald-700 dark:text-emerald-300">
+                      ✓ Poză încărcată · {roCount(pagesOf(item.id).length, 'pagină trimisă', 'pagini trimise')}.
+                    </p>
                   )}
                   {feedback[item.id]?.solution && (
                     <div data-testid="item-feedback" className="space-y-1 rounded-lg bg-muted p-3">

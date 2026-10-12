@@ -13,6 +13,7 @@ import ro.mathlms.quiz.ItemResponse;
 import ro.mathlms.quiz.ItemResponseRepository;
 import ro.mathlms.quiz.QuizAttempt;
 import ro.mathlms.quiz.QuizAttemptRepository;
+import ro.mathlms.quiz.ResponsePhoto;
 import ro.mathlms.review.ReviewAnswerRepository;
 import ro.mathlms.storage.FileService;
 import ro.mathlms.user.User;
@@ -118,7 +119,7 @@ public class GdprExportService {
                 response.getItem().getType().name(),
                 response.getItem().getStatement(),
                 response.getSelectedOption() == null ? null : response.getSelectedOption().getText(),
-                response.getImageKey(),
+                response.getPhotos().stream().map(ResponsePhoto::getImageKey).toList(),
                 response.getAwardedPoints(),
                 response.getCorrect(),
                 response.getTeacherComment());
@@ -143,22 +144,20 @@ public class GdprExportService {
     private void addPhotos(ZipOutputStream zip, GdprExportData.Archive archive) throws IOException {
         for (GdprExportData.Attempt attempt : archive.attempts()) {
             for (GdprExportData.ResponseEntry response : attempt.responses()) {
-                String key = response.photoFile();
-                if (key == null) {
-                    continue;
+                for (String key : response.photoFiles()) {
+                    Resource photo;
+                    try {
+                        photo = fileService.loadImage(quizPhotosDir, key);
+                    } catch (IOException missing) {
+                        // A photo referenced in the DB but gone from disk shouldn't break the whole export.
+                        continue;
+                    }
+                    zip.putNextEntry(new ZipEntry("photos/" + key));
+                    try (InputStream in = photo.getInputStream()) {
+                        in.transferTo(zip);
+                    }
+                    zip.closeEntry();
                 }
-                Resource photo;
-                try {
-                    photo = fileService.loadImage(quizPhotosDir, key);
-                } catch (IOException missing) {
-                    // A photo referenced in the DB but gone from disk shouldn't break the whole export.
-                    continue;
-                }
-                zip.putNextEntry(new ZipEntry("photos/" + key));
-                try (InputStream in = photo.getInputStream()) {
-                    in.transferTo(zip);
-                }
-                zip.closeEntry();
             }
         }
     }

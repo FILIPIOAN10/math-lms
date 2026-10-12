@@ -105,13 +105,20 @@ class QuizAttemptControllerTest {
     }
 
     @Test
-    void uploadPhotoReturns204AndDelegates() {
+    void uploadPhotoReturnsTheAnswersPhotoIds() {
         MultipartFile file = new MockMultipartFile("file", "r.jpg", "image/jpeg", "bytes".getBytes());
+        StudentQuizDtos.PhotosDto photos = new StudentQuizDtos.PhotosDto(List.of(7L, 8L), null);
+        when(service.uploadOpenPhoto(50L, 101L, file, "elev@scoala.ro")).thenReturn(photos);
 
-        ResponseEntity<AnswerFeedbackDto> response = controller.uploadPhoto(50L, 101L, file, auth);
+        assertThat(controller.uploadPhoto(50L, 101L, file, auth)).isEqualTo(photos);
+    }
 
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
-        verify(service).uploadOpenPhoto(50L, 101L, file, "elev@scoala.ro");
+    @Test
+    void deletePhotoReturnsThePhotosLeft() {
+        StudentQuizDtos.PhotosDto left = new StudentQuizDtos.PhotosDto(List.of(8L), null);
+        when(service.deleteOpenPhoto(50L, 101L, 7L, "elev@scoala.ro")).thenReturn(left);
+
+        assertThat(controller.deletePhoto(50L, 101L, 7L, auth)).isEqualTo(left);
     }
 
     @Test
@@ -130,14 +137,14 @@ class QuizAttemptControllerTest {
                 return "stored.jpg";
             }
         };
-        when(service.getOwnPhoto(50L, 101L, "elev@scoala.ro")).thenReturn(image);
+        when(service.getOwnPhoto(50L, 101L, 7L, "elev@scoala.ro")).thenReturn(image);
 
-        ResponseEntity<Resource> response = controller.ownPhoto(50L, 101L, auth);
+        ResponseEntity<Resource> response = controller.ownPhoto(50L, 101L, 7L, auth);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getHeaders().getContentType()).isEqualTo(MediaType.IMAGE_JPEG);
         assertThat(response.getHeaders().getFirst(HttpHeaders.CONTENT_DISPOSITION)).isEqualTo("inline; filename=\"stored.jpg\"");
-        // a re-upload replaces the photo under the same URL: the browser must ask again, never reuse an old copy
+        // a minor's photographed work: never kept in a shared or browser cache
         assertThat(response.getHeaders().getCacheControl()).contains("no-store");
         assertThat(response.getBody()).isSameAs(image);
     }

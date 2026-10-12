@@ -29,7 +29,7 @@ public final class GdprExportData {
             String itemType,
             String itemStatement,
             String selectedOptionText,
-            String photoFile,
+            List<String> photoFiles, // S2: every page, in the order taken; each is in the ZIP under photos/
             Integer awardedPoints,
             Boolean correct,
             String teacherComment

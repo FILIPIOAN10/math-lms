@@ -113,13 +113,13 @@ class QuizAttemptPreviewServiceTest {
     void aStudentGetsBackThePhotoTheyUploaded() throws Exception {
         QuizAttempt attempt = withId(new QuizAttempt(quiz, student), 50L);
         ItemResponse response = new ItemResponse(attempt, open(100L));
-        response.answerOpen("stored.jpg");
+        ReflectionTestUtils.setField(response.addPhoto("stored.jpg", java.time.Instant.EPOCH), "id", 7L);
         Resource image = new ByteArrayResource(new byte[] {1, 2, 3});
         when(attemptRepository.findById(50L)).thenReturn(Optional.of(attempt));
         when(responseRepository.findByAttemptIdAndItemId(50L, 100L)).thenReturn(Optional.of(response));
         when(fileService.loadImage("uploads/quiz-photos", "stored.jpg")).thenReturn(image);
 
-        assertThat(service.getOwnPhoto(50L, 100L, EMAIL)).isSameAs(image);
+        assertThat(service.getOwnPhoto(50L, 100L, 7L, EMAIL)).isSameAs(image);
     }
 
     @Test
@@ -127,17 +127,17 @@ class QuizAttemptPreviewServiceTest {
         QuizAttempt attempt = withId(new QuizAttempt(quiz, other), 50L);
         when(attemptRepository.findById(50L)).thenReturn(Optional.of(attempt));
 
-        assertThatThrownBy(() -> service.getOwnPhoto(50L, 100L, EMAIL)).isInstanceOf(QuizNotFoundException.class);
+        assertThatThrownBy(() -> service.getOwnPhoto(50L, 100L, 7L, EMAIL)).isInstanceOf(QuizNotFoundException.class);
         verify(fileService, never()).loadImage(any(), any());
     }
 
     @Test
-    void anItemWithoutAPhotoIsRejected() {
+    void anItemWithoutThatPhotoIsNotFound() {
         QuizAttempt attempt = withId(new QuizAttempt(quiz, student), 50L);
         when(attemptRepository.findById(50L)).thenReturn(Optional.of(attempt));
         when(responseRepository.findByAttemptIdAndItemId(50L, 100L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.getOwnPhoto(50L, 100L, EMAIL)).isInstanceOf(InvalidQuizException.class);
+        assertThatThrownBy(() -> service.getOwnPhoto(50L, 100L, 7L, EMAIL)).isInstanceOf(QuizNotFoundException.class);
     }
 
     // --- the result names each item, so the page can show the photo next to it ---

@@ -67,7 +67,7 @@ class QuizAttemptRepositoryTest {
         ItemResponse r1 = new ItemResponse(attempt, grila);
         r1.answerSingleChoice(right);
         ItemResponse r2 = new ItemResponse(attempt, deschis);
-        r2.answerOpen("uploads/rezolvare.jpg");
+        r2.addPhoto("uploads/rezolvare.jpg", java.time.Instant.EPOCH);
         itemResponseRepository.save(r1);
         itemResponseRepository.save(r2);
 
@@ -77,7 +77,7 @@ class QuizAttemptRepositoryTest {
         assertThat(itemResponseRepository.findByAttemptIdAndItemId(attempt.getId(), grila.getId()))
                 .get().extracting(r -> r.getSelectedOption().getId()).isEqualTo(right.getId());
         assertThat(itemResponseRepository.findByAttemptIdAndItemId(attempt.getId(), deschis.getId()))
-                .get().extracting(ItemResponse::getImageKey).isEqualTo("uploads/rezolvare.jpg");
+                .get().extracting(r -> r.getPhotos().get(0).getImageKey()).isEqualTo("uploads/rezolvare.jpg");
     }
 
     @Test
@@ -88,11 +88,11 @@ class QuizAttemptRepositoryTest {
         User ana = student("ana@scoala.ro");
         QuizAttempt attempt = quizAttemptRepository.save(new QuizAttempt(quiz, ana));
         ItemResponse first = new ItemResponse(attempt, item);
-        first.answerOpen("a.jpg");
+        first.addPhoto("a.jpg", java.time.Instant.EPOCH);
         itemResponseRepository.saveAndFlush(first);
 
         ItemResponse duplicate = new ItemResponse(attempt, item);
-        duplicate.answerOpen("b.jpg");
+        duplicate.addPhoto("b.jpg", java.time.Instant.EPOCH);
 
         assertThatThrownBy(() -> itemResponseRepository.saveAndFlush(duplicate))
                 .isInstanceOf(DataIntegrityViolationException.class);
@@ -226,7 +226,7 @@ class QuizAttemptRepositoryTest {
         r1.answerSingleChoice(chosen);
         r1.gradeAuto(chosen.isCorrect(), chosen.isCorrect() ? 5 : 0);
         ItemResponse r2 = new ItemResponse(attempt, deschis);
-        r2.answerOpen("uploads/x.jpg");
+        r2.addPhoto("uploads/x.jpg", java.time.Instant.EPOCH);
         r2.gradeManual(openPoints);
         itemResponseRepository.save(r1);
         itemResponseRepository.save(r2);

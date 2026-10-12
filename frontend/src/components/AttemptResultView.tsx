@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { AttemptModeBadge } from '@/components/AttemptModeBadge'
 import { AttemptStatusBadge } from '@/components/AttemptStatusBadge'
 import { MathContent } from '@/components/MathContent'
+import { PhotoPages } from '@/components/PhotoPages'
 import { QuestionImage } from '@/components/QuestionImage'
 import { SectionHeadingView } from '@/components/SectionHeadingView'
 import { numberItems } from '@/lib/sections'
@@ -121,23 +122,18 @@ function ItemResult({
         ) : (
           <div className="space-y-2">
           <p className="text-sm text-muted-foreground">
-            {item.photoUploaded
-              ? own
-                ? 'Ai trimis o poză cu rezolvarea.'
-                : 'Elevul a trimis o poză cu rezolvarea.'
+            {item.photoIds.length > 0
+              ? `${own ? 'Ai trimis' : 'Elevul a trimis'} ${roCount(item.photoIds.length, 'pagină', 'pagini')} cu rezolvarea.`
               : own
                 ? 'Nu ai trimis nicio poză pentru acest subiect.'
                 : 'Elevul nu a trimis nicio poză pentru acest subiect.'}
           </p>
-          {/* Only the student's own API serves the photo; the parent view has no endpoint for it. */}
-          {own && item.photoUploaded && (
-            <a href={ownPhotoUrl(attemptId, item.itemId)} target="_blank" rel="noreferrer" className="block w-fit">
-              <img
-                src={ownPhotoUrl(attemptId, item.itemId)}
-                alt={`Poza ta pentru subiectul ${label}`}
-                className="max-h-64 rounded-lg border bg-background object-contain"
-              />
-            </a>
+          {/* Only the student's own API serves the photos; the parent view has no endpoint for them. */}
+          {own && (
+            <PhotoPages
+              urls={item.photoIds.map((photoId) => ownPhotoUrl(attemptId, item.itemId, photoId))}
+              alt={(page) => `Poza ta pentru subiectul ${label}, pagina ${page}`}
+            />
           )}
           </div>
         )}

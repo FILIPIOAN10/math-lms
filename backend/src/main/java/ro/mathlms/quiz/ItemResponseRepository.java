@@ -22,16 +22,6 @@ public interface ItemResponseRepository extends JpaRepository<ItemResponse, Long
             + " and r.attempt.mode = ro.mathlms.quiz.AttemptMode.TEST group by r.item.id")
     List<ItemStat> findItemStatsByQuizId(@Param("quizId") Long quizId);
 
-    /** Storage keys of every rezolvare photo a student uploaded — used by GDPR erasure to delete the files. */
-    @Query("select r.imageKey from ItemResponse r"
-            + " where r.attempt.student.id = :userId and r.imageKey is not null")
-    List<String> findImageKeysByStudentId(@Param("userId") Long userId);
-
-    /** GDPR erasure: detach a student's photos from their (retained, anonymised) responses. */
-    @Modifying(flushAutomatically = true, clearAutomatically = true)
-    @Query("update ItemResponse r set r.imageKey = null where r.attempt.student.id = :userId")
-    void clearPhotosByStudentId(@Param("userId") Long userId);
-
     /** GDPR erasure: the teacher's comments are free text about the student - they go, the points stay. */
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("update ItemResponse r set r.teacherComment = null where r.attempt.student.id = :userId")

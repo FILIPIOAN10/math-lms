@@ -14,6 +14,7 @@ import ro.mathlms.auth.UserNotFoundException;
 import ro.mathlms.auth.VerificationTokenService;
 import ro.mathlms.content.EnrollmentRepository;
 import ro.mathlms.quiz.ItemResponseRepository;
+import ro.mathlms.quiz.ResponsePhotoRepository;
 import ro.mathlms.quiz.QuizAttemptRepository;
 import ro.mathlms.storage.FileService;
 import ro.mathlms.user.Role;
@@ -48,6 +49,7 @@ public class GdprErasureService {
     private final EmailService emailService;
     private final EnrollmentRepository enrollmentRepository;
     private final ItemResponseRepository responseRepository;
+    private final ResponsePhotoRepository photoRepository;
     private final QuizAttemptRepository attemptRepository;
     private final FileService fileService;
     private final RefreshTokenService refreshTokenService;
@@ -56,6 +58,7 @@ public class GdprErasureService {
     public GdprErasureService(UserRepository userRepository, PasswordEncoder passwordEncoder,
                               VerificationTokenService tokenService, EmailService emailService,
                               EnrollmentRepository enrollmentRepository, ItemResponseRepository responseRepository,
+                              ResponsePhotoRepository photoRepository,
                               QuizAttemptRepository attemptRepository, FileService fileService, RefreshTokenService refreshTokenService,
                               @Value("${app.storage.quiz-photos-dir}") String quizPhotosDir) {
         this.userRepository = userRepository;
@@ -64,6 +67,7 @@ public class GdprErasureService {
         this.emailService = emailService;
         this.enrollmentRepository = enrollmentRepository;
         this.responseRepository = responseRepository;
+        this.photoRepository = photoRepository;
         this.attemptRepository = attemptRepository;
         this.fileService = fileService;
         this.refreshTokenService = refreshTokenService;
@@ -108,14 +112,14 @@ public class GdprErasureService {
         Long userId = user.getId();
 
         // Delete the uploaded photos (files first, then detach them from the retained responses).
-        for (String key : responseRepository.findImageKeysByStudentId(userId)) {
+        for (String key : photoRepository.findImageKeysByStudentId(userId)) {
             try {
                 fileService.deleteImage(quizPhotosDir, key);
             } catch (IOException ignored) {
                 // A file already gone must not block the erasure.
             }
         }
-        responseRepository.clearPhotosByStudentId(userId);
+        photoRepository.deleteByStudentId(userId);
         // The teacher's comments are free text about the person and may name them; points and grades stay.
         responseRepository.clearTeacherCommentsByStudentId(userId);
         attemptRepository.clearTeacherCommentsByStudentId(userId);

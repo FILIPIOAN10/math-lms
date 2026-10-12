@@ -29,7 +29,7 @@ class ItemResponseTest {
         assertThat(response.getAttempt()).isSameAs(attempt);
         assertThat(response.getItem()).isSameAs(item);
         assertThat(response.getSelectedOption()).isNull();
-        assertThat(response.getImageKey()).isNull();
+        assertThat(response.hasPhotos()).isFalse();
         assertThat(response.getAwardedPoints()).isNull();
         assertThat(response.getCorrect()).isNull();
     }
@@ -52,7 +52,7 @@ class ItemResponseTest {
         response.answerSingleChoice(a);
 
         assertThat(response.getSelectedOption()).isSameAs(a);
-        assertThat(response.getImageKey()).isNull();
+        assertThat(response.hasPhotos()).isFalse();
     }
 
     @Test
@@ -67,21 +67,42 @@ class ItemResponseTest {
     }
 
     @Test
-    void answerOpenRecordsTheImageKey() {
-        QuizItem item = open();
-        ItemResponse response = new ItemResponse(attempt, item);
+    void photosAreKeptInTheOrderTakenUpToFive() {
+        ItemResponse response = new ItemResponse(attempt, open());
 
-        response.answerOpen("uploads/rezolvare-1.jpg");
+        for (int page = 1; page <= ItemResponse.MAX_PHOTOS; page++) {
+            response.addPhoto("pagina-" + page + ".jpg", java.time.Instant.EPOCH);
+        }
 
-        assertThat(response.getImageKey()).isEqualTo("uploads/rezolvare-1.jpg");
+        assertThat(response.getPhotos()).extracting(ResponsePhoto::getImageKey)
+                .containsExactly("pagina-1.jpg", "pagina-2.jpg", "pagina-3.jpg", "pagina-4.jpg", "pagina-5.jpg");
         assertThat(response.getSelectedOption()).isNull();
+        assertThatThrownBy(() -> response.addPhoto("pagina-6.jpg", java.time.Instant.EPOCH))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("at most 5");
+    }
+
+    @Test
+    void aPhotoCanBeTakenOffByItsIdAndAnUnknownIdChangesNothing() {
+        ItemResponse response = new ItemResponse(attempt, open());
+        ResponsePhoto first = response.addPhoto("a.jpg", java.time.Instant.EPOCH);
+        ResponsePhoto second = response.addPhoto("b.jpg", java.time.Instant.EPOCH);
+        org.springframework.test.util.ReflectionTestUtils.setField(first, "id", 1L);
+        org.springframework.test.util.ReflectionTestUtils.setField(second, "id", 2L);
+
+        assertThat(response.removePhoto(99L)).isEmpty();
+        assertThat(response.removePhoto(1L)).contains("a.jpg");
+
+        assertThat(response.photoIds()).containsExactly(2L);
+        assertThat(response.photoKey(2L)).contains("b.jpg");
+        assertThat(response.photoKey(1L)).isEmpty();
     }
 
     @Test
     void answerOpenRejectsOnSingleChoiceItem() {
         ItemResponse response = new ItemResponse(attempt, singleChoice());
 
-        assertThatThrownBy(() -> response.answerOpen("x.jpg"))
+        assertThatThrownBy(() -> response.addPhoto("x.jpg", java.time.Instant.EPOCH))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("OPEN");
     }
@@ -90,7 +111,7 @@ class ItemResponseTest {
     void answerOpenRejectsBlankImageKey() {
         ItemResponse response = new ItemResponse(attempt, open());
 
-        assertThatThrownBy(() -> response.answerOpen("  "))
+        assertThatThrownBy(() -> response.addPhoto("  ", java.time.Instant.EPOCH))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("imageKey");
     }

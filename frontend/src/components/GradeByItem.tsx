@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { MathContent } from '@/components/MathContent'
+import { PhotoPages } from '@/components/PhotoPages'
 import { QuestionImage } from '@/components/QuestionImage'
 import {
   attemptPhotoUrl as attemptPhotoUrlDefault,
@@ -190,7 +191,7 @@ export function GradeByItem({
             answer={answerOf(paper, current.item.itemId)}
             position={index + 1}
             total={papers.length}
-            photoUrl={attemptPhotoUrl(paper.attemptId, current.item.itemId)}
+            photoUrl={(photoId) => attemptPhotoUrl(paper.attemptId, current.item.itemId, photoId)}
             onSave={async (points, comment) => {
               await gradeOpenItem(paper.attemptId, current.item.itemId, points, comment)
               await saved(paper.attemptId)
@@ -237,7 +238,8 @@ function AnswerGrader({
   answer: AdminItemReview
   position: number
   total: number
-  photoUrl: string
+  /** The address of one page of this answer. */
+  photoUrl: (photoId: number) => string
   onSave: (points: number, comment: string | null) => Promise<void>
   onPrevious?: () => void
   onNext?: () => void
@@ -277,10 +279,12 @@ function AnswerGrader({
           )}
         </div>
 
-        {answer.photoUploaded ? (
-          <a href={photoUrl} target="_blank" rel="noreferrer">
-            <img src={photoUrl} alt={`Rezolvarea lui ${paper.studentName}`} className="max-h-[28rem] rounded-lg border object-contain" />
-          </a>
+        {answer.photoIds.length > 0 ? (
+          <PhotoPages
+            stacked
+            urls={answer.photoIds.map(photoUrl)}
+            alt={(page) => `Rezolvarea lui ${paper.studentName}, pagina ${page} din ${answer.photoIds.length}`}
+          />
         ) : (
           <p className="text-sm text-muted-foreground">Elevul nu a trimis nicio poză.</p>
         )}

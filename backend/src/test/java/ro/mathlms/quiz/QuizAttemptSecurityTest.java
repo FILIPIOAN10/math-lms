@@ -56,7 +56,7 @@ class QuizAttemptSecurityTest {
     @Test
     @WithMockUser(authorities = {"STATUS_ACTIVE", "ROLE_PARENT"})
     void aParentCannotFetchAStudentsPhotoThroughTheStudentApi() throws Exception {
-        mockMvc.perform(get("/api/quiz/attempts/1/responses/2/photo")).andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/quiz/attempts/1/responses/2/photos/3")).andExpect(status().isForbidden());
     }
 
     @Test

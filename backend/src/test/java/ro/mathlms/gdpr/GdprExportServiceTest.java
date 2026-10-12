@@ -67,7 +67,7 @@ class GdprExportServiceTest {
         r1.answerSingleChoice(four);
         r1.gradeAuto(true, 5);
         ItemResponse r2 = new ItemResponse(attempt, deschis);
-        r2.answerOpen("photo.jpg");
+        r2.addPhoto("photo.jpg", java.time.Instant.EPOCH);
         r2.gradeManual(20, "Raționament corect.");
         attempt.commentOverall("Lucrare bună.");
 

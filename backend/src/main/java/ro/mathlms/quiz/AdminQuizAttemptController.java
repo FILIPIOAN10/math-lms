@@ -48,9 +48,11 @@ public class AdminQuizAttemptController {
         return service.getAttemptForGrading(attemptId);
     }
 
-    @GetMapping("/{attemptId}/responses/{itemId}/photo")
-    public ResponseEntity<Resource> getPhoto(@PathVariable Long attemptId, @PathVariable Long itemId) {
-        Resource file = service.getOpenPhotoResource(attemptId, itemId);
+    /** S2: one page of a student's answer to an OPEN item, by its id (the attempt detail lists them). */
+    @GetMapping("/{attemptId}/responses/{itemId}/photos/{photoId}")
+    public ResponseEntity<Resource> getPhoto(@PathVariable Long attemptId, @PathVariable Long itemId,
+                                             @PathVariable Long photoId) {
+        Resource file = service.getOpenPhotoResource(attemptId, itemId, photoId);
         MediaType mediaType = MediaTypeFactory.getMediaType(file)
                 .orElse(MediaType.APPLICATION_OCTET_STREAM);
         return ResponseEntity.ok()

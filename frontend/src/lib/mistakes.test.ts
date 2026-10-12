@@ -4,7 +4,7 @@ import { mistakesOf, parseOnly, practiceMistakesHref } from '@/lib/mistakes'
 
 const choice = (itemId: number, correct: boolean | null, section: string | null = null): ItemResultDto => ({
   itemId, position: itemId, type: 'SINGLE_CHOICE', statement: 's', points: 5, awardedPoints: correct ? 5 : 0, correct,
-  selectedOptionText: correct === null ? null : 'x', correctOptionText: 'y', barem: null, photoUploaded: false,
+  selectedOptionText: correct === null ? null : 'x', correctOptionText: 'y', barem: null, photoUploaded: false, photoIds: [],
   hintsUsed: 0, hintsAvailable: 0, teacherComment: null, section,
 })
 const open = (itemId: number, awarded: number | null, section: string | null = null): ItemResultDto => ({

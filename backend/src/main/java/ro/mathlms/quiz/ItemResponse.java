@@ -8,21 +8,27 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * One student's answer to a single {@link QuizItem} within a {@link QuizAttempt}. At most one
  * response per (attempt, item). Shape depends on the item type:
  * <ul>
  *   <li>{@link QuizItemType#SINGLE_CHOICE} — {@link #selectedOption}; auto-graded via {@link #gradeAuto}.</li>
- *   <li>{@link QuizItemType#OPEN} — {@link #imageKey} points to the uploaded rezolvare photo; the
- *       teacher scores it via {@link #gradeManual(int)}.</li>
+ *   <li>{@link QuizItemType#OPEN} — {@link #photos}: the photographed rezolvare, up to {@link #MAX_PHOTOS} pages in the
+ *       order taken (S2); the teacher scores it via {@link #gradeManual(int)}.</li>
  * </ul>
  * {@link #awardedPoints} and {@link #correct} stay null until the response is graded.
  */
@@ -33,6 +39,9 @@ import java.util.Objects;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class ItemResponse {
+
+    /** The most pages one open answer may have (S2). */
+    public static final int MAX_PHOTOS = 5;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -50,9 +59,10 @@ public class ItemResponse {
     @JoinColumn(name = "selected_option_id")
     private QuizOption selectedOption;
 
-    /** Storage key of the uploaded rezolvare photo (OPEN items only). */
-    @Column(name = "image_key", columnDefinition = "TEXT")
-    private String imageKey;
+    /** The photographed rezolvare (OPEN items only), oldest first. The legacy image_key column is frozen since V28. */
+    @OneToMany(mappedBy = "response", cascade = jakarta.persistence.CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("id ASC")
+    private List<ResponsePhoto> photos = new ArrayList<>();
 
     /** Points awarded for this item; null until graded. */
     @Column(name = "awarded_points")
@@ -83,14 +93,38 @@ public class ItemResponse {
             throw new IllegalArgumentException("option does not belong to this item");
         }
         this.selectedOption = option;
-        this.imageKey = null;
     }
 
-    /** Records the uploaded rezolvare photo for an OPEN item. */
-    public void answerOpen(String imageKey) {
+    /** Adds one page of the rezolvare to an OPEN item's answer; refused once it has {@link #MAX_PHOTOS}. */
+    public ResponsePhoto addPhoto(String imageKey, Instant at) {
         requireType(QuizItemType.OPEN);
-        this.imageKey = requireNonBlank(imageKey, "imageKey");
-        this.selectedOption = null;
+        if (photos.size() >= MAX_PHOTOS) {
+            throw new IllegalStateException("An answer has at most " + MAX_PHOTOS + " photos");
+        }
+        ResponsePhoto photo = new ResponsePhoto(this, requireNonBlank(imageKey, "imageKey"), at);
+        photos.add(photo);
+        return photo;
+    }
+
+    /** Takes one page off the answer; returns its stored file name, or empty when it is not this answer's photo. */
+    public Optional<String> removePhoto(Long photoId) {
+        Optional<ResponsePhoto> photo = photos.stream().filter(p -> Objects.equals(p.getId(), photoId)).findFirst();
+        photo.ifPresent(photos::remove);
+        return photo.map(ResponsePhoto::getImageKey);
+    }
+
+    /** The stored file of one of this answer's photos, by id. */
+    public Optional<String> photoKey(Long photoId) {
+        return photos.stream().filter(p -> Objects.equals(p.getId(), photoId)).map(ResponsePhoto::getImageKey).findFirst();
+    }
+
+    public boolean hasPhotos() {
+        return !photos.isEmpty();
+    }
+
+    /** The photos' ids in the order taken - what the pages use to show and delete them. */
+    public List<Long> photoIds() {
+        return photos.stream().map(ResponsePhoto::getId).toList();
     }
 
     /** Records that hint number {@code number} (1-based) was revealed; asking for an earlier one never lowers the count. */
