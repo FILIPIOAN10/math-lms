@@ -2,6 +2,7 @@ import { ParentHome } from '@/components/home/ParentHome'
 import { StudentHome } from '@/components/home/StudentHome'
 import { TeacherHome } from '@/components/home/TeacherHome'
 import { useAuth } from '@/context/AuthContext'
+import { InstallBanner } from '@/components/InstallApp'
 import { usePageTitle } from '@/lib/usePageTitle'
 
 const SUBTITLES = {
@@ -26,6 +27,7 @@ export function DashboardPage() {
           <h1 data-testid="welcome" className="text-2xl font-semibold">Bine ai venit, {user.fullName}</h1>
           <p className="text-sm text-muted-foreground">{SUBTITLES[user.role]}</p>
         </div>
+        <InstallBanner />
         {user.role === 'STUDENT' && <StudentHome />}
         {user.role === 'ADMIN' && <TeacherHome />}
         {user.role === 'PARENT' && <ParentHome />}

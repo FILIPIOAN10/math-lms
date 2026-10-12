@@ -4,6 +4,7 @@ import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { HomeSection } from '@/components/home/HomeBits'
+import { InstallAppSection } from '@/components/InstallApp'
 import { PageHeader } from '@/components/PageHeader'
 import { useConfirm } from '@/components/useConfirm'
 import { useAuth } from '@/context/AuthContext'
@@ -367,7 +368,7 @@ export function AccountPage() {
   return (
     <div className="p-4">
       <div className="mx-auto max-w-3xl space-y-6">
-        <PageHeader title="Contul meu" description="Datele contului, parola, dispozitivele conectate și datele tale." />
+        <PageHeader title="Contul meu" description="Datele contului, parola, dispozitivele conectate, aplicația pe telefon și datele tale." />
         {dialog}
         {error && <p className="text-sm text-destructive">{error}</p>}
         {!account && !error && <p className="text-muted-foreground">Se încarcă...</p>}
@@ -376,6 +377,7 @@ export function AccountPage() {
             <Profile account={account} />
             <PasswordSection account={account} onChanged={() => void reloadSessions()} />
             <SessionsSection sessions={sessions} reload={reloadSessions} onLogoutAll={() => void signOutEverywhere()} />
+            <InstallAppSection />
             <DataSection />
             <EraseSection account={account} confirm={confirm} />
           </>

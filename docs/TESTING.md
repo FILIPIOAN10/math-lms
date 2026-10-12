@@ -156,7 +156,7 @@ R: $x = 4$
 Rulează asta înainte de orice commit.
 
 ```bash
-# Backend — 926 de teste (necesită Docker pentru Testcontainers)
+# Backend — 938 de teste (necesită Docker pentru Testcontainers)
 cd math-lms/backend && ./mvnw test
 
 # Doar suita de conținut (Faza 2)
@@ -166,7 +166,7 @@ cd math-lms/backend && ./mvnw test
 cd math-lms/frontend && npm test && npm run build
 ```
 
-Frontend: **Vitest + Testing Library** (`npm test`, 341 de teste în 47 de fișiere): clientul API (header CSRF doar pe scrieri, refresh silențios la 401 cu o singură rotație pentru cereri paralele, fără refresh la login greșit), `AppShell` + paginile de start pe rol, `TakeQuizPage` (practică, indicii, navigator, dialogul de predare, cronometru, poze), `AttemptResultView` (nota, comentariile profesorului, poza proprie), `AdminGradingPage`, `AdminQuizzesPage` (meniul ⋯, editorul pe URL), `StudentQuizListPage`, `AccountPage` + `EraseAccountPage`, `RegisterPage` (previzualizarea linkului), `AdminLinksPage` (Invită părintele), `ClassInviteDialog`, `ChapterQuizDialog`, `PageHeader`, `RowMenu`, nota 1–10 (`grades.ts`), `RoleRoute`, `LoginPage`. Rulează și în CI. Fluxurile cap-coadă rămân în suita E2E (Selenium).
+Frontend: **Vitest + Testing Library** (`npm test`, 356 de teste în 49 de fișiere): clientul API (header CSRF doar pe scrieri, refresh silențios la 401 cu o singură rotație pentru cereri paralele, fără refresh la login greșit), `AppShell` + paginile de start pe rol, `TakeQuizPage` (practică, indicii, navigator, dialogul de predare, cronometru, poze), `AttemptResultView` (nota, comentariile profesorului, poza proprie), `AdminGradingPage`, `AdminQuizzesPage` (meniul ⋯, editorul pe URL), `StudentQuizListPage`, `AccountPage` + `EraseAccountPage`, `RegisterPage` (previzualizarea linkului), `AdminLinksPage` (Invită părintele), `ClassInviteDialog`, `ChapterQuizDialog`, `PageHeader`, `RowMenu`, nota 1–10 (`grades.ts`), `RoleRoute`, `LoginPage`. Rulează și în CI. Fluxurile cap-coadă rămân în suita E2E (Selenium).
 
 O rulare izolată poate pica rar în `VerificationTokenServiceTest.rejectsTamperedToken` (test instabil, cunoscut: modifică
 ultimele 2 caractere ale semnăturii, care uneori nu schimbă semnătura decodată) — rerulează; fixul e în așteptare.
@@ -649,6 +649,25 @@ de oprire/expirare își termină intrarea. Linkurile vechi „pe rol” (§4a) 
   profesor `GET /api/admin/quiz/attempts/{a}/responses/{i}/photos/{photoId}`; rezultatul și detaliul au `photoIds`
 - Teste: `ResponsePhotosIntegrationTest`, `ItemResponseTest`, `QuizAttemptServiceTest`, `TakeQuizPage.test.tsx`,
   `AttemptResultView.test.tsx`, `GradeByItem.test.tsx`, `api.test.ts`
+
+### 25. Aplicația pe telefon (PWA, E11)
+**De ce:** elevii deschid Math LMS de pe telefon; instalată, apare ca o aplicație (iconiță „x²”, fără bara browserului).
+- **Doar pe build-ul de producție** (nginx sau `npm run build && npm run preview` → http://localhost:4173): în `npm run dev`
+  service worker-ul nu se înregistrează intenționat (s-ar bate cu hot reload). Pentru telefon e nevoie de **HTTPS** (sau localhost)
+- **Android / Chrome / Edge:** pe Acasă apare bannerul „Pune Math LMS pe ecranul telefonului · **Instalează** · Nu acum” („Nu acum”
+  e ținut minte pe dispozitiv); în **Contul meu → Aplicația pe telefon** e butonul **Instalează aplicația** (dialogul browserului).
+  După instalare: „✓ Math LMS e instalată pe acest dispozitiv.”
+- **iPhone / iPad:** Contul meu explică pașii (Safari → Partajează → Adaugă pe ecranul principal); iconița vine din
+  `apple-touch-icon.png`
+- **Service worker-ul (`public/sw.js`):** NU atinge niciodată `/api`, `/oauth2`, `/login/oauth2`, `/actuator` (răspunsurile,
+  notele, pozele elevilor nu ajung în niciun cache); paginile vin mereu din rețea (un deploy se vede imediat); fișierele
+  `/assets/*` (cu hash) vin din cache după prima încărcare (max. 80); fără rețea, orice pagină arată „Ești offline”
+- Verificare (Chrome, build de producție): DevTools → Application → Manifest (fără erori, 3 iconițe) și Service workers
+  („activated”); Cache storage: doar `math-lms-shell-v1` (offline + iconițe) și `math-lms-assets-v1` (fișiere din `/assets`);
+  oprește serverul și deschide o pagină → „Ești offline”. Pentru a scăpa de el: Application → Service workers → Unregister
+- Iconițele se regenerează cu `python scripts/make-pwa-icons.py` (din `frontend/`); la orice schimbare în `sw.js` crește
+  `VERSION`, ca să se șteargă cache-urile vechi
+- Teste: `sw.test.ts` (regulile service worker-ului, rulate cu `caches`/`fetch` simulate), `InstallApp.test.tsx`
 
 ### 20. Pagina unui elev (T5) — `/admin/students/:id`, ca admin
 **De ce:** ca să vorbești despre Ana nu mai treci prin 4 pagini (Teme, Corectură, Pe capitole, Recapitulare).
