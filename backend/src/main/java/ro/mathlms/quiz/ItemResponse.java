@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * One student's answer to a single {@link QuizItem} within a {@link QuizAttempt}. At most one
@@ -80,6 +81,13 @@ public class ItemResponse {
     @Column(name = "teacher_comment", length = TeacherComment.MAX_LENGTH)
     private String teacherComment;
 
+    /** The browser that sent the stored choice, and its counter then (V31); null for answers from older clients. */
+    @Column(name = "client_id")
+    private UUID clientId;
+
+    @Column(name = "client_seq")
+    private Long clientSeq;
+
     public ItemResponse(QuizAttempt attempt, QuizItem item) {
         this.attempt = Objects.requireNonNull(attempt, "attempt");
         this.item = Objects.requireNonNull(item, "item");
@@ -87,12 +95,30 @@ public class ItemResponse {
 
     /** Records the picked option for a SINGLE_CHOICE item. The option must belong to this item. */
     public void answerSingleChoice(QuizOption option) {
+        answerSingleChoice(option, null, null);
+    }
+
+    /**
+     * Records the picked option unless it is an older retry from the same browser: a browser retries unsent answers, so
+     * "B" sent at 10:01 can arrive after "C" sent at 10:02. Applied when it carries no browser id or counter (older
+     * clients), comes from another browser (another device: the last to arrive wins), or has a higher counter than the
+     * stored answer. Returns whether it was applied.
+     */
+    public boolean answerSingleChoice(QuizOption option, UUID fromClient, Long seq) {
         requireType(QuizItemType.SINGLE_CHOICE);
         Objects.requireNonNull(option, "option");
         if (!Objects.equals(option.getItem().getId(), item.getId())) {
             throw new IllegalArgumentException("option does not belong to this item");
         }
+        boolean stale = fromClient != null && seq != null && fromClient.equals(clientId) && clientSeq != null
+                && seq <= clientSeq;
+        if (stale) {
+            return false;
+        }
         this.selectedOption = option;
+        this.clientId = fromClient;
+        this.clientSeq = fromClient == null ? null : seq;
+        return true;
     }
 
     /** Adds one page of the rezolvare to an OPEN item's answer; refused once it has {@link #MAX_PHOTOS}. */

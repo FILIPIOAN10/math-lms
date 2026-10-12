@@ -83,19 +83,22 @@ class QuizAttemptControllerTest {
     }
 
     @Test
-    void answerReturns204AndDelegatesOption() {
+    void answerReturns204AndDelegatesOptionWithTheBrowsersCounter() {
+        java.util.UUID browser = java.util.UUID.randomUUID();
+        when(service.saveResponse(50L, 100L, 1000L, browser, 7L, "elev@scoala.ro")).thenReturn(Optional.empty());
+
         ResponseEntity<AnswerFeedbackDto> response =
-                controller.answer(50L, 100L, new AnswerRequest(1000L), auth);
+                controller.answer(50L, 100L, new AnswerRequest(1000L, browser, 7L), auth);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT); // a graded test reveals nothing
         assertThat(response.getBody()).isNull();
-        verify(service).saveResponse(50L, 100L, 1000L, "elev@scoala.ro");
+        verify(service).saveResponse(50L, 100L, 1000L, browser, 7L, "elev@scoala.ro");
     }
 
     @Test
     void aPracticeAnswerReturns200WithTheFeedback() {
         AnswerFeedbackDto feedback = new AnswerFeedbackDto(true, 1000L, "barem");
-        when(service.saveResponse(50L, 100L, 1000L, "elev@scoala.ro")).thenReturn(Optional.of(feedback));
+        when(service.saveResponse(50L, 100L, 1000L, null, null, "elev@scoala.ro")).thenReturn(Optional.of(feedback));
 
         ResponseEntity<AnswerFeedbackDto> response =
                 controller.answer(50L, 100L, new AnswerRequest(1000L), auth);

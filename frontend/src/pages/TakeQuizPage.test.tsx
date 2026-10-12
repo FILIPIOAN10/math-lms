@@ -109,6 +109,7 @@ describe('TakeQuizPage', () => {
     api.getStudentQuizzes.mockResolvedValue([])
     api.getQuizPreview.mockResolvedValue(preview())
     api.getMyAssignments.mockResolvedValue([])
+    localStorage.clear() // the answer queue of attempt 50 must not leak from one test into the next
   })
 
   describe('practice mode (?mode=practice)', () => {
@@ -159,7 +160,7 @@ describe('TakeQuizPage', () => {
 
       expect(await screen.findByTestId('item-feedback')).toHaveTextContent('Greșit')
       expect(screen.getByTestId('item-feedback')).toHaveTextContent('Rezolvare: A')
-      expect(api.saveQuizAnswer).toHaveBeenCalledWith(50, 100, 1001)
+      expect(api.saveQuizAnswer).toHaveBeenCalledWith(50, 100, 1001, { clientId: expect.any(String), clientSeq: 1 })
       // the right option is outlined green, the wrong pick red
       expect(screen.getByText('Varianta A').closest('label')).toHaveClass('border-emerald-500')
       expect(screen.getByText('Varianta B').closest('label')).toHaveClass('border-destructive')
@@ -464,6 +465,95 @@ describe('TakeQuizPage', () => {
       await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Trimite' }))
       await waitFor(() => expect(api.submitQuizAttempt).toHaveBeenCalledWith(50))
       expect(await screen.findByText('rezultatul')).toBeInTheDocument()
+    })
+  })
+
+  describe('a bad connection (Feature 2)', () => {
+    const offline = () => new TypeError('Failed to fetch')
+
+    it('keeps the choice when the network fails, says it is waiting, and sends it when the connection is back', async () => {
+      api.startQuizAttempt.mockResolvedValue(started('TEST'))
+      api.saveQuizAnswer.mockRejectedValueOnce(offline()).mockResolvedValue(null)
+      renderPage('')
+      await begin('Începe testul')
+
+      await userEvent.click(screen.getByLabelText('Varianta B'))
+
+      expect(await screen.findByTestId('item-queued')).toHaveTextContent('Încă netrimis')
+      expect(screen.getByLabelText('Varianta B')).toBeChecked() // not undone
+      expect(screen.getByTestId('connection-banner')).toHaveTextContent('Se reîncearcă trimiterea: 1 răspuns netrimis.')
+      expect(screen.getByRole('button', { name: 'Subiectul 1, cu răspuns, netrimis încă' })).toBeInTheDocument()
+
+      window.dispatchEvent(new Event('online'))
+
+      await waitFor(() => expect(screen.queryByTestId('item-queued')).not.toBeInTheDocument())
+      expect(api.saveQuizAnswer).toHaveBeenCalledTimes(2)
+      expect(screen.queryByTestId('connection-banner')).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Subiectul 1, cu răspuns' })).toBeInTheDocument()
+    })
+
+    it('undoes the choice only when the server really refuses it', async () => {
+      api.startQuizAttempt.mockResolvedValue(started('TEST'))
+      api.saveQuizAnswer.mockRejectedValue(new ApiError(400, 'Varianta nu ține de acest subiect.'))
+      renderPage('')
+      await begin('Începe testul')
+
+      await userEvent.click(screen.getByLabelText('Varianta B'))
+
+      expect(await screen.findByText('Varianta nu ține de acest subiect.')).toBeInTheDocument()
+      expect(screen.getByLabelText('Varianta B')).not.toBeChecked()
+      expect(screen.queryByTestId('item-queued')).not.toBeInTheDocument()
+    })
+
+    it('a newer choice wins over one still waiting', async () => {
+      api.startQuizAttempt.mockResolvedValue(started('TEST'))
+      api.saveQuizAnswer.mockRejectedValueOnce(offline()).mockResolvedValue(null)
+      renderPage('')
+      await begin('Începe testul')
+
+      await userEvent.click(screen.getByLabelText('Varianta B'))
+      await screen.findByTestId('item-queued')
+      await userEvent.click(screen.getByLabelText('Varianta A'))
+
+      await waitFor(() => expect(screen.queryByTestId('item-queued')).not.toBeInTheDocument())
+      expect(api.saveQuizAnswer).toHaveBeenLastCalledWith(50, 100, 1000, { clientId: expect.any(String), clientSeq: 2 })
+    })
+
+    it('before handing in, says which answers never reached the server and lets the student wait', async () => {
+      api.startQuizAttempt.mockResolvedValue(started('TEST'))
+      api.saveQuizAnswer.mockRejectedValue(offline())
+      api.submitQuizAttempt.mockResolvedValue({})
+      renderPage('')
+      await begin('Începe testul')
+      await userEvent.click(screen.getByLabelText('Varianta B'))
+      await screen.findByTestId('item-queued')
+
+      await userEvent.click(screen.getByRole('button', { name: 'Trimite lucrarea' }))
+      await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Trimite' }))
+
+      const warning = await screen.findByRole('dialog', { name: '1 răspuns n-a ajuns la server' })
+      expect(api.submitQuizAttempt).not.toHaveBeenCalled()
+
+      api.saveQuizAnswer.mockResolvedValue(null) // the connection is back
+      await userEvent.click(within(warning).getByRole('button', { name: 'Mai așteaptă' }))
+
+      await waitFor(() => expect(api.submitQuizAttempt).toHaveBeenCalledWith(50))
+      expect(localStorage.getItem('mathlms:pending:50')).toBeNull() // nothing left after hand-in
+    })
+
+    it('a reload while offline shows the waiting answer and sends it again', async () => {
+      localStorage.setItem('mathlms:pending:50', JSON.stringify({
+        clientId: '7f6a0f3e-1111-4b2c-9d0e-123456789abc', nextSeq: 4, pending: [{ itemId: 100, optionId: 1001, seq: 3 }],
+      }))
+      api.startQuizAttempt.mockResolvedValue(started('TEST'))
+      api.saveQuizAnswer.mockResolvedValue(null)
+      renderPage('')
+      await begin('Începe testul')
+
+      expect(screen.getByLabelText('Varianta B')).toBeChecked()
+      await waitFor(() => expect(api.saveQuizAnswer).toHaveBeenCalledWith(50, 100, 1001, {
+        clientId: '7f6a0f3e-1111-4b2c-9d0e-123456789abc', clientSeq: 3,
+      }))
     })
   })
 

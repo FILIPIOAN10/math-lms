@@ -240,6 +240,16 @@ public class QuizAttemptService {
      */
     @Transactional
     public Optional<AnswerFeedbackDto> saveResponse(Long attemptId, Long itemId, Long optionId, String studentEmail) {
+        return saveResponse(attemptId, itemId, optionId, null, null, studentEmail);
+    }
+
+    /**
+     * ...from a browser that queues unsent answers ({@code clientId} + its counter {@code clientSeq}): an older retry
+     * arriving after a newer answer is ignored, and still answered with success, so the browser stops retrying it.
+     */
+    @Transactional
+    public Optional<AnswerFeedbackDto> saveResponse(Long attemptId, Long itemId, Long optionId, java.util.UUID clientId,
+                                                    Long clientSeq, String studentEmail) {
         QuizAttempt attempt = requireOwnedInProgress(attemptId, studentEmail);
         requireTimeLeft(attempt);
         QuizItem item = itemRepository.findById(itemId)
@@ -257,11 +267,13 @@ public class QuizAttemptService {
         }
         ItemResponse response = responseRepository.findByAttemptIdAndItemId(attemptId, itemId)
                 .orElseGet(() -> new ItemResponse(attempt, item));
-        response.answerSingleChoice(option);
-        if (attempt.getMode() == AttemptMode.PRACTICE) {
+        boolean applied = response.answerSingleChoice(option, clientId, clientSeq);
+        if (applied && attempt.getMode() == AttemptMode.PRACTICE) {
             response.gradeAuto(option.isCorrect(), option.isCorrect() ? item.getPoints() : 0);
         }
-        responseRepository.save(response);
+        if (applied) {
+            responseRepository.save(response);
+        }
         return attempt.getMode() == AttemptMode.PRACTICE
                 ? Optional.of(feedbackFor(item, response))
                 : Optional.empty();

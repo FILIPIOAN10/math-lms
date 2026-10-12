@@ -6,6 +6,7 @@ import {
   logout as apiLogout,
   type User,
 } from '@/lib/api'
+import { clearAllAnswerQueues } from '@/lib/answerQueue'
 
 interface AuthContextValue {
   user: User | null
@@ -40,6 +41,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function logout() {
+    // Answers waiting for a connection belong to this person: the next one on this computer must not send them.
+    clearAllAnswerQueues()
     await apiLogout()
     setUser(null)
   }

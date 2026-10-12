@@ -1184,12 +1184,17 @@ async function feedbackOrNull(response: Response): Promise<AnswerFeedback | null
   return response.status === 204 ? null : response.json()
 }
 
+/**
+ * Saves a grilă choice. `client` (this browser's id + its counter) lets the server ignore an older retry that arrives
+ * after a newer answer (Feature 2); answered 204/200 either way, so the browser stops retrying.
+ */
 export async function saveQuizAnswer(
   attemptId: number,
   itemId: number,
   optionId: number,
+  client?: { clientId: string; clientSeq: number },
 ): Promise<AnswerFeedback | null> {
-  return feedbackOrNull(await putJson(`/quiz/attempts/${attemptId}/responses/${itemId}`, { optionId }))
+  return feedbackOrNull(await putJson(`/quiz/attempts/${attemptId}/responses/${itemId}`, { optionId, ...client }))
 }
 
 /** S2: an open answer's pages after one was added or taken off, with the barem in a practice (null in a test). */

@@ -32,6 +32,8 @@ import { errorMessage } from '@/lib/errors'
 import { formatDate, formatMinutes, roCount } from '@/lib/format'
 import { todoAssignments } from '@/lib/home'
 import { shrinkImage } from '@/lib/image'
+import { storedPending } from '@/lib/answerQueue'
+import { useAnswerSync } from '@/lib/useAnswerSync'
 import { cn } from '@/lib/utils'
 import { usePageTitle } from '@/lib/usePageTitle'
 
@@ -154,6 +156,10 @@ export function TakeQuizPage() {
   const [receivedAt, setReceivedAt] = useState(0)
   const [now, setNow] = useState(() => Date.now())
   const autoSubmitted = useRef(false)
+  // The choice the server has for each grilă: where the radio goes back to if the server refuses a newer one.
+  const confirmed = useRef<Record<number, number>>({})
+  // Hand-in found answers that never reached the server: how many (the dialog asks what to do).
+  const [unsent, setUnsent] = useState<number | null>(null)
   usePageTitle(attempt?.quiz.title ?? preview?.title ?? (practice ? 'Exersare' : 'Test'))
   const jumpTarget = useRef<HTMLElement | null>(null) // where "Mergi la subiectul N" sends focus once the dialog closes
 
@@ -202,10 +208,13 @@ export function TakeQuizPage() {
     setSubmitting(true)
     setError(null)
     try {
+      await sync.flush(5000) // the server still takes answers for a few seconds after the clock (grace period)
       await submitQuizAttempt(attempt.attemptId)
+      sync.clear()
       navigate(`/quizzes/attempts/${attempt.attemptId}/result`, { replace: true })
     } catch (e) {
       if (e instanceof ApiError && e.status === 400) {
+        sync.clear()
         // "no longer in progress": the server already handed it in when the time ran out — just show the result.
         navigate(`/quizzes/attempts/${attempt.attemptId}/result`, { replace: true })
         return
@@ -219,6 +228,29 @@ export function TakeQuizPage() {
     if (timeUp) void submitBecauseTimeIsUp()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeUp])
+
+  // Feature 2: grilă answers go through a queue kept in this browser, so a lost connection loses nothing.
+  const sync = useAnswerSync({
+    attemptId: attempt?.attemptId ?? null,
+    send: (answer, clientId) =>
+      saveQuizAnswer(attempt!.attemptId, answer.itemId, answer.optionId, { clientId, clientSeq: answer.seq }),
+    onSaved: (answer, result) => {
+      confirmed.current[answer.itemId] = answer.optionId
+      setFeedback((s) => ({ ...s, [answer.itemId]: result ?? undefined })) // null in a graded test: nothing is revealed
+    },
+    onRejected: (answer, e) => {
+      // A real refusal (not the connection): the radio goes back to what the server has.
+      const kept = confirmed.current[answer.itemId]
+      setSelected((s) => {
+        const next = { ...s }
+        if (kept === undefined) delete next[answer.itemId]
+        else next[answer.itemId] = kept
+        return next
+      })
+      setItemError(answer.itemId, errorMessage(e))
+      if (isTimeUpConflict(e)) void submitBecauseTimeIsUp() // the server says time is up
+    },
+  })
 
   function setItemBusy(itemId: number, busy: boolean) {
     setSaving((s) => ({ ...s, [itemId]: busy }))
@@ -266,6 +298,9 @@ export function TakeQuizPage() {
         if (answer.photoIds.length > 0) restoredPhotos[answer.itemId] = answer.photoIds
         if (answer.feedback) restoredFeedback[answer.itemId] = answer.feedback
       }
+      confirmed.current = { ...restoredChoices }
+      // Answers this browser made but never got onto the server (a reload while offline): shown, and sent again.
+      for (const waiting of storedPending(data.attemptId)) restoredChoices[waiting.itemId] = waiting.optionId
       setSelected(restoredChoices)
       setPhotos(restoredPhotos)
       setFeedback(restoredFeedback)
@@ -299,28 +334,13 @@ export function TakeQuizPage() {
     }
   }
 
-  async function choose(itemId: number, optionId: number) {
+  /** The choice shows at once and waits in the queue until the server has it (see useAnswerSync). */
+  function choose(itemId: number, optionId: number) {
     if (!attempt) return
-    const previous = selected[itemId]
     setSelected((s) => ({ ...s, [itemId]: optionId }))
+    setFeedback((s) => ({ ...s, [itemId]: undefined })) // a practice verdict was about the previous choice
     setItemError(itemId, undefined)
-    setItemBusy(itemId, true)
-    try {
-      const result = await saveQuizAnswer(attempt.attemptId, itemId, optionId)
-      setFeedback((s) => ({ ...s, [itemId]: result ?? undefined })) // null in a graded test: nothing is revealed
-    } catch (e) {
-      // Roll the radio back so the screen never shows an answer the server does not have.
-      setSelected((s) => {
-        const next = { ...s }
-        if (previous === undefined) delete next[itemId]
-        else next[itemId] = previous
-        return next
-      })
-      setItemError(itemId, errorMessage(e))
-      if (isTimeUpConflict(e)) void submitBecauseTimeIsUp() // the server says time is up
-    } finally {
-      setItemBusy(itemId, false)
-    }
+    sync.enqueue(itemId, optionId)
   }
 
   async function upload(itemId: number, file: File) {
@@ -360,14 +380,29 @@ export function TakeQuizPage() {
     }
   }
 
+  /** Hand-in: first every answer still waiting goes to the server; if some cannot, the student decides. */
   async function submit() {
     if (!attempt) return
     jumpTarget.current = null
     setConfirming(false)
+    setUnsent(null)
     setSubmitting(true)
     setError(null)
+    if (!(await sync.flush(10_000))) {
+      setUnsent(Math.max(1, sync.pendingCount))
+      setSubmitting(false)
+      return
+    }
+    await handIn()
+  }
+
+  async function handIn() {
+    if (!attempt) return
+    setUnsent(null)
+    setSubmitting(true)
     try {
       await submitQuizAttempt(attempt.attemptId)
+      sync.clear()
       navigate(`/quizzes/attempts/${attempt.attemptId}/result`, { replace: true })
     } catch (e) {
       setError(errorMessage(e))
@@ -405,7 +440,8 @@ export function TakeQuizPage() {
               )}
               <p className="text-sm text-muted-foreground">
                 Răspunsurile se salvează automat pe măsură ce lucrezi. Dacă închizi pagina, poți continua
-                de unde ai rămas din „Testele mele”.
+                de unde ai rămas din „Testele mele”. Dacă pică internetul, alegerile rămân pe dispozitiv și se trimit
+                singure când revine{!practice && limitMinutes !== null ? ' — dar după ce expiră timpul nu mai pot fi primite' : ''}.
               </p>
               {practice && (
                 <p className="text-sm font-medium" data-testid="quiz-practice-note">
@@ -511,6 +547,21 @@ export function TakeQuizPage() {
           )}
         </div>
 
+        {(!sync.online || sync.waiting) && (
+          <div
+            role="status"
+            data-testid="connection-banner"
+            className={cn(
+              'sticky z-10 rounded-lg border border-amber-500/50 bg-amber-100 p-3 text-sm font-medium text-amber-950 dark:bg-amber-500/20 dark:text-amber-100',
+              timeLeft !== null || practice ? 'top-12' : 'top-2',
+            )}
+          >
+            {sync.online
+              ? `Se reîncearcă trimiterea: ${roCount(sync.pendingCount, 'răspuns netrimis', 'răspunsuri netrimise')}.`
+              : 'Fără internet — răspunsurile se trimit singure când revine conexiunea.'}
+          </div>
+        )}
+
         {numbered.map(({ item, label, local, heading }) => (
           <Fragment key={item.id}>
           {heading && <SectionHeadingView heading={heading} />}
@@ -546,7 +597,7 @@ export function TakeQuizPage() {
                         name={`item-${item.id}`}
                         className="size-4 shrink-0"
                         checked={selected[item.id] === option.id}
-                        disabled={saving[item.id] || timeUp}
+                        disabled={timeUp}
                         onChange={() => choose(item.id, option.id)}
                       />
                       <MathContent inline>{option.text}</MathContent>
@@ -689,7 +740,11 @@ export function TakeQuizPage() {
                 </div>
               )}
 
-              {saving[item.id] && <p className="text-xs text-muted-foreground">Se salvează...</p>}
+              {item.type === 'SINGLE_CHOICE' ? (
+                <SyncLine status={sync.statusOf(item.id)} />
+              ) : (
+                saving[item.id] && <p className="text-xs text-muted-foreground">Se salvează...</p>
+              )}
               {itemErrors[item.id] && <p className="text-sm text-destructive">{itemErrors[item.id]}</p>}
             </CardContent>
           </Card>
@@ -704,25 +759,30 @@ export function TakeQuizPage() {
           <nav aria-label="Subiecte" className="flex gap-1.5 overflow-x-auto pb-1">
             {numbered.map(({ item, label }) => {
               const done = isAnswered(item)
+              const unsentYet = sync.statusOf(item.id) !== undefined
               return (
                 <button
                   key={item.id}
                   type="button"
-                  aria-label={`Subiectul ${label}, ${done ? 'cu răspuns' : 'fără răspuns'}`}
+                  aria-label={`Subiectul ${label}, ${done ? 'cu răspuns' : 'fără răspuns'}${unsentYet ? ', netrimis încă' : ''}`}
                   onClick={() => goToItem(item.id)}
                   className={cn(
-                    'h-9 min-w-9 shrink-0 rounded-lg border px-1.5 text-sm font-medium transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+                    'relative h-9 min-w-9 shrink-0 rounded-lg border px-1.5 text-sm font-medium transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
                     done ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background hover:bg-muted',
                   )}
                 >
                   {label}
+                  {unsentYet && (
+                    <span aria-hidden="true" className="absolute -top-1 -right-1 size-2.5 rounded-full bg-amber-500 ring-2 ring-background" />
+                  )}
                 </button>
               )
             })}
           </nav>
           <div className="flex items-center justify-between gap-3">
             <p className="text-sm text-muted-foreground">
-              {answeredCount} / {items.length} {practice ? 'subiecte rezolvate' : 'răspunsuri salvate'}
+              {answeredCount} / {items.length} {practice ? 'subiecte rezolvate' : 'răspunsuri'}
+              {sync.pendingCount > 0 && ` · ${sync.pendingCount} netrimise încă`}
             </p>
             <Button onClick={() => setConfirming(true)} disabled={submitting} data-testid="quiz-submit">
               {submitting ? 'Se trimite...' : practice ? 'Termină practica' : 'Trimite lucrarea'}
@@ -756,6 +816,31 @@ export function TakeQuizPage() {
       >
         {dialogBody}
       </ConfirmDialog>
+
+      <ConfirmDialog
+        open={unsent !== null}
+        title={`${unsent === 1 ? '1 răspuns n-a ajuns' : `${unsent} răspunsuri n-au ajuns`} la server`}
+        confirmLabel="Trimite fără ele"
+        onConfirm={() => void handIn()}
+        onCancel={() => setUnsent(null)}
+        extraAction={<Button variant="outline" onClick={() => void submit()}>Mai așteaptă</Button>}
+      >
+        Pare că nu ai internet. Așteaptă să revină conexiunea și încearcă din nou; dacă trimiți acum, subiectele marcate cu
+        punct galben se predau fără răspuns.
+      </ConfirmDialog>
     </div>
   )
+}
+
+/** Where a grilă answer is: on its way, or waiting for the connection. Nothing when the server has it. */
+function SyncLine({ status }: { status: 'saving' | 'queued' | undefined }) {
+  if (status === 'saving') return <p className="text-xs text-muted-foreground">Se salvează…</p>
+  if (status === 'queued') {
+    return (
+      <p className="text-xs font-medium text-amber-700 dark:text-amber-400" data-testid="item-queued">
+        ⏳ Încă netrimis — se trimite singur când revine internetul.
+      </p>
+    )
+  }
+  return null
 }

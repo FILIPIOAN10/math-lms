@@ -79,7 +79,8 @@ public class QuizAttemptController {
     @PutMapping("/api/quiz/attempts/{attemptId}/responses/{itemId}")
     public ResponseEntity<AnswerFeedbackDto> answer(@PathVariable Long attemptId, @PathVariable Long itemId,
                                                     @Valid @RequestBody AnswerRequest request, Authentication auth) {
-        return feedbackOrNoContent(service.saveResponse(attemptId, itemId, request.optionId(), auth.getName()));
+        return feedbackOrNoContent(service.saveResponse(attemptId, itemId, request.optionId(), request.clientId(),
+                request.clientSeq(), auth.getName()));
     }
 
     /** S2: adds one page (up to 5) to an OPEN answer; returns the answer's photo ids (+ the barem in a practice). */

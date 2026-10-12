@@ -56,6 +56,38 @@ class ItemResponseTest {
     }
 
     @Test
+    void anOlderRetryFromTheSameBrowserDoesNotOverwriteANewerAnswer() {
+        QuizItem item = singleChoice();
+        QuizOption b = new QuizOption(item, 1, "B", false);
+        QuizOption c = new QuizOption(item, 2, "C", true);
+        ItemResponse response = new ItemResponse(attempt, item);
+        java.util.UUID browser = java.util.UUID.randomUUID();
+
+        assertThat(response.answerSingleChoice(c, browser, 2L)).isTrue();
+        assertThat(response.answerSingleChoice(b, browser, 1L)).isFalse(); // sent earlier, arrived later
+        assertThat(response.answerSingleChoice(b, browser, 2L)).isFalse(); // the same counter again
+        assertThat(response.getSelectedOption()).isSameAs(c);
+
+        assertThat(response.answerSingleChoice(b, browser, 3L)).isTrue();
+        assertThat(response.getSelectedOption()).isSameAs(b);
+    }
+
+    @Test
+    void anotherBrowserOrAnOlderClientAlwaysApplies() {
+        QuizItem item = singleChoice();
+        QuizOption b = new QuizOption(item, 1, "B", false);
+        QuizOption c = new QuizOption(item, 2, "C", true);
+        ItemResponse response = new ItemResponse(attempt, item);
+        response.answerSingleChoice(c, java.util.UUID.randomUUID(), 50L);
+
+        assertThat(response.answerSingleChoice(b, java.util.UUID.randomUUID(), 1L)).isTrue(); // the phone, then the laptop
+        assertThat(response.getSelectedOption()).isSameAs(b);
+        assertThat(response.answerSingleChoice(c, null, null)).isTrue(); // no browser id: as before V31
+        assertThat(response.getSelectedOption()).isSameAs(c);
+        assertThat(response.getClientId()).isNull();
+    }
+
+    @Test
     void answerSingleChoiceRejectsOnOpenItem() {
         QuizItem item = open();
         QuizOption stray = new QuizOption(singleChoice(), 0, "4", true);
