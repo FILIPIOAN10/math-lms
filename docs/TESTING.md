@@ -194,6 +194,17 @@ backend `:8080`, Vite `:5173`) și a conturilor seed din secțiunea B. Sunt excl
 - `QuizVisibilityE2eTest`: quiz asignat unei clase → invizibil elevului neînscris, apare după înscriere.
 - `QuizFlowE2eTest` verifică și statisticile profesorului (media `13.0 / 15 p (87%)`) și `/progress` al elevului (`13 / 15 (87%)`).
 - `ParentE2eTest`: adminul leagă elevul de părinte, elevul predă un test → părintele (`parinte@mathlms.local`) îl vede la „Copiii mei” → elev → rezultat.
+- `ClassInviteLinkE2eTest` (T1): profesorul generează din **Clase → Invită elevi** un link pentru 2 elevi → deschis fără cont, pagina
+  de înregistrare spune „Te alături clasei …” → **Oprește linkul** → aceeași adresă arată „Link indisponibil”. Nu creează conturi
+  (s-ar trimite emailuri reale de confirmare prin SMTP-ul de dev).
+- `PublishAndAssignE2eTest` (T3): pe o ciornă, **Publică** → dialogul cu „Dă-l și ca temă” → **Publică și dă tema** → elevul înscris o
+  vede la „De făcut” pe Acasă.
+- `NewGradeAndMistakesE2eTest` (secțiuni EN, imagine, S3, S4): test cu „SUBIECTUL I” și o figură, predat prin REST cu o grilă greșită →
+  elevul vede „Ai o notă nouă” + numărul de lângă Testele mele → rezultatul → cardul „Exersează ce ai greșit” → practica doar cu
+  subiectul I.1, sub titlul secțiunii, cu figura încărcată → înapoi pe Acasă nota nu mai e „Nou”.
+- `GradeByItemAndJournalE2eTest` (T4 + F1): doi elevi predau același test → **Corectează pe subiect** (7 și 9 puncte, „Salvează și
+  următoarea”) → **Finalizează lucrările complete (2)** → **Jurnal** filtrat pe Corectură arată ambele punctaje și ambele lucrări, cu
+  numele elevilor. Folosește și `student.nou@mathlms.local`; dacă așteaptă aprobare (seed-ul de CI), testul îl aprobă ca elev.
 - Parametri opționali: `-De2e.baseUrl=…` (implicit `http://localhost:5173`), `-De2e.apiUrl=…` (`http://localhost:8080`).
 - Selectorii sunt atributele `data-testid` din frontend; Page Objects în `backend/src/test/java/ro/mathlms/e2e/`.
 - Confirmările sunt dialogul aplicației (`ConfirmDialog`), nu `window.confirm`: `Page.acceptConfirm()` apasă `[data-testid=confirm-yes]`.
@@ -201,7 +212,8 @@ backend `:8080`, Vite `:5173`) și a conturilor seed din secțiunea B. Sunt excl
 - În CI suita rulează **manual** (Actions → „E2E (Selenium)” → Run workflow), pe stack-ul de producție (`docker-compose.prod.yml`).
 - Logout-ul se face prin butonul din UI, nu `deleteAllCookies()`: cookie-ul de refresh e limitat la
   o cale sub `/api/auth`, iar SPA-ul ar reloga silențios utilizatorul.
-- **Datele lăsate de E2E** (quiz-uri „E2E flow/clasa/parinte <număr>”, clase „E2E clasa <număr>” în care e înscrisă Ana)
+- **Datele lăsate de E2E** (quiz-uri „E2E flow/clasa/parinte/publica si tema/nota noua/pe subiect <număr>”, clase „E2E
+  clasa/invitatie/tema <număr>” în care e înscrisă Ana, rândurile lor din Jurnal)
   încurcă testarea manuală — ex. Ana pare să vadă „toate” quiz-urile de clasă. Curățare (doar baza de **dev**, într-o
   singură tranzacție, păstrează conturile și restul datelor), din `math-lms/`:
   PowerShell `Get-Content -Raw deploy\dev-cleanup-e2e.sql | docker exec -i mathlms-postgres psql -U mathlms -d mathlms`
@@ -380,7 +392,7 @@ Din bara de sus: **Corectură** (numărul roșu = lucrări de corectat).
 `docker-compose.prod.yml`: nginx (singurul port publicat) + backend + Postgres + Redis (+ profil `monitoring`). Imaginile: `backend/Dockerfile` (Maven → JRE alpine, utilizator non-root, healthcheck pe `/actuator/health`) și `frontend/Dockerfile` (Vite → nginx, proxy `/api` + `/oauth2` + `/login/oauth2`, `/actuator` → 404, aceleași headere de securitate ca API-ul).
 - **Pornire de test pe calculatorul tău** (fără să atingi dev-ul; folosește volume separate `mathlms-prod_*`): scrie un `.env.prod.test` cu valori de probă (vezi `.env.prod.example`; `HTTP_PORT=8088`, `COOKIE_SECURE=false`, `RATE_LIMIT_ENABLED=false`) și rulează `docker compose -f docker-compose.prod.yml --env-file .env.prod.test --profile monitoring up -d --build`; la final `... down -v`
 - **Seed conturi de test** (doar pentru acest test, niciodată în producție reală): `docker compose -f docker-compose.prod.yml --env-file .env.prod.test exec -T postgres psql -U mathlms -d mathlms < deploy/e2e-seed.sql`
-- **E2E în Chrome împotriva stack-ului de producție** (verifică și CSP-ul real): `cd backend && ./mvnw test -Dgroups=e2e -DexcludedGroups= -De2e.baseUrl=http://localhost:8088 -De2e.apiUrl=http://localhost:8088` — cele 5 teste trec (login, flux quiz cu poză, părinte, vizibilitate pe clasă)
+- **E2E în Chrome împotriva stack-ului de producție** (verifică și CSP-ul real): `cd backend && ./mvnw test -Dgroups=e2e -DexcludedGroups= -De2e.baseUrl=http://localhost:8088 -De2e.apiUrl=http://localhost:8088` — suita are 9 teste: cele 5 vechi (login, flux quiz cu poză, părinte, vizibilitate pe clasă) au trecut aici; cele 4 din 2026-10-12 (link de clasă, publică + temă, notă nouă + exersează ce ai greșit, corectură pe subiect + jurnal) au fost rulate doar pe stack-ul de dev
 - **Backup + restore** (testat): `ENV_FILE=.env.prod.test ./deploy/backup.sh ./bk` (pg_dump + poze, verifică ambele fișiere) → strici datele → `ENV_FILE=.env.prod.test ./deploy/restore.sh bk/db-….dump bk/uploads-….tar.gz --yes` → numele, răspunsurile, nota și poza revin; aplicația repornește singură
 - **Rate limiting prin nginx**: cu `RATE_LIMIT_ENABLED=true`, 7 login-uri greșite cu `X-Forwarded-For: 203.0.113.5` → `401×5` apoi `429`; alt client (`203.0.113.9`) are găleata lui. `/actuator/*` prin nginx → 404
 - **Verificări rapide**: `curl -i http://localhost:8088/` (SPA + headere), `.../quizzes` (fallback SPA), `.../api/auth/me` → 401, `.../healthz` → `ok`; Prometheus http://localhost:9090/targets → `math-lms` **UP**

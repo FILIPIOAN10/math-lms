@@ -11,6 +11,13 @@ import org.openqa.selenium.chrome.ChromeOptions;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
+import javax.imageio.ImageIO;
+import java.awt.Color;
+import java.awt.Graphics2D;
+import java.awt.image.BufferedImage;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 
 /**
@@ -26,6 +33,10 @@ abstract class E2eBase {
     static final String PASSWORD = "Admin123!"; // seed password from docs/TESTING.md
     static final String ADMIN = "admin@mathlms.local";
     static final String STUDENT = "student.activ@mathlms.local";
+    static final String STUDENT_NAME = "Ana Student";
+    /** The second seed student (Clasa a 9-a in the B2 dataset): for flows that need two papers. */
+    static final String STUDENT2 = "student.nou@mathlms.local";
+    static final String STUDENT2_NAME = "Radu Nou";
     static final String PARENT = "parinte@mathlms.local";
 
     protected WebDriver driver;
@@ -78,5 +89,36 @@ abstract class E2eBase {
     protected WebElement byTestId(String testId) {
         return wait.until(ExpectedConditions.visibilityOfElementLocated(
                 By.cssSelector("[data-testid='" + testId + "']")));
+    }
+
+    protected void waitForText(String text) {
+        wait.until(ExpectedConditions.textToBePresentInElementLocated(By.tagName("body"), text));
+    }
+
+    protected String bodyText() {
+        return driver.findElement(By.tagName("body")).getText();
+    }
+
+    /** A button or link with exactly this visible text, once it can be clicked. */
+    protected void clickText(String text) {
+        wait.until(ExpectedConditions.elementToBeClickable(By.xpath(
+                "//*[(self::button or self::a) and normalize-space()='" + text + "']"))).click();
+    }
+
+    /** A small generated PNG (a photographed solution, a figure) - no binary file in the repo. */
+    static Path samplePng() throws IOException {
+        BufferedImage image = new BufferedImage(300, 200, BufferedImage.TYPE_INT_RGB);
+        Graphics2D g = image.createGraphics();
+        g.setColor(Color.WHITE);
+        g.fillRect(0, 0, 300, 200);
+        g.setColor(Color.BLACK);
+        g.drawLine(20, 60, 280, 60);
+        g.drawLine(20, 100, 200, 100);
+        g.drawLine(20, 140, 120, 140);
+        g.dispose();
+        Path file = Files.createTempFile("e2e", ".png");
+        ImageIO.write(image, "png", file.toFile());
+        file.toFile().deleteOnExit();
+        return file;
     }
 }

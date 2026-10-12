@@ -4,13 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.openqa.selenium.By;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 
-import javax.imageio.ImageIO;
-import java.awt.Color;
-import java.awt.Graphics2D;
-import java.awt.image.BufferedImage;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -20,8 +14,6 @@ import static org.assertj.core.api.Assertions.assertThat;
  * 5 points auto (correct choice) + 8 points from the teacher = 13 / 15.
  */
 class QuizFlowE2eTest extends E2eBase {
-
-    private static final String STUDENT_NAME = "Ana Student"; // seed account from docs/TESTING.md
 
     @Test
     void studentTakesQuizTeacherGradesStudentSeesScore() throws IOException {
@@ -37,7 +29,7 @@ class QuizFlowE2eTest extends E2eBase {
         TakeQuizPage take = new TakeQuizPage(driver, wait);
         take.start();
         take.choose("Varianta B");
-        take.uploadPhoto(samplePhoto());
+        take.uploadPhoto(samplePng());
         take.submit();
 
         ResultPage result = new ResultPage(driver, wait);
@@ -69,22 +61,5 @@ class QuizFlowE2eTest extends E2eBase {
         wait.until(ExpectedConditions.textToBePresentInElementLocated(
                 By.cssSelector("[data-testid='progress-chart']"), quizTitle));
         assertThat(byTestId("progress-chart").getText()).contains("13 / 15").contains("87%");
-    }
-
-    /** A small generated PNG standing in for the photographed solution (no binary file in the repo). */
-    private static Path samplePhoto() throws IOException {
-        BufferedImage image = new BufferedImage(300, 200, BufferedImage.TYPE_INT_RGB);
-        Graphics2D g = image.createGraphics();
-        g.setColor(Color.WHITE);
-        g.fillRect(0, 0, 300, 200);
-        g.setColor(Color.BLACK);
-        g.drawLine(20, 60, 280, 60);
-        g.drawLine(20, 100, 200, 100);
-        g.drawLine(20, 140, 120, 140);
-        g.dispose();
-        Path file = Files.createTempFile("rezolvare", ".png");
-        ImageIO.write(image, "png", file.toFile());
-        file.toFile().deleteOnExit();
-        return file;
     }
 }
