@@ -203,7 +203,9 @@ public final class StudentQuizDtos {
             String section, // the heading it sits under; null = none
             String image, // the picture under the statement: a version token for its URL, or null
             List<Long> photoIds, // S2: the pages of an OPEN answer, oldest first (only the student's own API serves them)
-            List<PartDtos.GradedPartDto> parts // requirements a), b)... with their barem and points; empty = none
+            List<PartDtos.GradedPartDto> parts, // requirements a), b)... with their barem and points; empty = none
+            String selectedOptionLetter, // "a", "b"... as on the paper test; null = no answer / not a grilă
+            String correctOptionLetter
     ) {}
 
     /** The student's graded attempt: the score plus a per-item breakdown. */

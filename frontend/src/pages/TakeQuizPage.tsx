@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
+import { OptionLetter } from '@/components/OptionLetter'
 import { MathContent } from '@/components/MathContent'
 import { QuestionImage } from '@/components/QuestionImage'
 import { SectionHeadingView } from '@/components/SectionHeadingView'
@@ -30,7 +31,7 @@ import {
 import { dueCountdown } from '@/lib/assignments'
 import { formatClock, secondsLeft } from '@/lib/countdown'
 import { errorMessage } from '@/lib/errors'
-import { formatDate, formatMinutes, roCount } from '@/lib/format'
+import { formatDate, formatMinutes, optionLetter, roCount } from '@/lib/format'
 import { todoAssignments } from '@/lib/home'
 import { shrinkImage } from '@/lib/image'
 import { storedPending } from '@/lib/answerQueue'
@@ -577,7 +578,7 @@ export function TakeQuizPage() {
 
               {item.type === 'SINGLE_CHOICE' ? (
                 <div className="space-y-2">
-                  {item.options.map((option) => {
+                  {item.options.map((option, optionIndex) => {
                     const fb = feedback[item.id]
                     const isRight = fb?.correctOptionId === option.id
                     const isWrongPick = fb?.correct === false && selected[item.id] === option.id
@@ -602,6 +603,7 @@ export function TakeQuizPage() {
                         disabled={timeUp}
                         onChange={() => choose(item.id, option.id)}
                       />
+                      <OptionLetter index={optionIndex} />
                       <MathContent inline>{option.text}</MathContent>
                       {/* A sign as well as a colour: the verdict must not depend on telling green from red. */}
                       {isRight && (
@@ -626,7 +628,11 @@ export function TakeQuizPage() {
                           feedback[item.id]?.correct ? 'text-emerald-700 dark:text-emerald-300' : 'text-destructive'
                         }`}
                       >
-                        {feedback[item.id]?.correct ? '✓ Corect!' : '✗ Greșit — răspunsul corect e marcat cu ✓.'}
+                        {feedback[item.id]?.correct
+                          ? '✓ Corect!'
+                          : `✗ Greșit — răspunsul corect e ${optionLetter(
+                              item.options.findIndex((o) => o.id === feedback[item.id]?.correctOptionId),
+                            )}), marcat cu ✓.`}
                       </p>
                       {feedback[item.id]?.solution && (
                         <div>

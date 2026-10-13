@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatMinutes, roCount } from './format'
+import { formatMinutes, optionLetter, roCount } from './format'
 
 describe('formatMinutes', () => {
   it('uses the singular for exactly one minute', () => {
@@ -20,5 +20,15 @@ describe('roCount', () => {
     expect(roCount(0, 'grilă', 'grile')).toBe('0 grile')
     expect(roCount(20, 'subiect', 'subiecte')).toBe('20 de subiecte')
     expect(roCount(101, 'subiect', 'subiecte')).toBe('101 subiecte')
+  })
+})
+
+describe('optionLetter', () => {
+  it('letters options as a paper test does: a), b), c), d)', () => {
+    expect([0, 1, 2, 3].map(optionLetter)).toEqual(['a', 'b', 'c', 'd'])
+  })
+
+  it('has no letter for an option that is not there', () => {
+    expect(optionLetter(-1)).toBe('')
   })
 })

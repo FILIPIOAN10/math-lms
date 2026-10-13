@@ -1065,6 +1065,9 @@ export interface ItemResultDto {
   correct: boolean | null
   selectedOptionText: string | null
   correctOptionText: string | null
+  /** "a", "b"... as on the paper test; null = no answer / not a grilă (absent in older fixtures). */
+  selectedOptionLetter?: string | null
+  correctOptionLetter?: string | null
   barem: string | null
   photoUploaded: boolean
   /** S2: the pages of the open answer, oldest first. */
@@ -1306,6 +1309,9 @@ export interface AdminItemReview {
   barem: string | null
   selectedOptionText: string | null
   correctOptionText: string | null
+  /** "a", "b"... as on the paper test; null = no answer / not a grilă (absent in older fixtures). */
+  selectedOptionLetter?: string | null
+  correctOptionLetter?: string | null
   correct: boolean | null
   awardedPoints: number | null
   photoUploaded: boolean

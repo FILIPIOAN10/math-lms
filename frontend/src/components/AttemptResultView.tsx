@@ -120,12 +120,16 @@ function ItemResult({
               {item.selectedOptionText === null ? (
                 <em>fără răspuns</em>
               ) : (
-                <MathContent inline>{item.selectedOptionText}</MathContent>
+                <>
+                  {item.selectedOptionLetter && `${item.selectedOptionLetter}) `}
+                  <MathContent inline>{item.selectedOptionText}</MathContent>
+                </>
               )}
             </p>
             {!item.correct && item.correctOptionText !== null && (
               <p>
-                Răspuns corect: <MathContent inline>{item.correctOptionText}</MathContent>
+                Răspuns corect: {item.correctOptionLetter && `${item.correctOptionLetter}) `}
+                <MathContent inline>{item.correctOptionText}</MathContent>
               </p>
             )}
           </div>

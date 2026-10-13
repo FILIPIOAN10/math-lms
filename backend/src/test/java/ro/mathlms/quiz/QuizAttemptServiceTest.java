@@ -690,6 +690,8 @@ class QuizAttemptServiceTest {
         ItemResultDto grView = view.items().get(0);
         assertThat(grView.correctOptionText()).isEqualTo("opt");
         assertThat(grView.selectedOptionText()).isEqualTo("opt");
+        assertThat(grView.selectedOptionLetter()).isEqualTo("a");
+        assertThat(grView.correctOptionLetter()).isEqualTo("a");
         assertThat(grView.correct()).isTrue();
         assertThat(grView.awardedPoints()).isEqualTo(5);
         ItemResultDto openView = view.items().get(1);
@@ -895,6 +897,9 @@ class QuizAttemptServiceTest {
         assertThat(detail.items()).hasSize(2);
         assertThat(detail.items().get(0).selectedOptionText()).isEqualTo("opt");
         assertThat(detail.items().get(0).correctOptionText()).isEqualTo("corect");
+        // The letters as on the paper test: the wrong pick was a), the right answer b).
+        assertThat(detail.items().get(0).selectedOptionLetter()).isEqualTo("a");
+        assertThat(detail.items().get(0).correctOptionLetter()).isEqualTo("b");
         assertThat(detail.items().get(0).correct()).isFalse();
         assertThat(detail.items().get(1).itemId()).isEqualTo(101L);
         assertThat(detail.items().get(1).barem()).isEqualTo("barem-x");

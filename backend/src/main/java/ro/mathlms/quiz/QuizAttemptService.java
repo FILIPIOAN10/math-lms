@@ -480,13 +480,19 @@ public class QuizAttemptService {
             ItemResponse response = byItem.get(item.getId());
             String selectedText = null;
             String correctText = null;
+            String selectedLetter = null;
+            String correctLetter = null;
             boolean photoUploaded = false;
             if (item.getType() == QuizItemType.SINGLE_CHOICE) {
                 List<QuizOption> options = optionRepository.findByItemIdOrderByPosition(item.getId());
-                correctText = options.stream().filter(QuizOption::isCorrect)
-                        .map(QuizOption::getText).findFirst().orElse(null);
+                QuizOption correctOption = options.stream().filter(QuizOption::isCorrect).findFirst().orElse(null);
+                if (correctOption != null) {
+                    correctText = correctOption.getText();
+                    correctLetter = letterOf(options, correctOption);
+                }
                 if (response != null && response.getSelectedOption() != null) {
                     selectedText = response.getSelectedOption().getText();
+                    selectedLetter = letterOf(options, response.getSelectedOption());
                 }
             } else {
                 photoUploaded = response != null && response.hasPhotos();
@@ -502,7 +508,8 @@ public class QuizAttemptService {
                     item.getSection(),
                     item.getImageKey(),
                     response == null ? List.of() : response.photoIds(),
-                    PartDtos.GradedPartDto.of(partsByItem.getOrDefault(item.getId(), List.of()), response)));
+                    PartDtos.GradedPartDto.of(partsByItem.getOrDefault(item.getId(), List.of()), response),
+                    selectedLetter, correctLetter));
         }
         return new AttemptResultViewDto(attempt.getId(), attempt.getQuiz().getTitle(),
                 attempt.getStatus(), attempt.getScore(), maxScore, itemResults, attempt.getMode(),
@@ -870,13 +877,18 @@ public class QuizAttemptService {
             ItemResponse response = byItem.get(item.getId());
             String selectedText = null;
             String correctText = null;
+            String selectedLetter = null;
+            String correctLetter = null;
             if (item.getType() == QuizItemType.SINGLE_CHOICE) {
-                correctText = optionRepository.findByItemIdOrderByPosition(item.getId()).stream()
-                        .filter(QuizOption::isCorrect)
-                        .map(QuizOption::getText)
-                        .findFirst().orElse(null);
+                List<QuizOption> options = optionRepository.findByItemIdOrderByPosition(item.getId());
+                QuizOption correctOption = options.stream().filter(QuizOption::isCorrect).findFirst().orElse(null);
+                if (correctOption != null) {
+                    correctText = correctOption.getText();
+                    correctLetter = letterOf(options, correctOption);
+                }
                 if (response != null && response.getSelectedOption() != null) {
                     selectedText = response.getSelectedOption().getText();
+                    selectedLetter = letterOf(options, response.getSelectedOption());
                 }
             }
             reviews.add(new AdminItemReviewDto(
@@ -889,10 +901,24 @@ public class QuizAttemptService {
                     item.getSection(),
                     item.getImageKey(),
                     response == null ? List.of() : response.photoIds(),
-                    PartDtos.GradedPartDto.of(partsByItem.getOrDefault(item.getId(), List.of()), response)));
+                    PartDtos.GradedPartDto.of(partsByItem.getOrDefault(item.getId(), List.of()), response),
+                    selectedLetter, correctLetter));
         }
         return new AdminAttemptDetailDto(attempt.getId(), attempt.getQuiz().getTitle(),
                 attempt.getStudent().getFullName(), attempt.getStatus(), attempt.getSubmittedAt(),
                 attempt.getScore(), maxScore, reviews, attempt.getTeacherComment());
+    }
+
+    /**
+     * The option's letter as printed on a paper test - a), b), c)... by its place among the item's options (ordered
+     * by position), so "răspunsul b" means the same thing on screen, on paper and in the barem. Null if not found.
+     */
+    static String letterOf(List<QuizOption> options, QuizOption option) {
+        for (int i = 0; i < options.size(); i++) {
+            if (Objects.equals(options.get(i).getId(), option.getId())) {
+                return String.valueOf((char) ('a' + i));
+            }
+        }
+        return null;
     }
 }

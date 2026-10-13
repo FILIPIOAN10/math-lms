@@ -14,3 +14,8 @@ export function roCount(n: number, one: string, many: string): string {
   const lastTwo = n % 100
   return `${n}${n !== 0 && (lastTwo === 0 || lastTwo >= 20) ? ' de ' : ' '}${many}`
 }
+
+/** "a", "b", "c"... - an option's letter by its place, as a paper test prints a), b), c), d). Empty if not found. */
+export function optionLetter(index: number): string {
+  return index >= 0 ? String.fromCharCode(97 + index) : ''
+}

@@ -377,13 +377,17 @@ export function AdminGradingPage() {
                         {item.selectedOptionText === null ? (
                           <em>fără răspuns</em>
                         ) : (
-                          <MathContent inline>{item.selectedOptionText}</MathContent>
+                          <>
+                            {item.selectedOptionLetter && `${item.selectedOptionLetter}) `}
+                            <MathContent inline>{item.selectedOptionText}</MathContent>
+                          </>
                         )}{' '}
                         ({item.awardedPoints ?? 0} p, corectat automat)
                       </p>
                       {!item.correct && item.correctOptionText !== null && (
                         <p>
-                          Corect: <MathContent inline>{item.correctOptionText}</MathContent>
+                          Corect: {item.correctOptionLetter && `${item.correctOptionLetter}) `}
+                          <MathContent inline>{item.correctOptionText}</MathContent>
                         </p>
                       )}
                     </div>

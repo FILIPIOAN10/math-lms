@@ -28,7 +28,7 @@ import {
 } from '@/lib/api'
 import { draftPoints, draftProblems, toDrafts, toItemInputs, type DraftItem } from '@/lib/aiImport'
 import { errorMessage } from '@/lib/errors'
-import { formatDate, roCount } from '@/lib/format'
+import { formatDate, optionLetter, roCount } from '@/lib/format'
 import { shrinkImage } from '@/lib/image'
 
 const selectClass =
@@ -482,12 +482,13 @@ function DraftCard({ draft: d, onChange }: { draft: DraftItem; onChange: (change
                 <legend className="text-sm font-medium">Variante — bifează răspunsul corect</legend>
                 {d.options.map((option, i) => (
                   <div key={i} className="flex items-center gap-2">
-                    <input type="radio" name={`${id}-correct`} checked={d.correct === i} aria-label={`Varianta ${i + 1} e corectă`}
+                    <input type="radio" name={`${id}-correct`} checked={d.correct === i} aria-label={`Varianta ${optionLetter(i)}) e corectă`}
                            onChange={() => onChange({ correct: i })} />
-                    <Input value={option} aria-label={`Varianta ${i + 1}`} onChange={(e) => setOption(i, e.target.value)} />
+                    <span aria-hidden="true" className="w-4 shrink-0 text-sm font-semibold">{optionLetter(i)})</span>
+                    <Input value={option} aria-label={`Varianta ${optionLetter(i)})`} onChange={(e) => setOption(i, e.target.value)} />
                     <MathContent inline className="min-w-16 text-sm">{option}</MathContent>
                     <Button type="button" variant="ghost" size="xs" onClick={() => removeOption(i)}
-                            disabled={d.options.length <= 2} aria-label={`Șterge varianta ${i + 1}`}>✕</Button>
+                            disabled={d.options.length <= 2} aria-label={`Șterge varianta ${optionLetter(i)})`}>✕</Button>
                   </div>
                 ))}
                 <Button type="button" variant="outline" size="xs" onClick={() => onChange({ options: [...d.options, ''] })}

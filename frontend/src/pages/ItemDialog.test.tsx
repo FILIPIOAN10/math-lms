@@ -161,16 +161,16 @@ describe('ItemDialog quick entry', () => {
   it('starts a new multiple-choice item with four options', () => {
     renderDialog(null)
 
-    expect(screen.getAllByPlaceholderText(/^Varianta \d$/)).toHaveLength(4)
+    expect(screen.getAllByPlaceholderText(/^Varianta [a-z]\)$/)).toHaveLength(4)
   })
 
   it('moves to a new option on Enter in the last one instead of saving', async () => {
     const onSubmit = renderDialog(null)
 
-    await userEvent.type(screen.getByPlaceholderText('Varianta 4'), 'ultima{Enter}')
+    await userEvent.type(screen.getByPlaceholderText('Varianta d)'), 'ultima{Enter}')
 
-    expect(screen.getAllByPlaceholderText(/^Varianta \d$/)).toHaveLength(5)
-    await waitFor(() => expect(screen.getByPlaceholderText('Varianta 5')).toHaveFocus())
+    expect(screen.getAllByPlaceholderText(/^Varianta [a-z]\)$/)).toHaveLength(5)
+    await waitFor(() => expect(screen.getByPlaceholderText('Varianta e)')).toHaveFocus())
     expect(onSubmit).not.toHaveBeenCalled()
   })
 

@@ -156,7 +156,7 @@ describe('TakeQuizPage', () => {
       renderPage('?mode=practice')
       await begin('Începe practica')
 
-      await userEvent.click(screen.getByLabelText('Varianta B'))
+      await userEvent.click(screen.getByLabelText('b) Varianta B'))
 
       expect(await screen.findByTestId('item-feedback')).toHaveTextContent('Greșit')
       expect(screen.getByTestId('item-feedback')).toHaveTextContent('Rezolvare: A')
@@ -164,6 +164,8 @@ describe('TakeQuizPage', () => {
       // the right option is outlined green, the wrong pick red
       expect(screen.getByText('Varianta A').closest('label')).toHaveClass('border-emerald-500')
       expect(screen.getByText('Varianta B').closest('label')).toHaveClass('border-destructive')
+      // and the verdict names the right option by its letter, as the barem does
+      expect(screen.getByTestId('item-feedback')).toHaveTextContent('răspunsul corect e a)')
     })
 
     it('congratulates a correct answer', async () => {
@@ -172,7 +174,7 @@ describe('TakeQuizPage', () => {
       renderPage('?mode=practice')
       await begin('Începe practica')
 
-      await userEvent.click(screen.getByLabelText('Varianta A'))
+      await userEvent.click(screen.getByLabelText('a) Varianta A'))
 
       expect(await screen.findByTestId('item-feedback')).toHaveTextContent('Corect!')
     })
@@ -209,7 +211,7 @@ describe('TakeQuizPage', () => {
       renderPage('?mode=practice')
       await begin('Începe practica')
 
-      await userEvent.click(screen.getByLabelText('Varianta B'))
+      await userEvent.click(screen.getByLabelText('b) Varianta B'))
 
       await screen.findByTestId('item-feedback')
       const right = screen.getByText('Varianta A').closest('label')
@@ -228,7 +230,7 @@ describe('TakeQuizPage', () => {
       renderPage('')
       await begin('Începe testul')
 
-      await userEvent.click(screen.getByLabelText('Varianta A'))
+      await userEvent.click(screen.getByLabelText('a) Varianta A'))
 
       expect(await screen.findByText(/încă folosit/)).toBeInTheDocument()
       expect(api.submitQuizAttempt).not.toHaveBeenCalled()
@@ -240,7 +242,7 @@ describe('TakeQuizPage', () => {
       renderPage('')
       await begin('Începe testul')
 
-      await userEvent.click(screen.getByLabelText('Varianta A'))
+      await userEvent.click(screen.getByLabelText('a) Varianta A'))
 
       await waitFor(() => expect(api.saveQuizAnswer).toHaveBeenCalled())
       expect(api.startQuizAttempt).toHaveBeenCalledWith(7, 'TEST')
@@ -408,7 +410,7 @@ describe('TakeQuizPage', () => {
       const nav = screen.getByRole('navigation', { name: 'Subiecte' })
       expect(within(nav).getByRole('button', { name: 'Subiectul 1, fără răspuns' })).toBeInTheDocument()
 
-      await userEvent.click(screen.getByLabelText('A1'))
+      await userEvent.click(screen.getByLabelText('a) A1'))
 
       expect(await within(nav).findByRole('button', { name: 'Subiectul 1, cu răspuns' })).toBeInTheDocument()
       expect(within(nav).getByRole('button', { name: 'Subiectul 2, fără răspuns' })).toBeInTheDocument()
@@ -434,7 +436,7 @@ describe('TakeQuizPage', () => {
       Element.prototype.scrollIntoView = vi.fn()
       renderPage('')
       await userEvent.click(await screen.findByRole('button', { name: 'Începe testul' }))
-      await userEvent.click(await screen.findByLabelText('A1'))
+      await userEvent.click(await screen.findByLabelText('a) A1'))
       await waitFor(() => expect(api.saveQuizAnswer).toHaveBeenCalled())
 
       await userEvent.click(screen.getByRole('button', { name: 'Trimite lucrarea' }))
@@ -477,10 +479,10 @@ describe('TakeQuizPage', () => {
       renderPage('')
       await begin('Începe testul')
 
-      await userEvent.click(screen.getByLabelText('Varianta B'))
+      await userEvent.click(screen.getByLabelText('b) Varianta B'))
 
       expect(await screen.findByTestId('item-queued')).toHaveTextContent('Încă netrimis')
-      expect(screen.getByLabelText('Varianta B')).toBeChecked() // not undone
+      expect(screen.getByLabelText('b) Varianta B')).toBeChecked() // not undone
       expect(screen.getByTestId('connection-banner')).toHaveTextContent('Se reîncearcă trimiterea: 1 răspuns netrimis.')
       expect(screen.getByRole('button', { name: 'Subiectul 1, cu răspuns, netrimis încă' })).toBeInTheDocument()
 
@@ -498,10 +500,10 @@ describe('TakeQuizPage', () => {
       renderPage('')
       await begin('Începe testul')
 
-      await userEvent.click(screen.getByLabelText('Varianta B'))
+      await userEvent.click(screen.getByLabelText('b) Varianta B'))
 
       expect(await screen.findByText('Varianta nu ține de acest subiect.')).toBeInTheDocument()
-      expect(screen.getByLabelText('Varianta B')).not.toBeChecked()
+      expect(screen.getByLabelText('b) Varianta B')).not.toBeChecked()
       expect(screen.queryByTestId('item-queued')).not.toBeInTheDocument()
     })
 
@@ -511,9 +513,9 @@ describe('TakeQuizPage', () => {
       renderPage('')
       await begin('Începe testul')
 
-      await userEvent.click(screen.getByLabelText('Varianta B'))
+      await userEvent.click(screen.getByLabelText('b) Varianta B'))
       await screen.findByTestId('item-queued')
-      await userEvent.click(screen.getByLabelText('Varianta A'))
+      await userEvent.click(screen.getByLabelText('a) Varianta A'))
 
       await waitFor(() => expect(screen.queryByTestId('item-queued')).not.toBeInTheDocument())
       expect(api.saveQuizAnswer).toHaveBeenLastCalledWith(50, 100, 1000, { clientId: expect.any(String), clientSeq: 2 })
@@ -525,7 +527,7 @@ describe('TakeQuizPage', () => {
       api.submitQuizAttempt.mockResolvedValue({})
       renderPage('')
       await begin('Începe testul')
-      await userEvent.click(screen.getByLabelText('Varianta B'))
+      await userEvent.click(screen.getByLabelText('b) Varianta B'))
       await screen.findByTestId('item-queued')
 
       await userEvent.click(screen.getByRole('button', { name: 'Trimite lucrarea' }))
@@ -550,7 +552,7 @@ describe('TakeQuizPage', () => {
       renderPage('')
       await begin('Începe testul')
 
-      expect(screen.getByLabelText('Varianta B')).toBeChecked()
+      expect(screen.getByLabelText('b) Varianta B')).toBeChecked()
       await waitFor(() => expect(api.saveQuizAnswer).toHaveBeenCalledWith(50, 100, 1001, {
         clientId: '7f6a0f3e-1111-4b2c-9d0e-123456789abc', clientSeq: 3,
       }))

@@ -8,6 +8,7 @@ import { PageHeader } from '@/components/PageHeader'
 import { answerReview, getReviewToday, type ReviewResult, type ReviewToday } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
 import { roCount } from '@/lib/format'
+import { OptionLetter } from '@/components/OptionLetter'
 
 const BOXES = 5
 
@@ -146,7 +147,7 @@ export function ReviewPage() {
               <QuestionImage itemId={question.itemId} image={question.image} />
 
               <div className="space-y-2">
-                {question.options.map((option) => {
+                {question.options.map((option, optionIndex) => {
                   const isRight = result?.correctOptionId === option.id
                   const isWrongPick = result !== null && !result.correct && selected === option.id
                   return (
@@ -166,6 +167,7 @@ export function ReviewPage() {
                         disabled={result !== null || busy}
                         onChange={() => setSelected(option.id)}
                       />
+                      <OptionLetter index={optionIndex} />
                       <MathContent inline>{option.text}</MathContent>
                       {isRight && (
                         <span className="ml-auto font-semibold text-emerald-700 dark:text-emerald-300">

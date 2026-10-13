@@ -44,7 +44,7 @@ import {
   type QuizInput,
   type SchoolClass,
 } from '@/lib/api'
-import { formatDate, roCount } from '@/lib/format'
+import { formatDate, optionLetter, roCount } from '@/lib/format'
 import { errorMessage } from '@/lib/errors'
 import { shrinkImage } from '@/lib/image'
 
@@ -605,14 +605,15 @@ export function ItemDialog({
                   name="correct-option"
                   checked={o.correct}
                   onChange={() => setCorrect(i)}
-                  aria-label={`Varianta ${i + 1} corectă`}
+                  aria-label={`Varianta ${optionLetter(i)}) corectă`}
                 />
+                <span aria-hidden="true" className="w-4 shrink-0 text-sm font-semibold">{optionLetter(i)})</span>
                 <Input
                   id={`ioption-${i}`}
                   value={o.text}
                   onChange={(e) => setOptionText(i, e.target.value)}
                   onKeyDown={(e) => onOptionEnter(e, i)}
-                  placeholder={`Varianta ${i + 1}`}
+                  placeholder={`Varianta ${optionLetter(i)})`}
                 />
                 <Button type="button" variant="ghost" size="icon-sm" onClick={() => removeOption(i)} disabled={options.length <= 2} aria-label="Șterge varianta">
                   ×
@@ -921,9 +922,10 @@ export function AdminQuizzesPage() {
                         />
                         {item.type === 'SINGLE_CHOICE' && (
                           <ul className="space-y-1 text-sm">
-                            {item.options.map((o) => (
+                            {item.options.map((o, i) => (
                               <li key={o.id} className={o.correct ? 'font-medium text-emerald-700 dark:text-emerald-300' : ''}>
-                                {o.correct ? '✓ ' : '• '}
+                                {o.correct ? '✓ ' : ''}
+                                {optionLetter(i)}){' '}
                                 <MathContent inline>{o.text}</MathContent>
                               </li>
                             ))}

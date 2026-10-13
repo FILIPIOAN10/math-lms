@@ -102,7 +102,7 @@ describe('AdminAiImportPage', () => {
     const create = screen.getByRole('button', { name: 'Creează testul (2 subiecte)' })
     expect(create).toBeDisabled()
 
-    await user.click(within(grila).getByLabelText('Varianta 2 e corectă'))
+    await user.click(within(grila).getByLabelText('Varianta b) e corectă'))
     await user.click(within(open).getByLabelText('Îl includ'))
     await user.click(screen.getByRole('button', { name: 'Creează testul (1 subiect)' }))
 

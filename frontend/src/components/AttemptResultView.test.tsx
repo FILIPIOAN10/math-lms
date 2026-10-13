@@ -116,13 +116,18 @@ describe('AttemptResultView', () => {
   it('shows the correct answer next to a wrong one', () => {
     const wrong: AttemptResultViewDto = {
       ...graded,
-      items: [{ ...graded.items[0], correct: false, awardedPoints: 0, selectedOptionText: 'Varianta A' }],
+      items: [{
+        ...graded.items[0], correct: false, awardedPoints: 0, selectedOptionText: 'Varianta A',
+        selectedOptionLetter: 'a', correctOptionLetter: 'b',
+      }],
     }
 
     render(<AttemptResultView result={wrong} />, { wrapper: MemoryRouter })
 
     expect(screen.getByText(/Răspunsul tău:/)).toHaveTextContent('✗')
-    expect(screen.getByText(/Răspuns corect:/)).toHaveTextContent('Varianta B')
+    // the letters as on the paper test, so "b)" means the same thing in the barem and in class
+    expect(screen.getByText(/Răspunsul tău:/)).toHaveTextContent('a) Varianta A')
+    expect(screen.getByText(/Răspuns corect:/)).toHaveTextContent('b) Varianta B')
   })
 
   it('says a practice is not marked and shows how many choice questions were right, instead of a score', () => {

@@ -48,7 +48,7 @@ describe('ReviewPage', () => {
     })
     renderPage()
 
-    await userEvent.click(await screen.findByLabelText('greșit'))
+    await userEvent.click(await screen.findByLabelText('b) greșit'))
     await userEvent.click(screen.getByRole('button', { name: 'Verifică' }))
 
     await waitFor(() => expect(api.answerReview).toHaveBeenCalledWith(1, 11))
@@ -71,7 +71,7 @@ describe('ReviewPage', () => {
     })
     renderPage()
 
-    await userEvent.click(await screen.findByLabelText('corect'))
+    await userEvent.click(await screen.findByLabelText('a) corect'))
     await userEvent.click(screen.getByRole('button', { name: 'Verifică' }))
     expect(await screen.findByTestId('review-feedback')).toHaveTextContent('Urcă în cutia 2')
     await userEvent.click(screen.getByRole('button', { name: 'Termină' }))
@@ -96,7 +96,7 @@ describe('ReviewPage', () => {
     api.answerReview.mockRejectedValue(new ApiError(409, 'Întrebarea nu e de recapitulat azi.'))
     renderPage()
 
-    await userEvent.click(await screen.findByLabelText('corect'))
+    await userEvent.click(await screen.findByLabelText('a) corect'))
     await userEvent.click(screen.getByRole('button', { name: 'Verifică' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Întrebarea nu e de recapitulat azi.')
