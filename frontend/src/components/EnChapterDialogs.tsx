@@ -76,7 +76,7 @@ export function EnChapterDialog({
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Ce trebuie să știe elevul, pe scurt. Formulele între $...$, de exemplu $a^2 - b^2 = (a-b)(a+b)$."
-            rows={4}
+            rows={12}
           />
           {notes.trim() && <MathContent className="rounded-lg bg-muted px-3 py-2 text-sm whitespace-pre-wrap">{notes}</MathContent>}
         </div>
