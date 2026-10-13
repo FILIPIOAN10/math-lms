@@ -118,4 +118,18 @@ describe('StudentQuizListPage', () => {
     expect(links[0]).toHaveAttribute('href', '/quizzes/attempts/1/result')
     expect(links[0]).not.toHaveClass('border-border') // the filled button, not the outline one
   })
+
+  it('after "Salvează și ieși", says the work is saved and where to continue it', async () => {
+    api.getStudentQuizzes.mockResolvedValue([])
+    api.getMyAttempts.mockResolvedValue([])
+    render(
+      <MemoryRouter initialEntries={[{ pathname: '/quizzes', state: { savedQuizTitle: 'Simulare EN' } }]}>
+        <StudentQuizListPage />
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByTestId('saved-notice')).toHaveTextContent(
+      'Am salvat ce ai lucrat la „Simulare EN”. Continui oricând cu „Continuă”.',
+    )
+  })
 })

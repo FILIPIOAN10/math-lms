@@ -162,6 +162,10 @@ export function TakeQuizPage() {
   const confirmed = useRef<Record<number, number>>({})
   // Hand-in found answers that never reached the server: how many (the dialog asks what to do).
   const [unsent, setUnsent] = useState<number | null>(null)
+  // "Salvează și ieși": the clock warning first (timed test), then - only if some grile are still waiting - how many.
+  const [leaveStep, setLeaveStep] = useState<'clock' | null>(null)
+  const [unsentOnLeave, setUnsentOnLeave] = useState<number | null>(null)
+  const [leaving, setLeaving] = useState(false)
   usePageTitle(attempt?.quiz.title ?? preview?.title ?? (practice ? 'Exersare' : 'Test'))
   const jumpTarget = useRef<HTMLElement | null>(null) // where "Mergi la subiectul N" sends focus once the dialog closes
 
@@ -382,6 +386,34 @@ export function TakeQuizPage() {
     }
   }
 
+  /**
+   * "Salvează și ieși": every answer is already saved as it is given, so leaving only waits for the grile still on
+   * their way. On a clock it first says the time keeps running; without internet it says what stays on this device
+   * (the queue survives in this browser and is sent when the test is reopened here). Nothing is handed in.
+   */
+  function askToLeave() {
+    if (timeLeft !== null) setLeaveStep('clock')
+    else void leave()
+  }
+
+  async function leave() {
+    if (!attempt) return
+    setLeaveStep(null)
+    setUnsentOnLeave(null)
+    setLeaving(true)
+    if (!(await sync.flush(5000))) {
+      setUnsentOnLeave(Math.max(1, sync.pendingCount))
+      setLeaving(false)
+      return
+    }
+    backToList()
+  }
+
+  function backToList() {
+    // The list says the work was saved and where to continue it.
+    navigate('/quizzes', { state: { savedQuizTitle: attempt?.quiz.title } })
+  }
+
   /** Hand-in: first every answer still waiting goes to the server; if some cannot, the student decides. */
   async function submit() {
     if (!attempt) return
@@ -490,6 +522,7 @@ export function TakeQuizPage() {
   const unanswered = numbered.flatMap((n) => (isAnswered(n.item) ? [] : [{ item: n.item, number: n.label }]))
   const askAboutUnanswered = !practice && !timeUp && unanswered.length > 0
   const tone = timeLeft !== null ? timerTone(timeLeft) : 'normal'
+  const uploading = Object.values(saving).some(Boolean)
 
   const dialogTitle = practice
     ? 'Închei sesiunea de practică?'
@@ -787,14 +820,26 @@ export function TakeQuizPage() {
               )
             })}
           </nav>
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
             <p className="text-sm text-muted-foreground">
               {answeredCount} / {items.length} {practice ? 'subiecte rezolvate' : 'răspunsuri'}
               {sync.pendingCount > 0 && ` · ${sync.pendingCount} netrimise încă`}
             </p>
-            <Button onClick={() => setConfirming(true)} disabled={submitting} data-testid="quiz-submit">
-              {submitting ? 'Se trimite...' : practice ? 'Termină practica' : 'Trimite lucrarea'}
-            </Button>
+            <div className="ml-auto flex gap-2">
+              {/* The only way out of the test: the app header is hidden here, and an installed app may have no Back. */}
+              <Button
+                variant="outline"
+                onClick={askToLeave}
+                disabled={submitting || leaving || timeUp || uploading}
+                title={uploading ? 'Așteaptă să se încarce poza' : undefined}
+                data-testid="quiz-leave"
+              >
+                {leaving ? 'Se salvează...' : 'Salvează și ieși'}
+              </Button>
+              <Button onClick={() => setConfirming(true)} disabled={submitting || leaving} data-testid="quiz-submit">
+                {submitting ? 'Se trimite...' : practice ? 'Termină practica' : 'Trimite lucrarea'}
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -823,6 +868,35 @@ export function TakeQuizPage() {
         }
       >
         {dialogBody}
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={leaveStep === 'clock'}
+        title="Ieși din test?"
+        confirmLabel="Ieși"
+        cancelLabel="Rămân"
+        onConfirm={() => void leave()}
+        onCancel={() => setLeaveStep(null)}
+      >
+        Cronometrul nu se oprește{timeLeft !== null ? `: mai ai ${formatClock(timeLeft)}` : ''}. Poți reveni din „Testele
+        mele”; dacă nu revii la timp, lucrarea se trimite singură cu ce ai salvat.
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={unsentOnLeave !== null}
+        title={`${unsentOnLeave === 1 ? '1 răspuns n-a ajuns' : `${unsentOnLeave} răspunsuri n-au ajuns`} încă la server`}
+        confirmLabel="Ieși oricum"
+        cancelLabel="Rămân"
+        onConfirm={backToList}
+        onCancel={() => setUnsentOnLeave(null)}
+        extraAction={<Button variant="outline" onClick={() => void leave()}>Mai așteaptă</Button>}
+      >
+        Pare că nu ai internet.{' '}
+        {unsentOnLeave === 1
+          ? 'Răspunsul rămâne pe acest dispozitiv și se trimite singur'
+          : 'Răspunsurile rămân pe acest dispozitiv și se trimit singure'}{' '}
+        când redeschizi testul de pe el{timeLeft !== null ? ', dacă mai e timp' : ''}. Ca să fie sigur, așteaptă să revină
+        conexiunea.
       </ConfirmDialog>
 
       <ConfirmDialog

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { AssignmentsSection } from '@/components/AssignmentsSection'
@@ -31,6 +31,14 @@ export function StudentQuizListPage() {
   const [assignments, setAssignments] = useState<StudentAssignment[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  // Set by "Salvează și ieși" in a test: the work it saved, so the student knows it is safe and where to pick it up.
+  // Read once, then dropped from the history entry, so coming Back here later does not repeat it.
+  const location = useLocation()
+  const navigate = useNavigate()
+  const [savedQuizTitle] = useState(() => (location.state as { savedQuizTitle?: string } | null)?.savedQuizTitle ?? null)
+  useEffect(() => {
+    if (savedQuizTitle) navigate(location.pathname, { replace: true, state: null })
+  }, [savedQuizTitle, navigate, location.pathname])
 
   useEffect(() => {
     let cancelled = false
@@ -68,6 +76,15 @@ export function StudentQuizListPage() {
       <div className="mx-auto max-w-3xl space-y-6">
         <PageHeader title="Testele mele" description="Temele, testele pe care le poți da și ce ai dat până acum." />
 
+        {savedQuizTitle && (
+          <p
+            role="status"
+            data-testid="saved-notice"
+            className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-3 text-sm text-emerald-900 dark:text-emerald-100"
+          >
+            Am salvat ce ai lucrat la „{savedQuizTitle}”. Continui oricând cu „Continuă”.
+          </p>
+        )}
         {error && <p className="text-sm text-destructive">{error}</p>}
         {loading && <p className="text-muted-foreground">Se încarcă...</p>}
 

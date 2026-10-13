@@ -559,6 +559,84 @@ describe('TakeQuizPage', () => {
     })
   })
 
+  describe('"Salvează și ieși" - leaving to come back later', () => {
+    it('goes back to "Testele mele" without handing anything in, once every answer is on the server', async () => {
+      api.startQuizAttempt.mockResolvedValue(started('TEST'))
+      api.saveQuizAnswer.mockResolvedValue(null)
+      renderPage('')
+      await begin('Începe testul')
+      await userEvent.click(screen.getByLabelText('b) Varianta B'))
+      await waitFor(() => expect(api.saveQuizAnswer).toHaveBeenCalled())
+
+      await userEvent.click(screen.getByRole('button', { name: 'Salvează și ieși' }))
+
+      expect(await screen.findByText('lista de teste')).toBeInTheDocument()
+      expect(api.submitQuizAttempt).not.toHaveBeenCalled()
+    })
+
+    it('is there in a practice too', async () => {
+      api.startQuizAttempt.mockResolvedValue(started('PRACTICE'))
+      renderPage('?mode=practice')
+      await begin('Începe practica')
+
+      await userEvent.click(screen.getByRole('button', { name: 'Salvează și ieși' }))
+
+      expect(await screen.findByText('lista de teste')).toBeInTheDocument()
+    })
+
+    it('on a clock, first says the time keeps running - "Rămân" stays, "Ieși" leaves', async () => {
+      api.startQuizAttempt.mockResolvedValue(startedThree(20 * 60))
+      renderPage('')
+      await userEvent.click(await screen.findByRole('button', { name: 'Începe testul' }))
+      await screen.findByTestId('quiz-timer')
+
+      await userEvent.click(screen.getByRole('button', { name: 'Salvează și ieși' }))
+      const dialog = await screen.findByRole('dialog', { name: 'Ieși din test?' })
+      expect(dialog).toHaveTextContent('Cronometrul nu se oprește')
+      expect(dialog).toHaveTextContent('se trimite singură')
+
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Rămân' }))
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      expect(screen.getByText('Primul subiect')).toBeInTheDocument()
+
+      await userEvent.click(screen.getByRole('button', { name: 'Salvează și ieși' }))
+      await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Ieși' }))
+
+      expect(await screen.findByText('lista de teste')).toBeInTheDocument()
+      expect(api.submitQuizAttempt).not.toHaveBeenCalled()
+    })
+
+    it('without internet, says what is still on this device and keeps it there when the student leaves anyway', async () => {
+      api.startQuizAttempt.mockResolvedValue(started('TEST'))
+      api.saveQuizAnswer.mockRejectedValue(new TypeError('Failed to fetch'))
+      renderPage('')
+      await begin('Începe testul')
+      await userEvent.click(screen.getByLabelText('b) Varianta B'))
+      await screen.findByTestId('item-queued')
+
+      await userEvent.click(screen.getByRole('button', { name: 'Salvează și ieși' }))
+      const warning = await screen.findByRole('dialog', { name: '1 răspuns n-a ajuns încă la server' })
+      expect(warning).toHaveTextContent('rămâne pe acest dispozitiv')
+
+      await userEvent.click(within(warning).getByRole('button', { name: 'Ieși oricum' }))
+
+      expect(await screen.findByText('lista de teste')).toBeInTheDocument()
+      // still waiting in this browser: reopening the test sends it
+      expect(localStorage.getItem('mathlms:pending:50')).toContain('"optionId":1001')
+    })
+
+    it('waits for a photo still uploading', async () => {
+      api.startQuizAttempt.mockResolvedValue(startedThree())
+      api.uploadQuizPhoto.mockReturnValue(new Promise(() => undefined)) // never finishes
+      renderPage('')
+      await userEvent.click(await screen.findByRole('button', { name: 'Începe testul' }))
+
+      await userEvent.upload(await screen.findByTestId('item-photo'), new File(['x'], 'p1.png', { type: 'image/png' }))
+
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Salvează și ieși' })).toBeDisabled())
+    })
+  })
+
   describe('the clock', () => {
     async function startTimed(secondsLeft: number) {
       api.startQuizAttempt.mockResolvedValue(startedThree(secondsLeft))
