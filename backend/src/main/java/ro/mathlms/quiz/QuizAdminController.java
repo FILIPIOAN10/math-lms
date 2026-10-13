@@ -91,6 +91,13 @@ public class QuizAdminController {
         return service.updateItem(itemId, request);
     }
 
+    /** Applies the EN chapters the teacher kept (stage 3: proposals from "Sugerează capitolele (AI)"). */
+    @PutMapping("/api/admin/quizzes/{id}/en-chapters")
+    public ResponseEntity<Void> assignEnChapters(@PathVariable Long id, @Valid @RequestBody EnChapterAssignments request) {
+        service.assignEnChapters(id, request.items());
+        return ResponseEntity.noContent().build();
+    }
+
     @DeleteMapping("/api/admin/quiz-items/{itemId}")
     public ResponseEntity<Void> deleteItem(@PathVariable Long itemId) {
         service.deleteItem(itemId);

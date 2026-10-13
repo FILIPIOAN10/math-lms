@@ -9,6 +9,7 @@ import { MathContent } from '@/components/MathContent'
 import { PageHeader } from '@/components/PageHeader'
 import { PhotoPages } from '@/components/PhotoPages'
 import { useConfirm } from '@/components/useConfirm'
+import { EnChapterSelect } from '@/components/EnChapterSelect'
 import {
   aiImportPageUrl,
   createAiImport,
@@ -18,6 +19,8 @@ import {
   getAiImportSettings,
   listAiImports,
   listChapterOptions,
+  listEnChapters,
+  type EnChapterSummary,
   listClasses,
   retryAiImport,
   type AiImport,
@@ -59,10 +62,12 @@ export function AdminAiImportPage() {
   const importId = importIdParam === undefined ? null : Number(importIdParam)
   const [classes, setClasses] = useState<SchoolClass[]>([])
   const [chapters, setChapters] = useState<ChapterOption[]>([])
+  const [enChapters, setEnChapters] = useState<EnChapterSummary[]>([])
 
   useEffect(() => {
     listClasses().then(setClasses).catch(() => undefined)
     listChapterOptions().then(setChapters).catch(() => undefined)
+    listEnChapters().then(setEnChapters).catch(() => undefined) // only the EN chapter choice is missing without it
   }, [])
 
   return (
@@ -70,7 +75,7 @@ export function AdminAiImportPage() {
       <div className="mx-auto max-w-3xl space-y-4">
         {importId === null
           ? <UploadView classes={classes} chapters={chapters} />
-          : <ImportView key={importId} id={importId} classes={classes} chapters={chapters} />}
+          : <ImportView key={importId} id={importId} classes={classes} chapters={chapters} enChapters={enChapters} />}
       </div>
     </div>
   )
@@ -237,7 +242,12 @@ function UploadView({ classes, chapters }: { classes: SchoolClass[]; chapters: C
 
 // ---------- Step 2 and 3: wait, then review ----------
 
-function ImportView({ id, classes, chapters }: { id: number; classes: SchoolClass[]; chapters: ChapterOption[] }) {
+function ImportView({ id, classes, chapters, enChapters }: {
+  id: number
+  classes: SchoolClass[]
+  chapters: ChapterOption[]
+  enChapters: EnChapterSummary[]
+}) {
   const navigate = useNavigate()
   const { confirm, dialog: confirmDialog } = useConfirm()
   const [ai, setAi] = useState<AiImport | null>(null)
@@ -318,16 +328,17 @@ function ImportView({ id, classes, chapters }: { id: number; classes: SchoolClas
         <p>Testul a fost creat. <Link className="underline" to={`/admin/quizzes/${ai.quizId}`}>Deschide-l</Link>.</p>
       )}
       {ai?.status === 'DONE' && ai.quizId === null && ai.items && (
-        <Review ai={ai} classes={classes} chapters={chapters} onDiscard={() => void discard()} />
+        <Review ai={ai} classes={classes} chapters={chapters} enChapters={enChapters} onDiscard={() => void discard()} />
       )}
     </div>
   )
 }
 
-function Review({ ai, classes, chapters, onDiscard }: {
+function Review({ ai, classes, chapters, enChapters, onDiscard }: {
   ai: AiImport
   classes: SchoolClass[]
   chapters: ChapterOption[]
+  enChapters: EnChapterSummary[]
   onDiscard: () => void
 }) {
   const navigate = useNavigate()
@@ -349,7 +360,7 @@ function Review({ ai, classes, chapters, onDiscard }: {
     setError(null)
     try {
       const quizId = await createQuizFromAiImport(ai.id, {
-        title: title.trim(), schoolClassId: classId, chapterId, items: toItemInputs(drafts),
+        title: title.trim(), schoolClassId: classId, chapterId, items: toItemInputs(drafts, enChapters),
       })
       navigate(`/admin/quizzes/${quizId}`)
     } catch (e) {
@@ -402,7 +413,7 @@ function Review({ ai, classes, chapters, onDiscard }: {
       <ol className="space-y-3">
         {drafts.map((d) => (
           <li key={d.key}>
-            <DraftCard draft={d} onChange={(change) => update(d.key, change)} />
+            <DraftCard draft={d} enChapters={enChapters} onChange={(change) => update(d.key, change)} />
           </li>
         ))}
       </ol>
@@ -423,7 +434,19 @@ function Review({ ai, classes, chapters, onDiscard }: {
   )
 }
 
-function DraftCard({ draft: d, onChange }: { draft: DraftItem; onChange: (change: Partial<DraftItem>) => void }) {
+/** The AI's reason for a proposed chapter, shown under the choice while the proposal is still the one chosen. */
+function ProposalReason({ reason, shown }: { reason: string | null; shown: boolean }) {
+  if (!reason || !shown) return null
+  return <p className="text-xs text-muted-foreground">Propus de AI: {reason}</p>
+}
+
+function DraftCard({ draft: d, enChapters, onChange }: {
+  draft: DraftItem
+  enChapters: EnChapterSummary[]
+  onChange: (change: Partial<DraftItem>) => void
+}) {
+  // What the AI proposed, to keep showing its reason only while the teacher has not picked something else.
+  const [proposed] = useState(() => ({ item: d.enChapter, parts: d.parts.map((p) => p.enChapter) }))
   const id = `ai-item-${d.key}`
   // A question turned into a grilă gets at least two (empty) variants to fill in.
   const setType = (type: QuizItemType) => onChange({
@@ -472,6 +495,14 @@ function DraftCard({ draft: d, onChange }: { draft: DraftItem; onChange: (change
               <Textarea id={`${id}-section`} rows={2} value={d.section} maxLength={300} placeholder="ex. SUBIECTUL I"
                         onChange={(e) => onChange({ section: e.target.value })} />
             </div>
+            {enChapters.length > 0 && (
+              <div className="flex flex-col gap-1">
+                <Label htmlFor={`${id}-en`}>Capitol EN (unde ajunge elevul dacă greșește)</Label>
+                <EnChapterSelect id={`${id}-en`} by="code" value={d.enChapter} chapters={enChapters}
+                                 onChange={(code) => onChange({ enChapter: code })} />
+                <ProposalReason reason={d.enChapterReason} shown={d.enChapter !== '' && d.enChapter === proposed.item} />
+              </div>
+            )}
             <div className="flex flex-col gap-2">
               <Label htmlFor={`${id}-statement`}>Enunțul</Label>
               <Textarea id={`${id}-statement`} rows={3} value={d.statement} onChange={(e) => onChange({ statement: e.target.value })} />
@@ -500,7 +531,7 @@ function DraftCard({ draft: d, onChange }: { draft: DraftItem; onChange: (change
                 <legend className="text-sm font-medium">Cerințe (fiecare se notează separat)</legend>
                 {d.parts.map((part, i) => {
                   const letter = String.fromCharCode(97 + i)
-                  const setPart = (change: Partial<{ statement: string; points: number }>) =>
+                  const setPart = (change: Partial<{ statement: string; points: number; enChapter: string }>) =>
                     onChange({ parts: d.parts.map((p, j) => (j === i ? { ...p, ...change } : p)) })
                   return (
                     <div key={i} className="space-y-1">
@@ -514,6 +545,15 @@ function DraftCard({ draft: d, onChange }: { draft: DraftItem; onChange: (change
                         <span className="mt-2 text-sm text-muted-foreground">p</span>
                       </div>
                       <MathContent className="ml-7 rounded-md bg-muted/40 p-2 text-sm">{part.statement}</MathContent>
+                      {enChapters.length > 0 && (
+                        <div className="ml-7 space-y-1">
+                          <EnChapterSelect id={`${id}-part-${i}-en`} label={`Capitol EN cerința ${letter})`} by="code"
+                                           value={part.enChapter} chapters={enChapters}
+                                           onChange={(code) => setPart({ enChapter: code })} />
+                          <ProposalReason reason={part.enChapterReason}
+                                          shown={part.enChapter !== '' && part.enChapter === proposed.parts[i]} />
+                        </div>
+                      )}
                     </div>
                   )
                 })}

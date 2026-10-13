@@ -764,6 +764,20 @@ la Subiectul III, cerințele a)/b) ale problemelor 5 și 6 au capitolul lor.
 | 7 | La o problemă cu a)/b) notată parțial | Butonul apare doar pentru cerința care a pierdut puncte, cu „b) · Vezi modele: …” |
 | 8 | Părinte: rezultatul copilului | Aceleași butoane |
 
+### 29. AI-ul propune capitolul EN — ca profesor (cere `AI_IMPORT_ENABLED=true`)
+
+Cu `AI_PROVIDER=openai` fiecare propunere e o cerere OpenAI doar cu TEXTUL întrebărilor (fără poze, fără date despre elevi);
+cu `AI_PROVIDER=fake` capitolul se alege după cuvinte-cheie, fără rețea.
+
+| # | Ce faci | Ce trebuie să vezi |
+|---|---|---|
+| 1 | **Teste → Din poze (AI)**: încarcă o variantă EN, așteaptă citirea | La fiecare întrebare (și la fiecare cerință a)/b)) un câmp **Capitol EN** deja completat, cu „Propus de AI: …” sub el |
+| 2 | Schimbă capitolul la o întrebare | Motivul AI-ului dispare (nu mai e propunerea lui) |
+| 3 | **Creează testul**, deschide-l în editor | Etichetele **→ …** sunt cele alese la verificare (fără „automat”) |
+| 4 | Pe un test existent (ex. creat înainte de etapa 3): **Sugerează capitolele (AI)** | „AI-ul citește întrebările…”, apoi lista: „Acum: A2 … (automat) → A3 …” cu motivul; bifate doar cele care schimbă ceva |
+| 5 | Debifează una, **Aplică (N)** | Doar cele bifate se schimbă; jurnalul: „Test modificat · capitol EN la N întrebări sau cerințe” |
+| 6 | Fără cheie OpenAI / OpenAI căzut | Mesaj clar în dialog („Cheia OpenAI lipsește…”, „OpenAI nu răspunde acum…”); la import, întrebările vin fără propunere, importul nu pică |
+
 ## E. Debugging — unde te uiți când pică ceva
 
 ```bash

@@ -1,4 +1,4 @@
-import type { ExtractedItem, ItemInput, QuizItemType } from '@/lib/api'
+import type { EnChapterSummary, ExtractedItem, ItemInput, QuizItemType } from '@/lib/api'
 
 /** Points a question gets when none are printed next to it (EN: a grilă is 5 p, a full solution usually 10 p). */
 export const DEFAULT_POINTS: Record<QuizItemType, number> = { SINGLE_CHOICE: 5, OPEN: 10 }
@@ -22,11 +22,18 @@ export interface DraftItem {
   warnings: string[]
   /** An open problem's requirements a), b)... (EN Subiectul III); the question's points are then their sum. */
   parts: DraftPart[]
+  /** The EN chapter's code ("A1"), proposed by the AI and changeable; '' = automatic (by its place on the paper). */
+  enChapter: string
+  /** Why the AI proposed it; null when it did not. */
+  enChapterReason: string | null
 }
 
 export interface DraftPart {
   statement: string
   points: number
+  /** '' = automatic */
+  enChapter: string
+  enChapterReason: string | null
 }
 
 /** A question's points: its own, or the sum of its requirements. */
@@ -47,8 +54,12 @@ export function toDrafts(items: ExtractedItem[]): DraftItem[] {
     imageRequired: item.hasFigure,
     warnings: item.warnings,
     parts: item.type === 'OPEN'
-      ? (item.parts ?? []).map((p) => ({ statement: p.statement, points: p.points ?? 0 }))
+      ? (item.parts ?? []).map((p) => ({
+          statement: p.statement, points: p.points ?? 0, enChapter: p.enChapter ?? '', enChapterReason: p.enChapterReason ?? null,
+        }))
       : [],
+    enChapter: item.enChapter ?? '',
+    enChapterReason: item.enChapterReason ?? null,
   }))
 }
 
@@ -79,7 +90,9 @@ export function draftProblems(drafts: DraftItem[]): string[] {
 }
 
 /** The kept questions, as the quiz builder takes them (empty options dropped, the marked one correct). */
-export function toItemInputs(drafts: DraftItem[]): ItemInput[] {
+export function toItemInputs(drafts: DraftItem[], enChapters: EnChapterSummary[] = []): ItemInput[] {
+  // A code the list no longer has (renamed meanwhile) falls back to automatic.
+  const idOf = (code: string) => (code === '' ? null : enChapters.find((c) => c.code === code)?.id ?? null)
   return drafts.filter((d) => d.include).map((d, index) => {
     const options = d.type === 'SINGLE_CHOICE'
       ? d.options
@@ -98,8 +111,9 @@ export function toItemInputs(drafts: DraftItem[]): ItemInput[] {
       section: d.section.trim() === '' ? null : d.section.trim(),
       imageRequired: d.imageRequired,
       parts: d.type === 'OPEN' && d.parts.length > 0
-        ? d.parts.map((p) => ({ statement: p.statement.trim(), points: p.points, solution: null }))
+        ? d.parts.map((p) => ({ statement: p.statement.trim(), points: p.points, solution: null, enChapterId: idOf(p.enChapter) }))
         : null,
+      enChapterId: idOf(d.enChapter),
     }
   })
 }

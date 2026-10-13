@@ -46,7 +46,8 @@ import {
   listEnChapters,
   type EnChapterSummary,
 } from '@/lib/api'
-import { EN_AREAS } from '@/lib/enChapters'
+import { EnChapterSelect } from '@/components/EnChapterSelect'
+import { EnChapterSuggestionsDialog } from '@/components/EnChapterSuggestionsDialog'
 import { formatDate, optionLetter, roCount } from '@/lib/format'
 import { errorMessage } from '@/lib/errors'
 import { shrinkImage } from '@/lib/image'
@@ -217,34 +218,6 @@ function QuizDialog({
 }
 
 // ---------- Chapter select (E6 mastery map) ----------
-
-/**
- * Where a question (or a requirement) sends a student who loses points on it: "Automat" follows its place on the EN
- * paper (and says where that is), or one chapter picked from the list.
- */
-function EnChapterSelect({ id, label, value, onChange, chapters, autoId }: {
-  id: string
-  label?: string
-  value: string
-  onChange: (value: string) => void
-  chapters: EnChapterSummary[]
-  autoId: number | null | undefined
-}) {
-  const auto = autoId == null ? null : chapters.find((c) => c.id === autoId)
-  return (
-    <select id={id} aria-label={label} className={`${selectClass} w-full min-w-0`} value={value}
-            onChange={(e) => onChange(e.target.value)}>
-      <option value="">{auto ? `Automat: ${auto.code} ${auto.title}` : 'Automat (după locul din test)'}</option>
-      {EN_AREAS.map((area) => (
-        <optgroup key={area.value} label={area.label}>
-          {chapters.filter((c) => c.area === area.value).map((c) => (
-            <option key={c.id} value={String(c.id)}>{c.code} {c.title}</option>
-          ))}
-        </optgroup>
-      ))}
-    </select>
-  )
-}
 
 /** The chapters as a select grouped by class and book; the empty value means "none" (or "inherit"). */
 function ChapterSelect({ id, value, onChange, chapters, emptyLabel }: {
@@ -795,6 +768,8 @@ export function AdminQuizzesPage() {
   const [quizDialog, setQuizDialog] = useState<{ item: QuizSummary | null } | null>(null)
   const [itemDialog, setItemDialog] = useState<{ item: QuizItemDto | null } | null>(null)
   const [importing, setImporting] = useState(false)
+  // "Sugerează capitolele (AI)": EN chapter proposals for this test's questions (stage 3).
+  const [suggesting, setSuggesting] = useState(false)
   // "Publică" opens a dialog that can give the quiz as homework in the same step (T3).
   const [publishing, setPublishing] = useState<{ id: number; title: string; classId: number | null } | null>(null)
   // What just happened, said in words: "published and given as homework to Clasa a 8-a, due …".
@@ -942,6 +917,9 @@ export function AdminQuizzesPage() {
                       {quiz.status === 'PUBLISHED' ? 'Depublică' : 'Publică'}
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => setImporting(true)}>Importă din text</Button>
+                    {aiImportOn && enChapters.length > 0 && quiz.items.length > 0 && (
+                      <Button size="sm" variant="outline" onClick={() => setSuggesting(true)}>Sugerează capitolele (AI)</Button>
+                    )}
                     <Button size="sm" onClick={() => setItemDialog({ item: null })}>Adaugă întrebare</Button>
                   </>
                 }
@@ -1163,6 +1141,16 @@ export function AdminQuizzesPage() {
             }
             await reloadQuiz(quiz.id)
           }}
+        />
+      )}
+
+      {suggesting && quiz && (
+        <EnChapterSuggestionsDialog
+          quizId={quiz.id}
+          items={quiz.items}
+          enChapters={enChapters}
+          onClose={() => setSuggesting(false)}
+          onApplied={() => reloadQuiz(quiz.id)}
         />
       )}
 

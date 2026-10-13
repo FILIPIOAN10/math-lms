@@ -79,13 +79,38 @@ describe('aiImport', () => {
     expect(toItemInputs(drafts)).toEqual([
       {
         type: 'SINGLE_CHOICE', position: 0, statement: 'Cât face $2+3$?', points: 5, solution: null, hints: [],
-        section: 'SUBIECTUL I', imageRequired: false, parts: null,
+        section: 'SUBIECTUL I', imageRequired: false, parts: null, enChapterId: null,
         options: [{ position: 0, text: '4', correct: false }, { position: 1, text: '5', correct: true }],
       },
       {
         type: 'OPEN', position: 1, statement: 'Rezolvă', points: 5, solution: 'x = 2', hints: [], section: null,
-        imageRequired: true, options: null, parts: null,
+        imageRequired: true, options: null, parts: null, enChapterId: null,
       },
     ])
+  })
+
+  it('keeps the EN chapter the AI proposed (or the teacher picked) and sends it as the chapter id', () => {
+    const enChapters = [
+      { id: 1, code: 'A1', title: 'Ordinea efectuării operațiilor', area: 'ALGEBRA' as const, position: 1, photoCount: 0, exampleCount: 0 },
+      { id: 19, code: 'G8', title: 'Corpuri', area: 'GEOMETRY' as const, position: 19, photoCount: 0, exampleCount: 0 },
+      { id: 20, code: 'G9', title: 'Drepte și plane', area: 'GEOMETRY' as const, position: 20, photoCount: 0, exampleCount: 0 },
+    ]
+    const drafts = toDrafts([
+      read({ enChapter: 'A1', enChapterReason: 'Un calcul.' }),
+      read({
+        type: 'OPEN', options: [], enChapter: 'G8', points: null,
+        parts: [{ statement: 'Volumul', points: 2, enChapter: 'G8' }, { statement: 'Distanța', points: 3, enChapter: 'G9' }],
+      }),
+      read({ enChapter: 'X1' }), // a code the list no longer has
+    ])
+    drafts[0].correct = 0
+    drafts[2].correct = 0
+    expect(drafts[0].enChapter).toBe('A1')
+    expect(drafts[0].enChapterReason).toBe('Un calcul.')
+    drafts[1].parts[0].enChapter = '' // the teacher sets a) back to automatic
+
+    const inputs = toItemInputs(drafts, enChapters)
+    expect(inputs.map((i) => i.enChapterId)).toEqual([1, 19, null])
+    expect(inputs[1].parts?.map((p) => p.enChapterId)).toEqual([null, 20])
   })
 })

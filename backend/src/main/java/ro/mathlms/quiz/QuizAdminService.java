@@ -20,6 +20,7 @@ import ro.mathlms.quiz.QuizDtos.QuizDetailDto;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -420,6 +421,49 @@ public class QuizAdminService {
         }
         return ItemDto.from(item, options, hints, parts,
                 linksOf(itemRepository.findByQuizIdOrderByPosition(item.getQuiz().getId())));
+    }
+
+    /**
+     * Sets the EN chapter of several questions (and requirements) of one test at once - what the teacher kept of the
+     * AI's proposals. Allowed even once the test was taken: it only says where to revise. One journal row says how many
+     * changed. A question or requirement of another test is not found.
+     */
+    @Transactional
+    public void assignEnChapters(Long quizId, List<EnChapterAssignments.ItemAssignment> assignments) {
+        Quiz quiz = getQuiz(quizId);
+        Map<Long, QuizItem> items = itemRepository.findByQuizIdOrderByPosition(quizId).stream()
+                .collect(java.util.stream.Collectors.toMap(QuizItem::getId, java.util.function.Function.identity()));
+        int changed = 0;
+        for (EnChapterAssignments.ItemAssignment assignment : assignments) {
+            QuizItem item = items.get(assignment.itemId());
+            if (item == null) {
+                throw new QuizNotFoundException("QuizItem", assignment.itemId());
+            }
+            if (!java.util.Objects.equals(EnChapterLinks.idOf(item.getEnChapter()), assignment.enChapterId())) {
+                item.pointToEnChapter(enChapter(assignment.enChapterId()));
+                changed++;
+            }
+            if (assignment.parts() == null || assignment.parts().isEmpty()) {
+                continue;
+            }
+            Map<Long, QuizItemPart> parts = partRepository.findByItemIdOrderByPosition(item.getId()).stream()
+                    .collect(java.util.stream.Collectors.toMap(QuizItemPart::getId, java.util.function.Function.identity()));
+            for (EnChapterAssignments.PartAssignment partAssignment : assignment.parts()) {
+                QuizItemPart part = parts.get(partAssignment.partId());
+                if (part == null) {
+                    throw new QuizNotFoundException("QuizItemPart", partAssignment.partId());
+                }
+                if (!java.util.Objects.equals(EnChapterLinks.idOf(part.getEnChapter()), partAssignment.enChapterId())) {
+                    part.pointToEnChapter(enChapter(partAssignment.enChapterId()));
+                    changed++;
+                }
+            }
+        }
+        if (changed > 0) {
+            auditLog.record(AuditEvent.of(AuditAction.QUIZ_UPDATED, quizId, quiz.getTitle())
+                    .details("capitol EN la " + ro.mathlms.content.RoCount.of(changed, "întrebare sau cerință",
+                            "întrebări sau cerințe")));
+        }
     }
 
     private EnChapterLinks.Resolved linksOf(List<QuizItem> quizItems) {

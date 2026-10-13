@@ -13,4 +13,9 @@ public class AiImportExceptionHandler {
     public ResponseEntity<String> handleConflict(AiImportConflictException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
     }
+
+    @ExceptionHandler(ChapterSuggestionException.class)
+    public ResponseEntity<String> handleSuggestion(ChapterSuggestionException ex) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(ex.getMessage());
+    }
 }

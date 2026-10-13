@@ -819,8 +819,12 @@ export interface ExtractedItem {
   /** It refers to a drawing the teacher adds as the question's picture. */
   hasFigure: boolean
   warnings: string[]
-  /** An open problem's requirements a), b)... with their printed points; absent on older readings. */
-  parts?: { statement: string; points: number | null }[] | null
+  /** An open problem's requirements a), b)... with their printed points (and proposed chapter); absent on older readings. */
+  parts?: { statement: string; points: number | null; enChapter?: string | null; enChapterReason?: string | null }[] | null
+  /** The EN chapter the AI proposes ("A1"), or null/absent; the teacher confirms it in the review. */
+  enChapter?: string | null
+  /** Why, in one sentence. */
+  enChapterReason?: string | null
 }
 
 export interface AiImport {
@@ -1708,4 +1712,38 @@ export async function uploadEnExampleImage(chapterId: number, exampleId: number,
 
 export async function removeEnExampleImage(chapterId: number, exampleId: number): Promise<void> {
   await del(`/admin/en-chapters/${chapterId}/examples/${exampleId}/image`)
+}
+
+// --- EN chapter proposals for an existing test (stage 3) ---
+
+export interface PartChapterSuggestion {
+  partId: number
+  chapterId: number | null
+  code: string | null
+  reason: string | null
+}
+
+/** The AI's proposal for one question (null code = none); nothing is changed until the teacher applies it. */
+export interface ItemChapterSuggestion {
+  itemId: number
+  chapterId: number | null
+  code: string | null
+  reason: string | null
+  parts: PartChapterSuggestion[]
+}
+
+export async function suggestEnChapters(quizId: number): Promise<ItemChapterSuggestion[]> {
+  const response = await postJson(`/admin/quizzes/${quizId}/en-chapter-suggestions`, {})
+  return ((await response.json()) as { items: ItemChapterSuggestion[] }).items
+}
+
+/** For each question listed: its EN chapter afterwards (null = automatic); of its requirements, only those listed change. */
+export interface EnChapterAssignment {
+  itemId: number
+  enChapterId: number | null
+  parts?: { partId: number; enChapterId: number | null }[]
+}
+
+export async function assignEnChapters(quizId: number, items: EnChapterAssignment[]): Promise<void> {
+  await putJson(`/admin/quizzes/${quizId}/en-chapters`, { items })
 }
