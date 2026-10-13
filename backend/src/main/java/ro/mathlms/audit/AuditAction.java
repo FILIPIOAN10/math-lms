@@ -20,6 +20,15 @@ public enum AuditAction {
     EXERCISE_CREATED(AuditCategory.CONTENT),
     EXERCISE_UPDATED(AuditCategory.CONTENT),
     EXERCISE_DELETED(AuditCategory.CONTENT),
+    /** EN chapter pages: the list, the theory photos and the worked examples on each page. */
+    EN_CHAPTER_CREATED(AuditCategory.CONTENT),
+    EN_CHAPTER_UPDATED(AuditCategory.CONTENT),
+    EN_CHAPTER_DELETED(AuditCategory.CONTENT),
+    EN_CHAPTER_PHOTO_ADDED(AuditCategory.CONTENT),
+    EN_CHAPTER_PHOTO_REMOVED(AuditCategory.CONTENT),
+    EN_EXAMPLE_ADDED(AuditCategory.CONTENT),
+    EN_EXAMPLE_UPDATED(AuditCategory.CONTENT),
+    EN_EXAMPLE_DELETED(AuditCategory.CONTENT),
 
     QUIZ_CREATED(AuditCategory.QUIZ),
     QUIZ_UPDATED(AuditCategory.QUIZ),

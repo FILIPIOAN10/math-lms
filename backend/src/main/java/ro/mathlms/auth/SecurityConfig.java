@@ -110,7 +110,7 @@ public class SecurityConfig {
                         // Reads of the content hierarchy are for active accounts (students browse);
                         // writes live under /api/admin/** above and need ADMIN.
                         .requestMatchers(HttpMethod.GET, "/api/classes/**", "/api/books/**",
-                                "/api/chapters/**", "/api/exercises/**").hasAuthority("STATUS_ACTIVE")
+                                "/api/chapters/**", "/api/exercises/**", "/api/en-chapters/**").hasAuthority("STATUS_ACTIVE")
                         .requestMatchers("/api/quiz/**", "/api/content/**", "/api/me/**", "/api/parent/**").hasAuthority("STATUS_ACTIVE")
                         .anyRequest().authenticated()
                 )

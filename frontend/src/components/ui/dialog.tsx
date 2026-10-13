@@ -11,6 +11,7 @@ export function Dialog({
   title,
   description,
   finalFocus,
+  wide = false,
   children,
 }: {
   open: boolean
@@ -19,6 +20,8 @@ export function Dialog({
   description?: string
   /** Where focus goes on close: return an element, or true for the default (back to what opened the dialog). */
   finalFocus?: () => HTMLElement | boolean | null
+  /** Room for a longer form (e.g. text with its rendered preview). */
+  wide?: boolean
   children: ReactNode
 }) {
   return (
@@ -27,7 +30,7 @@ export function Dialog({
         <DialogPrimitive.Backdrop className="fixed inset-0 z-40 bg-black/40" />
         <DialogPrimitive.Popup
           finalFocus={finalFocus}
-          className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl bg-card p-5 text-card-foreground shadow-lg ring-1 ring-foreground/10 outline-none">
+          className={`fixed left-1/2 top-1/2 z-50 max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl bg-card p-5 text-card-foreground shadow-lg ring-1 ring-foreground/10 outline-none ${wide ? 'max-w-2xl' : 'max-w-md'}`}>
           <DialogPrimitive.Title className="text-lg font-medium">{title}</DialogPrimitive.Title>
           {description && (
             <DialogPrimitive.Description className="mt-1 text-sm text-muted-foreground">

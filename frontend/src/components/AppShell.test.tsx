@@ -57,7 +57,7 @@ describe('AppShell', () => {
     auth.value.user = user({})
     renderShell('/quizzes')
 
-    expect(navLabels()).toEqual(['Acasă', 'Testele mele', 'Recapitulare', 'Progresul meu', 'Conținut'])
+    expect(navLabels()).toEqual(['Acasă', 'Testele mele', 'Recapitulare', 'Progresul meu', 'Capitole EN', 'Conținut'])
     expect(within(nav()).getByRole('link', { name: 'Testele mele' })).toHaveAttribute('aria-current', 'page')
     expect(within(nav()).getByRole('link', { name: 'Acasă' })).not.toHaveAttribute('aria-current')
     expect(screen.getByText('pagina teste')).toBeInTheDocument()
@@ -66,7 +66,7 @@ describe('AppShell', () => {
   it('gives a parent the link to their children', () => {
     auth.value.user = user({ role: 'PARENT', fullName: 'Maria Parinte' })
     renderShell()
-    expect(navLabels()).toEqual(['Acasă', 'Copiii mei', 'Conținut'])
+    expect(navLabels()).toEqual(['Acasă', 'Copiii mei', 'Capitole EN', 'Conținut'])
   })
 
   it('names the role in Romanian, never the enum', () => {

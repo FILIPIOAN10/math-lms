@@ -152,7 +152,10 @@ export function TeacherHome() {
         </HomeSection>
       )}
 
-      <p className="text-sm">
+      <p className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+        <Link to="/admin/en-chapters" className="text-muted-foreground hover:text-foreground hover:underline">
+          Capitole EN: materia și modelele rezolvate
+        </Link>
         <Link to="/admin/journal" className="text-muted-foreground hover:text-foreground hover:underline">
           Jurnal: cine a schimbat ce și când
         </Link>

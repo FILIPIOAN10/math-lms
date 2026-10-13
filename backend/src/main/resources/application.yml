@@ -127,6 +127,8 @@ app:
     quiz-photos-dir: ${QUIZ_PHOTOS_DIR:uploads/quiz-photos}
     # Pictures under question statements (EN figures); inside the same uploads volume, so backups include them.
     question-images-dir: ${QUESTION_IMAGES_DIR:uploads/question-images}
+    # EN chapter pages: theory photos and worked-example figures (same uploads volume, so backups include them).
+    en-chapter-images-dir: ${EN_CHAPTER_IMAGES_DIR:uploads/en-chapters}
   # Faza 3: a quiz from photographed textbook pages (only textbook pages - never student work or personal data).
   # OFF by default. AI_PROVIDER=openai needs OPENAI_API_KEY in .env; AI_PROVIDER=fake reads made-up questions (dev).
   ai:

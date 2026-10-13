@@ -36,6 +36,10 @@ const AccountPage = lazy(() => import('@/pages/AccountPage').then((m) => ({ defa
 const EraseAccountPage = lazy(() => import('@/pages/EraseAccountPage').then((m) => ({ default: m.EraseAccountPage })))
 const ParentAttemptResultPage = lazy(() => import('@/pages/ParentAttemptResultPage').then((m) => ({ default: m.ParentAttemptResultPage })))
 const AdminAuditPage = lazy(() => import('@/pages/AdminAuditPage').then((m) => ({ default: m.AdminAuditPage })))
+const EnChaptersPage = lazy(() => import('@/pages/EnChaptersPage').then((m) => ({ default: m.EnChaptersPage })))
+const EnChapterPage = lazy(() => import('@/pages/EnChapterPage').then((m) => ({ default: m.EnChapterPage })))
+const AdminEnChaptersPage = lazy(() => import('@/pages/AdminEnChaptersPage').then((m) => ({ default: m.AdminEnChaptersPage })))
+const AdminEnChapterPage = lazy(() => import('@/pages/AdminEnChapterPage').then((m) => ({ default: m.AdminEnChapterPage })))
 const AdminAiImportPage = lazy(() => import('@/pages/AdminAiImportPage').then((m) => ({ default: m.AdminAiImportPage })))
 
 function LoginRoute() {
@@ -235,6 +239,38 @@ function App() {
                 <RoleRoute role="PARENT">
                   <ParentAttemptResultPage />
                 </RoleRoute>
+              }
+            />
+            <Route
+              path="/capitole"
+              element={
+                <ProtectedRoute>
+                  <EnChaptersPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/capitole/:id"
+              element={
+                <ProtectedRoute>
+                  <EnChapterPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/en-chapters"
+              element={
+                <AdminRoute>
+                  <AdminEnChaptersPage />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/en-chapters/:id"
+              element={
+                <AdminRoute>
+                  <AdminEnChapterPage />
+                </AdminRoute>
               }
             />
             <Route

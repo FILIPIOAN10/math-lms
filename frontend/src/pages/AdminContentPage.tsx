@@ -417,6 +417,7 @@ export function AdminContentPage() {
           ] : undefined}
           actions={
             <>
+              {!cls && <Link to="/admin/en-chapters" className={buttonVariants({ variant: 'outline' })}>Capitole EN</Link>}
               {!cls && <Button onClick={() => setDialog({ kind: 'class', item: null })}>Adaugă clasă</Button>}
               {cls && !book && <Button onClick={() => setDialog({ kind: 'book', item: null })}>Adaugă carte</Button>}
               {book && !chapter && <Button onClick={() => setDialog({ kind: 'chapter', item: null })}>Adaugă capitol</Button>}

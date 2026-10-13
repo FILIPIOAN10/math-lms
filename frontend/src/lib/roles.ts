@@ -28,18 +28,21 @@ const NAV: Record<Role, NavItem[]> = {
     { to: '/quizzes', label: 'Testele mele', count: 'newResults' },
     { to: '/review', label: 'Recapitulare' },
     { to: '/progress', label: 'Progresul meu', testId: 'my-progress' },
+    { to: '/capitole', label: 'Capitole EN', testId: 'en-chapters' },
     { to: '/content', label: 'Conținut' },
   ],
   PARENT: [
     { to: '/', label: 'Acasă' },
     { to: '/parent', label: 'Copiii mei', testId: 'my-children' },
+    { to: '/capitole', label: 'Capitole EN', testId: 'en-chapters' },
     { to: '/content', label: 'Conținut' },
   ],
   // Five links (T6): quizzes and homework are one "Teste" area with tabs; approving, inviting and linking people is
   // one "Elevi" page.
   ADMIN: [
     { to: '/', label: 'Acasă' },
-    { to: '/admin/content', label: 'Clase', also: ['/admin/classes'] },
+    // The EN chapter pages are content too: the teacher reaches them from the Clase page and from Acasă.
+    { to: '/admin/content', label: 'Clase', also: ['/admin/classes', '/admin/en-chapters'] },
     { to: '/admin/quizzes', label: 'Teste', also: ['/admin/assignments'], testId: 'admin-tests' },
     { to: '/admin/grading', label: 'Corectură', count: 'grading' },
     { to: '/admin/students', label: 'Elevi', count: 'pending', also: ['/admin/pending', '/admin/links'] },

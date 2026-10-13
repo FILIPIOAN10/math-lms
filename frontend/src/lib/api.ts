@@ -1515,6 +1515,8 @@ export type AuditAction =
   | 'BOOK_CREATED' | 'BOOK_UPDATED' | 'BOOK_DELETED'
   | 'CHAPTER_CREATED' | 'CHAPTER_UPDATED' | 'CHAPTER_DELETED'
   | 'EXERCISE_CREATED' | 'EXERCISE_UPDATED' | 'EXERCISE_DELETED'
+  | 'EN_CHAPTER_CREATED' | 'EN_CHAPTER_UPDATED' | 'EN_CHAPTER_DELETED' | 'EN_CHAPTER_PHOTO_ADDED' | 'EN_CHAPTER_PHOTO_REMOVED'
+  | 'EN_EXAMPLE_ADDED' | 'EN_EXAMPLE_UPDATED' | 'EN_EXAMPLE_DELETED'
   | 'QUIZ_CREATED' | 'QUIZ_UPDATED' | 'QUIZ_COPIED' | 'QUIZ_PUBLISHED' | 'QUIZ_UNPUBLISHED' | 'QUIZ_DELETED'
   | 'QUESTION_ADDED' | 'QUESTION_UPDATED' | 'QUESTION_DELETED' | 'QUESTION_IMAGE_SET' | 'QUESTION_IMAGE_REMOVED' | 'QUIZ_FROM_PHOTOS'
   | 'ANSWER_GRADED' | 'PAPER_COMMENTED' | 'PAPER_GRADED'
@@ -1564,4 +1566,122 @@ export async function getAuditLog(query: AuditQuery = {}): Promise<AuditPage> {
   const qs = params.toString()
   const response = await apiFetch(`/admin/audit-log${qs ? `?${qs}` : ''}`)
   return response.json()
+}
+
+// --- EN chapter pages: the theory photos and worked examples a student opens after an EN question goes wrong ---
+
+export type EnArea = 'ALGEBRA' | 'GEOMETRY'
+
+/** A chapter in the list ("A1 Ordinea efectuării operațiilor"), with how much the teacher has put on its page. */
+export interface EnChapterSummary {
+  id: number
+  code: string
+  title: string
+  area: EnArea
+  position: number
+  photoCount: number
+  exampleCount: number
+}
+
+/** A worked example; `image` is a version token for enExampleImageUrl(), or null when it has no figure. */
+export interface EnExample {
+  id: number
+  statement: string
+  solution: string
+  image: string | null
+}
+
+export interface EnChapterPage {
+  id: number
+  code: string
+  title: string
+  area: EnArea
+  /** Optional text above the photos (LaTeX allowed). */
+  notes: string | null
+  photos: { id: number }[]
+  examples: EnExample[]
+}
+
+export interface EnChapterInput {
+  code: string
+  title: string
+  area: EnArea
+  notes: string | null
+}
+
+export interface EnExampleInput {
+  statement: string
+  solution: string
+}
+
+export async function listEnChapters(): Promise<EnChapterSummary[]> {
+  const response = await apiFetch('/en-chapters')
+  return response.json()
+}
+
+export async function getEnChapter(id: number): Promise<EnChapterPage> {
+  const response = await apiFetch(`/en-chapters/${id}`)
+  return response.json()
+}
+
+/** A photo never changes (a replaced page is a new photo), so its id is enough for the browser cache. */
+export function enChapterPhotoUrl(chapterId: number, photoId: number): string {
+  return `/api/en-chapters/${chapterId}/photos/${photoId}`
+}
+
+export function enExampleImageUrl(chapterId: number, exampleId: number, version: string): string {
+  return `/api/en-chapters/${chapterId}/examples/${exampleId}/image?v=${encodeURIComponent(version)}`
+}
+
+export async function createEnChapter(input: EnChapterInput): Promise<EnChapterSummary> {
+  const response = await postJson('/admin/en-chapters', input)
+  return response.json()
+}
+
+export async function updateEnChapter(id: number, input: EnChapterInput): Promise<EnChapterSummary> {
+  const response = await putJson(`/admin/en-chapters/${id}`, input)
+  return response.json()
+}
+
+export async function deleteEnChapter(id: number): Promise<void> {
+  await del(`/admin/en-chapters/${id}`)
+}
+
+export async function moveEnChapter(id: number, direction: 'UP' | 'DOWN'): Promise<void> {
+  await apiFetch(`/admin/en-chapters/${id}/move?direction=${direction}`, { method: 'POST' })
+}
+
+export async function uploadEnChapterPhoto(chapterId: number, file: File): Promise<{ id: number }> {
+  const formData = new FormData()
+  formData.append('file', file)
+  const response = await apiFetch(`/admin/en-chapters/${chapterId}/photos`, { method: 'POST', body: formData })
+  return response.json()
+}
+
+export async function removeEnChapterPhoto(chapterId: number, photoId: number): Promise<void> {
+  await del(`/admin/en-chapters/${chapterId}/photos/${photoId}`)
+}
+
+export async function addEnExample(chapterId: number, input: EnExampleInput): Promise<EnExample> {
+  const response = await postJson(`/admin/en-chapters/${chapterId}/examples`, input)
+  return response.json()
+}
+
+export async function updateEnExample(chapterId: number, exampleId: number, input: EnExampleInput): Promise<EnExample> {
+  const response = await putJson(`/admin/en-chapters/${chapterId}/examples/${exampleId}`, input)
+  return response.json()
+}
+
+export async function deleteEnExample(chapterId: number, exampleId: number): Promise<void> {
+  await del(`/admin/en-chapters/${chapterId}/examples/${exampleId}`)
+}
+
+export async function uploadEnExampleImage(chapterId: number, exampleId: number, file: File): Promise<void> {
+  const formData = new FormData()
+  formData.append('file', file)
+  await apiFetch(`/admin/en-chapters/${chapterId}/examples/${exampleId}/image`, { method: 'PUT', body: formData })
+}
+
+export async function removeEnExampleImage(chapterId: number, exampleId: number): Promise<void> {
+  await del(`/admin/en-chapters/${chapterId}/examples/${exampleId}/image`)
 }

@@ -728,6 +728,26 @@ conturilor `@mathlms.local`, iar emailurile lor ar rămâne în outbox până la
 - Linkurile din emailuri duc la `FRONTEND_BASE_URL` (implicit `http://localhost:5173`): se deschid doar pe calculatorul de dev
 - După test: `deploy/dev-clear-tests.sql` șterge testele și păstrează conturile; conturile de test se șterg din **Contul meu → Șterge contul**
 
+### 27. Capitole EN: materia și modelele rezolvate (V33) — ca profesor, apoi ca elev
+
+Lista celor 20 de capitole și de unde vine e în `docs/EN-capitole.md`.
+
+| # | Ce faci | Ce trebuie să vezi |
+|---|---|---|
+| 1 | Profesor: **Clase → Capitole EN** (sau linkul de pe Acasă) | 20 de capitole, A1–A11 sub **Algebră**, G1–G9 sub **Geometrie**, fiecare cu „0 poze · 0 modele” |
+| 2 | Deschide **A1**, **Adaugă poze**, alege 2 poze deodată | „Se încarcă poza 1 din 2…”, apoi „Materia (2)” cu paginile în ordinea aleasă; click pe una → vizualizatorul mare (←/→, rotire) |
+| 3 | **Adaugă model**: enunț cu `$36 : 4 - 4 \cdot 2$`, rezolvarea pas cu pas | Sub fiecare câmp apare previzualizarea cu formulele; după Salvează, „Modele rezolvate (1)” |
+| 4 | La model: **Adaugă figură**, apoi **Șterge figura** | Figura apare sub enunț, apoi dispare |
+| 5 | **Editează capitolul**: un text scurt pe pagină | Textul apare deasupra pozelor |
+| 6 | Înapoi în listă: **Șterge** la A1 | Refuzat: „are 2 poze și 1 model. Șterge-le întâi, apoi capitolul.” |
+| 7 | **Adaugă capitol** cu codul `a1` | Refuzat: „Codul A1 e deja folosit…” (codul se scrie automat cu majuscule) |
+| 8 | Adaugă un capitol de test, mută-l cu ↑/↓, apoi șterge-l | Se mută doar printre capitolele din aceeași parte; fiind gol, se șterge |
+| 9 | Elev: **Capitole EN** în meniu | A1 e link, cu „2 poze · 1 model”; restul apar cu „în pregătire” și nu se deschid |
+| 10 | Elev: deschide A1, apasă **Arată rezolvarea** | Întâi vede doar enunțul; rezolvarea apare la apăsare și se ascunde la „Ascunde rezolvarea” |
+| 11 | Profesor: **Jurnal**, filtrul Conținut | Rânduri „Capitol EN modificat”, „Poză cu materia adăugată”, „Model rezolvat adăugat”… |
+
+Pozele stau în `backend/uploads/en-chapters/` (intră în backup împreună cu restul `uploads`).
+
 ## E. Debugging — unde te uiți când pică ceva
 
 ```bash
