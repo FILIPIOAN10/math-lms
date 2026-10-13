@@ -701,6 +701,33 @@ curl -s -b /tmp/c.txt "http://localhost:8080/api/admin/quiz/attempts?status=SUBM
 curl -s -b /tmp/c.txt http://localhost:8080/api/classes
 ```
 
+### 26. Cap-coadă cu emailuri reale (elev + părinte)
+**Pregătire:** în `backend/.env` (pe lângă SMTP-ul real) `NOTIFY_RESULT_READY=true`, `NOTIFY_ASSIGNMENT_REMINDER=true`,
+`NOTIFY_ASSIGNMENT_REMINDER_PARENTS=true`, apoi **repornește backend-ul**. Oprește-le din nou înainte de suita E2E — ea notează lucrări ale
+conturilor `@mathlms.local`, iar emailurile lor ar rămâne în outbox până la `DEAD`.
+- **Adrese:** Gmail livrează `adresa+elev@gmail.com` / `adresa+parinte@gmail.com` în inboxul `adresa@gmail.com`, dar aplicația le vede ca
+  conturi diferite. Merg doar pe tab-ul **Email și parolă** (Google login cere conturi Google reale, diferite).
+- **Câte un browser pe rol:** ferestrele private din Chrome împart sesiunea între ele — profesor în Chrome, elev în Edge (sau alt profil),
+  părinte în Firefox (sau al treilea profil).
+- **Conturi:** Clase → **Invită elevi** → linkul în browserul elevului → înregistrare cu `+elev` → linkul din email → cont activ și înscris.
+  Elevi → **Invită părintele** pe elevul nou → linkul în browserul părintelui → `+parinte` → confirmare → legat de elev.
+
+| Pas | Cine | Ce verifici |
+|---|---|---|
+| 1 | Profesor | **Teste → Adaugă test** (2–3 grile + o întrebare cu rezolvare) → **Dă ca temă** clasei, termen **mâine** (sub 24 h) |
+| 2 | — | în ≤ 15 min (`AssignmentReminderJob`): „Temă de făcut: „X”” la elev și „… are de predat tema „X”” la părinte |
+| 3 | Elev | grilele au literele **a) b) c) d)**; răspunde la una → **Salvează și ieși** → mesajul verde pe „Testele mele” → **Continuă** păstrează răspunsul |
+| 4 | Elev | termină cu poză la întrebarea cu rezolvare → **Trimite lucrarea** |
+| 5 | Profesor | **Corectură** → notează → **Finalizează** |
+| 6 | — | „Rezultatul testului „X” este gata” la elev, „Rezultatul lui … la „X” este gata” la părinte; linkurile duc direct la rezultat |
+| 7 | Părinte | rezultatul arată „Răspunsul elevului: **a)** …” și „Răspuns corect: **c)** …” |
+| 8 | Elev / Părinte | **Ai uitat parola?** → email de resetare; **Contul meu → Șterge contul** → email de confirmare |
+
+- Email care nu vine: `select id, event_type, status, attempts, last_error from outbox_event order by id desc limit 10;` —
+  `DONE` = trimis, `PENDING` cu `last_error` = SMTP (vezi §12d)
+- Linkurile din emailuri duc la `FRONTEND_BASE_URL` (implicit `http://localhost:5173`): se deschid doar pe calculatorul de dev
+- După test: `deploy/dev-clear-tests.sql` șterge testele și păstrează conturile; conturile de test se șterg din **Contul meu → Șterge contul**
+
 ## E. Debugging — unde te uiți când pică ceva
 
 ```bash
