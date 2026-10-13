@@ -14,6 +14,7 @@ import { ownPhotoUrl, type AttemptResultViewDto, type ItemResultDto } from '@/li
 import { roCount } from '@/lib/format'
 import { formatGrade, romanianGrade } from '@/lib/grades'
 import { mistakesOf, practiceMistakesHref } from '@/lib/mistakes'
+import { revisionLinks } from '@/lib/enChapters'
 
 /** The teacher's words, set apart from the app's own text so they read as a note from a person. */
 function TeacherNote({ text, testId, title }: { text: string; testId: string; title: string }) {
@@ -154,6 +155,21 @@ function ItemResult({
 
         {item.teacherComment && (
           <TeacherNote text={item.teacherComment} testId="item-teacher-comment" title="Comentariul profesorului" />
+        )}
+
+        {revisionLinks(item).length > 0 && (
+          <div className="flex flex-wrap gap-2" data-testid="revision-links">
+            {revisionLinks(item).map(({ chapter, parts }) => (
+              <Link
+                key={chapter.id}
+                to={`/capitole/${chapter.id}`}
+                className={buttonVariants({ size: 'sm', variant: 'secondary' })}
+              >
+                {parts.length > 0 && `${parts.map((p) => `${p})`).join(', ')} · `}
+                Vezi modele: {chapter.code} {chapter.title} →
+              </Link>
+            ))}
+          </div>
         )}
 
         {(item.barem || (item.parts ?? []).some((p) => p.barem)) && (

@@ -82,6 +82,7 @@ public class QuizAttemptService {
     static final Duration SUBMIT_GRACE = Duration.ofSeconds(30);
 
     private final QuizItemPartRepository partRepository;
+    private final EnChapterLinks enChapterLinks;
 
     public QuizAttemptService(QuizRepository quizRepository, QuizItemRepository itemRepository,
                               QuizOptionRepository optionRepository, QuizItemHintRepository hintRepository,
@@ -91,6 +92,22 @@ public class QuizAttemptService {
                               ResultNotifier resultNotifier, FileService fileService, AuditLog auditLog, Clock clock,
                               @Value("${app.storage.quiz-photos-dir}") String quizPhotosDir,
                               QuizItemPartRepository partRepository) {
+        this(quizRepository, itemRepository, optionRepository, hintRepository, attemptRepository, responseRepository,
+                userRepository, enrollmentRepository, cacheEvictor, resultNotifier, fileService, auditLog, clock,
+                quizPhotosDir, partRepository, null);
+    }
+
+    /** {@code enChapterLinks} null = results name no EN chapter (unit tests that do not need it). */
+    @org.springframework.beans.factory.annotation.Autowired
+    public QuizAttemptService(QuizRepository quizRepository, QuizItemRepository itemRepository,
+                              QuizOptionRepository optionRepository, QuizItemHintRepository hintRepository,
+                              QuizAttemptRepository attemptRepository,
+                              ItemResponseRepository responseRepository, UserRepository userRepository,
+                              EnrollmentRepository enrollmentRepository, AfterCommitCacheEvictor cacheEvictor,
+                              ResultNotifier resultNotifier, FileService fileService, AuditLog auditLog, Clock clock,
+                              @Value("${app.storage.quiz-photos-dir}") String quizPhotosDir,
+                              QuizItemPartRepository partRepository, EnChapterLinks enChapterLinks) {
+        this.enChapterLinks = enChapterLinks;
         this.partRepository = partRepository;
         this.auditLog = auditLog;
         this.quizRepository = quizRepository;
@@ -473,6 +490,7 @@ public class QuizAttemptService {
         Map<Long, Integer> hintCounts = attempt.getMode() == AttemptMode.PRACTICE
                 ? hintCounts(attempt.getQuiz().getId()) : Map.of();
         Map<Long, List<QuizItemPart>> partsByItem = partsOf(items);
+        EnChapterLinks.Resolved links = enChapterLinks == null ? null : enChapterLinks.resolve(items);
         int maxScore = 0;
         List<ItemResultDto> itemResults = new ArrayList<>();
         for (QuizItem item : items) {
@@ -508,8 +526,8 @@ public class QuizAttemptService {
                     item.getSection(),
                     item.getImageKey(),
                     response == null ? List.of() : response.photoIds(),
-                    PartDtos.GradedPartDto.of(partsByItem.getOrDefault(item.getId(), List.of()), response),
-                    selectedLetter, correctLetter));
+                    PartDtos.GradedPartDto.of(partsByItem.getOrDefault(item.getId(), List.of()), response, links),
+                    selectedLetter, correctLetter, links == null ? null : links.linkOf(item)));
         }
         return new AttemptResultViewDto(attempt.getId(), attempt.getQuiz().getTitle(),
                 attempt.getStatus(), attempt.getScore(), maxScore, itemResults, attempt.getMode(),

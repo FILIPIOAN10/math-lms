@@ -44,7 +44,9 @@ public final class QuizDtos {
             String section, // the heading it sits under ("SUBIECTUL I"); null = none
             String image, // the picture under the statement: a version token for its URL, or null
             boolean imageRequired, // imported with "[imagine]" and still waiting for its picture
-            List<PartDtos.PartDto> parts // requirements a), b)... of an open problem; empty = none
+            List<PartDtos.PartDto> parts, // requirements a), b)... of an open problem; empty = none
+            Long enChapterId, // the EN chapter page the teacher chose; null = automatic (by its place on the paper)
+            Long enChapterAuto // what "automatic" points at for this question; null when its place has no default
     ) {
         public static ItemDto from(QuizItem item, List<QuizOption> options, List<QuizItemHint> hints) {
             return from(item, options, hints, List.of());
@@ -52,6 +54,11 @@ public final class QuizDtos {
 
         public static ItemDto from(QuizItem item, List<QuizOption> options, List<QuizItemHint> hints,
                                    List<QuizItemPart> parts) {
+            return from(item, options, hints, parts, null);
+        }
+
+        public static ItemDto from(QuizItem item, List<QuizOption> options, List<QuizItemHint> hints,
+                                   List<QuizItemPart> parts, EnChapterLinks.Resolved links) {
             return new ItemDto(
                     item.getId(),
                     item.getPosition(),
@@ -65,7 +72,9 @@ public final class QuizDtos {
                     item.getSection(),
                     item.getImageKey(),
                     item.isImageRequired(),
-                    PartDtos.PartDto.of(parts));
+                    PartDtos.PartDto.of(parts, links),
+                    item.getEnChapter() == null ? null : item.getEnChapter().getId(),
+                    links == null ? null : EnChapterLinks.idOf(links.itemDefault(item)));
         }
     }
 

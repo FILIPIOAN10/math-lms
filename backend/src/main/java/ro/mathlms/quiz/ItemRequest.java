@@ -27,8 +27,16 @@ public record ItemRequest(
         Boolean imageRequired, // optional: the question still needs its picture (import "[imagine]"); only read on create
         // optional, OPEN only: the requirements a), b)... with their own points and barem (EN Subiectul III); when given,
         // the item's points are their sum and {@code points} is ignored
-        @Valid @Size(max = QuizItemPart.MAX_PARTS) List<PartDtos.PartRequest> parts
+        @Valid @Size(max = QuizItemPart.MAX_PARTS) List<PartDtos.PartRequest> parts,
+        Long enChapterId // optional: the EN chapter page for this question; null = the default for its place (V34)
 ) {
+    /** An item without its own EN chapter (what the builder sent before V34). */
+    public ItemRequest(QuizItemType type, int position, String statement, int points, String solution,
+                       List<OptionRequest> options, List<String> hints, Long chapterId, String section,
+                       Boolean imageRequired, List<PartDtos.PartRequest> parts) {
+        this(type, position, statement, points, solution, options, hints, chapterId, section, imageRequired, parts, null);
+    }
+
     /** An item without requirements a), b) (what the builder sent before V32). */
     public ItemRequest(QuizItemType type, int position, String statement, int points, String solution,
                        List<OptionRequest> options, List<String> hints, Long chapterId, String section,

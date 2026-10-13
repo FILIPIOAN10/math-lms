@@ -748,6 +748,22 @@ Lista celor 20 de capitole și de unde vine e în `docs/EN-capitole.md`.
 
 Pozele stau în `backend/uploads/en-chapters/` (intră în backup împreună cu restul `uploads`).
 
+### 28. Întrebările EN trimit la capitol (V34) — ca profesor, apoi ca elev
+
+Legătura implicită urmează locul din test (tabelul din `docs/EN-capitole.md` §1): sub „SUBIECTUL I”, întrebarea 1 → A1 etc.;
+la Subiectul III, cerințele a)/b) ale problemelor 5 și 6 au capitolul lor.
+
+| # | Ce faci | Ce trebuie să vezi |
+|---|---|---|
+| 1 | Profesor: deschide un test EN (cu secțiunile SUBIECTUL I/II/III) | Lângă fiecare întrebare o etichetă **→ A1**, **→ A2**…; mouse-ul pe ea: „(automat, după locul din test)” |
+| 2 | **Editează** o grilă → câmpul **Capitol EN** | „Automat: A1 Ordinea efectuării operațiilor”; alege alt capitol, Salvează → eticheta se schimbă, fără „automat” |
+| 3 | **Editează** problema III.6 | Sub fiecare cerință câte un **Capitol EN cerința a)/b)**: „Automat: G8…” și „Automat: G9…” |
+| 4 | Pune materie (o poză sau un model) în capitolul primei întrebări (§27) | — |
+| 5 | Elev: dă testul, greșește întrebarea 1, predă | Pe rezultat, la întrebarea 1: butonul **Vezi modele: A1 Ordinea efectuării operațiilor →** → deschide pagina capitolului |
+| 6 | Același rezultat: întrebările corecte și cele al căror capitol e gol | Fără buton |
+| 7 | La o problemă cu a)/b) notată parțial | Butonul apare doar pentru cerința care a pierdut puncte, cu „b) · Vezi modele: …” |
+| 8 | Părinte: rezultatul copilului | Aceleași butoane |
+
 ## E. Debugging — unde te uiți când pică ceva
 
 ```bash

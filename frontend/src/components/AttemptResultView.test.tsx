@@ -210,4 +210,21 @@ describe('AttemptResultView', () => {
     rerender(<AttemptResultView result={{ ...withMistakes, status: 'SUBMITTED', finalScore: null }} />)
     expect(screen.queryByTestId('practice-mistakes')).not.toBeInTheDocument()
   })
+
+  it('sends the student to the chapter page of a question they lost points on (EN chapters)', () => {
+    const chapter = { id: 1, code: 'A1', title: 'Ordinea efectuării operațiilor', ready: true }
+    const withChapters: AttemptResultViewDto = {
+      ...graded,
+      items: [
+        { ...graded.items[0], enChapter: chapter }, // right: no button
+        { ...graded.items[1], enChapter: { ...chapter, id: 17, code: 'G6', title: 'Cercul' } }, // 8 / 10 p
+      ],
+    }
+    render(<AttemptResultView result={withChapters} />, { wrapper: MemoryRouter })
+
+    const links = screen.getAllByTestId('revision-links')
+    expect(links).toHaveLength(1)
+    expect(screen.getByRole('link', { name: /Vezi modele: G6 Cercul/ })).toHaveAttribute('href', '/capitole/17')
+    expect(screen.queryByRole('link', { name: /A1/ })).not.toBeInTheDocument()
+  })
 })

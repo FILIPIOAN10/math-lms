@@ -41,12 +41,26 @@ public class QuizAdminService {
     private final QuestionImageService imageService;
     private final AuditLog auditLog;
     private final QuizItemPartRepository partRepository;
+    private final EnChapterLinks enChapterLinks;
 
     public QuizAdminService(QuizRepository quizRepository, QuizItemRepository itemRepository,
                             QuizOptionRepository optionRepository, QuizItemHintRepository hintRepository,
                             SchoolClassRepository schoolClassRepository, ChapterRepository chapterRepository,
                             ExerciseRepository exerciseRepository, AfterCommitCacheEvictor cacheEvictor,
                             QuestionImageService imageService, AuditLog auditLog, QuizItemPartRepository partRepository) {
+        this(quizRepository, itemRepository, optionRepository, hintRepository, schoolClassRepository, chapterRepository,
+                exerciseRepository, cacheEvictor, imageService, auditLog, partRepository, null);
+    }
+
+    /** {@code enChapterLinks} null = no EN chapter links (unit tests that do not need them). */
+    @org.springframework.beans.factory.annotation.Autowired
+    public QuizAdminService(QuizRepository quizRepository, QuizItemRepository itemRepository,
+                            QuizOptionRepository optionRepository, QuizItemHintRepository hintRepository,
+                            SchoolClassRepository schoolClassRepository, ChapterRepository chapterRepository,
+                            ExerciseRepository exerciseRepository, AfterCommitCacheEvictor cacheEvictor,
+                            QuestionImageService imageService, AuditLog auditLog, QuizItemPartRepository partRepository,
+                            EnChapterLinks enChapterLinks) {
+        this.enChapterLinks = enChapterLinks;
         this.partRepository = partRepository;
         this.imageService = imageService;
         this.auditLog = auditLog;
@@ -79,10 +93,12 @@ public class QuizAdminService {
 
     public QuizDetailDto getQuizDetail(Long id) {
         Quiz quiz = getQuiz(id);
-        List<ItemDto> items = itemRepository.findByQuizIdOrderByPosition(id).stream()
+        List<QuizItem> quizItems = itemRepository.findByQuizIdOrderByPosition(id);
+        EnChapterLinks.Resolved links = linksOf(quizItems);
+        List<ItemDto> items = quizItems.stream()
                 .map(item -> ItemDto.from(item, optionRepository.findByItemIdOrderByPosition(item.getId()),
                         hintRepository.findByItemIdOrderByPosition(item.getId()),
-                        partRepository.findByItemIdOrderByPosition(item.getId())))
+                        partRepository.findByItemIdOrderByPosition(item.getId()), links))
                 .toList();
         return QuizDetailDto.of(quiz, items);
     }
@@ -241,6 +257,7 @@ public class QuizAdminService {
             QuizItem fresh = new QuizItem(saved, item.getPosition(), item.getType(),
                     item.getStatement(), item.getPoints(), item.getSolution());
             fresh.tagChapter(item.getChapter());
+            fresh.pointToEnChapter(item.getEnChapter());
             fresh.placeInSection(item.getSection());
             String imageCopy = imageService.copyOf(item.getImageKey()); // each question owns its own file
             if (imageCopy != null) {
@@ -256,8 +273,10 @@ public class QuizAdminService {
                 hintRepository.save(new QuizItemHint(itemCopy, hint.getPosition(), hint.getText()));
             }
             for (QuizItemPart part : partRepository.findByItemIdOrderByPosition(item.getId())) {
-                partRepository.save(new QuizItemPart(itemCopy, part.getPosition(), part.getStatement(), part.getPoints(),
-                        part.getSolution()));
+                QuizItemPart partCopy = new QuizItemPart(itemCopy, part.getPosition(), part.getStatement(), part.getPoints(),
+                        part.getSolution());
+                partCopy.pointToEnChapter(part.getEnChapter());
+                partRepository.save(partCopy);
             }
         }
         auditLog.record(AuditEvent.of(AuditAction.QUIZ_COPIED, saved.getId(), saved.getTitle())
@@ -342,6 +361,7 @@ public class QuizAdminService {
                 quiz, request.position(), request.type(), request.statement(),
                 pointsOf(request), request.solution());
         fresh.tagChapter(chapterFitting(request.chapterId(), quiz.getSchoolClass()));
+        fresh.pointToEnChapter(enChapter(request.enChapterId()));
         fresh.placeInSection(request.section());
         fresh.requireImage(Boolean.TRUE.equals(request.imageRequired()));
         QuizItem item = itemRepository.save(fresh);
@@ -354,7 +374,7 @@ public class QuizAdminService {
                     QuestionNumbers.of(item, itemRepository.findByQuizIdOrderByPosition(quizId)),
                     item.getPoints() + " p");
         }
-        return ItemDto.from(item, options, hints, parts);
+        return ItemDto.from(item, options, hints, parts, linksOf(itemRepository.findByQuizIdOrderByPosition(quizId)));
     }
 
     @Transactional
@@ -369,6 +389,7 @@ public class QuizAdminService {
         ItemSnapshot before = journalled ? snapshot(item) : null;
         // The chapter tag is bookkeeping for the mastery map, not part of the grade: it may change even once taken.
         item.tagChapter(chapterFitting(request.chapterId(), item.getQuiz().getSchoolClass()));
+        item.pointToEnChapter(enChapter(request.enChapterId())); // where to revise: allowed even once taken
         item.placeInSection(request.section()); // layout only, like the chapter tag: allowed even once taken
         boolean taken = quizRepository.countAttempts(item.getQuiz().getId()) > 0;
         List<QuizOption> options;
@@ -397,13 +418,22 @@ public class QuizAdminService {
                 recordQuestion(AuditAction.QUESTION_UPDATED, item, before.number(), changes);
             }
         }
-        return ItemDto.from(item, options, hints, parts);
+        return ItemDto.from(item, options, hints, parts,
+                linksOf(itemRepository.findByQuizIdOrderByPosition(item.getQuiz().getId())));
+    }
+
+    private EnChapterLinks.Resolved linksOf(List<QuizItem> quizItems) {
+        return enChapterLinks == null ? null : enChapterLinks.resolve(quizItems);
+    }
+
+    private ro.mathlms.enchapter.EnChapter enChapter(Long enChapterId) {
+        return enChapterLinks == null ? null : enChapterLinks.chosen(enChapterId);
     }
 
     /** What a question looked like, to word what an edit changed ("punctaj 3 → 5, răspuns corect"). */
     private record ItemSnapshot(String number, String statement, int points, String solution, List<String> options,
                                 int correctOption, List<String> hints, String section, Long chapterId,
-                                List<String> parts) {
+                                List<String> parts, Long enChapterId) {
 
         String changesTo(ItemSnapshot after) {
             return new AuditText.Changes()
@@ -417,6 +447,7 @@ public class QuizAdminService {
                     .addIfDifferent(section, after.section, "secțiune")
                     .addIfDifferent(chapterId, after.chapterId, "capitol")
                     .addIfDifferent(parts, after.parts, "cerințe")
+                    .addIfDifferent(enChapterId, after.enChapterId, "capitol EN")
                     .joined();
         }
     }
@@ -442,7 +473,9 @@ public class QuizAdminService {
                 ordered.stream().map(QuizOption::getText).toList(), correct,
                 hints.stream().map(QuizItemHint::getText).toList(), item.getSection(),
                 item.getChapter() == null ? null : item.getChapter().getId(),
-                parts.stream().map(p -> p.label() + ") " + p.getPoints() + "p " + p.getStatement() + " | " + p.getSolution()).toList());
+                parts.stream().map(p -> p.label() + ") " + p.getPoints() + "p " + p.getStatement() + " | " + p.getSolution()
+                        + " | " + (p.getEnChapter() == null ? "" : p.getEnChapter().getCode())).toList(),
+                item.getEnChapter() == null ? null : item.getEnChapter().getId());
     }
 
     @Transactional
@@ -540,7 +573,9 @@ public class QuizAdminService {
         List<QuizItemPart> saved = new java.util.ArrayList<>();
         for (int i = 0; i < parts.size(); i++) {
             PartDtos.PartRequest part = parts.get(i);
-            saved.add(partRepository.save(new QuizItemPart(item, i, part.statement(), part.points(), part.solution())));
+            QuizItemPart fresh = new QuizItemPart(item, i, part.statement(), part.points(), part.solution());
+            fresh.pointToEnChapter(enChapter(part.enChapterId()));
+            saved.add(partRepository.save(fresh));
         }
         return saved;
     }
@@ -560,6 +595,7 @@ public class QuizAdminService {
         }
         for (int i = 0; i < existing.size(); i++) {
             existing.get(i).update(requested.get(i).statement(), requested.get(i).solution());
+            existing.get(i).pointToEnChapter(enChapter(requested.get(i).enChapterId())); // where to revise: allowed
             partRepository.save(existing.get(i));
         }
         return existing;

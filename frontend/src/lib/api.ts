@@ -520,6 +520,10 @@ export interface QuizItemDto {
   imageRequired?: boolean
   /** An open problem's requirements a), b)... (EN Subiectul III); empty/absent = none. */
   parts?: ItemPart[]
+  /** The EN chapter page the teacher chose; null/absent = automatic (by its place on the paper). */
+  enChapterId?: number | null
+  /** What "automatic" points at here; null/absent = its place has no default. */
+  enChapterAuto?: number | null
 }
 
 /** One requirement of an open problem: "(2p) a) Arată că x = 25.", with its barem. */
@@ -531,6 +535,10 @@ export interface ItemPart {
   statement: string
   points: number
   solution: string | null
+  /** The EN chapter page chosen for this requirement; null/absent = automatic. */
+  enChapterId?: number | null
+  /** What "automatic" points at for this requirement. */
+  enChapterAuto?: number | null
 }
 
 /** A requirement when authoring; its letter follows from the order. */
@@ -538,6 +546,8 @@ export interface PartInput {
   statement: string
   points: number
   solution: string | null
+  /** The EN chapter page for this requirement; null/absent = automatic. */
+  enChapterId?: number | null
 }
 
 /** A requirement on a paper being graded or graded: its barem and the points given (null = not yet). */
@@ -548,6 +558,8 @@ export interface GradedPart {
   points: number
   barem: string | null
   awardedPoints: number | null
+  /** The EN chapter page to open when points were lost here; null/absent = none. */
+  enChapter?: EnChapterLink | null
 }
 
 export interface QuizDetail {
@@ -585,6 +597,8 @@ export interface ItemInput {
   imageRequired?: boolean
   /** OPEN only: requirements a), b)... with their own points; the item's points become their sum. */
   parts?: PartInput[] | null
+  /** The EN chapter page for this question; null/absent = automatic (by its place on the paper). */
+  enChapterId?: number | null
 }
 
 // ---------- Chapters + mastery map (E6) ----------
@@ -1083,6 +1097,8 @@ export interface ItemResultDto {
   image?: string | null
   /** Requirements a), b)... with their barem and points; empty/absent = none. */
   parts?: GradedPart[]
+  /** The EN chapter page to open when points were lost; null/absent = none. */
+  enChapter?: EnChapterLink | null
 }
 
 export interface AttemptResultViewDto {
@@ -1571,6 +1587,14 @@ export async function getAuditLog(query: AuditQuery = {}): Promise<AuditPage> {
 // --- EN chapter pages: the theory photos and worked examples a student opens after an EN question goes wrong ---
 
 export type EnArea = 'ALGEBRA' | 'GEOMETRY'
+
+/** Where a question sends a student who lost points on it; `ready` = its page has photos or worked examples. */
+export interface EnChapterLink {
+  id: number
+  code: string
+  title: string
+  ready: boolean
+}
 
 /** A chapter in the list ("A1 Ordinea efectuării operațiilor"), with how much the teacher has put on its page. */
 export interface EnChapterSummary {

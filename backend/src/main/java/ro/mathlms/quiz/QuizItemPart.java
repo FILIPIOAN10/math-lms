@@ -12,6 +12,7 @@ import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import ro.mathlms.enchapter.EnChapter;
 
 import java.util.Objects;
 
@@ -48,6 +49,11 @@ public class QuizItemPart {
     @Column(columnDefinition = "TEXT")
     private String solution;
 
+    /** The EN chapter page chosen for this requirement, or {@code null} = the default (see {@link EnChapterLinks}). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "en_chapter_id")
+    private EnChapter enChapter;
+
     public QuizItemPart(QuizItem item, int position, String statement, int points, String solution) {
         if (Objects.requireNonNull(item, "item").getType() != QuizItemType.OPEN) {
             throw new IllegalArgumentException("only an open problem has requirements");
@@ -71,6 +77,11 @@ public class QuizItemPart {
         }
         this.statement = statement.strip();
         this.solution = solution == null || solution.isBlank() ? null : solution.strip();
+    }
+
+    /** Points this requirement at an EN chapter page, or ({@code null}) back at the default. */
+    public void pointToEnChapter(EnChapter chapter) {
+        this.enChapter = chapter;
     }
 
     /** "a", "b", "c"... */

@@ -245,8 +245,8 @@ describe('ItemDialog requirements a), b) (EN Subiectul III)', () => {
     const input = await submitted(onSubmit)
     expect(input.points).toBe(5)
     expect(input.parts).toEqual([
-      { statement: 'Arată că x = 25.', points: 2, solution: null },
-      { statement: 'Calculează x la pătrat.', points: 3, solution: '625' },
+      { statement: 'Arată că x = 25.', points: 2, solution: null, enChapterId: null },
+      { statement: 'Calculează x la pătrat.', points: 3, solution: '625', enChapterId: null },
     ])
   })
 
@@ -265,3 +265,41 @@ describe('ItemDialog requirements a), b) (EN Subiectul III)', () => {
     expect(screen.getByRole('button', { name: 'Adaugă cerința c)' })).toBeInTheDocument()
   })
 })
+
+describe('ItemDialog EN chapter', () => {
+  const enChapters = [
+    { id: 1, code: 'A1', title: 'Ordinea efectuării operațiilor', area: 'ALGEBRA' as const, position: 1, photoCount: 1, exampleCount: 0 },
+    { id: 19, code: 'G8', title: 'Corpuri geometrice', area: 'GEOMETRY' as const, position: 19, photoCount: 0, exampleCount: 0 },
+    { id: 20, code: 'G9', title: 'Drepte și plane', area: 'GEOMETRY' as const, position: 20, photoCount: 0, exampleCount: 0 },
+  ]
+
+  it('says where "automatic" sends the student, and sends a chapter picked for the question and a requirement', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined)
+    const cube: QuizItemDto = {
+      ...openItem, section: 'SUBIECTUL al III-lea', enChapterId: null, enChapterAuto: 20,
+      parts: [
+        { id: 1, position: 0, label: 'a', statement: 'Volumul', points: 2, solution: null, enChapterId: null, enChapterAuto: 19 },
+        { id: 2, position: 1, label: 'b', statement: 'FO ⊥ DE', points: 3, solution: null, enChapterId: null, enChapterAuto: 20 },
+      ],
+    }
+    render(<ItemDialog open onClose={vi.fn()} initial={cube} onSubmit={onSubmit} enChapters={enChapters} />)
+
+    const select = screen.getByLabelText('Capitol EN (unde ajunge elevul dacă greșește)')
+    expect(select).toHaveDisplayValue('Automat: G9 Drepte și plane')
+    expect(screen.getByLabelText('Capitol EN cerința a)')).toHaveDisplayValue('Automat: G8 Corpuri geometrice')
+
+    await userEvent.selectOptions(select, '1')
+    await userEvent.selectOptions(screen.getByLabelText('Capitol EN cerința b)'), '19')
+    await userEvent.click(screen.getByRole('button', { name: 'Salvează' }))
+
+    const input = await submitted(onSubmit)
+    expect(input.enChapterId).toBe(1)
+    expect(input.parts?.map((p) => p.enChapterId)).toEqual([null, 19])
+  })
+
+  it('shows no EN choice without the chapter list', () => {
+    renderDialog({ ...openItem })
+    expect(screen.queryByLabelText('Capitol EN (unde ajunge elevul dacă greșește)')).not.toBeInTheDocument()
+  })
+})
+

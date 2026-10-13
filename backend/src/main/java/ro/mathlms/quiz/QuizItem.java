@@ -1,6 +1,7 @@
 package ro.mathlms.quiz;
 
 import ro.mathlms.content.Chapter;
+import ro.mathlms.enchapter.EnChapter;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -60,6 +61,14 @@ public class QuizItem {
     private Chapter chapter;
 
     /**
+     * The EN chapter page chosen by the teacher for this question, or {@code null} = the default for its place on the
+     * paper (see {@link EnChapterLinks}).
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "en_chapter_id")
+    private EnChapter enChapter;
+
+    /**
      * The heading this question sits under (EN style: "SUBIECTUL I", optionally followed on new lines by the
      * instruction under it), or {@code null}. Layout and numbering only - points and grading stay per question.
      */
@@ -101,6 +110,11 @@ public class QuizItem {
     /** Tags this question with its own chapter, or ({@code null}) lets it inherit the quiz's. */
     public void tagChapter(Chapter chapter) {
         this.chapter = chapter;
+    }
+
+    /** Points this question at an EN chapter page, or ({@code null}) back at the default for its place. */
+    public void pointToEnChapter(EnChapter chapter) {
+        this.enChapter = chapter;
     }
 
     /** Shows {@code key}'s picture under the statement; the question no longer waits for one. */

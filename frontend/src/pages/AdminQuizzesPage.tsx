@@ -43,7 +43,10 @@ import {
   type QuizSummary,
   type QuizInput,
   type SchoolClass,
+  listEnChapters,
+  type EnChapterSummary,
 } from '@/lib/api'
+import { EN_AREAS } from '@/lib/enChapters'
 import { formatDate, optionLetter, roCount } from '@/lib/format'
 import { errorMessage } from '@/lib/errors'
 import { shrinkImage } from '@/lib/image'
@@ -53,6 +56,8 @@ interface PartDraft {
   statement: string
   points: string
   solution: string
+  /** '' = automatic */
+  enChapterId: string
 }
 
 /** Same limit as the server (QuizItemPart.MAX_PARTS). */
@@ -213,6 +218,34 @@ function QuizDialog({
 
 // ---------- Chapter select (E6 mastery map) ----------
 
+/**
+ * Where a question (or a requirement) sends a student who loses points on it: "Automat" follows its place on the EN
+ * paper (and says where that is), or one chapter picked from the list.
+ */
+function EnChapterSelect({ id, label, value, onChange, chapters, autoId }: {
+  id: string
+  label?: string
+  value: string
+  onChange: (value: string) => void
+  chapters: EnChapterSummary[]
+  autoId: number | null | undefined
+}) {
+  const auto = autoId == null ? null : chapters.find((c) => c.id === autoId)
+  return (
+    <select id={id} aria-label={label} className={`${selectClass} w-full min-w-0`} value={value}
+            onChange={(e) => onChange(e.target.value)}>
+      <option value="">{auto ? `Automat: ${auto.code} ${auto.title}` : 'Automat (după locul din test)'}</option>
+      {EN_AREAS.map((area) => (
+        <optgroup key={area.value} label={area.label}>
+          {chapters.filter((c) => c.area === area.value).map((c) => (
+            <option key={c.id} value={String(c.id)}>{c.code} {c.title}</option>
+          ))}
+        </optgroup>
+      ))}
+    </select>
+  )
+}
+
 /** The chapters as a select grouped by class and book; the empty value means "none" (or "inherit"). */
 function ChapterSelect({ id, value, onChange, chapters, emptyLabel }: {
   id: string
@@ -265,12 +298,15 @@ export function ItemDialog({
   initial,
   onSubmit,
   chapters = [],
+  enChapters = [],
   quizChapterTitle = null,
   defaultSection = null,
 }: {
   open: boolean
   onClose: () => void
   initial: QuizItemDto | null
+  /** The EN chapter pages a question may send a student to; none = no choice shown. */
+  enChapters?: EnChapterSummary[]
   /** `image`: a new picture to put under the statement, 'remove' to take it away, 'keep' to leave it as it is. */
   onSubmit: (input: ItemInput, image: ImageChange) => Promise<void>
   /** The chapters this question may be tagged with; none = no chapter choice shown. */
@@ -286,6 +322,7 @@ export function ItemDialog({
   const [solution, setSolution] = useState(initial?.solution ?? '')
   const [hints, setHints] = useState<string[]>(initial?.hints ?? [])
   const [chapterId, setChapterId] = useState(initial?.chapterId == null ? '' : String(initial.chapterId))
+  const [enChapterId, setEnChapterId] = useState(initial?.enChapterId == null ? '' : String(initial.enChapterId))
   const [section, setSection] = useState(initial ? initial.section ?? '' : defaultSection ?? '')
   const [options, setOptions] = useState<OptionDraft[]>(
     initial && initial.options.length > 0
@@ -294,7 +331,10 @@ export function ItemDialog({
   )
   // EN Subiectul III: requirements a), b)... each with its points and barem; the question's points are their sum.
   const [parts, setParts] = useState<PartDraft[]>(
-    (initial?.parts ?? []).map((p) => ({ statement: p.statement, points: String(p.points), solution: p.solution ?? '' })),
+    (initial?.parts ?? []).map((p) => ({
+      statement: p.statement, points: String(p.points), solution: p.solution ?? '',
+      enChapterId: p.enChapterId == null ? '' : String(p.enChapterId),
+    })),
   )
   const partsTotal = parts.reduce((sum, p) => sum + (Number(p.points) || 0), 0)
   const [busy, setBusy] = useState(false)
@@ -397,10 +437,14 @@ export function ItemDialog({
           : null,
       hints: hints.map((h) => h.trim()).filter((h) => h !== ''), // an empty box is just dropped
       chapterId: chapterId === '' ? null : Number(chapterId),
+      enChapterId: enChapterId === '' ? null : Number(enChapterId),
       section: section.trim() || null,
       parts:
         type === 'OPEN'
-          ? parts.map((p) => ({ statement: p.statement.trim(), points: Number(p.points), solution: p.solution.trim() || null }))
+          ? parts.map((p) => ({
+              statement: p.statement.trim(), points: Number(p.points), solution: p.solution.trim() || null,
+              enChapterId: p.enChapterId === '' ? null : Number(p.enChapterId),
+            }))
           : null,
     }
     setBusy(true)
@@ -412,6 +456,7 @@ export function ItemDialog({
         setSolution('')
         setHints([])
         setParts([])
+        setEnChapterId('')
         setOptions(emptyOptions())
         setImage('keep')
         setSaved((n) => n + 1)
@@ -474,6 +519,13 @@ export function ItemDialog({
               chapters={chapters}
               emptyLabel={quizChapterTitle ? `Ca la test (${quizChapterTitle})` : 'Ca la test (niciunul)'}
             />
+          </div>
+        )}
+        {enChapters.length > 0 && (
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="ienchapter">Capitol EN (unde ajunge elevul dacă greșește)</Label>
+            <EnChapterSelect id="ienchapter" value={enChapterId} onChange={setEnChapterId} chapters={enChapters}
+                             autoId={initial?.enChapterAuto} />
           </div>
         )}
         <div className="flex flex-col gap-2">
@@ -576,6 +628,18 @@ export function ItemDialog({
                     aria-label={`Barem cerința ${label})`}
                     className="ml-7 min-h-12 w-[calc(100%-1.75rem)]"
                   />
+                  {enChapters.length > 0 && (
+                    <div className="ml-7">
+                      <EnChapterSelect
+                        id={`ienchapter-part-${i}`}
+                        label={`Capitol EN cerința ${label})`}
+                        value={part.enChapterId}
+                        onChange={(value) => setPart(i, { enChapterId: value })}
+                        chapters={enChapters}
+                        autoId={initial?.parts?.[i]?.enChapterAuto}
+                      />
+                    </div>
+                  )}
                 </div>
               )
             })}
@@ -585,7 +649,7 @@ export function ItemDialog({
               size="sm"
               className="self-start"
               disabled={parts.length >= MAX_PARTS}
-              onClick={() => setParts((prev) => [...prev, { statement: '', points: prev.length === 0 ? '2' : '3', solution: '' }])}
+              onClick={() => setParts((prev) => [...prev, { statement: '', points: prev.length === 0 ? '2' : '3', solution: '', enChapterId: '' }])}
             >
               Adaugă cerința {String.fromCharCode(97 + parts.length)})
             </Button>
@@ -723,6 +787,7 @@ export function AdminQuizzesPage() {
   const [quizzes, setQuizzes] = useState<QuizSummary[]>([])
   const [classes, setClasses] = useState<SchoolClass[]>([])
   const [chapters, setChapters] = useState<ChapterOption[]>([])
+  const [enChapters, setEnChapters] = useState<EnChapterSummary[]>([])
   const [loadedQuiz, setQuiz] = useState<QuizDetail | null>(null)
   const [loadError, setLoadError] = useState<{ id: number; message: string } | null>(null)
   const [loading, setLoading] = useState(true)
@@ -748,6 +813,9 @@ export function AdminQuizzesPage() {
     listChapterOptions()
       .then(setChapters)
       .catch(() => undefined) // only the chapter choice is missing without it
+    listEnChapters()
+      .then(setEnChapters)
+      .catch(() => undefined) // only the EN chapter choice is missing without it
     getAiImportSettings()
       .then((s) => setAiImportOn(s.enabled))
       .catch(() => undefined) // the button just stays hidden
@@ -770,6 +838,11 @@ export function AdminQuizzesPage() {
 
   const reloadList = () => listQuizzes().then(setQuizzes)
   const chapterTitle = (id: number | null) => (id === null ? null : chapters.find((c) => c.id === id)?.title ?? null)
+  /** The EN chapter a question sends students to: the teacher's choice, else the default for its place. */
+  const enChapterOf = (item: QuizItemDto) => {
+    const id = item.enChapterId ?? item.enChapterAuto ?? null
+    return id === null ? null : enChapters.find((c) => c.id === id) ?? null
+  }
   // A question of a class quiz may only use that class's chapters.
   const quizClassId = quiz ? quizzes.find((q) => q.id === quiz.id)?.schoolClassId ?? null : null
   const chaptersForQuiz = quizClassId === null ? chapters : chapters.filter((c) => c.schoolClassId === quizClassId)
@@ -892,6 +965,16 @@ export function AdminQuizzesPage() {
                             {item.chapterId !== null && (
                               <span className="ml-2 rounded-md bg-sky-500/15 px-1.5 py-0.5 text-xs font-medium text-sky-800 dark:text-sky-200">
                                 {chapterTitle(item.chapterId) ?? 'alt capitol'}
+                              </span>
+                            )}
+                            {enChapterOf(item) && (
+                              <span
+                                data-testid="item-en-chapter"
+                                title={`Dacă greșește, elevul e trimis la ${enChapterOf(item)!.code} ${enChapterOf(item)!.title}`
+                                  + (item.enChapterId == null ? ' (automat, după locul din test)' : '')}
+                                className="ml-2 rounded-md bg-violet-500/15 px-1.5 py-0.5 text-xs font-medium text-violet-800 dark:text-violet-200"
+                              >
+                                → {enChapterOf(item)!.code}
                               </span>
                             )}
                           </p>
@@ -1061,6 +1144,7 @@ export function AdminQuizzesPage() {
           onClose={() => setItemDialog(null)}
           initial={itemDialog.item}
           chapters={chaptersForQuiz}
+          enChapters={enChapters}
           quizChapterTitle={chapterTitle(quiz.chapterId)}
           defaultSection={quiz.items.at(-1)?.section ?? null}
           onSubmit={async (input, image) => {

@@ -18,8 +18,10 @@ import ro.mathlms.enchapter.EnChapterDtos.ExampleRequest;
 import ro.mathlms.enchapter.EnChapterDtos.PhotoDto;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * The EN chapter pages: the list (seeded by V33, editable by the teacher) and each page's theory photos and worked
@@ -66,6 +68,14 @@ public class EnChapterService {
         return chapterRepository.findAllByOrderByPositionAscIdAsc().stream()
                 .map(c -> EnChapterSummaryDto.of(c, photos.getOrDefault(c.getId(), 0L), examples.getOrDefault(c.getId(), 0L)))
                 .toList();
+    }
+
+    /** The chapters whose page has anything on it (photos or worked examples). */
+    @Transactional(readOnly = true)
+    public Set<Long> readyIds() {
+        Set<Long> ready = new HashSet<>(counts(photoRepository.countPerChapter()).keySet());
+        ready.addAll(counts(exampleRepository.countPerChapter()).keySet());
+        return ready;
     }
 
     @Transactional(readOnly = true)

@@ -1,5 +1,7 @@
 package ro.mathlms.quiz;
 
+import ro.mathlms.enchapter.EnChapterLinkDto;
+
 import java.time.Instant;
 import java.util.List;
 
@@ -205,7 +207,8 @@ public final class StudentQuizDtos {
             List<Long> photoIds, // S2: the pages of an OPEN answer, oldest first (only the student's own API serves them)
             List<PartDtos.GradedPartDto> parts, // requirements a), b)... with their barem and points; empty = none
             String selectedOptionLetter, // "a", "b"... as on the paper test; null = no answer / not a grilă
-            String correctOptionLetter
+            String correctOptionLetter,
+            EnChapterLinkDto enChapter // the EN chapter page to open when points were lost; null = none
     ) {}
 
     /** The student's graded attempt: the score plus a per-item breakdown. */
