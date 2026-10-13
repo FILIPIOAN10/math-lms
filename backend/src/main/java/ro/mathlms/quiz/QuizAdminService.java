@@ -43,14 +43,16 @@ public class QuizAdminService {
     private final AuditLog auditLog;
     private final QuizItemPartRepository partRepository;
     private final EnChapterLinks enChapterLinks;
+    private final UnfinishedAttempts unfinishedAttempts;
 
     public QuizAdminService(QuizRepository quizRepository, QuizItemRepository itemRepository,
                             QuizOptionRepository optionRepository, QuizItemHintRepository hintRepository,
                             SchoolClassRepository schoolClassRepository, ChapterRepository chapterRepository,
                             ExerciseRepository exerciseRepository, AfterCommitCacheEvictor cacheEvictor,
                             QuestionImageService imageService, AuditLog auditLog, QuizItemPartRepository partRepository,
-                            EnChapterLinks enChapterLinks) {
+                            EnChapterLinks enChapterLinks, UnfinishedAttempts unfinishedAttempts) {
         this.enChapterLinks = enChapterLinks;
+        this.unfinishedAttempts = unfinishedAttempts;
         this.partRepository = partRepository;
         this.imageService = imageService;
         this.auditLog = auditLog;
@@ -314,15 +316,29 @@ public class QuizAdminService {
         return (title.length() > room ? title.substring(0, room) : title) + suffix;
     }
 
+    /**
+     * Deletes a test and its questions. A test with handed-in attempts stays: those are grades (and the mastery maps).
+     * Attempts only started go with it, but not while the test is published - a student may be writing right now;
+     * once it is unpublished they cannot finish them, so "Depublică, apoi Șterge" always works.
+     */
     @Transactional
     public void deleteQuiz(Long id) {
         Quiz quiz = getQuiz(id);
-        long attempts = quizRepository.countAttempts(id);
-        if (attempts > 0) {
-            throw new QuizInUseException("Testul „" + quiz.getTitle() + "” nu poate fi șters: elevii au deja "
-                    + RoCount.of(attempts, "încercare", "încercări") + " (cu răspunsuri și note). "
-                    + "Apasă „Depublică” ca să nu mai apară la elevi.");
+        boolean published = quiz.getStatus() == QuizStatus.PUBLISHED;
+        long handedIn = quizRepository.countHandedInAttempts(id);
+        if (handedIn > 0) {
+            throw new QuizInUseException("Testul „" + quiz.getTitle() + "” nu poate fi șters: elevii au predat deja "
+                    + RoCount.of(handedIn, "încercare", "încercări") + ", cu răspunsuri și note care s-ar pierde. "
+                    + (published ? "Apasă „Depublică” ca să nu mai apară la elevi."
+                                 : "E deja ciornă, deci elevii nu-l mai văd; rămâne doar pentru notele lor."));
         }
+        long started = quizRepository.countAttempts(id); // none handed in: every one is still in progress
+        if (started > 0 && published) {
+            throw new QuizInUseException("Testul „" + quiz.getTitle() + "” nu poate fi șters acum: elevii îl lucrează ("
+                    + RoCount.of(started, "încercare începută și nepredată", "încercări începute și nepredate") + "). "
+                    + "Apasă întâi „Depublică”, apoi „Șterge” - încercările neterminate se șterg odată cu el.");
+        }
+        int discarded = unfinishedAttempts.discard(id);
         for (QuizItem item : itemRepository.findByQuizIdOrderByPosition(id)) {
             optionRepository.deleteByItemId(item.getId());
             hintRepository.deleteByItemId(item.getId());
@@ -331,7 +347,9 @@ public class QuizAdminService {
         itemRepository.deleteAll(itemRepository.findByQuizIdOrderByPosition(id));
         quizRepository.delete(quiz);
         dropScoreCaches();
-        auditLog.record(AuditEvent.of(AuditAction.QUIZ_DELETED, id, quiz.getTitle()));
+        AuditEvent deleted = AuditEvent.of(AuditAction.QUIZ_DELETED, id, quiz.getTitle());
+        auditLog.record(discarded == 0 ? deleted
+                : deleted.details("cu " + RoCount.of(discarded, "încercare neterminată", "încercări neterminate")));
     }
 
     // --- item-level ---

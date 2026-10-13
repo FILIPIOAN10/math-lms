@@ -29,6 +29,11 @@ public interface QuizRepository extends JpaRepository<Quiz, Long> {
     @Query("select count(a) from QuizAttempt a where a.quiz.id = :quizId")
     long countAttempts(@Param("quizId") Long quizId);
 
+    /** Attempts handed in (a test waiting for or past grading, or a finished practice): answers that count. */
+    @Query("select count(a) from QuizAttempt a where a.quiz.id = :quizId"
+            + " and a.status <> ro.mathlms.quiz.QuizAttemptStatus.IN_PROGRESS")
+    long countHandedInAttempts(@Param("quizId") Long quizId);
+
     /** Classes this quiz is homework for, other than {@code classId}: moving the quiz there would strand them. */
     @Query("select a.schoolClass.name from Assignment a where a.quiz.id = :quizId and a.schoolClass.id <> :classId"
             + " order by a.schoolClass.name")

@@ -850,7 +850,8 @@ export function AdminQuizzesPage() {
   async function removeQuiz(q: QuizSummary) {
     const yes = await confirm({
       title: `Ștergi testul „${q.title}”?`,
-      body: 'Se șterg și întrebările lui. Un test pe care l-au dat deja elevii nu se poate șterge — depublică-l.',
+      body: 'Se șterg și întrebările lui, și încercările începute de elevi dar nepredate. Un test predat deja de elevi '
+        + '(cu note) nu se poate șterge; unul pe care îl lucrează acum se depublică întâi.',
       confirmLabel: 'Șterge',
       destructive: true,
     })

@@ -266,7 +266,7 @@ Din bara de sus: **Clase**. Navigare arborescentă cu breadcrumb.
 - **Adaugă clasă** → dialog (nume + descriere) → apare în listă
 - **Deschide** o clasă → **Adaugă carte**; deschide cartea → **Adaugă capitol**; deschide capitolul → **Adaugă exercițiu**
 - La exercițiu: enunț + soluție pot conține LaTeX (`$x^2+1$`, `$$\frac{a}{b}$$`) + dificultate
-- **Editează** / **Șterge** pe fiecare rând (ștergerea cere confirmare). Blochează ștergerea (409, mesajul spune ce și cum): clasa cu cărți sau cu quiz-uri destinate ei, cartea cu capitole, capitolul cu exerciții. Elevii înscriși **nu** blochează: se dezînscriu odată cu clasa. Un quiz cu încercări ale elevilor nu se poate șterge (pierderea notelor) → „Depublică”
+- **Editează** / **Șterge** pe fiecare rând (ștergerea cere confirmare). Blochează ștergerea (409, mesajul spune ce și cum): clasa cu cărți sau cu quiz-uri destinate ei, cartea cu capitole, capitolul cu exerciții. Elevii înscriși **nu** blochează: se dezînscriu odată cu clasa. Un test cu încercări **predate** nu se poate șterge (pierderea notelor) → „Depublică”; unul doar **început** de elevi (nepredat): publicat → refuzat („Apasă întâi „Depublică”, apoi „Șterge””), după „Depublică” → se șterge cu tot cu încercările neterminate (jurnal: „cu N încercări neterminate”)
 - Reset complet al bazei de dev (doar cele 4 conturi seed, toate ACTIVE; zero clase/quiz-uri): `Get-Content -Raw deploy\dev-reset.sql | docker exec -i mathlms-postgres psql -U mathlms -d mathlms`
 - **Elevi** pe o clasă → dialog roster: alege un elev activ → **Adaugă**; **Scoate** pentru dezînscriere
 - **Optimistic locking**: dacă doi admini editează același exercițiu, al doilea „Salvează" dă 409 („a fost modificat de altcineva")

@@ -34,10 +34,12 @@ class QuizAdminServiceTest {
     private final ro.mathlms.content.ExerciseRepository exerciseRepository = mock(ro.mathlms.content.ExerciseRepository.class);
     private final AfterCommitCacheEvictor cacheEvictor = mock(AfterCommitCacheEvictor.class);
     private final AuditLog auditLog = mock(AuditLog.class);
+    private final UnfinishedAttempts unfinishedAttempts = mock(UnfinishedAttempts.class);
     private final QuizAdminService service =
             new QuizAdminService(quizRepository, itemRepository, optionRepository, hintRepository, schoolClassRepository,
                     chapterRepository, exerciseRepository, cacheEvictor, mock(QuestionImageService.class), auditLog,
-                    mock(QuizItemPartRepository.class), NoEnChapterLinks.create());
+                    mock(QuizItemPartRepository.class), NoEnChapterLinks.create(),
+                    unfinishedAttempts);
 
     private final Quiz quiz = new Quiz("Simulare EN", null);
     private final SchoolClass ninth = new SchoolClass("Clasa a 9-a", null);
@@ -303,16 +305,60 @@ class QuizAdminServiceTest {
     }
 
     @Test
-    void deleteQuizRefusesOnceStudentsHaveAttemptsAndPointsAtUnpublish() {
+    void deleteQuizRefusesOnceStudentsHandedItInAndPointsAtUnpublish() {
+        quiz.publish();
         when(quizRepository.findById(1L)).thenReturn(Optional.of(quiz));
-        when(quizRepository.countAttempts(1L)).thenReturn(2L);
+        when(quizRepository.countHandedInAttempts(1L)).thenReturn(2L);
 
         assertThatThrownBy(() -> service.deleteQuiz(1L))
                 .isInstanceOf(QuizInUseException.class)
                 .hasMessageContaining("Simulare EN")
-                .hasMessageContaining("2 încercări")
+                .hasMessageContaining("predat deja 2 încercări")
                 .hasMessageContaining("Depublică");
         verify(quizRepository, never()).delete(any(Quiz.class));
+        verify(unfinishedAttempts, never()).discard(any());
+    }
+
+    @Test
+    void anUnpublishedTestWithGradesDoesNotSendTheTeacherToUnpublishAgain() {
+        when(quizRepository.findById(1L)).thenReturn(Optional.of(quiz)); // a draft
+        when(quizRepository.countHandedInAttempts(1L)).thenReturn(1L);
+
+        assertThatThrownBy(() -> service.deleteQuiz(1L))
+                .isInstanceOf(QuizInUseException.class)
+                .hasMessageContaining("E deja ciornă")
+                .hasMessageNotContaining("Apasă „Depublică”");
+        verify(quizRepository, never()).delete(any(Quiz.class));
+    }
+
+    @Test
+    void aPublishedTestStudentsAreWritingIsUnpublishedFirst() {
+        quiz.publish();
+        when(quizRepository.findById(1L)).thenReturn(Optional.of(quiz));
+        when(quizRepository.countAttempts(1L)).thenReturn(1L);
+
+        assertThatThrownBy(() -> service.deleteQuiz(1L))
+                .isInstanceOf(QuizInUseException.class)
+                .hasMessageContaining("1 încercare începută și nepredată")
+                .hasMessageContaining("„Depublică”, apoi „Șterge”");
+        verify(unfinishedAttempts, never()).discard(any());
+        verify(quizRepository, never()).delete(any(Quiz.class));
+    }
+
+    @Test
+    void anUnpublishedTestGoesWithTheAttemptsNobodyHandedIn() {
+        when(quizRepository.findById(1L)).thenReturn(Optional.of(quiz)); // a draft: nobody can finish them
+        when(quizRepository.countAttempts(1L)).thenReturn(1L);
+        when(unfinishedAttempts.discard(1L)).thenReturn(1);
+
+        service.deleteQuiz(1L);
+
+        org.mockito.InOrder order = org.mockito.Mockito.inOrder(unfinishedAttempts, quizRepository);
+        order.verify(unfinishedAttempts).discard(1L);
+        order.verify(quizRepository).delete(quiz);
+        ArgumentCaptor<AuditEvent> event = ArgumentCaptor.forClass(AuditEvent.class);
+        verify(auditLog).record(event.capture());
+        assertThat(event.getValue().details()).isEqualTo("cu 1 încercare neterminată");
     }
 
     @Test
