@@ -23,7 +23,7 @@ describe('aiImport', () => {
       ],
     })
     problem.parts[0].statement = ' '
-    expect(draftProblems([problem])).toEqual(['Subiectul 1: o cerință nu are enunț.'])
+    expect(draftProblems([problem])).toEqual(['Întrebarea 1: o cerință nu are enunț.'])
   })
 
   it('starts every question included, with no answer marked and printed points kept', () => {
@@ -37,8 +37,8 @@ describe('aiImport', () => {
     const drafts = toDrafts([read(), read({ type: 'OPEN', options: [] }), read({ options: ['7'] })])
 
     expect(draftProblems(drafts)).toEqual([
-      'Subiectul 1: marchează varianta corectă.',
-      'Subiectul 3: o grilă are nevoie de cel puțin 2 variante.',
+      'Întrebarea 1: marchează varianta corectă.',
+      'Întrebarea 3: o grilă are nevoie de cel puțin 2 variante.',
     ])
 
     drafts[0].correct = 1
@@ -53,8 +53,8 @@ describe('aiImport', () => {
     drafts[1].points = 101
 
     expect(draftProblems(drafts)).toEqual([
-      'Subiectul 1: enunțul e gol.',
-      'Subiectul 1: punctajul trebuie să fie între 0 și 100.',
+      'Întrebarea 1: enunțul e gol.',
+      'Întrebarea 1: punctajul trebuie să fie între 0 și 100.',
     ])
   })
 
@@ -63,7 +63,7 @@ describe('aiImport', () => {
     d.correct = 2
     d.options[2] = ' '
 
-    expect(draftProblems([d])).toEqual(['Subiectul 1: marchează varianta corectă.'])
+    expect(draftProblems([d])).toEqual(['Întrebarea 1: marchează varianta corectă.'])
   })
 
   it('sends only the kept questions, in order, with empty variants dropped and the marked one correct', () => {

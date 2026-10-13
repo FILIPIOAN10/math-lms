@@ -586,7 +586,7 @@ class QuizAttemptServiceTest {
 
         service.gradeOpenResponse(50L, 101L, 15, null);
 
-        verify(auditLog).record(new AuditEvent(AuditAction.ANSWER_GRADED, 50L, "Simulare EN · subiectul 2",
+        verify(auditLog).record(new AuditEvent(AuditAction.ANSWER_GRADED, 50L, "Simulare EN · întrebarea 2",
                 "15 p din 30", 1L, null));
     }
 
@@ -597,7 +597,7 @@ class QuizAttemptServiceTest {
 
         service.gradeOpenResponse(50L, 101L, 22, "Lipsește verificarea.");
 
-        verify(auditLog).record(new AuditEvent(AuditAction.ANSWER_GRADED, 50L, "Simulare EN · subiectul 2",
+        verify(auditLog).record(new AuditEvent(AuditAction.ANSWER_GRADED, 50L, "Simulare EN · întrebarea 2",
                 "10 → 22 p din 30, comentariu adăugat", 1L, null));
     }
 

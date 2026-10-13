@@ -68,18 +68,18 @@ describe('parseItems', () => {
     ].join('\n'))
 
     expect(errors).toEqual([
-      'Linia 1: textul trebuie să înceapă cu un subiect numerotat („1. …”) sau cu „SUBIECTUL I”.',
-      'Subiectul 3, linia 10: nu știu ce e „ceva rătăcit după variante” (variantele încep cu a), b)…, rezolvarea cu R:, indiciile cu I:).',
-      'Subiectul 1: marchează cu * exact o variantă corectă (acum: 0).',
-      'Subiectul 2: marchează cu * exact o variantă corectă (acum: 2).',
-      'Subiectul 3: o grilă are nevoie de cel puțin 2 variante.',
+      'Linia 1: textul trebuie să înceapă cu o întrebare numerotată („1. …”) sau cu „SUBIECTUL I”.',
+      'Întrebarea 3, linia 10: nu știu ce e „ceva rătăcit după variante” (variantele încep cu a), b)…, rezolvarea cu R:, indiciile cu I:).',
+      'Întrebarea 1: marchează cu * exact o variantă corectă (acum: 0).',
+      'Întrebarea 2: marchează cu * exact o variantă corectă (acum: 2).',
+      'Întrebarea 3: o grilă are nevoie de cel puțin 2 variante.',
     ])
   })
 
   it('refuses more than five hints', () => {
     const text = '1. Enunț\n' + Array.from({ length: 6 }, (_, i) => `I: indiciul ${i + 1}`).join('\n')
 
-    expect(parseItems(text).errors).toEqual(['Subiectul 1: cel mult 5 indicii.'])
+    expect(parseItems(text).errors).toEqual(['Întrebarea 1: cel mult 5 indicii.'])
   })
 
   it('finds nothing in an empty text', () => {
@@ -152,7 +152,7 @@ R: $x = 4$
 
     it('names the section in an error', () => {
       const { errors } = parseItems('SUBIECTUL al II-lea\n5p 1. Enunț\na) 1\nb) 2')
-      expect(errors).toEqual(['SUBIECTUL al II-lea, subiectul 1: marchează cu * exact o variantă corectă (acum: 0).'])
+      expect(errors).toEqual(['SUBIECTUL al II-lea, întrebarea 1: marchează cu * exact o variantă corectă (acum: 0).'])
     })
   })
 
@@ -176,7 +176,7 @@ R: $x = 4$
 
     it('asks for the star when the variants of a list have no right one marked', () => {
       const { errors } = parseItems('1. Cât face 2+2?\n- a) 3\n- b) 4')
-      expect(errors).toEqual(['Subiectul 1: marchează cu * exact o variantă corectă (acum: 0).'])
+      expect(errors).toEqual(['Întrebarea 1: marchează cu * exact o variantă corectă (acum: 0).'])
     })
 
     it('turns "(2p) a) …" lines of a Subiectul III problem into requirements worth their points', () => {

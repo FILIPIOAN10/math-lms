@@ -429,7 +429,7 @@ class QuizAdminServiceTest {
         service.updateItem(7L, new ItemRequest(QuizItemType.SINGLE_CHOICE, 1, "Cât face $2+2$?", 2, null,
                 List.of(new OptionRequest(0, "$4$ (patru)", true), new OptionRequest(1, "$5$", false))));
 
-        verify(auditLog).record(new AuditEvent(AuditAction.QUESTION_UPDATED, 1L, "Simulare EN · subiectul 1",
+        verify(auditLog).record(new AuditEvent(AuditAction.QUESTION_UPDATED, 1L, "Simulare EN · întrebarea 1",
                 "enunț, texte variante", null, null));
     }
 
@@ -458,7 +458,7 @@ class QuizAdminServiceTest {
         service.updateItem(7L, new ItemRequest(QuizItemType.SINGLE_CHOICE, 0, "Cât e $2+2$?", 3, null,
                 List.of(new OptionRequest(0, "$4$", true), new OptionRequest(1, "$5$", false))));
 
-        verify(auditLog).record(new AuditEvent(AuditAction.QUESTION_UPDATED, 1L, "Simulare EN · subiectul 1",
+        verify(auditLog).record(new AuditEvent(AuditAction.QUESTION_UPDATED, 1L, "Simulare EN · întrebarea 1",
                 "punctaj 2 → 3, răspuns corect", null, null));
     }
 
@@ -506,7 +506,7 @@ class QuizAdminServiceTest {
 
         assertThatThrownBy(() -> service.setPublished(1L, true))
                 .isInstanceOf(InvalidQuizException.class)
-                .hasMessageContaining("cel puțin un subiect");
+                .hasMessageContaining("cel puțin o întrebare");
         assertThat(quiz.getStatus()).isEqualTo(QuizStatus.DRAFT);
     }
 

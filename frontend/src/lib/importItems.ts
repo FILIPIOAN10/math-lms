@@ -108,7 +108,7 @@ export function parseItems(text: string): ParsedItems {
     }
     const current = drafts[drafts.length - 1]
     if (!current) {
-      errors.push(`Linia ${index + 1}: textul trebuie să înceapă cu un subiect numerotat („1. …”) sau cu „SUBIECTUL I”.`)
+      errors.push(`Linia ${index + 1}: textul trebuie să înceapă cu o întrebare numerotată („1. …”) sau cu „SUBIECTUL I”.`)
       return
     }
     if (IMAGE_MARK.test(line)) {
@@ -147,14 +147,14 @@ export function parseItems(text: string): ParsedItems {
     } else if (current.part === 'solution') {
       current.solution.push(line)
     } else {
-      errors.push(`Subiectul ${current.number}, linia ${index + 1}: nu știu ce e „${line}” `
+      errors.push(`Întrebarea ${current.number}, linia ${index + 1}: nu știu ce e „${line}” `
         + '(variantele încep cu a), b)…, rezolvarea cu R:, indiciile cu I:).')
     }
   })
 
   const items: ItemInput[] = []
   drafts.forEach((draft, i) => {
-    const label = draft.section ? `${draft.section.split('\n')[0]}, subiectul ${draft.number}` : `Subiectul ${draft.number}`
+    const label = draft.section ? `${draft.section.split('\n')[0]}, întrebarea ${draft.number}` : `Întrebarea ${draft.number}`
     let statement = draft.statement.join('\n').trim()
     const points = POINTS.exec(statement)
     if (points) statement = statement.slice(0, points.index).trim()

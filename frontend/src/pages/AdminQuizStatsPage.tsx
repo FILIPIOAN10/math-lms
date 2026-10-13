@@ -46,7 +46,7 @@ export function AdminQuizStatsPage() {
           description={stats ? 'Statisticile testului, din lucrările notate.' : undefined}
           documentTitle={stats ? `Statistici · ${stats.title}` : 'Statistici'}
           breadcrumbs={[
-            { label: 'Quiz-uri', to: '/admin/quizzes' },
+            { label: 'Teste', to: '/admin/quizzes' },
             ...(stats ? [{ label: stats.title, to: `/admin/quizzes/${quizId}` }] : []),
             { label: 'Statistici' },
           ]}
@@ -96,7 +96,7 @@ export function AdminQuizStatsPage() {
             </Card>
 
             <section className="space-y-2">
-              <h2 className="font-medium">Pe subiecte</h2>
+              <h2 className="font-medium">Pe întrebări</h2>
               {numberItems(stats.items).map(({ item, label, heading }) => (
                 <Fragment key={item.itemId}>
                 {heading && <SectionHeadingView heading={heading} />}
@@ -104,7 +104,7 @@ export function AdminQuizStatsPage() {
                   <CardContent className="space-y-2 py-3" data-testid="stats-item">
                     <div className="flex items-center justify-between gap-2 text-sm">
                       <span className="font-medium">
-                        Subiectul {label} · {item.type === 'SINGLE_CHOICE' ? 'Grilă' : 'Deschis'} · {item.points} p
+                        Întrebarea {label} · {item.type === 'SINGLE_CHOICE' ? 'Grilă' : 'Cu rezolvare'} · {item.points} p
                       </span>
                       {hardest?.itemId === item.itemId && (
                         <span className="rounded bg-rose-500/15 px-1.5 py-0.5 text-xs text-rose-700 dark:text-rose-300">

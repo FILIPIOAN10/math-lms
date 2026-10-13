@@ -100,7 +100,7 @@ class AuditLogIntegrationTest {
         JsonNode latest = entries.get(0);
         assertThat(latest.get("action").asText()).isEqualTo("ANSWER_GRADED");
         assertThat(latest.get("category").asText()).isEqualTo("GRADING");
-        assertThat(latest.get("label").asText()).isEqualTo("Teză " + stamp + " · subiectul 2");
+        assertThat(latest.get("label").asText()).isEqualTo("Teză " + stamp + " · întrebarea 2");
         assertThat(latest.get("details").asText()).isEqualTo("3 → 5 p din 5");
         assertThat(latest.get("actorName").asText()).isEqualTo("Prof. Ionescu");
         assertThat(latest.get("studentName").asText()).isEqualTo("Ana Pop");

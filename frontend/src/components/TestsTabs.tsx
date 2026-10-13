@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 
 const TABS = [
-  { key: 'quizzes', to: '/admin/quizzes', label: 'Quiz-uri' },
+  { key: 'quizzes', to: '/admin/quizzes', label: 'Teste' },
   { key: 'assignments', to: '/admin/assignments', label: 'Teme' },
 ] as const
 

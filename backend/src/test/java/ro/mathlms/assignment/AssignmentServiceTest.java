@@ -139,7 +139,7 @@ class AssignmentServiceTest {
 
         assertThatThrownBy(() -> service.create(10L, 5L, due))
                 .isInstanceOf(InvalidAssignmentException.class)
-                .hasMessageContaining("altă clasă");
+                .hasMessageContaining("altei clase");
     }
 
     @Test

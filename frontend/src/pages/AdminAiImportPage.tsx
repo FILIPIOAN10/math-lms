@@ -47,7 +47,7 @@ const STATUS_LABEL: Record<AiImport['status'], string> = {
 /** "12 octombrie 2026": the default title names the day the pages were photographed. */
 const DAY = new Intl.DateTimeFormat('ro-RO', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Bucharest' })
 
-const crumbs = (last: string) => [{ label: 'Quiz-uri', to: '/admin/quizzes' }, { label: last }]
+const crumbs = (last: string) => [{ label: 'Teste', to: '/admin/quizzes' }, { label: last }]
 
 /**
  * Faza 3: a quiz from photographed textbook pages. Without an id: pick 1-5 pages and send them (plus the recent
@@ -290,7 +290,7 @@ function ImportView({ id, classes, chapters }: { id: number; classes: SchoolClas
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Test din poze" breadcrumbs={[{ label: 'Quiz-uri', to: '/admin/quizzes' },
+      <PageHeader title="Test din poze" breadcrumbs={[{ label: 'Teste', to: '/admin/quizzes' },
         { label: 'Din poze', to: '/admin/quizzes/ai-import' }, { label: 'Verificare' }]} />
       {confirmDialog}
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
@@ -415,7 +415,7 @@ function Review({ ai, classes, chapters, onDiscard }: {
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
       <div className="flex flex-wrap gap-2">
         <Button onClick={() => void create()} disabled={busy || kept === 0 || problems.length > 0 || title.trim() === ''}>
-          {busy ? 'Se creează...' : `Creează testul (${roCount(kept, 'subiect', 'subiecte')})`}
+          {busy ? 'Se creează...' : `Creează testul (${roCount(kept, 'întrebare', 'întrebări')})`}
         </Button>
         <Button variant="outline" onClick={onDiscard} disabled={busy}>Renunță</Button>
       </div>

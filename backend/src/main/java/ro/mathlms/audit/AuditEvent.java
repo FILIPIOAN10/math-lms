@@ -4,7 +4,7 @@ import ro.mathlms.user.User;
 
 /**
  * One thing to write to the journal, built where the change happens:
- * {@code AuditEvent.of(ANSWER_GRADED, attemptId, "Teză · subiectul 3").about(student).details("2 → 4 p din 5")}.
+ * {@code AuditEvent.of(ANSWER_GRADED, attemptId, "Teză · întrebarea 3").about(student).details("2 → 4 p din 5")}.
  * {@code label} and {@code details} must not contain a person's name or email (see V26) - people go in
  * {@code studentId} (whom it is about) and {@code relatedUserId} (a second person, e.g. the parent linked).
  */

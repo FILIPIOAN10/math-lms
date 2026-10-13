@@ -259,7 +259,7 @@ public class AiImportService {
         repository.save(ai);
         deleteAfterCommit(pages);
         auditLog.record(AuditEvent.of(AuditAction.QUIZ_FROM_PHOTOS, quiz.getId(), quiz.getTitle())
-                .details(RoCount.of(request.items().size(), "subiect", "subiecte") + " din "
+                .details(RoCount.of(request.items().size(), "întrebare", "întrebări") + " din "
                         + RoCount.of(ai.getPageCount(), "pagină", "pagini")));
         return quiz.getId();
     }

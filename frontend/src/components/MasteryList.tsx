@@ -11,7 +11,7 @@ export function MasteryList({ rows }: { rows: ChapterMastery[] }) {
   if (rows.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
-        Niciun capitol încă. Harta apare când profesorul leagă quiz-urile de capitolele clasei.
+        Niciun capitol încă. Harta apare când profesorul leagă testele de capitolele clasei.
       </p>
     )
   }

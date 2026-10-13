@@ -140,9 +140,9 @@ public class QuizAdminService {
         if (target != null) {
             List<String> stranded = quizRepository.findAssignedClassNamesOtherThan(id, schoolClassId);
             if (!stranded.isEmpty()) {
-                throw new QuizInUseException("Quiz-ul „" + quiz.getTitle() + "” e temă pentru " + String.join(", ", stranded)
+                throw new QuizInUseException("Testul „" + quiz.getTitle() + "” e temă pentru " + String.join(", ", stranded)
                         + ": dacă îl rezervi pentru " + target.getName() + ", elevii de acolo nu-l mai pot deschide. "
-                        + "Șterge întâi tema din pagina Teme sau lasă quiz-ul la „Toți elevii”.");
+                        + "Șterge întâi tema din pagina Teme sau lasă testul la „Toți elevii”.");
             }
         }
         String oldTitle = quiz.getTitle();
@@ -190,7 +190,7 @@ public class QuizAdminService {
                 .orElseThrow(() -> new QuizNotFoundException("Chapter", chapterId));
         SchoolClass chapterClass = chapter.getBook().getSchoolClass();
         if (quizClass != null && !chapterClass.getId().equals(quizClass.getId())) {
-            throw new InvalidQuizException("Quiz-ul e pentru " + quizClass.getName() + ", dar capitolul „"
+            throw new InvalidQuizException("Testul e pentru " + quizClass.getName() + ", dar capitolul „"
                     + chapter.getTitle() + "” e din " + chapterClass.getName() + ".");
         }
         return chapter;
@@ -210,7 +210,7 @@ public class QuizAdminService {
         QuizStatus before = quiz.getStatus();
         if (published) {
             if (itemRepository.countByQuizId(id) == 0) {
-                throw new InvalidQuizException("Adaugă cel puțin un subiect înainte să publici quiz-ul.");
+                throw new InvalidQuizException("Adaugă cel puțin o întrebare înainte să publici testul.");
             }
             quiz.publish();
         } else {
@@ -310,7 +310,7 @@ public class QuizAdminService {
         Quiz quiz = getQuiz(id);
         long attempts = quizRepository.countAttempts(id);
         if (attempts > 0) {
-            throw new QuizInUseException("Quiz-ul „" + quiz.getTitle() + "” nu poate fi șters: elevii au deja "
+            throw new QuizInUseException("Testul „" + quiz.getTitle() + "” nu poate fi șters: elevii au deja "
                     + RoCount.of(attempts, "încercare", "încercări") + " (cu răspunsuri și note). "
                     + "Apasă „Depublică” ca să nu mai apară la elevi.");
         }
@@ -335,7 +335,7 @@ public class QuizAdminService {
     @Transactional
     public ItemDto addItem(Long quizId, ItemRequest request) {
         Quiz quiz = getQuiz(quizId);
-        requireNotTaken(quiz, "nu mai poți adăuga subiecte");
+        requireNotTaken(quiz, "nu mai poți adăuga întrebări");
         requireValidHints(request.hints()); // before anything is written
         requireValidParts(request);
         QuizItem fresh = new QuizItem(
@@ -449,10 +449,10 @@ public class QuizAdminService {
     public void deleteItem(Long itemId) {
         QuizItem item = getItem(itemId);
         Quiz quiz = item.getQuiz();
-        requireNotTaken(quiz, "nu mai poți șterge subiecte");
+        requireNotTaken(quiz, "nu mai poți șterge întrebări");
         if (quiz.getStatus() == QuizStatus.PUBLISHED && itemRepository.countByQuizId(quiz.getId()) <= 1) {
-            throw new InvalidQuizException("Acesta e ultimul subiect al unui quiz publicat: apasă întâi „Depublică”, "
-                    + "altfel elevii ar vedea un quiz gol.");
+            throw new InvalidQuizException("Aceasta e ultima întrebare a unui test publicat: apasă întâi „Depublică”, "
+                    + "altfel elevii ar vedea un test gol.");
         }
         if (seenByStudents(quiz)) {
             recordQuestion(AuditAction.QUESTION_DELETED, item,
@@ -474,15 +474,15 @@ public class QuizAdminService {
     private void requireNotTaken(Quiz quiz, String refused) {
         long attempts = quizRepository.countAttempts(quiz.getId());
         if (attempts > 0) {
-            throw new QuizInUseException("Quiz-ul „" + quiz.getTitle() + "” a fost deja dat de elevi ("
+            throw new QuizInUseException("Testul „" + quiz.getTitle() + "” a fost deja dat de elevi ("
                     + RoCount.of(attempts, "încercare", "încercări") + "): " + refused
-                    + ", s-ar schimba punctajul maxim și notele lor. Apasă „Copiază” pe rândul quiz-ului și modifică copia.");
+                    + ", s-ar schimba punctajul maxim și notele lor. Apasă „Copiază” pe rândul testului și modifică copia.");
         }
     }
 
     /** On a taken item: same points, same options in the same order with the same right one — only the texts change. */
     private List<QuizOption> correctTextsInPlace(QuizItem item, ItemRequest request) {
-        String refusal = "Quiz-ul „" + item.getQuiz().getTitle() + "” a fost deja dat de elevi: la acest subiect poți "
+        String refusal = "Testul „" + item.getQuiz().getTitle() + "” a fost deja dat de elevi: la această întrebare poți "
                 + "corecta doar textele (enunț, variante, rezolvare, indicii) — punctajul, numărul de variante și "
                 + "varianta corectă nu se mai pot schimba.";
         if (pointsOf(request) != item.getPoints()) {
@@ -522,10 +522,10 @@ public class QuizAdminService {
             return;
         }
         if (request.type() != QuizItemType.OPEN) {
-            throw new InvalidQuizException("Doar un subiect cu rezolvare poate avea cerințe a), b).");
+            throw new InvalidQuizException("Doar o întrebare cu rezolvare poate avea cerințe a), b).");
         }
         if (parts.size() > QuizItemPart.MAX_PARTS) {
-            throw new InvalidQuizException("Un subiect are cel mult " + QuizItemPart.MAX_PARTS + " cerințe.");
+            throw new InvalidQuizException("O întrebare are cel mult " + QuizItemPart.MAX_PARTS + " cerințe.");
         }
         if (parts.stream().anyMatch(p -> p.statement() == null || p.statement().isBlank())) {
             throw new InvalidQuizException("Fiecare cerință are nevoie de un enunț.");
@@ -554,8 +554,8 @@ public class QuizAdminService {
             same = existing.get(i).getPoints() == requested.get(i).points();
         }
         if (!same) {
-            throw new QuizInUseException("Quiz-ul „" + item.getQuiz().getTitle() + "” a fost deja dat de elevi: la "
-                    + "acest subiect poți corecta doar textele cerințelor și baremul — numărul lor și punctajele nu se "
+            throw new QuizInUseException("Testul „" + item.getQuiz().getTitle() + "” a fost deja dat de elevi: la "
+                    + "această întrebare poți corecta doar textele cerințelor și baremul — numărul lor și punctajele nu se "
                     + "mai pot schimba.");
         }
         for (int i = 0; i < existing.size(); i++) {

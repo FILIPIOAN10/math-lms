@@ -56,7 +56,7 @@ export function toDrafts(items: ExtractedItem[]): DraftItem[] {
 export function draftProblems(drafts: DraftItem[]): string[] {
   const problems: string[] = []
   drafts.filter((d) => d.include).forEach((d, index) => {
-    const label = `Subiectul ${index + 1}`
+    const label = `Întrebarea ${index + 1}`
     if (d.statement.trim() === '') {
       problems.push(`${label}: enunțul e gol.`)
     }

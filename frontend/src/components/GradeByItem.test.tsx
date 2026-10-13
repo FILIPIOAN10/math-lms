@@ -47,14 +47,14 @@ describe('GradeByItem', () => {
   it('names the open questions as the students saw them, with how many papers have points', async () => {
     setup([paper(50, 'Ana', [4, null]), paper(51, 'Radu')])
 
-    const tabs = within(await screen.findByRole('navigation', { name: 'Subiecte' })).getAllByRole('button')
-    expect(tabs.map((t) => t.textContent)).toEqual(['Subiectul 2 (1/2)', 'Subiectul 3 (0/2)'])
+    const tabs = within(await screen.findByRole('navigation', { name: 'Întrebări' })).getAllByRole('button')
+    expect(tabs.map((t) => t.textContent)).toEqual(['Întrebarea 2 (1/2)', 'Întrebarea 3 (0/2)'])
   })
 
   it('starts on the first question still missing points, at the first paper without them', async () => {
     setup([paper(50, 'Ana', [4, null]), paper(51, 'Radu')])
 
-    expect(await screen.findByRole('button', { name: 'Subiectul 2 (1/2)' })).toHaveAttribute('aria-pressed', 'true')
+    expect(await screen.findByRole('button', { name: 'Întrebarea 2 (1/2)' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByTestId('answer-grader')).toHaveTextContent('Radu · lucrarea 2 din 2')
     expect(screen.getByText('Barem 2')).toBeInTheDocument()
     expect(screen.getByRole('img', { name: 'Rezolvarea lui Radu, pagina 1 din 1' })).toHaveAttribute('src', '/photo/51/2/41')
@@ -71,7 +71,7 @@ describe('GradeByItem', () => {
     expect(gradeOpenItem).toHaveBeenLastCalledWith(50, 2, 4, 'Bine')
     expect(await screen.findByText(/Radu/)).toBeInTheDocument()
     expect(screen.getByTestId('answer-grader')).toHaveTextContent('lucrarea 2 din 2')
-    expect(screen.getByRole('button', { name: 'Subiectul 2 (1/2)' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Întrebarea 2 (1/2)' })).toBeInTheDocument()
   })
 
   it('does not move on from an answer whose comment has no points yet', async () => {
@@ -115,7 +115,7 @@ describe('GradeByItem', () => {
     await waitFor(() => expect(finalizeGrading).toHaveBeenCalledTimes(1))
     expect(finalizeGrading).toHaveBeenCalledWith(50)
     expect(await screen.findByText(/1 lucrare finalizată/)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Subiectul 2 (1/1)' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Întrebarea 2 (1/1)' })).toBeInTheDocument()
   })
 
   it('says so when every paper is finalised', async () => {
@@ -125,6 +125,6 @@ describe('GradeByItem', () => {
     await user.click(await screen.findByRole('button', { name: 'Finalizează lucrările complete (1)' }))
     await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Finalizează' }))
 
-    expect(await screen.findByText('Toate lucrările acestui quiz sunt notate. 🎉')).toBeInTheDocument()
+    expect(await screen.findByText('Toate lucrările acestui test sunt notate. 🎉')).toBeInTheDocument()
   })
 })

@@ -93,6 +93,6 @@ describe('AdminMasteryPage', () => {
       students: grid.students.map((s) => ({ ...s, cells: s.cells.map((c) => ({ ...c, percent: null, questions: 0 })) })),
     })
     renderPage()
-    expect(await screen.findByText(/Leagă quiz-urile de capitole/)).toBeInTheDocument()
+    expect(await screen.findByText(/Leagă testele de capitole/)).toBeInTheDocument()
   })
 })

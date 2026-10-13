@@ -28,7 +28,7 @@ describe('ChapterQuizDialog', () => {
 
     expect(screen.getByLabelText('Titlu')).toHaveValue('Fracții — test')
     expect(screen.getAllByRole('checkbox').every((c) => (c as HTMLInputElement).checked)).toBe(true)
-    expect(screen.getByRole('button', { name: 'Creează quiz (3)' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Creează testul (3)' })).toBeEnabled()
   })
 
   it('creates the quiz from the ticked exercises, in the chapter order, and hands it on', async () => {
@@ -36,10 +36,10 @@ describe('ChapterQuizDialog', () => {
     const { createSpy, onCreated } = renderDialog()
 
     await user.click(screen.getByLabelText('Exercițiul 2'))
-    const points = screen.getByLabelText('Puncte pe subiect')
+    const points = screen.getByLabelText('Puncte pe întrebare')
     await user.clear(points)
     await user.type(points, '3')
-    await user.click(screen.getByRole('button', { name: 'Creează quiz (2)' }))
+    await user.click(screen.getByRole('button', { name: 'Creează testul (2)' }))
 
     expect(createSpy).toHaveBeenCalledWith(30, { title: 'Fracții — test', exerciseIds: [1, 3], points: 3 })
     expect(onCreated).toHaveBeenCalledWith(draft)
@@ -51,7 +51,7 @@ describe('ChapterQuizDialog', () => {
 
     await user.click(screen.getByRole('button', { name: 'Deselectează tot' }))
 
-    expect(screen.getByRole('button', { name: 'Creează quiz (0)' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Creează testul (0)' })).toBeDisabled()
   })
 
   it("shows the server's reason when creating fails", async () => {
@@ -59,7 +59,7 @@ describe('ChapterQuizDialog', () => {
     const { onCreated } = renderDialog(() =>
       Promise.reject(new ApiError(400, 'Alege doar exerciții din capitolul „Fracții”.')))
 
-    await user.click(screen.getByRole('button', { name: 'Creează quiz (3)' }))
+    await user.click(screen.getByRole('button', { name: 'Creează testul (3)' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Alege doar exerciții din capitolul')
     expect(onCreated).not.toHaveBeenCalled()

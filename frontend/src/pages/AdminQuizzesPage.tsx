@@ -125,7 +125,7 @@ function QuizDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()} title={initialTitle ? 'Editează quiz-ul' : 'Adaugă quiz'}>
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()} title={initialTitle ? 'Editează testul' : 'Adaugă test'}>
       <form className="flex flex-col gap-4" onSubmit={submit}>
         <div className="flex flex-col gap-2">
           <Label htmlFor="qtitle">Titlu</Label>
@@ -163,7 +163,7 @@ function QuizDialog({
             <Label htmlFor="qchapter">Capitol (pentru harta pe capitole)</Label>
             <ChapterSelect id="qchapter" value={chapterId} onChange={setChapterId} chapters={offered} emptyLabel="— niciunul —" />
             <p className="text-xs text-muted-foreground">
-              Subiectele quiz-ului contează la acest capitol pe harta elevului, dacă nu le alegi altul fiecăruia.
+              Întrebările testului contează la acest capitol pe harta elevului, dacă nu le alegi altul fiecăruia.
             </p>
           </div>
         )}
@@ -196,9 +196,9 @@ function QuizDialog({
             Permite practică
           </label>
           <p className="text-xs text-muted-foreground">
-            Elevii pot exersa quiz-ul fără notă, cu răspunsul corect afișat imediat după fiecare subiect, fără cronometru
+            Elevii pot exersa testul fără notă, cu răspunsul corect afișat imediat după fiecare întrebare, fără cronometru
             și fără efect asupra progresului sau statisticilor. Atenție: practica dezvăluie răspunsurile — bifeaz-o
-            doar pentru quiz-uri care pot servi ca material de exersare.
+            doar pentru teste care pot servi ca material de exersare.
           </p>
         </div>
         {error && <p className="text-sm text-destructive">{error}</p>}
@@ -435,7 +435,7 @@ export function ItemDialog({
     <Dialog
       open={open}
       onOpenChange={(o) => !o && onClose()}
-      title={isEdit ? 'Editează subiectul' : 'Adaugă subiect'}
+      title={isEdit ? 'Editează întrebarea' : 'Adaugă întrebare'}
       description="Enunțul, variantele și baremul pot conține LaTeX între $…$."
     >
       <form className="flex max-h-[75vh] flex-col gap-4 overflow-y-auto pr-1" onSubmit={submit} onPaste={onPaste}>
@@ -449,7 +449,7 @@ export function ItemDialog({
             onChange={(e) => setType(e.target.value as QuizItemType)}
           >
             <option value="SINGLE_CHOICE">Grilă (o singură variantă corectă)</option>
-            <option value="OPEN">Deschis (rezolvare completă)</option>
+            <option value="OPEN">Cu rezolvare (elevul trimite poza)</option>
           </select>
           {isEdit && <p className="text-xs text-muted-foreground">Tipul nu se poate schimba după creare.</p>}
         </div>
@@ -459,7 +459,7 @@ export function ItemDialog({
           <Textarea id="isection" rows={2} maxLength={300} value={section} onChange={(e) => setSection(e.target.value)}
                     placeholder={'SUBIECTUL I\nÎncercuiește litera corespunzătoare răspunsului corect.'} className="min-h-0" />
           <p className="text-xs text-muted-foreground">
-            Ca la Evaluarea Națională: subiectele cu aceeași secțiune apar grupate sub titlu (primul rând) și numerotate de la 1.
+            Ca la Evaluarea Națională: întrebările cu aceeași secțiune apar grupate sub titlu (primul rând) și numerotate de la 1.
             Gol = fără secțiune.
           </p>
         </div>
@@ -472,7 +472,7 @@ export function ItemDialog({
               value={chapterId}
               onChange={setChapterId}
               chapters={chapters}
-              emptyLabel={quizChapterTitle ? `Ca la quiz (${quizChapterTitle})` : 'Ca la quiz (niciunul)'}
+              emptyLabel={quizChapterTitle ? `Ca la test (${quizChapterTitle})` : 'Ca la test (niciunul)'}
             />
           </div>
         )}
@@ -487,11 +487,11 @@ export function ItemDialog({
         <div className="flex flex-col gap-2" data-testid="image-field">
           <Label>Imagine sub enunț (opțional)</Label>
           {shownImage ? (
-            <img src={shownImage} alt="Figura subiectului" className="max-h-56 w-fit rounded-lg border bg-white object-contain" />
+            <img src={shownImage} alt="Figura întrebării" className="max-h-56 w-fit rounded-lg border bg-white object-contain" />
           ) : (
             <p className="rounded-lg border border-dashed px-3 py-4 text-center text-sm text-muted-foreground">
               Fă o captură a figurii (Win+Shift+S), apoi apasă Ctrl+V oriunde în acest dialog — sau alege un fișier.
-              {initial?.imageRequired && <span className="block font-medium text-amber-700 dark:text-amber-300">Subiectul așteaptă o figură.</span>}
+              {initial?.imageRequired && <span className="block font-medium text-amber-700 dark:text-amber-300">Întrebarea așteaptă o figură.</span>}
             </p>
           )}
           <div className="flex flex-wrap gap-2">
@@ -590,7 +590,7 @@ export function ItemDialog({
               Adaugă cerința {String.fromCharCode(97 + parts.length)})
             </Button>
             <p className="text-xs text-muted-foreground">
-              Fiecare cerință se notează separat la corectură; elevul trimite o singură rezolvare (poze) pentru tot subiectul.
+              Fiecare cerință se notează separat la corectură; elevul trimite o singură rezolvare (poze) pentru toată întrebarea.
             </p>
           </div>
         )}
@@ -669,7 +669,7 @@ export function ItemDialog({
 
         {saved > 0 && (
           <p role="status" className="text-sm text-emerald-700 dark:text-emerald-300">
-            ✓ {roCount(saved, 'subiect salvat', 'subiecte salvate')}. Continuă cu următorul sau închide.
+            ✓ {roCount(saved, 'întrebare salvată', 'întrebări salvate')}. Continuă cu următorul sau închide.
           </p>
         )}
         {error && <p className="text-sm text-destructive">{error}</p>}
@@ -801,8 +801,8 @@ export function AdminQuizzesPage() {
 
   async function removeQuiz(q: QuizSummary) {
     const yes = await confirm({
-      title: `Ștergi quiz-ul „${q.title}”?`,
-      body: 'Se șterg și subiectele lui. Un quiz pe care l-au dat deja elevii nu se poate șterge — depublică-l.',
+      title: `Ștergi testul „${q.title}”?`,
+      body: 'Se șterg și întrebările lui. Un test pe care l-au dat deja elevii nu se poate șterge — depublică-l.',
       confirmLabel: 'Șterge',
       destructive: true,
     })
@@ -818,7 +818,7 @@ export function AdminQuizzesPage() {
 
   async function removeItem(item: QuizItemDto, number: string) {
     if (!quiz) return
-    const yes = await confirm({ title: `Ștergi subiectul ${number}?`, confirmLabel: 'Șterge', destructive: true })
+    const yes = await confirm({ title: `Ștergi întrebarea ${number}?`, confirmLabel: 'Șterge', destructive: true })
     if (!yes) return
     setError(null)
     try {
@@ -836,10 +836,10 @@ export function AdminQuizzesPage() {
           /* ----- Builder ----- */
           quizError ? (
             <>
-              <PageHeader title="Quiz" breadcrumbs={[{ label: 'Quiz-uri', to: '/admin/quizzes' }, { label: 'Quiz' }]} />
+              <PageHeader title="Test" breadcrumbs={[{ label: 'Teste', to: '/admin/quizzes' }, { label: 'Test' }]} />
               <p className="text-sm text-destructive">{quizError}</p>
               <Link to="/admin/quizzes" className={buttonVariants({ variant: 'outline', size: 'sm' })}>
-                Înapoi la quiz-uri
+                Înapoi la teste
               </Link>
             </>
           ) : !quiz ? (
@@ -848,12 +848,12 @@ export function AdminQuizzesPage() {
             <div className="space-y-4">
               <PageHeader
                 title={quiz.title}
-                breadcrumbs={[{ label: 'Quiz-uri', to: '/admin/quizzes' }, { label: quiz.title }]}
+                breadcrumbs={[{ label: 'Teste', to: '/admin/quizzes' }, { label: quiz.title }]}
                 description={
                   <span className="flex flex-wrap items-center gap-2">
                     <span className={statusBadge(quiz.status)}>{quiz.status === 'PUBLISHED' ? 'Publicat' : 'Ciornă'}</span>
                     <span data-testid="quiz-total">
-                      {roCount(quiz.items.length, 'subiect', 'subiecte')} · Total: {quiz.items.reduce((sum, item) => sum + item.points, 0)} p
+                      {roCount(quiz.items.length, 'întrebare', 'întrebări')} · Total: {quiz.items.reduce((sum, item) => sum + item.points, 0)} p
                     </span>
                     <span>· Capitol: {chapterTitle(quiz.chapterId) ?? 'niciunul'}</span>
                   </span>
@@ -865,11 +865,11 @@ export function AdminQuizzesPage() {
                               ? void togglePublish(quiz)
                               : setPublishing({ id: quiz.id, title: quiz.title, classId: quizClassId })}
                             disabled={quiz.status !== 'PUBLISHED' && quiz.items.length === 0}
-                            title={quiz.items.length === 0 ? 'Adaugă cel puțin un subiect înainte să publici' : undefined}>
+                            title={quiz.items.length === 0 ? 'Adaugă cel puțin o întrebare înainte să publici' : undefined}>
                       {quiz.status === 'PUBLISHED' ? 'Depublică' : 'Publică'}
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => setImporting(true)}>Importă din text</Button>
-                    <Button size="sm" onClick={() => setItemDialog({ item: null })}>Adaugă subiect</Button>
+                    <Button size="sm" onClick={() => setItemDialog({ item: null })}>Adaugă întrebare</Button>
                   </>
                 }
               />
@@ -878,7 +878,7 @@ export function AdminQuizzesPage() {
               {error && <p className="text-sm text-destructive">{error}</p>}
 
               {quiz.items.length === 0 ? (
-                <p className="text-muted-foreground">Niciun subiect încă. Adaugă primul.</p>
+                <p className="text-muted-foreground">Nicio întrebare încă. Adaug-o pe prima.</p>
               ) : (
                 <div className="space-y-2">
                   {numberItems(quiz.items).map(({ item, label, local, heading }) => (
@@ -888,7 +888,7 @@ export function AdminQuizzesPage() {
                       <CardContent className="space-y-2 py-3">
                         <div className="flex items-start justify-between gap-2">
                           <p className="text-sm font-medium">
-                            {local}. {item.type === 'SINGLE_CHOICE' ? 'Grilă' : 'Deschis'} · {item.points} p
+                            {local}. {item.type === 'SINGLE_CHOICE' ? 'Grilă' : 'Cu rezolvare'} · {item.points} p
                             {item.chapterId !== null && (
                               <span className="ml-2 rounded-md bg-sky-500/15 px-1.5 py-0.5 text-xs font-medium text-sky-800 dark:text-sky-200">
                                 {chapterTitle(item.chapterId) ?? 'alt capitol'}
@@ -896,10 +896,10 @@ export function AdminQuizzesPage() {
                             )}
                           </p>
                           <div className="flex shrink-0 gap-2">
-                            <Button size="xs" variant="outline" onClick={() => setItemDialog({ item })} aria-label={`Editează subiectul ${label}`}>
+                            <Button size="xs" variant="outline" onClick={() => setItemDialog({ item })} aria-label={`Editează întrebarea ${label}`}>
                               Editează
                             </Button>
-                            <Button size="xs" variant="destructive" onClick={() => removeItem(item, label)} aria-label={`Șterge subiectul ${label}`}>
+                            <Button size="xs" variant="destructive" onClick={() => removeItem(item, label)} aria-label={`Șterge întrebarea ${label}`}>
                               Șterge
                             </Button>
                           </div>
@@ -909,7 +909,7 @@ export function AdminQuizzesPage() {
                         {item.type === 'OPEN' && (item.parts ?? []).length === 0 && hasVariantsInStatement(item.statement) && (
                           <p data-testid="variants-in-statement" className="text-sm font-medium text-amber-700 dark:text-amber-300">
                             ⚠ Variantele a), b)… sunt scrise în enunț, așa că elevul nu le poate bifa (primește doar „Fă o poză”).
-                            Șterge subiectul și adaugă-l ca grilă, sau importă-l din nou cu * la varianta corectă (ex. „*b)”).
+                            Șterge întrebarea și adaug-o ca grilă, sau import-o din nou cu * la varianta corectă (ex. „*b)”).
                           </p>
                         )}
                         {item.imageRequired && !item.image && (
@@ -943,8 +943,8 @@ export function AdminQuizzesPage() {
           /* ----- List ----- */
           <>
             <PageHeader
-              title="Quiz-uri"
-              description="Creează teste, publică-le și dă-le ca temă. Deschide un quiz ca să-i adaugi subiecte."
+              title="Teste"
+              description="Creează teste, publică-le și dă-le ca temă. Deschide un test ca să-i adaugi întrebări."
               actions={
                 <>
                   {aiImportOn && (
@@ -952,7 +952,7 @@ export function AdminQuizzesPage() {
                       Din poze (AI)
                     </Link>
                   )}
-                  <Button size="sm" onClick={() => setQuizDialog({ item: null })}>Adaugă quiz</Button>
+                  <Button size="sm" onClick={() => setQuizDialog({ item: null })}>Adaugă test</Button>
                 </>
               }
             />
@@ -960,7 +960,7 @@ export function AdminQuizzesPage() {
             {notice && <PublishedNotice notice={notice} onClose={() => setNotice(null)} />}
             {error && <p className="text-sm text-destructive">{error}</p>}
             {loading && <p className="text-muted-foreground">Se încarcă...</p>}
-            {!loading && quizzes.length === 0 && <p className="text-muted-foreground">Niciun quiz. Adaugă primul.</p>}
+            {!loading && quizzes.length === 0 && <p className="text-muted-foreground">Niciun test. Adaugă primul.</p>}
             <div className="space-y-2">
               {quizzes.map((q) => (
                 <Card key={q.id}>
@@ -1075,7 +1075,7 @@ export function AdminQuizzesPage() {
               }
             } catch (e) {
               // The question itself is saved: say so on the page instead of keeping the dialog (a retry would add it twice).
-              setError(`Subiectul a fost salvat, dar imaginea nu: ${errorMessage(e)} Deschide-l cu „Editează” și încearcă din nou.`)
+              setError(`Întrebarea a fost salvată, dar imaginea nu: ${errorMessage(e)} Deschide-o cu „Editează” și încearcă din nou.`)
             }
             await reloadQuiz(quiz.id)
           }}

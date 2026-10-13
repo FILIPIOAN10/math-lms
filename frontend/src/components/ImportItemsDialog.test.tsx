@@ -20,8 +20,8 @@ describe('ImportItemsDialog', () => {
     const { onImport, onClose } = renderDialog()
     await paste(TEXT)
 
-    expect(screen.getByTestId('import-preview')).toHaveTextContent('2 subiecte: 1 grilă, 1 deschis · Total: 5 p')
-    await userEvent.click(screen.getByRole('button', { name: 'Adaugă 2 subiecte' }))
+    expect(screen.getByTestId('import-preview')).toHaveTextContent('2 întrebări: 1 grilă, 1 cu rezolvare · Total: 5 p')
+    await userEvent.click(screen.getByRole('button', { name: 'Adaugă 2 întrebări' }))
 
     await waitFor(() => expect(onClose).toHaveBeenCalled())
     expect(onImport.mock.calls[0][0].map((i: { type: string }) => i.type)).toEqual(['SINGLE_CHOICE', 'OPEN'])
@@ -32,7 +32,7 @@ describe('ImportItemsDialog', () => {
     await paste('1. Fără variantă corectă\na) unu\nb) doi')
 
     expect(screen.getByRole('alert')).toHaveTextContent('marchează cu * exact o variantă corectă')
-    expect(screen.getByRole('button', { name: 'Adaugă 1 subiect' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Adaugă 1 întrebare' })).toBeDisabled()
     expect(onImport).not.toHaveBeenCalled()
   })
 
@@ -40,7 +40,7 @@ describe('ImportItemsDialog', () => {
     const { onClose } = renderDialog(vi.fn().mockResolvedValue('S-au adăugat 1 din 2. Quiz-ul a fost deja dat de elevi'))
     await paste(TEXT)
 
-    await userEvent.click(screen.getByRole('button', { name: 'Adaugă 2 subiecte' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Adaugă 2 întrebări' }))
 
     expect(await screen.findByText(/S-au adăugat 1 din 2/)).toBeInTheDocument()
     expect(onClose).not.toHaveBeenCalled()

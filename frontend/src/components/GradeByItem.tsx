@@ -101,7 +101,7 @@ export function GradeByItem({
   if (questions.length === 0) {
     return (
       <div className="space-y-3">
-        <p className="text-sm text-muted-foreground">Quiz-ul „{quizTitle}” nu are subiecte cu rezolvare de corectat.</p>
+        <p className="text-sm text-muted-foreground">Testul „{quizTitle}” nu are întrebări cu rezolvare de corectat.</p>
         <Button variant="outline" onClick={onExit}>Înapoi la lucrări</Button>
       </div>
     )
@@ -165,7 +165,7 @@ export function GradeByItem({
 
   return (
     <div className="space-y-4">
-      <nav aria-label="Subiecte" className="flex flex-wrap gap-2">
+      <nav aria-label="Întrebări" className="flex flex-wrap gap-2">
         {questions.map(({ item, number }) => (
           <Button
             key={item.itemId}
@@ -174,7 +174,7 @@ export function GradeByItem({
             aria-pressed={item.itemId === itemId}
             onClick={() => void chooseItem(item.itemId)}
           >
-            Subiectul {number} ({gradedCount(item.itemId)}/{papers.length})
+            Întrebarea {number} ({gradedCount(item.itemId)}/{papers.length})
           </Button>
         ))}
       </nav>
@@ -188,7 +188,7 @@ export function GradeByItem({
 
       {papers.length === 0 ? (
         <div className="space-y-3">
-          <p className="text-muted-foreground">Toate lucrările acestui quiz sunt notate. 🎉</p>
+          <p className="text-muted-foreground">Toate lucrările acestui test sunt notate. 🎉</p>
           <Button variant="outline" onClick={onExit}>Înapoi la lucrări</Button>
         </div>
       ) : current && paper ? (
@@ -200,7 +200,7 @@ export function GradeByItem({
                   {parseSection(current.item.section).title}
                 </p>
               )}
-              <p className="text-sm font-medium">Subiectul {current.number} · {current.item.points} p</p>
+              <p className="text-sm font-medium">Întrebarea {current.number} · {current.item.points} p</p>
               <MathContent className="text-sm">{current.item.statement}</MathContent>
               <QuestionImage itemId={current.item.itemId} image={current.item.image} />
               {current.item.barem && (
@@ -251,7 +251,7 @@ export function GradeByItem({
         onConfirm={() => void finalizeReady()}
         onCancel={() => setConfirming(false)}
       >
-        Doar lucrările cu toate subiectele notate. După asta punctajele lor nu se mai pot modifica.
+        Doar lucrările cu toate întrebările notate. După asta punctajele lor nu se mai pot modifica.
       </ConfirmDialog>
     </div>
   )

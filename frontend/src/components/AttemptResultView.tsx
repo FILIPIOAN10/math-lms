@@ -38,7 +38,7 @@ function PracticeMistakes({ result }: { result: AttemptResultViewDto }) {
       <CardContent className="space-y-2 py-4 text-sm">
         <p className="font-medium">Exersează ce ai greșit</p>
         <p>
-          {many ? 'Subiectele ' : 'Subiectul '}
+          {many ? 'Întrebările ' : 'Întrebarea '}
           <span className="font-medium">{mistakes.labels.join(', ')}</span>
           {many ? ' nu au ieșit complet' : ' nu a ieșit complet'}: uită-te mai jos la răspunsul corect și la barem.
         </p>
@@ -139,14 +139,14 @@ function ItemResult({
             {item.photoIds.length > 0
               ? `${own ? 'Ai trimis' : 'Elevul a trimis'} ${roCount(item.photoIds.length, 'pagină', 'pagini')} cu rezolvarea.`
               : own
-                ? 'Nu ai trimis nicio poză pentru acest subiect.'
-                : 'Elevul nu a trimis nicio poză pentru acest subiect.'}
+                ? 'Nu ai trimis nicio poză pentru această întrebare.'
+                : 'Elevul nu a trimis nicio poză pentru această întrebare.'}
           </p>
           {/* Only the student's own API serves the photos; the parent view has no endpoint for them. */}
           {own && (
             <PhotoPages
               urls={item.photoIds.map((photoId) => ownPhotoUrl(attemptId, item.itemId, photoId))}
-              alt={(page) => `Poza ta pentru subiectul ${label}, pagina ${page}`}
+              alt={(page) => `Poza ta pentru întrebarea ${label}, pagina ${page}`}
             />
           )}
           </div>
@@ -214,7 +214,7 @@ export function AttemptResultView({ result, audience = 'student' }: { result: At
             </>
           ) : (
             <p className="text-sm text-muted-foreground">
-              Grilele sunt corectate ({pointsSoFar} puncte până acum). Subiectele cu rezolvare
+              Grilele sunt corectate ({pointsSoFar} puncte până acum). Întrebările cu rezolvare
               așteaptă corectura profesorului — revino mai târziu pentru nota finală.
             </p>
           )}
@@ -232,7 +232,7 @@ export function AttemptResultView({ result, audience = 'student' }: { result: At
           <ItemResult
             item={item}
             label={label}
-            title={label.includes('.') ? `${local}.` : `Subiectul ${label}`}
+            title={label.includes('.') ? `${local}.` : `Întrebarea ${label}`}
             audience={audience}
             attemptId={result.attemptId}
           />

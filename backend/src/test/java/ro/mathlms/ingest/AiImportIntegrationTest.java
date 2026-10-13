@@ -158,7 +158,7 @@ class AiImportIntegrationTest {
         assertThat(after.get("quizId").asLong()).isEqualTo(quizId);
         assertThat(after.get("pagesAvailable").asBoolean()).isFalse();
         assertThat(auditRepository.findAll()).anyMatch(e -> e.getAction() == AuditAction.QUIZ_FROM_PHOTOS
-                && quizId == e.getEntityId() && "2 subiecte din 2 pagini".equals(e.getDetails()));
+                && quizId == e.getEntityId() && "2 întrebări din 2 pagini".equals(e.getDetails()));
         // and a second quiz from the same pages is refused
         mockMvc.perform(post("/api/admin/ai-imports/" + id + "/quiz").with(as(teacher)).with(csrf())
                 .contentType("application/json").content(objectMapper.writeValueAsString(body)))

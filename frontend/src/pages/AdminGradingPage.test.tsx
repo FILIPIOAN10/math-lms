@@ -226,9 +226,9 @@ describe('AdminGradingPage', () => {
       expect.stringContaining('Fracții · 1 lucrare'),
     ])
     api.getAttemptForGrading.mockImplementation((id: number) => Promise.resolve(detail({ attemptId: id })))
-    await userEvent.click(within(groups[0]).getByRole('button', { name: 'Corectează pe subiect' }))
+    await userEvent.click(within(groups[0]).getByRole('button', { name: 'Corectează pe întrebare' }))
 
-    expect(await screen.findByRole('heading', { name: 'Simulare EN — pe subiect' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Simulare EN — pe întrebare' })).toBeInTheDocument()
     expect(api.getAttemptForGrading).toHaveBeenCalledWith(50)
     expect(api.getAttemptForGrading).toHaveBeenCalledWith(51)
   })

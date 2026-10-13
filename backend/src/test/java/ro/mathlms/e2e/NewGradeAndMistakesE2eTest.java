@@ -45,14 +45,14 @@ class NewGradeAndMistakesE2eTest extends E2eBase {
 
         // S4 on the result: question 1 to go back to, the wrong grilă comes back in the review, a practice of just it
         WebElement card = byTestId("practice-mistakes");
-        assertThat(card.getText()).contains("Subiectul I.1 nu a ieșit complet").contains("1 grilă greșită revine");
+        assertThat(card.getText()).contains("Întrebarea I.1 nu a ieșit complet").contains("1 grilă greșită revine");
         assertThat(driver.getCurrentUrl()).endsWith("/quizzes/attempts/" + attemptId + "/result");
         byTestId("practice-mistakes-link").click();
 
         // The practice shows only that question, under its heading, with its figure
         wait.until(ExpectedConditions.elementToBeClickable(By.xpath(
                 "//button[contains(normalize-space(.), 'Începe practica')]"))).click();
-        assertThat(byTestId("practice-only").getText()).contains("1 subiect");
+        assertThat(byTestId("practice-only").getText()).contains("1 întrebare");
         assertThat(byTestId("section-heading").getText()).contains("SUBIECTUL I");
         waitForText("Aria pătratului din figură este:");
         assertThat(bodyText()).doesNotContain("Cât face"); // question 2 was right: not in this practice

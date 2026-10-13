@@ -91,9 +91,9 @@ export function AssignmentDialog({
         {create && (
           <>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="aquiz">Quiz</Label>
+              <Label htmlFor="aquiz">Test</Label>
               <select id="aquiz" className={selectClass} value={quizId} onChange={(e) => setQuizId(e.target.value)}>
-                <option value="">Alege un quiz publicat…</option>
+                <option value="">Alege un test publicat…</option>
                 {props.quizzes.filter((q) => q.status === 'PUBLISHED').map((q) => (
                   <option key={q.id} value={q.id}>{q.title}</option>
                 ))}
@@ -199,7 +199,7 @@ export function AdminAssignmentsPage() {
         {confirmDialog}
         <PageHeader
           title="Teme"
-          description="Dai un quiz publicat unei clase, cu un termen. Vezi cine a predat, cine întârzie și cine nu a început."
+          description="Dai un test publicat unei clase, cu un termen. Vezi cine a predat, cine întârzie și cine nu a început."
           actions={<Button onClick={() => setCreating(true)} data-testid="assignment-new">Dă o temă</Button>}
         />
         <TestsTabs current="assignments" />

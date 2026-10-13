@@ -56,7 +56,7 @@ export function firstRunSteps(counts: { classes: number; students: number; quizz
       to: '/admin/content', done: counts.students > 0,
     },
     {
-      key: 'quiz', label: 'Creează un test', hint: 'Teste → Adaugă quiz (sau, dintr-un capitol, Creează quiz din capitol)',
+      key: 'quiz', label: 'Creează un test', hint: 'Teste → Adaugă test (sau, dintr-un capitol, Creează test din capitol)',
       to: '/admin/quizzes', done: counts.quizzes > 0,
     },
     {

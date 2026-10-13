@@ -98,13 +98,13 @@ describe('AdminAiImportPage', () => {
 
     const [grila, open] = await screen.findAllByTestId('ai-draft')
     expect(within(open).getByText(/Are un desen/)).toBeInTheDocument()
-    expect(screen.getByTestId('ai-problems')).toHaveTextContent('Subiectul 1: marchează varianta corectă.')
-    const create = screen.getByRole('button', { name: 'Creează testul (2 subiecte)' })
+    expect(screen.getByTestId('ai-problems')).toHaveTextContent('Întrebarea 1: marchează varianta corectă.')
+    const create = screen.getByRole('button', { name: 'Creează testul (2 întrebări)' })
     expect(create).toBeDisabled()
 
     await user.click(within(grila).getByLabelText('Varianta b) e corectă'))
     await user.click(within(open).getByLabelText('Îl includ'))
-    await user.click(screen.getByRole('button', { name: 'Creează testul (1 subiect)' }))
+    await user.click(screen.getByRole('button', { name: 'Creează testul (1 întrebare)' }))
 
     expect(api.createQuizFromAiImport).toHaveBeenCalledWith(5, expect.objectContaining({
       schoolClassId: 8,

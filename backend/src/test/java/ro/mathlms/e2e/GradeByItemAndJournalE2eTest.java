@@ -9,7 +9,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * T4 + F1: two students hand in the same test; the teacher grades its open question across both papers in a row
- * ("Corectează pe subiect"), finalises both at once, and the journal then shows each grade and each finished paper,
+ * ("Corectează pe întrebare"), finalises both at once, and the journal then shows each grade and each finished paper,
  * with the students' names.
  */
 class GradeByItemAndJournalE2eTest extends E2eBase {
@@ -17,7 +17,7 @@ class GradeByItemAndJournalE2eTest extends E2eBase {
 
     @Test
     void oneQuestionAcrossTwoPapersThenTheJournalTellsWhoGotWhat() {
-        String quizTitle = "E2E pe subiect " + System.currentTimeMillis();
+        String quizTitle = "E2E pe întrebare " + System.currentTimeMillis();
         ApiSeeder admin = new ApiSeeder(API_URL);
         admin.login(ADMIN, PASSWORD);
         admin.ensureActiveStudent(STUDENT2);
@@ -30,12 +30,12 @@ class GradeByItemAndJournalE2eTest extends E2eBase {
             student.takeAndSubmit(quizId); // nothing to pick: the open question waits for the teacher
         }
 
-        // Teacher: the queue groups the two papers under the quiz -> "Corectează pe subiect"
+        // Teacher: the queue groups the two papers under the quiz -> "Corectează pe întrebare"
         login(ADMIN, PASSWORD);
         open("/admin/grading");
         wait.until(ExpectedConditions.elementToBeClickable(By.xpath(
                 "//*[@data-testid='quiz-group'][contains(normalize-space(.), '" + quizTitle + "')]"
-                        + "//button[normalize-space()='Corectează pe subiect']"))).click();
+                        + "//button[normalize-space()='Corectează pe întrebare']"))).click();
 
         givePoints(7, "lucrarea 1 din 2");
         clickText("Următoarea lucrare →");
@@ -56,7 +56,7 @@ class GradeByItemAndJournalE2eTest extends E2eBase {
                 .filter(text -> text.contains(quizTitle))
                 .reduce("", (a, b) -> a + "\n---\n" + b);
         assertThat(rows)
-                .contains("Punctaj dat · " + quizTitle + " · subiectul 1")
+                .contains("Punctaj dat · " + quizTitle + " · întrebarea 1")
                 .contains("7 p din 10").contains("9 p din 10")
                 .contains("Lucrare notată · " + quizTitle)
                 .contains(STUDENT_NAME).contains(STUDENT2_NAME)

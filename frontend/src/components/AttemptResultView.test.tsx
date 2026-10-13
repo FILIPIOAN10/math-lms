@@ -33,9 +33,9 @@ describe('AttemptResultView', () => {
   it('shows the student every page of their own photographed solution, in order (S2)', () => {
     render(<AttemptResultView result={graded} />, { wrapper: MemoryRouter })
 
-    expect(screen.getByRole('img', { name: 'Poza ta pentru subiectul 2, pagina 1' }))
+    expect(screen.getByRole('img', { name: 'Poza ta pentru întrebarea 2, pagina 1' }))
       .toHaveAttribute('src', '/api/quiz/attempts/50/responses/101/photos/41')
-    expect(screen.getByRole('img', { name: 'Poza ta pentru subiectul 2, pagina 2' }))
+    expect(screen.getByRole('img', { name: 'Poza ta pentru întrebarea 2, pagina 2' }))
       .toHaveAttribute('src', '/api/quiz/attempts/50/responses/101/photos/42')
   })
 
@@ -186,7 +186,7 @@ describe('AttemptResultView', () => {
     render(<AttemptResultView result={withMistakes} />, { wrapper: MemoryRouter })
 
     const card = screen.getByTestId('practice-mistakes')
-    expect(card).toHaveTextContent('Subiectele 1, 2 nu au ieșit complet')
+    expect(card).toHaveTextContent('Întrebările 1, 2 nu au ieșit complet')
     expect(card).toHaveTextContent('1 grilă greșită revine în recapitularea zilnică, începând de mâine.')
     expect(screen.getByRole('link', { name: 'recapitularea zilnică' })).toHaveAttribute('href', '/review')
     expect(screen.getByTestId('practice-mistakes-link')).toHaveAttribute('href', '/quizzes/10/take?mode=practice&only=100,101')

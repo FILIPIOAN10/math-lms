@@ -32,7 +32,7 @@ describe('AssignmentDialog (create)', () => {
 
   it('sends the chosen quiz, class and deadline as an ISO instant', async () => {
     const onSubmit = renderCreate()
-    await userEvent.selectOptions(screen.getByLabelText('Quiz'), '12')
+    await userEvent.selectOptions(screen.getByLabelText('Test'), '12')
     await userEvent.selectOptions(screen.getByLabelText('Clasa'), '6')
     const due = inDays(3)
     await userEvent.type(screen.getByLabelText('Termen'), due)
@@ -50,7 +50,7 @@ describe('AssignmentDialog (create)', () => {
     const onSubmit = renderCreate()
 
     expect(screen.getByRole('button', { name: 'Dă tema' })).toBeDisabled()
-    await userEvent.selectOptions(screen.getByLabelText('Quiz'), '10')
+    await userEvent.selectOptions(screen.getByLabelText('Test'), '10')
     await userEvent.selectOptions(screen.getByLabelText('Clasa'), '5')
     expect(screen.getByRole('button', { name: 'Dă tema' })).toBeDisabled() // still no deadline
     expect(onSubmit).not.toHaveBeenCalled()
@@ -58,7 +58,7 @@ describe('AssignmentDialog (create)', () => {
 
   it('refuses a deadline in the past before asking the server', async () => {
     const onSubmit = renderCreate()
-    await userEvent.selectOptions(screen.getByLabelText('Quiz'), '10')
+    await userEvent.selectOptions(screen.getByLabelText('Test'), '10')
     await userEvent.selectOptions(screen.getByLabelText('Clasa'), '5')
     await userEvent.type(screen.getByLabelText('Termen'), inDays(-1))
 
@@ -71,7 +71,7 @@ describe('AssignmentDialog (create)', () => {
   it('shows the server error and stays open', async () => {
     const onSubmit = vi.fn().mockRejectedValue({ body: 'Quiz-ul este deja dat ca temă acestei clase — modifică termenul' })
     renderCreate(onSubmit)
-    await userEvent.selectOptions(screen.getByLabelText('Quiz'), '10')
+    await userEvent.selectOptions(screen.getByLabelText('Test'), '10')
     await userEvent.selectOptions(screen.getByLabelText('Clasa'), '5')
     await userEvent.type(screen.getByLabelText('Termen'), inDays(2))
 
@@ -87,7 +87,7 @@ describe('AssignmentDialog (reschedule)', () => {
     const current = new Date(Date.now() + 2 * 86_400_000).toISOString()
     render(<AssignmentDialog open onClose={vi.fn()} mode="reschedule" currentDueAt={current} onSubmit={onSubmit} />)
 
-    expect(screen.queryByLabelText('Quiz')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Test')).not.toBeInTheDocument()
     expect(screen.getByLabelText('Termen')).toHaveValue(isoToLocalInput(current))
 
     await userEvent.click(screen.getByRole('button', { name: 'Salvează' }))

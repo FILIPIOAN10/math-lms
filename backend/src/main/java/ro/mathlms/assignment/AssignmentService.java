@@ -86,14 +86,14 @@ public class AssignmentService {
         SchoolClass schoolClass = schoolClassRepository.findById(schoolClassId)
                 .orElseThrow(() -> new QuizNotFoundException("SchoolClass", schoolClassId));
         if (quiz.getStatus() != QuizStatus.PUBLISHED) {
-            throw new InvalidAssignmentException("Doar un quiz publicat poate fi dat ca temă");
+            throw new InvalidAssignmentException("Doar un test publicat poate fi dat ca temă");
         }
         if (quiz.getSchoolClass() != null && !quiz.getSchoolClass().getId().equals(schoolClassId)) {
-            throw new InvalidAssignmentException("Quiz-ul este destinat altă clasă decât cea aleasă");
+            throw new InvalidAssignmentException("Testul este destinat altei clase decât cea aleasă");
         }
         requireFuture(dueAt);
         if (assignmentRepository.existsByQuizIdAndSchoolClassId(quizId, schoolClassId)) {
-            throw new AssignmentConflictException("Quiz-ul este deja dat ca temă acestei clase — modifică termenul");
+            throw new AssignmentConflictException("Testul este deja dat ca temă acestei clase — modifică termenul");
         }
         Assignment saved = assignmentRepository.save(new Assignment(quiz, schoolClass, dueAt, Instant.now(clock)));
         auditLog.record(AuditEvent.of(AuditAction.HOMEWORK_ASSIGNED, saved.getId(), label(saved))

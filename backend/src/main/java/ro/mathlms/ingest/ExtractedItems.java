@@ -23,7 +23,7 @@ final class ExtractedItems {
     static final int MAX_POINTS = 100;
 
     static final String UNBALANCED_MATH = "Formulă incompletă (un $ fără pereche) - verifică enunțul.";
-    static final String TOO_FEW_OPTIONS = "Grilă cu mai puțin de 2 variante - completează variantele sau fă-l subiect deschis.";
+    static final String TOO_FEW_OPTIONS = "Grilă cu mai puțin de 2 variante - completează variantele sau fă-o întrebare cu rezolvare.";
     static final String FIGURE = "Are un desen: adaugă-l ca imagine după ce creezi testul.";
 
     private ExtractedItems() {

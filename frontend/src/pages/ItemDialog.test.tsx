@@ -26,7 +26,7 @@ describe('ItemDialog picture under the statement', () => {
     const onSubmit = renderDialog({ ...openItem })
     await userEvent.upload(screen.getByLabelText('Fișierul imaginii'), png())
 
-    expect(screen.getByRole('img', { name: 'Figura subiectului' })).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: 'Figura întrebării' })).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Salvează' }))
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalled())
@@ -38,7 +38,7 @@ describe('ItemDialog picture under the statement', () => {
     const statement = screen.getByLabelText('Enunț')
 
     fireEvent.paste(statement, { clipboardData: { files: [png()], getData: () => '' } })
-    expect(await screen.findByRole('img', { name: 'Figura subiectului' })).toBeInTheDocument()
+    expect(await screen.findByRole('img', { name: 'Figura întrebării' })).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: 'Salvează' }))
     await waitFor(() => expect(onSubmit).toHaveBeenCalled())
@@ -48,9 +48,9 @@ describe('ItemDialog picture under the statement', () => {
   it('shows the stored picture and can take it away', async () => {
     const onSubmit = renderDialog({ ...openItem, image: 'abc.png' })
 
-    expect(screen.getByRole('img', { name: 'Figura subiectului' })).toHaveAttribute('src', '/api/quiz/items/9/image?v=abc.png')
+    expect(screen.getByRole('img', { name: 'Figura întrebării' })).toHaveAttribute('src', '/api/quiz/items/9/image?v=abc.png')
     await userEvent.click(screen.getByRole('button', { name: 'Scoate imaginea' }))
-    expect(screen.queryByRole('img', { name: 'Figura subiectului' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('img', { name: 'Figura întrebării' })).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Salvează' }))
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalled())
@@ -189,7 +189,7 @@ describe('ItemDialog quick entry', () => {
     expect(screen.getByLabelText('Enunț')).toHaveValue('')
     expect(screen.getByLabelText('Tip')).toHaveValue('OPEN')
     expect(screen.getByLabelText('Punctaj')).toHaveValue(3)
-    expect(screen.getByRole('status')).toHaveTextContent('1 subiect salvat')
+    expect(screen.getByRole('status')).toHaveTextContent('1 întrebare salvată')
     expect(onClose).not.toHaveBeenCalled()
   })
 
@@ -212,7 +212,7 @@ describe('ItemDialog chapter', () => {
 
     const select = screen.getByLabelText('Capitol')
     expect(select).toHaveValue('')
-    expect(screen.getByRole('option', { name: 'Ca la quiz (Fracții)' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Ca la test (Fracții)' })).toBeInTheDocument()
 
     await userEvent.type(screen.getByLabelText('Enunț'), 'Rezolvă $x+1=2$')
     await userEvent.selectOptions(screen.getByLabelText('Tip'), 'OPEN')

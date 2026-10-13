@@ -76,8 +76,8 @@ public class SchoolClassService {
                 fixes.add("Șterge întâi cărțile.");
             }
             if (quizzes > 0) {
-                blockers.add(RoCount.of(quizzes, "quiz destinat ei", "quiz-uri destinate ei"));
-                fixes.add("Quiz-urile le ștergi sau le muți la „Toți elevii” din pagina Quiz-uri.");
+                blockers.add(RoCount.of(quizzes, "test destinat ei", "teste destinate ei"));
+                fixes.add("Testele le ștergi sau le muți la „Toți elevii” din pagina Teste.");
             }
             throw new ContentInUseException("Clasa „" + schoolClass.getName() + "” nu poate fi ștearsă: are "
                     + String.join(" și ", blockers) + ". " + String.join(" ", fixes));

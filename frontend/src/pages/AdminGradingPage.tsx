@@ -162,7 +162,7 @@ function OverallComment({
 
 // ---------- The page ----------
 
-/** The quizzes in the queue with their waiting papers, in queue order — the way into "Corectează pe subiect" (T4). */
+/** The quizzes in the queue with their waiting papers, in queue order — the way into "Corectează pe întrebare" (T4). */
 function groupByQuiz(attempts: AdminAttemptSummary[]): { quizId: number; quizTitle: string; attemptIds: number[] }[] {
   const groups = new Map<number, { quizId: number; quizTitle: string; attemptIds: number[] }>()
   for (const a of attempts) {
@@ -176,7 +176,7 @@ function groupByQuiz(attempts: AdminAttemptSummary[]): { quizId: number; quizTit
 /**
  * Teacher grading (Q10): the queue of submitted attempts, then one attempt at a time — with "Finalizează și treci la
  * următoarea" (T4) so a stack of papers is graded without going back to the list — or one question across all the
- * papers of a quiz ("Corectează pe subiect").
+ * papers of a quiz ("Corectează pe întrebare").
  */
 export function AdminGradingPage() {
   const [filter, setFilter] = useState<QuizAttemptStatus>('SUBMITTED')
@@ -219,7 +219,7 @@ export function AdminGradingPage() {
   async function askToFinalize(then: 'list' | 'next') {
     setError(null)
     if (!(await flushAll())) {
-      setError('Unele punctaje sau comentarii nu s-au salvat. Verifică subiectele marcate, apoi finalizează.')
+      setError('Unele punctaje sau comentarii nu s-au salvat. Verifică întrebările marcate, apoi finalizează.')
       return
     }
     setConfirmingFinal(then)
@@ -315,11 +315,11 @@ export function AdminGradingPage() {
     <div className="p-4">
       <div className="mx-auto max-w-3xl space-y-4">
         <PageHeader
-          title={byItem ? `${byItem.quizTitle} — pe subiect` : detail ? `${detail.studentName} — ${detail.quizTitle}` : 'Corectură'}
-          description={byItem || detail ? undefined : 'Lucrările predate, cu subiectele care așteaptă nota ta.'}
+          title={byItem ? `${byItem.quizTitle} — pe întrebare` : detail ? `${detail.studentName} — ${detail.quizTitle}` : 'Corectură'}
+          description={byItem || detail ? undefined : 'Lucrările predate, cu întrebările care așteaptă nota ta.'}
           breadcrumbs={byItem ? [
             { label: 'Corectură', onClick: () => { setByItem(null); void reloadList() } },
-            { label: `${byItem.quizTitle} — pe subiect` },
+            { label: `${byItem.quizTitle} — pe întrebare` },
           ] : detail ? [
             { label: 'Corectură', onClick: closeDetail },
             { label: `${detail.studentName} — ${detail.quizTitle}` },
@@ -427,7 +427,7 @@ export function AdminGradingPage() {
             {detail.status === 'SUBMITTED' && (
               <div className="flex flex-wrap items-center justify-end gap-3">
                 {!allOpenGraded && (
-                  <p className="text-sm text-muted-foreground">Notează toate subiectele cu rezolvare ca să poți finaliza.</p>
+                  <p className="text-sm text-muted-foreground">Notează toate întrebările cu rezolvare ca să poți finaliza.</p>
                 )}
                 <Button
                   variant={othersWaiting > 0 ? 'outline' : 'default'}
@@ -465,9 +465,9 @@ export function AdminGradingPage() {
             </div>
             {loading && <p className="text-muted-foreground">Se încarcă...</p>}
             {!loading && filter === 'SUBMITTED' && attempts.length > 0 && (
-              <section aria-label="Pe subiect" className="space-y-2">
+              <section aria-label="Pe întrebare" className="space-y-2">
                 <p className="text-sm text-muted-foreground">
-                  Mai repede și mai unitar: același subiect la toate lucrările unui test, una după alta.
+                  Mai repede și mai unitar: aceeași întrebare la toate lucrările unui test, una după alta.
                 </p>
                 {groupByQuiz(attempts).map((g) => (
                   <Card key={g.quizId}>
@@ -477,7 +477,7 @@ export function AdminGradingPage() {
                         <span className="font-normal text-muted-foreground">· {roCount(g.attemptIds.length, 'lucrare', 'lucrări')}</span>
                       </p>
                       <Button size="sm" variant="secondary" onClick={() => setByItem({ quizTitle: g.quizTitle, attemptIds: g.attemptIds })}>
-                        Corectează pe subiect
+                        Corectează pe întrebare
                       </Button>
                     </CardContent>
                   </Card>

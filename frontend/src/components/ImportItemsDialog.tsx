@@ -58,8 +58,8 @@ export function ImportItemsDialog({
     <Dialog
       open={open}
       onOpenChange={(o) => !o && onClose()}
-      title="Importă subiecte din text"
-      description="Un subiect începe cu „1.”, variantele cu a), b)… sau „- a)” (* marchează varianta corectă: „*b)” / „- *b)”), rezolvarea cu R:, indiciile cu I:. La Subiectul III, „(2p) a) …”, „(3p) b) …” sunt cerințe notate separat. „(2p)” la finalul enunțului dă punctajul (implicit 1). Format Evaluare Națională: „SUBIECTUL I” (cu instrucțiunea pe rândul următor) grupează subiectele, iar „5p 1.” dă punctajul la început. Un rând „[imagine]” în subiect îl marchează: după import lipești figura (Ctrl+V) din „Editează”."
+      title="Importă întrebări din text"
+      description="O întrebare începe cu „1.”, variantele cu a), b)… sau „- a)” (* marchează varianta corectă: „*b)” / „- *b)”), rezolvarea cu R:, indiciile cu I:. La Subiectul III, „(2p) a) …”, „(3p) b) …” sunt cerințe notate separat. „(2p)” la finalul enunțului dă punctajul (implicit 1). Format Evaluare Națională: „SUBIECTUL I” (cu instrucțiunea pe rândul următor) grupează întrebările, iar „5p 1.” dă punctajul la început. Un rând „[imagine]” în întrebare o marchează: după import lipești figura (Ctrl+V) din „Editează”."
     >
       <div className="flex max-h-[75vh] flex-col gap-4 overflow-y-auto pr-1">
         <div className="flex flex-col gap-2">
@@ -77,8 +77,8 @@ export function ImportItemsDialog({
         {parsed.items.length > 0 && (
           <div className="space-y-2" data-testid="import-preview">
             <p className="text-sm font-medium">
-              {roCount(parsed.items.length, 'subiect', 'subiecte')}: {roCount(choices, 'grilă', 'grile')},{' '}
-              {roCount(parsed.items.length - choices, 'deschis', 'deschise')} · Total: {total} p
+              {roCount(parsed.items.length, 'întrebare', 'întrebări')}: {roCount(choices, 'grilă', 'grile')},{' '}
+              {parsed.items.length - choices} cu rezolvare · Total: {total} p
             </p>
             <ul className="space-y-1 text-sm">
               {numberItems(parsed.items).map(({ item, local, heading }, i) => (
@@ -104,7 +104,7 @@ export function ImportItemsDialog({
         <div className="flex justify-end gap-2">
           <Button type="button" variant="outline" onClick={onClose} disabled={busy}>Anulează</Button>
           <Button type="button" onClick={run} disabled={busy || !ready}>
-            {busy ? 'Se adaugă…' : `Adaugă ${roCount(parsed.items.length, 'subiect', 'subiecte')}`}
+            {busy ? 'Se adaugă…' : `Adaugă ${roCount(parsed.items.length, 'întrebare', 'întrebări')}`}
           </Button>
         </div>
       </div>

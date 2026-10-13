@@ -435,9 +435,9 @@ export function AdminContentPage() {
             <CardContent className="flex flex-wrap items-center justify-between gap-3 py-3">
               <p className="text-sm">
                 <span className="font-medium">Fă un test din aceste exerciții.</span>{' '}
-                <span className="text-muted-foreground">Alegi exercițiile, iar quiz-ul se creează pentru clasa capitolului.</span>
+                <span className="text-muted-foreground">Alegi exercițiile, iar testul se creează pentru clasa capitolului.</span>
               </p>
-              <Button size="sm" onClick={() => setDialog({ kind: 'chapterQuiz' })}>Creează quiz din capitol</Button>
+              <Button size="sm" onClick={() => setDialog({ kind: 'chapterQuiz' })}>Creează test din capitol</Button>
             </CardContent>
           </Card>
         )}

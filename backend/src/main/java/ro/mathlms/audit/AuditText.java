@@ -23,9 +23,9 @@ public final class AuditText {
         return flat.length() <= max ? flat : flat.substring(0, max - 1).stripTrailing() + "…";
     }
 
-    /** "Teză · subiectul I.3": a question as the teacher sees it numbered on screen. */
+    /** "Teză · întrebarea I.3": a question as the teacher sees it numbered on screen. */
     public static String question(String quizTitle, String number) {
-        return quizTitle + " · subiectul " + number;
+        return quizTitle + " · întrebarea " + number;
     }
 
     /** A deadline or other moment, in Romania's time: "12.10.2026 18:00". */

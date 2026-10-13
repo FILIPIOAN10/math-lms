@@ -80,8 +80,8 @@ describe('AdminQuizzesPage', () => {
 
   it('names the page and the browser tab', async () => {
     renderAt('/admin/quizzes')
-    expect(await screen.findByRole('heading', { level: 1, name: 'Quiz-uri' })).toBeInTheDocument()
-    expect(document.title).toBe('Quiz-uri · Math LMS')
+    expect(await screen.findByRole('heading', { level: 1, name: 'Teste' })).toBeInTheDocument()
+    expect(document.title).toBe('Teste · Math LMS')
   })
 
   it('shows one main action per quiz and keeps the rest in a menu', async () => {
@@ -111,7 +111,7 @@ describe('AdminQuizzesPage', () => {
     const open = async () => {
       await userEvent.click(within(await row('Simulare EN')).getByRole('button', { name: 'Mai multe acțiuni pentru Simulare EN' }))
       await userEvent.click(await screen.findByRole('menuitem', { name: 'Șterge' }))
-      return screen.findByRole('dialog', { name: 'Ștergi quiz-ul „Simulare EN”?' })
+      return screen.findByRole('dialog', { name: 'Ștergi testul „Simulare EN”?' })
     }
 
     await userEvent.click(within(await open()).getByRole('button', { name: 'Anulează' }))
@@ -135,7 +135,7 @@ describe('AdminQuizzesPage', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Simulare EN' })).toBeInTheDocument()
     expect(api.getQuiz).toHaveBeenCalledWith(7)
     const trail = screen.getByRole('navigation', { name: 'Unde ești' })
-    expect(within(trail).getByRole('link', { name: 'Quiz-uri' })).toHaveAttribute('href', '/admin/quizzes')
+    expect(within(trail).getByRole('link', { name: 'Teste' })).toHaveAttribute('href', '/admin/quizzes')
   })
 
   it('says so when the quiz in the address does not exist', async () => {
@@ -144,7 +144,7 @@ describe('AdminQuizzesPage', () => {
     renderAt('/admin/quizzes/99')
 
     expect(await screen.findByText('Quiz 99 not found')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Înapoi la quiz-uri' })).toHaveAttribute('href', '/admin/quizzes')
+    expect(screen.getByRole('link', { name: 'Înapoi la teste' })).toHaveAttribute('href', '/admin/quizzes')
   })
 
   it('asks in a dialog before deleting an item', async () => {
@@ -152,8 +152,8 @@ describe('AdminQuizzesPage', () => {
     renderAt('/admin/quizzes/7')
     await screen.findByText('Cât face 2+2?')
 
-    await userEvent.click(screen.getByRole('button', { name: 'Șterge subiectul 1' }))
-    await userEvent.click(within(await screen.findByRole('dialog', { name: 'Ștergi subiectul 1?' })).getByRole('button', { name: 'Șterge' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Șterge întrebarea 1' }))
+    await userEvent.click(within(await screen.findByRole('dialog', { name: 'Ștergi întrebarea 1?' })).getByRole('button', { name: 'Șterge' }))
 
     await waitFor(() => expect(api.deleteQuizItem).toHaveBeenCalledWith(70))
   })
@@ -178,7 +178,7 @@ describe('AdminQuizzesPage — chapter tag', () => {
 
   it("offers only the chosen class's chapters and sends the one picked", async () => {
     renderAt('/admin/quizzes')
-    await userEvent.click(await screen.findByRole('button', { name: 'Adaugă quiz' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Adaugă test' }))
     const dialog = await screen.findByRole('dialog')
 
     await userEvent.type(within(dialog).getByLabelText('Titlu'), 'Nou')

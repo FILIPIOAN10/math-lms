@@ -167,7 +167,7 @@ public class QuizAttemptService {
         // 404 (not 403) for another class's quiz: a guessed id must not confirm it exists
         Quiz quiz = requireTakeable(quizId, student);
         if (mode == AttemptMode.PRACTICE && !quiz.isPracticeAllowed()) {
-            throw new InvalidQuizException("Acest quiz nu permite modul practică");
+            throw new InvalidQuizException("Acest test nu permite modul practică");
         }
         Optional<QuizAttempt> open = attemptRepository
                 .findByQuizIdAndStudentIdAndStatusAndMode(quizId, student.getId(), QuizAttemptStatus.IN_PROGRESS, mode);
@@ -307,7 +307,7 @@ public class QuizAttemptService {
                 .orElseGet(() -> new ItemResponse(attempt, item));
         if (response.getPhotos().size() >= ItemResponse.MAX_PHOTOS) {
             throw new InvalidQuizException("Ai deja " + ItemResponse.MAX_PHOTOS
-                    + " poze la acest subiect. Șterge una ca să adaugi alta.");
+                    + " poze la această întrebare. Șterge una ca să adaugi alta.");
         }
         String stored;
         try {
@@ -679,7 +679,7 @@ public class QuizAttemptService {
                     "At most " + item.getPoints() + " points can be awarded for this item");
         }
         if (!partRepository.findByItemIdOrderByPosition(itemId).isEmpty()) {
-            throw new InvalidQuizException("Subiectul are cerințe a), b): punctajul se dă pe fiecare cerință.");
+            throw new InvalidQuizException("Întrebarea are cerințe a), b): punctajul se dă pe fiecare cerință.");
         }
 
         // Dacă elevul nu a răspuns nimic, creăm un răspuns gol ca să reținem punctajul (ex: 0)
@@ -722,11 +722,11 @@ public class QuizAttemptService {
         }
         List<QuizItemPart> parts = partRepository.findByItemIdOrderByPosition(itemId);
         if (parts.isEmpty()) {
-            throw new InvalidQuizException("Acest subiect nu are cerințe a), b): dă un singur punctaj.");
+            throw new InvalidQuizException("Această întrebare nu are cerințe a), b): dă un singur punctaj.");
         }
         for (Map.Entry<Long, Integer> grade : partPoints.entrySet()) {
             QuizItemPart part = parts.stream().filter(p -> p.getId().equals(grade.getKey())).findFirst()
-                    .orElseThrow(() -> new InvalidQuizException("Cerința nu ține de acest subiect."));
+                    .orElseThrow(() -> new InvalidQuizException("Cerința nu ține de această întrebare."));
             if (grade.getValue() != null && grade.getValue() > part.getPoints()) {
                 throw new InvalidQuizException("La cerința " + part.label() + ") se pot da cel mult "
                         + RoCount.of(part.getPoints(), "punct", "puncte") + ".");
@@ -816,7 +816,7 @@ public class QuizAttemptService {
 
             if (item.getType() == QuizItemType.OPEN) {
                 if (response == null || response.getAwardedPoints() == null) {
-                    throw new InvalidQuizException("Subiectul " + item.getId() + " nu a fost corectat!");
+                    throw new InvalidQuizException("Întrebarea " + item.getId() + " nu a fost corectată!");
                 }
             }
 

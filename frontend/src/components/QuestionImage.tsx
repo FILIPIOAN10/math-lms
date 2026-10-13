@@ -10,7 +10,7 @@ export function QuestionImage({ itemId, image, className }: { itemId: number; im
   const src = questionImageUrl(itemId, image)
   return (
     <a href={src} target="_blank" rel="noreferrer" className={cn('block w-fit', className)}>
-      <img src={src} alt="Figura subiectului" data-testid="question-image" className="max-h-80 rounded-lg border bg-white object-contain" />
+      <img src={src} alt="Figura întrebării" data-testid="question-image" className="max-h-80 rounded-lg border bg-white object-contain" />
     </a>
   )
 }

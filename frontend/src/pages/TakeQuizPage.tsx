@@ -167,7 +167,7 @@ export function TakeQuizPage() {
   const [unsentOnLeave, setUnsentOnLeave] = useState<number | null>(null)
   const [leaving, setLeaving] = useState(false)
   usePageTitle(attempt?.quiz.title ?? preview?.title ?? (practice ? 'Exersare' : 'Test'))
-  const jumpTarget = useRef<HTMLElement | null>(null) // where "Mergi la subiectul N" sends focus once the dialog closes
+  const jumpTarget = useRef<HTMLElement | null>(null) // where "Mergi la întrebarea N" sends focus once the dialog closes
 
   useEffect(() => {
     let cancelled = false
@@ -463,7 +463,7 @@ export function TakeQuizPage() {
               </div>
               {preview && (
                 <p data-testid="quiz-facts" className="text-sm font-medium">
-                  {roCount(preview.itemCount, 'subiect', 'subiecte')} · {roCount(preview.maxScore, 'punct', 'puncte')}
+                  {roCount(preview.itemCount, 'întrebare', 'întrebări')} · {roCount(preview.maxScore, 'punct', 'puncte')}
                   {!practice && ` · ${limitMinutes !== null ? `⏱ ${formatMinutes(limitMinutes)}` : 'Fără limită de timp'}`}
                 </p>
               )}
@@ -529,14 +529,14 @@ export function TakeQuizPage() {
     : timeUp
       ? 'Timpul a expirat'
       : askAboutUnanswered
-        ? `Ai ${roCount(unanswered.length, 'subiect', 'subiecte')} fără răspuns`
+        ? `Ai ${roCount(unanswered.length, 'întrebare', 'întrebări')} fără răspuns`
         : 'Trimiți lucrarea?'
   const dialogBody = practice
     ? 'Poți relua practica oricând.'
     : timeUp
       ? 'Se trimit răspunsurile salvate la timp.'
       : askAboutUnanswered
-        ? `${unanswered.length === 1 ? 'Subiectul' : 'Subiectele'} ${unanswered.map((u) => u.number).join(', ')} ${
+        ? `${unanswered.length === 1 ? 'Întrebarea' : 'Întrebările'} ${unanswered.map((u) => u.number).join(', ')} ${
             unanswered.length === 1 ? 'nu are' : 'nu au'
           } răspuns. Le poți completa acum sau poți trimite lucrarea așa. După trimitere nu mai poți modifica nimic.`
         : 'După trimitere nu mai poți modifica răspunsurile.'
@@ -574,7 +574,7 @@ export function TakeQuizPage() {
           )}
           {filtered && (
             <p data-testid="practice-only" className="mt-1 text-sm">
-              Exersezi doar ce ai greșit: {roCount(items.length, 'subiect', 'subiecte')} ·{' '}
+              Exersezi doar ce ai greșit: {roCount(items.length, 'întrebare', 'întrebări')} ·{' '}
               <Link to={`/quizzes/${quizId}/take?mode=practice`} replace className="text-primary hover:underline">
                 Exersează tot testul
               </Link>
@@ -603,7 +603,7 @@ export function TakeQuizPage() {
           <Card className="scroll-mt-14">
             <CardContent className="space-y-3 py-4">
               <h2 id={headingId(item.id)} tabIndex={-1} className="scroll-mt-14 text-sm font-medium outline-none">
-                {label.includes('.') ? `${local}.` : `Subiectul ${label}`} · {item.points} p
+                {label.includes('.') ? `${local}.` : `Întrebarea ${label}`} · {item.points} p
               </h2>
               <MathContent>{item.statement}</MathContent>
               <QuestionImage itemId={item.id} image={item.image} />
@@ -682,13 +682,13 @@ export function TakeQuizPage() {
                     Rezolvă pe hârtie, apoi fotografiază rezolvarea și încarc-o aici — până la {MAX_PHOTOS} pagini, în ordine.
                   </p>
                   {pagesOf(item.id).length > 0 && (
-                    <ul className="flex flex-wrap gap-3" aria-label={`Pozele tale pentru subiectul ${labelOf.get(item.id)}`}>
+                    <ul className="flex flex-wrap gap-3" aria-label={`Pozele tale pentru întrebarea ${labelOf.get(item.id)}`}>
                       {pagesOf(item.id).map((photoId, index) => (
                         <li key={photoId} className="flex flex-col items-start gap-1" data-testid="item-photo-page">
                           <a href={ownPhotoUrl(attempt.attemptId, item.id, photoId)} target="_blank" rel="noreferrer">
                             <img
                               src={ownPhotoUrl(attempt.attemptId, item.id, photoId)}
-                              alt={`Pagina ${index + 1} a rezolvării, subiectul ${labelOf.get(item.id)}`}
+                              alt={`Pagina ${index + 1} a rezolvării, întrebarea ${labelOf.get(item.id)}`}
                               className="h-32 w-auto rounded-lg border bg-background object-contain"
                             />
                           </a>
@@ -797,7 +797,7 @@ export function TakeQuizPage() {
 
       <div className="fixed inset-x-0 bottom-0 border-t bg-background p-3">
         <div className="mx-auto max-w-3xl space-y-2">
-          <nav aria-label="Subiecte" className="flex gap-1.5 overflow-x-auto pb-1">
+          <nav aria-label="Întrebări" className="flex gap-1.5 overflow-x-auto pb-1">
             {numbered.map(({ item, label }) => {
               const done = isAnswered(item)
               const unsentYet = sync.statusOf(item.id) !== undefined
@@ -805,7 +805,7 @@ export function TakeQuizPage() {
                 <button
                   key={item.id}
                   type="button"
-                  aria-label={`Subiectul ${label}, ${done ? 'cu răspuns' : 'fără răspuns'}${unsentYet ? ', netrimis încă' : ''}`}
+                  aria-label={`Întrebarea ${label}, ${done ? 'cu răspuns' : 'fără răspuns'}${unsentYet ? ', netrimis încă' : ''}`}
                   onClick={() => goToItem(item.id)}
                   className={cn(
                     'relative h-9 min-w-9 shrink-0 rounded-lg border px-1.5 text-sm font-medium transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
@@ -822,7 +822,7 @@ export function TakeQuizPage() {
           </nav>
           <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
             <p className="text-sm text-muted-foreground">
-              {answeredCount} / {items.length} {practice ? 'subiecte rezolvate' : 'răspunsuri'}
+              {answeredCount} / {items.length} {practice ? 'întrebări rezolvate' : 'răspunsuri'}
               {sync.pendingCount > 0 && ` · ${sync.pendingCount} netrimise încă`}
             </p>
             <div className="ml-auto flex gap-2">
@@ -862,7 +862,7 @@ export function TakeQuizPage() {
                 goToItem(first)
               }}
             >
-              Mergi la subiectul {unanswered[0].number}
+              Mergi la întrebarea {unanswered[0].number}
             </Button>
           )
         }
@@ -907,7 +907,7 @@ export function TakeQuizPage() {
         onCancel={() => setUnsent(null)}
         extraAction={<Button variant="outline" onClick={() => void submit()}>Mai așteaptă</Button>}
       >
-        Pare că nu ai internet. Așteaptă să revină conexiunea și încearcă din nou; dacă trimiți acum, subiectele marcate cu
+        Pare că nu ai internet. Așteaptă să revină conexiunea și încearcă din nou; dacă trimiți acum, întrebările marcate cu
         punct galben se predau fără răspuns.
       </ConfirmDialog>
     </div>

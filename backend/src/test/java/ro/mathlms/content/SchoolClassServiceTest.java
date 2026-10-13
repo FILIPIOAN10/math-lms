@@ -150,7 +150,7 @@ class SchoolClassServiceTest {
                 .isInstanceOf(ContentInUseException.class)
                 .hasMessageContaining("Clasa a 9-a")
                 .hasMessageContaining("2 cărți")
-                .hasMessageContaining("1 quiz");
+                .hasMessageContaining("1 test destinat ei");
         verify(repository, never()).deleteEnrollments(any());
         verify(repository, never()).deleteById(any());
     }
@@ -163,6 +163,6 @@ class SchoolClassServiceTest {
         assertThatThrownBy(() -> service.delete(1L))
                 .hasMessageContaining("are 1 carte.")
                 .hasMessageContaining("Șterge întâi cărțile")
-                .hasMessageNotContaining("Quiz");
+                .hasMessageNotContaining("Testele");
     }
 }

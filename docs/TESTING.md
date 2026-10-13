@@ -86,10 +86,10 @@ Apoi, logat ca **admin**, construiește datele de mai jos (fiecare pas exerseaz�
 | D2 | Clasa a 8-a → **Elevi** | înscrie **Ana** și **Radu** (înscriere în masă) |
 | D3 | Clasa a 8-a → **Adaugă carte** | **Algebra 8** → capitolul **Fracții** → 2 exerciții cu LaTeX (`$\frac{3}{4}+\frac{1}{8}$`) |
 | D4 | **Elevi** | leagă **Maria Parinte → Ana** |
-| D5 | **Quiz-uri → Adaugă quiz** | **Fracții — exersare**: toți elevii, fără limită, **„Permite practică” bifat**, **Capitol: Fracții** (pentru harta pe capitole) |
+| D5 | **Teste → Adaugă test** | **Fracții — exersare**: toți elevii, fără limită, **„Permite practică” bifat**, **Capitol: Fracții** (pentru harta pe capitole) |
 | D6 | în editorul lui → **Importă din text** | lipește blocul **A** |
-| D7 | **Adaugă quiz** | **Simulare EN**: Clasa a 8-a, **10 minute**, fără practică, **Capitol: Fracții** → importă blocul **B**; apoi la subiectul 3 alege **Capitol** = un al doilea capitol (ex. adaugă „Procente” în Algebra 8) |
-| D8 | **Adaugă quiz** | **Ciornă goală** — fără subiecte |
+| D7 | **Adaugă test** | **Simulare EN**: Clasa a 8-a, **10 minute**, fără practică, **Capitol: Fracții** → importă blocul **B**; apoi la subiectul 3 alege **Capitol** = un al doilea capitol (ex. adaugă „Procente” în Algebra 8) |
+| D8 | **Adaugă test** | **Ciornă goală** — fără întrebări |
 | D9 | | publică **Fracții — exersare** și **Simulare EN** |
 | D10 | Simulare EN → **Dă ca temă** | Clasa a 8-a, termen **mâine** |
 | D11 | Fracții — exersare → **Dă ca temă** | Clasa a 8-a, termen **peste 2 ore** |
@@ -202,7 +202,7 @@ backend `:8080`, Vite `:5173`) și a conturilor seed din secțiunea B. Sunt excl
 - `NewGradeAndMistakesE2eTest` (secțiuni EN, imagine, S3, S4): test cu „SUBIECTUL I” și o figură, predat prin REST cu o grilă greșită →
   elevul vede „Ai o notă nouă” + numărul de lângă Testele mele → rezultatul → cardul „Exersează ce ai greșit” → practica doar cu
   subiectul I.1, sub titlul secțiunii, cu figura încărcată → înapoi pe Acasă nota nu mai e „Nou”.
-- `GradeByItemAndJournalE2eTest` (T4 + F1): doi elevi predau același test → **Corectează pe subiect** (7 și 9 puncte, „Salvează și
+- `GradeByItemAndJournalE2eTest` (T4 + F1): doi elevi predau același test → **Corectează pe întrebare** (7 și 9 puncte, „Salvează și
   următoarea”) → **Finalizează lucrările complete (2)** → **Jurnal** filtrat pe Corectură arată ambele punctaje și ambele lucrări, cu
   numele elevilor. Folosește și `student.nou@mathlms.local`; dacă așteaptă aprobare (seed-ul de CI), testul îl aprobă ca elev.
 - Parametri opționali: `-De2e.baseUrl=…` (implicit `http://localhost:5173`), `-De2e.apiUrl=…` (`http://localhost:8080`).
@@ -282,7 +282,7 @@ Buton pe Dashboard: **Conținut**. Read-only.
 - lista: **titlul** deschide editorul; pe fiecare rând **o singură acțiune principală** — „Dă ca temă” (publicat) sau „Publică” (ciornă);
   restul în meniul **⋯** (Statistici, Editează detaliile, Copiază, Depublică, apoi **Șterge** cu roșu, după un separator; merge și din tastatură)
 - editorul are adresă proprie **`/admin/quizzes/:id`**: refresh, Back și bookmark rămân pe același quiz; un id inexistent → eroarea + „Înapoi la quiz-uri”
-- **Adaugă quiz** te duce direct în editor → **Adaugă subiect**: grilă (pornește cu 4 variante, exact una corectă) sau deschis (punctaj + barem);
+- **Adaugă test** te duce direct în editor → **Adaugă întrebare**: grilă (pornește cu 4 variante, exact una corectă) sau deschis (punctaj + barem);
   „Salvează și adaugă încă unul” ține dialogul deschis; antetul arată „n subiecte · Total: x p”
 - **Importă din text** adaugă un test întreg dintr-o dată (formatul e la §B2)
 - **Copiază** (din ⋯) creează o copie editabilă și o deschide; **Publică** e dezactivat pe un quiz fără subiecte
@@ -302,7 +302,7 @@ Din bara de sus: **Testele mele**.
 - pagina de start (nu creează nimic): numele testului, descrierea, „3 subiecte · 10 puncte · ⏱ 10 minute” (sau „Fără limită de timp”),
   la teme „Temă — termen: … (peste 2 ore)”
 - în timpul testului: bara de jos numerotează subiectele (umplute = cu răspuns), click = sari la subiect;
-  „Trimite lucrarea” deschide dialogul: cu subiecte goale → „Ai 2 subiecte fără răspuns — Subiectele 2, 3…” + **Mergi la subiectul 2** / **Trimite oricum**
+  „Trimite lucrarea” deschide dialogul: cu subiecte goale → „Ai 2 întrebări fără răspuns — Întrebările 2, 3…” + **Mergi la întrebarea 2** / **Trimite oricum**
 - subiect deschis: butonul „📷 Încarcă poza rezolvării” → miniatura pozei + „✓ Poză încărcată”; altă poză → „Înlocuiește poza”, miniatura se schimbă
 - „Teste disponibile” → **Începe** (sau **Continuă** dacă ai unul în lucru) → **Începe testul**
 - bifează o variantă → „x / n răspunsuri salvate” crește; **reîncarcă pagina** → Continuă → variantele și poza revin
@@ -312,7 +312,7 @@ Din bara de sus: **Testele mele**.
 - ca admin sau părinte, `/quizzes` te trimite acasă (RoleRoute)
 
 ### 11a. Quiz cronometrat — timer pe server (`/admin/quizzes`, apoi `/quizzes`)
-**Ca admin:** la „Adaugă quiz” / „Editează” completează **Limită de timp (minute)** (1–600; gol = fără limită). Lista arată „⏱ 45 min”.
+**Ca admin:** la „Adaugă test” / „Editează” completează **Limită de timp (minute)** (1–600; gol = fără limită). Lista arată „⏱ 45 min”.
 **Ca elev:** în „Teste disponibile” apare „⏱ 45 minute”; pe pagina testului scrie că cronometrul pornește la „Începe testul”.
 - bară sus „⏱ Timp rămas: mm:ss” — **chihlimbar** în ultimele 5 minute, **roșie** în ultimul minut (cititorul de ecran anunță o dată la fiecare prag);
   la **0:00** lucrarea se trimite singură cu ce era salvat → pagina de rezultat
@@ -380,7 +380,7 @@ Din bara de sus: **Corectură** (numărul roșu = lucrări de corectat).
 - **Finalizează nota** se deblochează când toate subiectele deschise au punctaj → dialog „Finalizezi nota?” → lucrarea trece la „Notate”
 - **Finalizează și treci la următoarea (n rămase)** (T4): aceeași confirmare, apoi se deschide direct următoarea lucrare din coadă (fără
   întoarcere la listă); pe ultima lucrare butonul lipsește, iar după ea apare „Gata — nu mai e nicio lucrare de corectat. 🎉”
-- **Corectează pe subiect** (T4): în „De corectat”, câte un card per test („Simulare EN · 5 lucrări”) → filele „Subiectul 3 (2/5)” (numărul
+- **Corectează pe întrebare** (T4): în „De corectat”, câte un card per test („Simulare EN · 5 lucrări”) → filele „Întrebarea 3 (2/5)” (numărul
   e cel văzut de elevi) → enunțul + baremul o singură dată, apoi poza fiecărui elev pe rând, punctaj + comentariu → **Salvează și următoarea**
   (← / → pentru a sări). Pornește pe primul subiect și prima lucrare fără punctaj. Jos: **Finalizează lucrările complete (k)** — doar
   lucrările cu toate subiectele deschise notate; restul rămân „De corectat”
@@ -441,7 +441,7 @@ Când o lucrare devine `GRADED` (finalizare de profesor SAU auto-corectare la su
 
 ### 12b. Profesor — statistici pe quiz (`/admin/quizzes/:id/stats`, ca admin)
 Buton **Statistici** pe fiecare quiz din `/admin/quizzes`. Doar lucrările **notate** (`GRADED`) contează.
-- **Lucrări notate**, **Media** (`13.0 / 15 p (87%)`), **Distribuția notelor** pe 5 intervale de câte 20% (bare), apoi **Pe subiecte**
+- **Lucrări notate**, **Media** (`13.0 / 15 p (87%)`), **Distribuția notelor** pe 5 intervale de câte 20% (bare), apoi **Pe întrebări**
 - La grile: % de elevi care au răspuns corect (o grilă lăsată necompletată contează greșit); subiectul cu cel mai mic procent e marcat „cel mai greu” (când sunt ≥2 grile cu date). La subiectele deschise: punctajul mediu
 - Fără nicio lucrare notată → „Niciun elev nu a fost notat încă…”; elev/părinte pe `GET /api/admin/quizzes/{id}/stats` → 403; quiz inexistent → 404
 - Calcul: două query-uri agregate pe tot quiz-ul (`findGradedScoresByQuizId`, `findItemStatsByQuizId`), nu câte unul per lucrare
@@ -466,7 +466,7 @@ Prerechizit: adminul a legat elevul de părinte la **Elevi** (`/admin/students`)
 - bara de sus (sticky) pe orice pagină după login, **în afară de pagina în care dai un test** (acolo cronometrul e sus)
 - linkurile fiecărui rol: **Elev** Acasă · Testele mele · Progresul meu · Conținut; **Părinte** Acasă · Copiii mei · Conținut;
   **Profesor** Acasă · Clase · Teste · Corectură · Elevi (T6) — pagina curentă e evidențiată; **Teste** rămâne evidențiat și pe Teme
-  (filele „Quiz-uri | Teme” sus), **Elevi** și pe pagina unui elev, **Clase** și pe harta pe capitole
+  (filele „Teste | Teme” sus), **Elevi** și pe pagina unui elev, **Clase** și pe harta pe capitole
 - la profesor: număr roșu pe **Corectură** (lucrări de corectat) și **Elevi** (conturi de aprobat), recitit la fiecare schimbare de pagină
 - dreapta: numele, rolul în română (Profesor/Elev/Părinte — niciodată `ADMIN`), butonul **Ieșire**
 - pe telefon linkurile trec pe un rând separat și se derulează orizontal
@@ -565,8 +565,8 @@ de oprire/expirare își termină intrarea. Linkurile vechi „pe rol” (§4a) 
 
 ### 19. Quiz din capitol (T2)
 **De ce:** exercițiile din Conținut și subiectele din quiz-uri erau două bănci separate — scriai totul de două ori.
-- Conținut → clasă → carte → capitol cu exerciții → **Creează quiz din capitol** (dezactivat când capitolul n-are exerciții)
-- dialogul: titlu („Fracții — test”), toate exercițiile bifate (Selectează / Deselectează tot), **Puncte pe subiect** (1–100) → **Creează quiz (n)**
+- Conținut → clasă → carte → capitol cu exerciții → **Creează test din capitol** (dezactivat când capitolul n-are exerciții)
+- dialogul: titlu („Fracții — test”), toate exercițiile bifate (Selectează / Deselectează tot), **Puncte pe întrebare** (1–100) → **Creează testul (n)**
 - se deschide editorul `/admin/quizzes/:id` pe o **ciornă**: pentru clasa capitolului, cu **Capitol** = capitolul (harta E6), fiecare exercițiu =
   **subiect deschis** (poză) cu soluția exercițiului ca **barem**, în ordinea din capitol (nu în ordinea bifelor)
 - e o **copie**: modificările din quiz nu ating exercițiile și invers; o grilă se face din editor (alt tip de subiect → adaugă-l nou)
@@ -575,7 +575,7 @@ de oprire/expirare își termină intrarea. Linkurile vechi „pe rol” (§4a) 
 
 ### 21. Imagine sub enunț (figuri EN, V25)
 **De ce:** la EN, Subiectul II are grile cu figuri (forme geometrice); grila rămâne cu variante text, figura stă în enunț.
-- **Profesor:** în editor → **Editează** (sau **Adaugă subiect**) → secțiunea **Imagine sub enunț (opțional)**: fă o captură a figurii
+- **Profesor:** în editor → **Editează** (sau **Adaugă întrebare**) → secțiunea **Imagine sub enunț (opțional)**: fă o captură a figurii
   din PDF (**Win+Shift+S**), apoi **Ctrl+V oriunde în dialog** — sau **Alege imaginea** (PNG/JPG/WEBP/GIF) → previzualizare →
   **Salvează**. **Înlocuiește imaginea** / **Scoate imaginea**. Pozele mari se micșorează în browser (≤1600 px); serverul primește max. 4 MB
 - **Import:** un rând `[imagine]` (sau `[figură]`) în subiect îl marchează; previzualizarea arată „· necesită imagine”, iar în editor

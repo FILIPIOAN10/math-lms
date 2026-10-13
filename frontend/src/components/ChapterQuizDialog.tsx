@@ -79,8 +79,8 @@ export function ChapterQuizDialog({
     <Dialog
       open={open}
       onOpenChange={(o) => !o && onClose()}
-      title="Creează quiz din capitol"
-      description="Fiecare exercițiu bifat devine un subiect deschis (elevul încarcă poza rezolvării), cu soluția ca barem. Quiz-ul e o ciornă pentru clasa capitolului; îl modifici și îl publici din editor."
+      title="Creează test din capitol"
+      description="Fiecare exercițiu bifat devine o întrebare cu rezolvare (elevul încarcă poza rezolvării), cu soluția ca barem. Testul e o ciornă pentru clasa capitolului; îl modifici și îl publici din editor."
     >
       <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
         <div className="flex flex-col gap-2">
@@ -124,7 +124,7 @@ export function ChapterQuizDialog({
         </div>
 
         <div className="flex flex-col gap-2">
-          <Label htmlFor="chapter-quiz-points">Puncte pe subiect</Label>
+          <Label htmlFor="chapter-quiz-points">Puncte pe întrebare</Label>
           <Input
             id="chapter-quiz-points"
             type="number"
@@ -148,7 +148,7 @@ export function ChapterQuizDialog({
             Anulează
           </Button>
           <Button type="submit" disabled={!canSubmit}>
-            {busy ? 'Se creează…' : `Creează quiz (${picked.size})`}
+            {busy ? 'Se creează…' : `Creează testul (${picked.size})`}
           </Button>
         </div>
       </form>

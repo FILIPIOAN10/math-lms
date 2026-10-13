@@ -12,7 +12,7 @@ vi.mock('@/lib/api', async (original) => ({ ...(await original<typeof import('@/
 
 const entry = (id: number, over: Partial<AuditEntry> = {}): AuditEntry => ({
   id, occurredAt: '2026-10-11T08:30:00Z', action: 'ANSWER_GRADED', category: 'GRADING', actorName: 'Prof. Ionescu',
-  entityId: 50, label: 'Teză · subiectul I.2', details: '3 → 5 p din 5', studentId: 4, studentName: 'Ana Pop',
+  entityId: 50, label: 'Teză · întrebarea I.2', details: '3 → 5 p din 5', studentId: 4, studentName: 'Ana Pop',
   relatedName: null, ...over,
 })
 
@@ -44,7 +44,7 @@ describe('AdminAuditPage', () => {
     renderPage()
 
     const row = await screen.findByTestId('audit-row')
-    expect(row).toHaveTextContent('Punctaj dat · Teză · subiectul I.2')
+    expect(row).toHaveTextContent('Punctaj dat · Teză · întrebarea I.2')
     expect(row).toHaveTextContent('3 → 5 p din 5')
     expect(row).toHaveTextContent('de Prof. Ionescu')
     expect(within(row).getByRole('link', { name: 'Ana Pop' })).toHaveAttribute('href', '/admin/students/4')

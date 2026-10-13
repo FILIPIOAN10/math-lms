@@ -121,10 +121,10 @@ describe('TakeQuizPage', () => {
       expect(await screen.findByText('Al doilea subiect')).toBeInTheDocument()
       expect(screen.getByText('Al treilea subiect')).toBeInTheDocument()
       expect(screen.queryByText('Primul subiect')).not.toBeInTheDocument()
-      expect(screen.getByTestId('practice-only')).toHaveTextContent('Exersezi doar ce ai greșit: 2 subiecte')
+      expect(screen.getByTestId('practice-only')).toHaveTextContent('Exersezi doar ce ai greșit: 2 întrebări')
       expect(screen.getByRole('link', { name: 'Exersează tot testul' })).toHaveAttribute('href', '/quizzes/7/take?mode=practice')
-      expect(screen.getByRole('button', { name: 'Subiectul 2, fără răspuns' })).toBeInTheDocument()
-      expect(screen.queryByRole('button', { name: /Subiectul 1,/ })).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Întrebarea 2, fără răspuns' })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /Întrebarea 1,/ })).not.toBeInTheDocument()
     })
 
     it('a graded test ignores ?only: it is always taken whole', async () => {
@@ -335,7 +335,7 @@ describe('TakeQuizPage', () => {
 
       expect(await screen.findByRole('heading', { name: 'Simulare EN' })).toBeInTheDocument()
       expect(screen.getByText('Recapitulare pentru examen')).toBeInTheDocument()
-      expect(screen.getByTestId('quiz-facts')).toHaveTextContent('3 subiecte · 11 puncte')
+      expect(screen.getByTestId('quiz-facts')).toHaveTextContent('3 întrebări · 11 puncte')
       expect(screen.getByTestId('quiz-facts')).toHaveTextContent('Fără limită de timp')
       expect(api.getQuizPreview).toHaveBeenCalledWith(7)
       expect(api.startQuizAttempt).not.toHaveBeenCalled()
@@ -396,7 +396,7 @@ describe('TakeQuizPage', () => {
       ])
       expect(screen.getByRole('heading', { name: '1. · 2 p' })).toBeInTheDocument()
       expect(screen.getByRole('heading', { name: '1. · 4 p' })).toBeInTheDocument() // first under SUBIECTUL al II-lea
-      const nav = screen.getByRole('navigation', { name: 'Subiecte' })
+      const nav = screen.getByRole('navigation', { name: 'Întrebări' })
       expect(within(nav).getAllByRole('button').map((b) => b.textContent)).toEqual(['I.1', 'I.2', 'II.1'])
     })
 
@@ -407,13 +407,13 @@ describe('TakeQuizPage', () => {
       await userEvent.click(await screen.findByRole('button', { name: 'Începe testul' }))
       await screen.findByText('Primul subiect')
 
-      const nav = screen.getByRole('navigation', { name: 'Subiecte' })
-      expect(within(nav).getByRole('button', { name: 'Subiectul 1, fără răspuns' })).toBeInTheDocument()
+      const nav = screen.getByRole('navigation', { name: 'Întrebări' })
+      expect(within(nav).getByRole('button', { name: 'Întrebarea 1, fără răspuns' })).toBeInTheDocument()
 
       await userEvent.click(screen.getByLabelText('a) A1'))
 
-      expect(await within(nav).findByRole('button', { name: 'Subiectul 1, cu răspuns' })).toBeInTheDocument()
-      expect(within(nav).getByRole('button', { name: 'Subiectul 2, fără răspuns' })).toBeInTheDocument()
+      expect(await within(nav).findByRole('button', { name: 'Întrebarea 1, cu răspuns' })).toBeInTheDocument()
+      expect(within(nav).getByRole('button', { name: 'Întrebarea 2, fără răspuns' })).toBeInTheDocument()
     })
 
     it('jumps to an item from the bottom bar', async () => {
@@ -424,10 +424,10 @@ describe('TakeQuizPage', () => {
       await userEvent.click(await screen.findByRole('button', { name: 'Începe testul' }))
       await screen.findByText('Primul subiect')
 
-      await userEvent.click(screen.getByRole('button', { name: 'Subiectul 3, fără răspuns' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Întrebarea 3, fără răspuns' }))
 
       expect(scroll).toHaveBeenCalled()
-      expect(document.activeElement).toHaveTextContent('Subiectul 3')
+      expect(document.activeElement).toHaveTextContent('Întrebarea 3')
     })
 
     it('lists the unanswered items before handing in, and can take the student to the first one', async () => {
@@ -441,13 +441,13 @@ describe('TakeQuizPage', () => {
 
       await userEvent.click(screen.getByRole('button', { name: 'Trimite lucrarea' }))
 
-      const dialog = await screen.findByRole('dialog', { name: 'Ai 2 subiecte fără răspuns' })
-      expect(dialog).toHaveTextContent('Subiectele 2, 3')
-      await userEvent.click(within(dialog).getByRole('button', { name: 'Mergi la subiectul 2' }))
+      const dialog = await screen.findByRole('dialog', { name: 'Ai 2 întrebări fără răspuns' })
+      expect(dialog).toHaveTextContent('Întrebările 2, 3')
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Mergi la întrebarea 2' }))
 
       await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
       expect(api.submitQuizAttempt).not.toHaveBeenCalled()
-      await waitFor(() => expect(document.activeElement).toHaveTextContent('Subiectul 2'))
+      await waitFor(() => expect(document.activeElement).toHaveTextContent('Întrebarea 2'))
     })
 
     it('hands in only after the student confirms in the dialog', async () => {
@@ -484,14 +484,14 @@ describe('TakeQuizPage', () => {
       expect(await screen.findByTestId('item-queued')).toHaveTextContent('Încă netrimis')
       expect(screen.getByLabelText('b) Varianta B')).toBeChecked() // not undone
       expect(screen.getByTestId('connection-banner')).toHaveTextContent('Se reîncearcă trimiterea: 1 răspuns netrimis.')
-      expect(screen.getByRole('button', { name: 'Subiectul 1, cu răspuns, netrimis încă' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Întrebarea 1, cu răspuns, netrimis încă' })).toBeInTheDocument()
 
       window.dispatchEvent(new Event('online'))
 
       await waitFor(() => expect(screen.queryByTestId('item-queued')).not.toBeInTheDocument())
       expect(api.saveQuizAnswer).toHaveBeenCalledTimes(2)
       expect(screen.queryByTestId('connection-banner')).not.toBeInTheDocument()
-      expect(screen.getByRole('button', { name: 'Subiectul 1, cu răspuns' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Întrebarea 1, cu răspuns' })).toBeInTheDocument()
     })
 
     it('undoes the choice only when the server really refuses it', async () => {
@@ -676,9 +676,9 @@ describe('TakeQuizPage', () => {
       resumed.answers = [{ itemId: 102, selectedOptionId: null, photoUploaded: true, feedback: null, photoIds: [41, 42] }]
       await begin(resumed)
 
-      expect(await screen.findByRole('img', { name: 'Pagina 1 a rezolvării, subiectul 3' }))
+      expect(await screen.findByRole('img', { name: 'Pagina 1 a rezolvării, întrebarea 3' }))
         .toHaveAttribute('src', '/api/quiz/attempts/50/responses/102/photos/41')
-      expect(screen.getByRole('img', { name: 'Pagina 2 a rezolvării, subiectul 3' }))
+      expect(screen.getByRole('img', { name: 'Pagina 2 a rezolvării, întrebarea 3' }))
         .toHaveAttribute('src', '/api/quiz/attempts/50/responses/102/photos/42')
       expect(screen.getByText('Adaugă încă o pagină')).toBeInTheDocument()
       expect(screen.getByRole('status')).toHaveTextContent('Poză încărcată · 2 pagini trimise')
@@ -691,10 +691,10 @@ describe('TakeQuizPage', () => {
       expect(await screen.findByText('Alege o poză din galerie')).toBeInTheDocument()
 
       await userEvent.upload(screen.getByTestId('item-photo'), new File(['x'], 'p1.png', { type: 'image/png' }))
-      expect(await screen.findByRole('img', { name: 'Pagina 1 a rezolvării, subiectul 3' })).toBeInTheDocument()
+      expect(await screen.findByRole('img', { name: 'Pagina 1 a rezolvării, întrebarea 3' })).toBeInTheDocument()
       await userEvent.upload(screen.getByTestId('item-photo'), new File(['y'], 'p2.png', { type: 'image/png' }))
 
-      expect(await screen.findByRole('img', { name: 'Pagina 2 a rezolvării, subiectul 3' })).toBeInTheDocument()
+      expect(await screen.findByRole('img', { name: 'Pagina 2 a rezolvării, întrebarea 3' })).toBeInTheDocument()
       expect(screen.getByRole('status')).toHaveTextContent('Poză încărcată · 2 pagini trimise')
       expect(api.uploadQuizPhoto).toHaveBeenCalledTimes(2)
     })
@@ -716,7 +716,7 @@ describe('TakeQuizPage', () => {
 
       expect(api.deleteQuizPhoto).toHaveBeenCalledWith(50, 102, 41)
       await waitFor(() => expect(screen.queryByRole('img', { name: /Pagina 2/ })).not.toBeInTheDocument())
-      expect(screen.getByRole('img', { name: 'Pagina 1 a rezolvării, subiectul 3' }))
+      expect(screen.getByRole('img', { name: 'Pagina 1 a rezolvării, întrebarea 3' }))
         .toHaveAttribute('src', '/api/quiz/attempts/50/responses/102/photos/42')
     })
 

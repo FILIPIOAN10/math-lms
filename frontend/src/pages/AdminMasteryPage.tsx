@@ -74,7 +74,7 @@ export function AdminMasteryPage() {
           <>
             {!hasData && (
               <p className="text-sm text-muted-foreground">
-                Nimic de afișat încă. Leagă quiz-urile de capitole (la „Editează detaliile” sau la fiecare subiect) — doar
+                Nimic de afișat încă. Leagă testele de capitole (la „Editează detaliile” sau la fiecare întrebare) — doar
                 răspunsurile la întrebările cu capitol intră pe hartă.
               </p>
             )}
