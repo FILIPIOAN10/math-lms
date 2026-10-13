@@ -22,7 +22,8 @@ BEGIN;
 
 UPDATE users SET parent_id = NULL, invite_link_id = NULL;
 
-TRUNCATE review_answers, response_photos, item_responses, quiz_attempts, quiz_item_hints, quiz_options, quiz_items, assignments,
+TRUNCATE review_answers, response_part_points, response_photos, item_responses, quiz_attempts, quiz_item_hints, quiz_options,
+         quiz_item_parts, quiz_items, assignments,
          quizzes, exercises, chapters, books, enrollments, outbox_event, ai_imports, admin_audit_log
          RESTART IDENTITY;
 
