@@ -159,8 +159,9 @@ public class EnMasteryService {
         Map<Long, List<QuizItemPart>> partsByItem = partRepository.findByItemIdInOrderByItemIdAscPositionAsc(
                         itemsByQuiz.values().stream().flatMap(List::stream).map(QuizItem::getId).toList()).stream()
                 .collect(Collectors.groupingBy(p -> p.getItem().getId()));
+        EnChapterLinks.Snapshot snapshot = links.snapshot(); // read once for every quiz
         Map<Long, EnChapterLinks.Resolved> linksByQuiz = new HashMap<>();
-        itemsByQuiz.forEach((quizId, items) -> linksByQuiz.put(quizId, links.resolve(items)));
+        itemsByQuiz.forEach((quizId, items) -> linksByQuiz.put(quizId, snapshot.resolve(items)));
 
         Map<Long, Map<Long, ItemResponse>> responses = attempts.isEmpty() ? Map.of() : responseRepository
                 .findByAttemptIdIn(attempts.stream().map(QuizAttempt::getId).toList()).stream()
@@ -209,16 +210,20 @@ public class EnMasteryService {
 
     /**
      * Points on one requirement, or null when it does not count (yet): practice never scores open answers; in a test
-     * a requirement without points counts as 0 only once the paper is graded.
+     * the problem counts once the teacher has given points to every requirement (or the paper is graded - then a
+     * requirement left without points is a 0). Half-graded, nothing counts: the autosave keeps what the teacher has
+     * marked so far, which is not a grade yet - the same rule as a whole open answer in {@link MasteryService}.
      */
-    private static Integer partEarned(QuizAttempt attempt, ItemResponse response, QuizItemPart part) {
+    static Integer partEarned(QuizAttempt attempt, ItemResponse response, QuizItemPart part) {
         if (attempt.getMode() == AttemptMode.PRACTICE) {
             return null;
         }
-        Integer given = response == null ? null : response.getPartPoints().get(part.getId());
-        if (given != null) {
-            return given;
+        boolean graded = attempt.getStatus() == QuizAttemptStatus.GRADED
+                || (response != null && response.getAwardedPoints() != null);
+        if (!graded) {
+            return null;
         }
-        return attempt.getStatus() == QuizAttemptStatus.GRADED ? 0 : null;
+        Integer given = response == null ? null : response.getPartPoints().get(part.getId());
+        return given != null ? given : 0;
     }
 }

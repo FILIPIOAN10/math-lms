@@ -8,6 +8,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.util.AntPathMatcher;
 import org.springframework.web.filter.OncePerRequestFilter;
+import ro.mathlms.content.RoCount;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -61,10 +62,21 @@ public class RateLimitFilter extends OncePerRequestFilter {
             response.setHeader("Retry-After", String.valueOf(result.retryAfterSeconds()));
             response.setContentType("text/plain;charset=UTF-8");
             response.getOutputStream().write(("Prea multe cereri. Încearcă din nou peste "
-                    + result.retryAfterSeconds() + " secunde.").getBytes(StandardCharsets.UTF_8));
+                    + waitText(result.retryAfterSeconds()) + ".").getBytes(StandardCharsets.UTF_8));
             return;
         }
         chain.doFilter(request, response);
+    }
+
+    /** "42 de secunde", "15 minute", "3 ore": a daily limit should not read as 80000 seconds. */
+    static String waitText(long seconds) {
+        if (seconds < 120) {
+            return RoCount.of(seconds, "secundă", "secunde");
+        }
+        if (seconds < 2 * 3600) {
+            return RoCount.of((seconds + 59) / 60, "minut", "minute");
+        }
+        return RoCount.of((seconds + 3599) / 3600, "oră", "ore");
     }
 
     private Optional<RateLimitRule> findRule(HttpServletRequest request) {

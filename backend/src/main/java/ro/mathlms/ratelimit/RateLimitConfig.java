@@ -38,7 +38,10 @@ public class RateLimitConfig {
                 new RateLimitRule("change-password", "POST", "/api/me/password", 5, Duration.ofMinutes(15), RateLimitKeyType.USER),
                 new RateLimitRule("gdpr-erase", "POST", "/api/users/gdpr/erase", 3, Duration.ofHours(1), RateLimitKeyType.USER),
                 // Expensive per-student write: the photo upload (image decoding + disk).
-                new RateLimitRule("photo-upload", "POST", "/api/quiz/attempts/*/responses/*/photo", 20, minute, RateLimitKeyType.USER)
+                new RateLimitRule("photo-upload", "POST", "/api/quiz/attempts/*/responses/*/photo", 20, minute, RateLimitKeyType.USER),
+                // Each one is a paid AI call over a whole test: bounds the provider bill like the import's daily pages.
+                new RateLimitRule("en-chapter-suggestions", "POST", "/api/admin/quizzes/*/en-chapter-suggestions", 30,
+                        Duration.ofDays(1), RateLimitKeyType.USER)
         );
     }
 

@@ -48,17 +48,6 @@ public class QuizAdminService {
                             QuizOptionRepository optionRepository, QuizItemHintRepository hintRepository,
                             SchoolClassRepository schoolClassRepository, ChapterRepository chapterRepository,
                             ExerciseRepository exerciseRepository, AfterCommitCacheEvictor cacheEvictor,
-                            QuestionImageService imageService, AuditLog auditLog, QuizItemPartRepository partRepository) {
-        this(quizRepository, itemRepository, optionRepository, hintRepository, schoolClassRepository, chapterRepository,
-                exerciseRepository, cacheEvictor, imageService, auditLog, partRepository, null);
-    }
-
-    /** {@code enChapterLinks} null = no EN chapter links (unit tests that do not need them). */
-    @org.springframework.beans.factory.annotation.Autowired
-    public QuizAdminService(QuizRepository quizRepository, QuizItemRepository itemRepository,
-                            QuizOptionRepository optionRepository, QuizItemHintRepository hintRepository,
-                            SchoolClassRepository schoolClassRepository, ChapterRepository chapterRepository,
-                            ExerciseRepository exerciseRepository, AfterCommitCacheEvictor cacheEvictor,
                             QuestionImageService imageService, AuditLog auditLog, QuizItemPartRepository partRepository,
                             EnChapterLinks enChapterLinks) {
         this.enChapterLinks = enChapterLinks;
@@ -356,6 +345,38 @@ public class QuizAdminService {
     public ItemDto addItem(Long quizId, ItemRequest request) {
         Quiz quiz = getQuiz(quizId);
         requireNotTaken(quiz, "nu mai poți adăuga întrebări");
+        Added added = insertItem(quiz, request);
+        dropScoreCaches();
+        List<QuizItem> quizItems = itemRepository.findByQuizIdOrderByPosition(quizId);
+        if (seenByStudents(quiz)) {
+            recordQuestion(AuditAction.QUESTION_ADDED, added.item(), QuestionNumbers.of(added.item(), quizItems),
+                    added.item().getPoints() + " p");
+        }
+        return ItemDto.from(added.item(), added.options(), added.hints(), added.parts(), enChapterLinks.resolve(quizItems));
+    }
+
+    /**
+     * Fills a new test with its questions at once (the AI import): nothing is sent back, so the links are worked out
+     * once at the end, not per question. An EN chapter chosen for a question that is just the default for its place is
+     * dropped back to automatic - the AI proposes it, and pinned it would no longer follow the automatic links.
+     */
+    @Transactional
+    public void addItems(Long quizId, List<ItemRequest> requests) {
+        Quiz quiz = getQuiz(quizId);
+        requireNotTaken(quiz, "nu mai poți adăuga întrebări");
+        List<QuizItemPart> parts = new java.util.ArrayList<>();
+        for (ItemRequest request : requests) {
+            parts.addAll(insertItem(quiz, request).parts());
+        }
+        dropScoreCaches();
+        releaseDefaultEnChapters(itemRepository.findByQuizIdOrderByPosition(quizId), parts);
+    }
+
+    private record Added(QuizItem item, List<QuizOption> options, List<QuizItemHint> hints, List<QuizItemPart> parts) {
+    }
+
+    /** One question with its options, hints and requirements, checked before anything is written. */
+    private Added insertItem(Quiz quiz, ItemRequest request) {
         requireValidHints(request.hints()); // before anything is written
         requireValidParts(request);
         QuizItem fresh = new QuizItem(
@@ -366,16 +387,29 @@ public class QuizAdminService {
         fresh.placeInSection(request.section());
         fresh.requireImage(Boolean.TRUE.equals(request.imageRequired()));
         QuizItem item = itemRepository.save(fresh);
-        List<QuizOption> options = saveOptionsIfSingleChoice(item, request);
-        List<QuizItemHint> hints = saveHints(item, request.hints());
-        List<QuizItemPart> parts = saveParts(item, request.parts());
-        dropScoreCaches();
-        if (seenByStudents(quiz)) {
-            recordQuestion(AuditAction.QUESTION_ADDED, item,
-                    QuestionNumbers.of(item, itemRepository.findByQuizIdOrderByPosition(quizId)),
-                    item.getPoints() + " p");
+        return new Added(item, saveOptionsIfSingleChoice(item, request), saveHints(item, request.hints()),
+                saveParts(item, request.parts()));
+    }
+
+    /**
+     * Back to automatic wherever the chosen chapter is the one automatic would give anyway. The requirements are
+     * checked against their problem's link, which does not move: a problem is only released when it points at its
+     * default already.
+     */
+    private void releaseDefaultEnChapters(List<QuizItem> quizItems, List<QuizItemPart> parts) {
+        EnChapterLinks.Resolved links = enChapterLinks.resolve(quizItems);
+        for (QuizItemPart part : parts) {
+            if (part.getEnChapter() != null
+                    && part.getEnChapter().getId().equals(EnChapterLinks.idOf(links.partDefault(part)))) {
+                part.pointToEnChapter(null);
+            }
         }
-        return ItemDto.from(item, options, hints, parts, linksOf(itemRepository.findByQuizIdOrderByPosition(quizId)));
+        for (QuizItem item : quizItems) {
+            if (item.getEnChapter() != null
+                    && item.getEnChapter().getId().equals(EnChapterLinks.idOf(links.itemDefault(item)))) {
+                item.pointToEnChapter(null);
+            }
+        }
     }
 
     @Transactional
@@ -467,11 +501,11 @@ public class QuizAdminService {
     }
 
     private EnChapterLinks.Resolved linksOf(List<QuizItem> quizItems) {
-        return enChapterLinks == null ? null : enChapterLinks.resolve(quizItems);
+        return enChapterLinks.resolve(quizItems);
     }
 
     private ro.mathlms.enchapter.EnChapter enChapter(Long enChapterId) {
-        return enChapterLinks == null ? null : enChapterLinks.chosen(enChapterId);
+        return enChapterLinks.chosen(enChapterId);
     }
 
     /** What a question looked like, to word what an edit changed ("punctaj 3 → 5, răspuns corect"). */

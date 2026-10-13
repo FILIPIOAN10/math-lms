@@ -37,7 +37,7 @@ class QuizAdminServiceTest {
     private final QuizAdminService service =
             new QuizAdminService(quizRepository, itemRepository, optionRepository, hintRepository, schoolClassRepository,
                     chapterRepository, exerciseRepository, cacheEvictor, mock(QuestionImageService.class), auditLog,
-                    mock(QuizItemPartRepository.class));
+                    mock(QuizItemPartRepository.class), NoEnChapterLinks.create());
 
     private final Quiz quiz = new Quiz("Simulare EN", null);
     private final SchoolClass ninth = new SchoolClass("Clasa a 9-a", null);

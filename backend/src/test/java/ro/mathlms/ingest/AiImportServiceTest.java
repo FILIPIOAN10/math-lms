@@ -40,7 +40,14 @@ class AiImportServiceTest {
         return new AiImportService(repository, mock(UserRepository.class), mock(SchoolClassRepository.class),
                 mock(ChapterRepository.class), mock(QuizAdminService.class), fileService, mock(AuditLog.class),
                 List.of(extractor), new AiImportProperties(enabled, provider, 5, 50, "pages", 7), new ObjectMapper(),
-                Clock.fixed(NOW, ZoneOffset.UTC), mock(PlatformTransactionManager.class));
+                Clock.fixed(NOW, ZoneOffset.UTC), mock(PlatformTransactionManager.class), noProposals());
+    }
+
+    /** No EN chapter proposals: the questions go to review as they were read. */
+    private static ChapterSuggestionService noProposals() {
+        ChapterSuggestionService suggestions = mock(ChapterSuggestionService.class);
+        when(suggestions.annotate(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        return suggestions;
     }
 
     @BeforeEach

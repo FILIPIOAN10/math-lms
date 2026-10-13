@@ -112,6 +112,10 @@ public class OpenAiChapterSuggester implements ChapterSuggester {
         if (response == null) {
             throw new ExtractionException(OpenAiPageExtractor.UNREADABLE_ANSWER);
         }
+        // What each call costs, in the log next to the import's own (an import keeps its tokens on its row).
+        JsonNode usage = response.path("usage");
+        log.info("OpenAI (chapters): {} questions, {} input + {} output tokens, model {}", questions.size(),
+                usage.path("input_tokens").asLong(), usage.path("output_tokens").asLong(), model);
         return parse(response, questions, chapters);
     }
 

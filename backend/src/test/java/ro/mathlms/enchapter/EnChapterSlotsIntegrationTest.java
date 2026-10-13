@@ -132,6 +132,43 @@ class EnChapterSlotsIntegrationTest {
     }
 
     @Test
+    void aChapterAPlaceLinksToCannotBeDeletedAndQuestionsPointedAtItGoBackToAutomatic() throws Exception {
+        String code = "Z" + String.valueOf(System.nanoTime()).substring(10);
+        long mine = json(mockMvc.perform(post("/api/admin/en-chapters").with(TEACHER).with(csrf())
+                .contentType("application/json")
+                .content("{\"code\":\"" + code + "\",\"title\":\"De șters\",\"area\":\"ALGEBRA\"}"))
+                .andExpect(status().isCreated())).get("id").asLong();
+        List<Map<String, Object>> changed = new ArrayList<>();
+        bySlot(seeded).forEach((slot, chapter) -> changed.add(Map.of("slot", slot, "chapterId",
+                slot.equals("I.1") || slot.equals("III.5.b") ? mine : chapter)));
+        save(changed).andExpect(status().isNoContent());
+        long quizId = json(mockMvc.perform(post("/api/admin/quizzes").with(TEACHER).with(csrf()).contentType("application/json")
+                .content("{\"title\":\"Ștergere capitol " + System.nanoTime() + "\"}"))).get("id").asLong();
+        mockMvc.perform(post("/api/admin/quizzes/" + quizId + "/items").with(TEACHER).with(csrf()).contentType("application/json")
+                        .content("{\"type\":\"OPEN\",\"position\":0,\"points\":5,\"statement\":\"Q\",\"enChapterId\":" + mine + "}"))
+                .andExpect(status().isCreated());
+
+        // Questions in I.1 and III.5 b) would quietly lose their link: the teacher moves those places first.
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .delete("/api/admin/en-chapters/" + mine).with(TEACHER).with(csrf()))
+                .andExpect(status().isConflict())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content()
+                        .string(org.hamcrest.Matchers.containsString("I.1, III.5.b")));
+
+        restore();
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .delete("/api/admin/en-chapters/" + mine).with(TEACHER).with(csrf()))
+                .andExpect(status().isNoContent());
+        JsonNode item = json(mockMvc.perform(get("/api/admin/quizzes/" + quizId).with(TEACHER))).get("items").get(0);
+        assertThat(item.get("enChapterId").isNull()).isTrue();
+        assertThat(auditRepository.findAll())
+                .filteredOn(e -> e.getAction() == AuditAction.EN_CHAPTER_DELETED && e.getEntityId() != null
+                        && e.getEntityId() == mine)
+                .singleElement()
+                .satisfies(e -> assertThat(e.getDetails()).isEqualTo("1 întrebare sau cerință revine la legătura automată"));
+    }
+
+    @Test
     void onlyTheTeacherSeesAndChangesThem() throws Exception {
         mockMvc.perform(get("/api/admin/en-chapter-slots").with(STUDENT)).andExpect(status().isForbidden());
         mockMvc.perform(put("/api/admin/en-chapter-slots").with(STUDENT).with(csrf())

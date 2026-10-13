@@ -44,7 +44,7 @@ class QuizAttemptPreviewServiceTest {
             quizRepository, itemRepository, optionRepository,
             mock(QuizItemHintRepository.class), attemptRepository, responseRepository, userRepository,
             enrollmentRepository, mock(AfterCommitCacheEvictor.class), mock(ResultNotifier.class), fileService,
-            mock(AuditLog.class), Clock.systemUTC(), "uploads/quiz-photos", mock(QuizItemPartRepository.class));
+            mock(AuditLog.class), Clock.systemUTC(), "uploads/quiz-photos", mock(QuizItemPartRepository.class), NoEnChapterLinks.create());
 
     private static final String EMAIL = "elev@scoala.ro";
 

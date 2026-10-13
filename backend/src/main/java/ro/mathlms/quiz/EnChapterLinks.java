@@ -38,11 +38,35 @@ public class EnChapterLinks {
 
     /** The links of one quiz's questions, all of them in position order (the numbering needs every one). */
     public Resolved resolve(List<QuizItem> items) {
+        return snapshot().resolve(items);
+    }
+
+    /**
+     * The automatic links and the pages with content, read once - for resolving many quizzes in one go (the mastery
+     * maps) without asking the database again for each.
+     */
+    public Snapshot snapshot() {
         Map<String, EnChapter> slots = slotRepository.findAllFetched().stream()
                 .collect(Collectors.toMap(EnChapterSlot::getSlot, EnChapterSlot::getChapter));
-        Map<Long, String> numbers = QuestionNumbers.of(items);
-        return new Resolved(items.stream().collect(Collectors.toMap(QuizItem::getId, Function.identity())),
-                numbers, slots, chapterService.readyIds());
+        return new Snapshot(slots, chapterService.readyIds());
+    }
+
+    /** The automatic links as they are now; resolves any number of quizzes. */
+    public static final class Snapshot {
+
+        private final Map<String, EnChapter> slots;
+        private final Set<Long> ready;
+
+        Snapshot(Map<String, EnChapter> slots, Set<Long> ready) {
+            this.slots = slots;
+            this.ready = ready;
+        }
+
+        /** The links of one quiz's questions, all of them in position order. */
+        public Resolved resolve(List<QuizItem> items) {
+            return new Resolved(items.stream().collect(Collectors.toMap(QuizItem::getId, Function.identity())),
+                    QuestionNumbers.of(items), slots, ready);
+        }
     }
 
     /** The chapter the teacher picked, or {@code null} for "automatic"; an unknown id is a mistake in the request. */

@@ -48,4 +48,12 @@ describe('revisionLinks', () => {
     })
     expect(revisionLinks(both)).toEqual([{ chapter: G9, parts: ['a', 'b'] }])
   })
+
+  it('waits until every requirement of a problem is graded', () => {
+    const halfGraded = grila({
+      type: 'OPEN', correct: null, points: 5, awardedPoints: null, // the autosave kept a) only
+      parts: [part('a', 2, 0, G8), part('b', 3, null, G9)],
+    })
+    expect(revisionLinks(halfGraded)).toEqual([])
+  })
 })

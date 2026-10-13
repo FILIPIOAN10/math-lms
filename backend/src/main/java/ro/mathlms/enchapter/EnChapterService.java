@@ -38,12 +38,15 @@ public class EnChapterService {
     private final EnChapterRepository chapterRepository;
     private final EnChapterPhotoRepository photoRepository;
     private final EnChapterExampleRepository exampleRepository;
+    private final EnChapterSlotRepository slotRepository;
     private final EnChapterImages images;
     private final AuditLog auditLog;
 
     public EnChapterService(EnChapterRepository chapterRepository, EnChapterPhotoRepository photoRepository,
-                            EnChapterExampleRepository exampleRepository, EnChapterImages images, AuditLog auditLog) {
+                            EnChapterExampleRepository exampleRepository, EnChapterSlotRepository slotRepository,
+                            EnChapterImages images, AuditLog auditLog) {
         this.chapterRepository = chapterRepository;
+        this.slotRepository = slotRepository;
         this.photoRepository = photoRepository;
         this.exampleRepository = exampleRepository;
         this.images = images;
@@ -131,7 +134,11 @@ public class EnChapterService {
         return EnChapterSummaryDto.of(chapter, photoRepository.countByChapterId(id), exampleRepository.countByChapterId(id));
     }
 
-    /** Only an empty page goes, so a slip of the finger never throws away photographed theory. */
+    /**
+     * Only an empty page goes, so a slip of the finger never throws away photographed theory - and only one no place on
+     * the paper points at by default, or those questions would quietly lose their link. Questions the teacher pointed
+     * at it themselves go back to automatic; the journal says how many.
+     */
     @Transactional
     public void delete(Long id) {
         EnChapter chapter = requireChapter(id);
@@ -142,8 +149,19 @@ public class EnChapterService {
                     + RoCount.of(photos, "poză", "poze") + " și " + RoCount.of(examples, "model", "modele")
                     + ". Șterge-le întâi, apoi capitolul.");
         }
+        List<String> slots = slotRepository.findSlotsOfChapter(id).stream()
+                .sorted(EnChapterSlotService::paperOrder).toList();
+        if (!slots.isEmpty()) {
+            throw new EnChapterConflictException("Capitolul „" + label(chapter) + "” e legătura automată pentru "
+                    + String.join(", ", slots) + ". Alege alt capitol pentru aceste locuri în „Legături automate”, "
+                    + "apoi șterge-l.");
+        }
+        long chosen = chapterRepository.countChosenBy(id);
         chapterRepository.delete(chapter);
-        auditLog.record(AuditEvent.of(AuditAction.EN_CHAPTER_DELETED, id, label(chapter)));
+        AuditEvent event = AuditEvent.of(AuditAction.EN_CHAPTER_DELETED, id, label(chapter));
+        auditLog.record(chosen == 0 ? event : event.details(
+                RoCount.of(chosen, "întrebare sau cerință", "întrebări sau cerințe")
+                        + (chosen == 1 ? " revine" : " revin") + " la legătura automată"));
     }
 
     /**

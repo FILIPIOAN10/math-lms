@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
 import { MathContent } from '@/components/MathContent'
@@ -71,10 +71,13 @@ export function EnChapterSuggestionsDialog({ quizId, items, enChapters, onClose,
   const [kept, setKept] = useState<Set<string>>(new Set())
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  // One paid call per opening: StrictMode runs the effect twice, and both runs must share the same request.
+  const request = useRef<Promise<ItemChapterSuggestion[]> | null>(null)
 
   useEffect(() => {
     let cancelled = false
-    suggestEnChapters(quizId)
+    request.current ??= suggestEnChapters(quizId)
+    request.current
       .then((suggestions) => {
         if (cancelled) return
         const next = rowsOf(questions, suggestions)

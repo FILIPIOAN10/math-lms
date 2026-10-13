@@ -99,17 +99,6 @@ public class AiImportService {
                            SchoolClassRepository schoolClassRepository, ChapterRepository chapterRepository,
                            QuizAdminService quizAdminService, FileService fileService, AuditLog auditLog,
                            List<PageExtractor> extractors, AiImportProperties properties, ObjectMapper objectMapper,
-                           Clock clock, PlatformTransactionManager transactionManager) {
-        this(repository, userRepository, schoolClassRepository, chapterRepository, quizAdminService, fileService,
-                auditLog, extractors, properties, objectMapper, clock, transactionManager, null);
-    }
-
-    /** {@code suggestions} null = no EN chapter proposals (unit tests that do not need them). */
-    @org.springframework.beans.factory.annotation.Autowired
-    public AiImportService(AiImportRepository repository, UserRepository userRepository,
-                           SchoolClassRepository schoolClassRepository, ChapterRepository chapterRepository,
-                           QuizAdminService quizAdminService, FileService fileService, AuditLog auditLog,
-                           List<PageExtractor> extractors, AiImportProperties properties, ObjectMapper objectMapper,
                            Clock clock, PlatformTransactionManager transactionManager,
                            ChapterSuggestionService suggestions) {
         this.suggestions = suggestions;
@@ -261,12 +250,14 @@ public class AiImportService {
         }
         Quiz quiz = quizAdminService.createQuiz(request.title(), null, request.schoolClassId(), null, false,
                 request.chapterId());
+        List<ItemRequest> items = new ArrayList<>();
         int position = 0;
         for (ItemRequest item : request.items()) {
-            quizAdminService.addItem(quiz.getId(), new ItemRequest(item.type(), position++, item.statement(),
+            items.add(new ItemRequest(item.type(), position++, item.statement(),
                     item.points(), item.solution(), item.options(), item.hints(), item.chapterId(), item.section(),
                     item.imageRequired(), item.parts(), item.enChapterId()));
         }
+        quizAdminService.addItems(quiz.getId(), items);
         List<StoredPage> pages = pages(ai);
         ai.linkQuiz(quiz.getId());
         ai.forgetPages();
@@ -338,9 +329,7 @@ public class AiImportService {
             if (items.isEmpty()) {
                 return Outcome.failed(NOTHING_FOUND);
             }
-            if (suggestions != null) {
-                items = suggestions.annotate(items); // the EN chapter of each question, for the review (best effort)
-            }
+            items = suggestions.annotate(items); // the EN chapter of each question, for the review (best effort)
             return new Outcome(result, items, null);
         } catch (ExtractionException e) {
             log.warn("AI import {} failed: {}", id, e.getMessage(), e);

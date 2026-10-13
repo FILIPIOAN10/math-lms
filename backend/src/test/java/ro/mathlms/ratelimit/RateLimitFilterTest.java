@@ -76,6 +76,16 @@ class RateLimitFilterTest {
     }
 
     @Test
+    void theWaitReadsInTheLargestUnitThatFits() {
+        assertThat(RateLimitFilter.waitText(1)).isEqualTo("1 secundă");
+        assertThat(RateLimitFilter.waitText(42)).isEqualTo("42 de secunde");
+        assertThat(RateLimitFilter.waitText(119)).isEqualTo("119 secunde");
+        assertThat(RateLimitFilter.waitText(121)).isEqualTo("3 minute");
+        assertThat(RateLimitFilter.waitText(3600)).isEqualTo("60 de minute");
+        assertThat(RateLimitFilter.waitText(80_000)).isEqualTo("23 de ore"); // a daily limit, not 80000 seconds
+    }
+
+    @Test
     void everyBlockedRequestIsCountedPerRule() throws Exception {
         when(service.checkLimit(any(), any())).thenReturn(new RateLimitResult(false, 6, 0, 42));
 

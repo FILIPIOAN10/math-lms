@@ -761,7 +761,7 @@ la Subiectul III, cerințele a)/b) ale problemelor 5 și 6 au capitolul lor.
 | 4 | Pune materie (o poză sau un model) în capitolul primei întrebări (§27) | — |
 | 5 | Elev: dă testul, greșește întrebarea 1, predă | Pe rezultat, la întrebarea 1: butonul **Vezi modele: A1 Ordinea efectuării operațiilor →** → deschide pagina capitolului |
 | 6 | Același rezultat: întrebările corecte și cele al căror capitol e gol | Fără buton |
-| 7 | La o problemă cu a)/b) notată parțial | Butonul apare doar pentru cerința care a pierdut puncte, cu „b) · Vezi modele: …” |
+| 7 | La o problemă cu a)/b) notată parțial | Butonul apare doar pentru cerința care a pierdut puncte, cu „b) · Vezi modele: …” — și doar după ce TOATE cerințele problemei au puncte (cât timp profesorul a notat doar a), fără buton) |
 | 8 | Părinte: rezultatul copilului | Aceleași butoane |
 
 ### 29. AI-ul propune capitolul EN — ca profesor (cere `AI_IMPORT_ENABLED=true`)
@@ -773,10 +773,11 @@ cu `AI_PROVIDER=fake` capitolul se alege după cuvinte-cheie, fără rețea.
 |---|---|---|
 | 1 | **Teste → Din poze (AI)**: încarcă o variantă EN, așteaptă citirea | La fiecare întrebare (și la fiecare cerință a)/b)) un câmp **Capitol EN** deja completat, cu „Propus de AI: …” sub el |
 | 2 | Schimbă capitolul la o întrebare | Motivul AI-ului dispare (nu mai e propunerea lui) |
-| 3 | **Creează testul**, deschide-l în editor | Etichetele **→ …** sunt cele alese la verificare (fără „automat”) |
+| 3 | **Creează testul**, deschide-l în editor | Etichetele **→ …** sunt cele alese la verificare; unde alegerea era chiar legătura automată a locului (ex. A1 la I.1), întrebarea rămâne pe **automat** — urmează „Legături automate” dacă le schimbi |
 | 4 | Pe un test existent (ex. creat înainte de etapa 3): **Sugerează capitolele (AI)** | „AI-ul citește întrebările…”, apoi lista: „Acum: A2 … (automat) → A3 …” cu motivul; bifate doar cele care schimbă ceva |
 | 5 | Debifează una, **Aplică (N)** | Doar cele bifate se schimbă; jurnalul: „Test modificat · capitol EN la N întrebări sau cerințe” |
 | 6 | Fără cheie OpenAI / OpenAI căzut | Mesaj clar în dialog („Cheia OpenAI lipsește…”, „OpenAI nu răspunde acum…”); la import, întrebările vin fără propunere, importul nu pică |
+| 7 | A 31-a cerere de propuneri în aceeași zi (limita: 30 / profesor / zi) | „Prea multe cereri. Încearcă din nou peste N ore.”; în logul backend fiecare cerere apare cu tokenii ei (`OpenAI (chapters): … tokens`) |
 
 ### 30. Harta pe capitolele EN — elev, părinte, profesor
 
@@ -791,6 +792,7 @@ recapitulare zilnică); la Subiectul III fiecare cerință a)/b) intră la capit
 | 4 | Părinte: pagina copilului | Aceeași secțiune |
 | 5 | Profesor: pagina elevului (**Elevi → nume**) | Aceeași secțiune |
 | 6 | Profesor: **Clase → clasa → Pe capitole** | Sub grila capitolelor clasei, **Pe capitolele EN**: elevii × doar capitolele întâlnite de clasă (codul sus, titlul la mouse), „—” unde elevul n-are date, rândul **Media clasei** |
+| 7 | Profesorul începe corectarea unei probleme a)/b): pune puncte doar la a) și iese | Harta EN a elevului nu se schimbă încă; după ce pune puncte și la b), ambele cerințe intră la capitolele lor |
 
 ### 31. Legături automate — ca profesor (`/admin/en-chapters/legaturi`)
 
@@ -802,6 +804,8 @@ recapitulare zilnică); la Subiectul III fiecare cerință a)/b) intră la capit
 | 4 | Deschide un test EN în editor | La întrebarea I.2 eticheta e acum **→ A3** (automat), fără să fi editat testul |
 | 5 | **Jurnal**, filtrul Conținut | „Legături automate EN modificate · Legături automate EN · 1 schimbare” cu „I.2: A2 → A3” |
 | 6 | Pune I.2 înapoi pe A2 și salvează | Totul revine |
+| 7 | Creează un capitol nou, pune-l la I.1 și salvează; apoi **Capitole EN → Șterge** pe el | Refuzat: „… e legătura automată pentru I.1. Alege alt capitol pentru aceste locuri în „Legături automate”, apoi șterge-l.” |
+| 8 | Pune I.1 înapoi pe A1, apoi șterge capitolul | Șters; întrebările la care îl aleseseși revin la automat, iar jurnalul spune câte („1 întrebare sau cerință revine la legătura automată”) |
 
 ## E. Debugging — unde te uiți când pică ceva
 

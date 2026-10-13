@@ -46,7 +46,7 @@ class QuizAttemptPracticeServiceTest {
     private final QuizAttemptService service = new QuizAttemptService(
             quizRepository, itemRepository, optionRepository, mock(QuizItemHintRepository.class), attemptRepository, responseRepository,
             userRepository, mock(EnrollmentRepository.class), cacheEvictor, resultNotifier, fileService,
-            mock(AuditLog.class), Clock.systemUTC(), "uploads/quiz-photos", mock(QuizItemPartRepository.class));
+            mock(AuditLog.class), Clock.systemUTC(), "uploads/quiz-photos", mock(QuizItemPartRepository.class), NoEnChapterLinks.create());
 
     private final User student = withId(new User(EMAIL, "Elev Pop", Role.STUDENT), 1L);
     private final Quiz quiz = practiceQuiz();

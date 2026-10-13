@@ -1,3 +1,4 @@
+import { StrictMode } from 'react'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { EnChapterSuggestionsDialog } from '@/components/EnChapterSuggestionsDialog'
@@ -56,6 +57,18 @@ describe('EnChapterSuggestionsDialog', () => {
 
     await waitFor(() => expect(api.assignEnChapters).toHaveBeenCalledWith(5, [{ itemId: 11, enChapterId: 3, parts: [] }]))
     expect(onApplied).toHaveBeenCalled()
+  })
+
+  it('asks the AI once per opening, even when StrictMode runs the effect twice', async () => {
+    api.suggestEnChapters.mockResolvedValue([{ itemId: 11, chapterId: 3, code: 'A3', reason: 'Un procent.', parts: [] }])
+    render(
+      <StrictMode>
+        <EnChapterSuggestionsDialog quizId={5} items={items} enChapters={enChapters} onClose={vi.fn()} onApplied={vi.fn()} />
+      </StrictMode>,
+    )
+
+    expect(await screen.findByText('Un procent.')).toBeInTheDocument()
+    expect(api.suggestEnChapters).toHaveBeenCalledTimes(1)
   })
 
   it('says why the AI could not answer', async () => {

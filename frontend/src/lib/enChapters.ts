@@ -30,8 +30,9 @@ export interface RevisionLink {
 
 /**
  * Where to revise after this question: each chapter (with something on its page) of a requirement that lost points,
- * or of the whole question when it has no requirements. Nothing while the teacher has not graded it yet, and nothing
- * for a question answered right.
+ * or of the whole question when it has no requirements. Nothing while the teacher has not graded it yet - for a
+ * problem with requirements, not before every one has its points (the grading autosave shows them one by one) - and
+ * nothing for a question answered right.
  */
 export function revisionLinks(item: ItemResultDto): RevisionLink[] {
   const parts = item.parts ?? []
@@ -46,6 +47,7 @@ export function revisionLinks(item: ItemResultDto): RevisionLink[] {
     }
   }
   if (parts.length > 0) {
+    if (item.awardedPoints === null) return links // still being graded
     parts.filter((p) => p.awardedPoints !== null && p.awardedPoints < p.points).forEach((p) => add(p.enChapter, p.label))
     return links
   }

@@ -96,13 +96,46 @@ class EnChapterSuggestionIntegrationTest {
         grila.put("section", "SUBIECTUL I");
         grila.put("options", List.of(Map.of("position", 0, "text", "5", "correct", false),
                 Map.of("position", 1, "text", "7", "correct", true)));
-        grila.put("enChapterId", chapters.get("A1"));
+        grila.put("enChapterId", chapters.get("A1")); // I.1's automatic link anyway
+        Map<String, Object> triangle = new LinkedHashMap<>(grila);
+        triangle.put("statement", items.get(1).get("statement").asText());
+        triangle.put("enChapterId", chapters.get("G3")); // not I.2's A2: the teacher's own choice
         long quizId = json(send(post("/api/admin/ai-imports/" + id + "/quiz"),
-                Map.of("title", "Din manual " + id, "items", List.of(grila))).andExpect(status().isCreated()))
+                Map.of("title", "Din manual " + id, "items", List.of(grila, triangle))).andExpect(status().isCreated()))
                 .get("quizId").asLong();
 
         JsonNode created = json(mockMvc.perform(get("/api/admin/quizzes/" + quizId).with(teacher))).get("items");
-        assertThat(created.get(0).get("enChapterId").asLong()).isEqualTo(chapters.get("A1"));
+        // The same as automatic stays automatic, so it follows the automatic links when they change.
+        assertThat(created.get(0).get("enChapterId").isNull()).isTrue();
+        assertThat(created.get(0).get("enChapterAuto").asLong()).isEqualTo(chapters.get("A1"));
+        assertThat(created.get(1).get("enChapterId").asLong()).isEqualTo(chapters.get("G3"));
+    }
+
+    @Test
+    void anImportedRequirementKeepsOnlyAChapterItsProblemWouldNotGiveIt() throws Exception {
+        long id = json(mockMvc.perform(multipart("/api/admin/ai-imports")
+                        .file(new MockMultipartFile("files", "p1.png", "image/png", PNG)).with(teacher).with(csrf()))
+                .andExpect(status().isAccepted())).get("id").asLong();
+        assertThat(importService.processNext()).isTrue();
+
+        Map<String, Object> problem = new LinkedHashMap<>();
+        problem.put("type", "OPEN");
+        problem.put("statement", "Cubul ABCDA'B'C'D'");
+        problem.put("points", 10);
+        problem.put("section", "SUBIECTUL al III-lea");
+        problem.put("enChapterId", chapters.get("G9")); // III.1's automatic link is A9: kept
+        problem.put("parts", List.of(
+                Map.of("statement", "Aria", "points", 5, "enChapterId", chapters.get("G9")), // = its problem: automatic
+                Map.of("statement", "Volumul", "points", 5, "enChapterId", chapters.get("G8"))));
+        long quizId = json(send(post("/api/admin/ai-imports/" + id + "/quiz"),
+                Map.of("title", "Din manual " + id, "items", List.of(problem))).andExpect(status().isCreated()))
+                .get("quizId").asLong();
+
+        JsonNode created = json(mockMvc.perform(get("/api/admin/quizzes/" + quizId).with(teacher))).get("items").get(0);
+        assertThat(created.get("enChapterId").asLong()).isEqualTo(chapters.get("G9"));
+        assertThat(created.get("parts").get(0).get("enChapterId").isNull()).isTrue();
+        assertThat(created.get("parts").get(0).get("enChapterAuto").asLong()).isEqualTo(chapters.get("G9"));
+        assertThat(created.get("parts").get(1).get("enChapterId").asLong()).isEqualTo(chapters.get("G8"));
     }
 
     @Test

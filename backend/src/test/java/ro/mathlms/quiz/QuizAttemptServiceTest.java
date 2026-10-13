@@ -53,7 +53,7 @@ class QuizAttemptServiceTest {
             quizRepository, itemRepository, optionRepository,
             mock(QuizItemHintRepository.class), attemptRepository, responseRepository, userRepository,
             enrollmentRepository, cacheEvictor, resultNotifier, fileService, auditLog, java.time.Clock.systemUTC(),
-            "uploads/quiz-photos", mock(QuizItemPartRepository.class));
+            "uploads/quiz-photos", mock(QuizItemPartRepository.class), NoEnChapterLinks.create());
 
     private static final String EMAIL = "elev@scoala.ro";
 

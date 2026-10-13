@@ -98,8 +98,10 @@ public class EnChapterSlotService {
             return;
         }
 
-        slotRepository.deleteEverything();
-        slotRepository.saveAll(wanted.entrySet().stream().map(e -> new EnChapterSlot(e.getKey(), e.getValue())).toList());
+        slotRepository.deleteEverything(); // also clears the persistence context: the chapters above are detached now
+        slotRepository.saveAll(wanted.entrySet().stream()
+                .map(e -> new EnChapterSlot(e.getKey(), chapterRepository.getReferenceById(e.getValue().getId())))
+                .toList());
         String details = String.join(", ", changes.subList(0, Math.min(6, changes.size())))
                 + (changes.size() > 6 ? " și încă " + (changes.size() - 6) : "");
         auditLog.record(AuditEvent.of(AuditAction.EN_CHAPTER_SLOTS_UPDATED, null,
