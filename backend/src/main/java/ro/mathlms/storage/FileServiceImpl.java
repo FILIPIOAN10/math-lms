@@ -38,7 +38,8 @@ public class FileServiceImpl implements FileService {
 
         Path base = Paths.get(path).toAbsolutePath().normalize();
         Path target = base.resolve(fileName).normalize();
-        if (!target.getParent().equals(base)) { // defense in depth, like loadImage: never outside the folder
+        // defense in depth, like loadImage: never outside the folder, and right in it (not a sub-folder)
+        if (!target.startsWith(base) || !base.equals(target.getParent())) {
             throw new IOException("Invalid file name: " + fileName);
         }
         Files.copy(file.getInputStream(), target);
@@ -51,7 +52,12 @@ public class FileServiceImpl implements FileService {
                 || imageName.startsWith("http://") || imageName.startsWith("https://")) {
             return;
         }
-        File file = new File(path + File.separator + imageName);
+        Path base = Paths.get(path).toAbsolutePath().normalize();
+        Path target = base.resolve(imageName).normalize();
+        if (!target.startsWith(base) || target.equals(base)) { // a crafted name never deletes outside the folder
+            throw new IOException("Invalid image name: " + imageName);
+        }
+        File file = target.toFile();
         if (file.exists() && !file.delete()) {
             throw new IOException("Failed to delete image: " + file.getAbsolutePath());
         }

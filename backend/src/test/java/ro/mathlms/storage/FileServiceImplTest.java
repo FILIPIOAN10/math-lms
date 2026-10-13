@@ -81,4 +81,14 @@ class FileServiceImplTest {
         assertThatThrownBy(() -> fileService.loadImage(dir.resolve("quiz-photos").toString(), "../../secret.txt"))
                 .isInstanceOf(java.io.FileNotFoundException.class);
     }
+
+    @Test
+    void deleteNeverReachesOutsideTheFolder(@TempDir Path dir) throws Exception {
+        Path outside = java.nio.file.Files.writeString(dir.resolve("keep.txt"), "not an upload");
+        java.nio.file.Files.createDirectories(dir.resolve("quiz-photos"));
+
+        assertThatThrownBy(() -> fileService.deleteImage(dir.resolve("quiz-photos").toString(), "../keep.txt"))
+                .isInstanceOf(java.io.IOException.class);
+        assertThat(outside).exists();
+    }
 }

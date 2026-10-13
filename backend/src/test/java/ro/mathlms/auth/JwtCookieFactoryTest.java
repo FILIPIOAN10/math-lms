@@ -1,14 +1,16 @@
 package ro.mathlms.auth;
 
-import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.ResponseCookie;
 import ro.mathlms.user.Role;
 import ro.mathlms.user.User;
 
+import java.time.Duration;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class JwtCookieFactoryTest {
 
@@ -23,21 +25,21 @@ class JwtCookieFactoryTest {
                 "test-secret-at-least-32-characters-long!!",
                 60);
         jwtService = new JwtService(properties);
-        factory = new JwtCookieFactory(jwtService, properties, true);
+        factory = new JwtCookieFactory(jwtService, properties, true, "https://mate.exemplu.ro");
     }
 
     @Test
     void buildsHttpOnlySecureCookieCarryingASignedToken() {
         User user = new User("ana@scoala.ro", "Ana Pop", Role.STUDENT);
 
-        Cookie cookie = factory.create(user);
+        ResponseCookie cookie = factory.create(user);
 
         assertThat(cookie.getName()).isEqualTo(JwtCookieSuccessHandler.COOKIE_NAME);
         assertThat(cookie.isHttpOnly()).isTrue();
-        assertThat(cookie.getSecure()).isTrue();
+        assertThat(cookie.isSecure()).isTrue();
         assertThat(cookie.getPath()).isEqualTo("/");
-        assertThat(cookie.getMaxAge()).isEqualTo(60 * 60);
-        assertThat(cookie.getAttribute("SameSite")).isEqualTo("Lax");
+        assertThat(cookie.getMaxAge()).isEqualTo(Duration.ofMinutes(60));
+        assertThat(cookie.getSameSite()).isEqualTo("Lax");
         assertThat(jwtService.extractEmail(cookie.getValue())).isEqualTo("ana@scoala.ro");
     }
 
@@ -45,23 +47,35 @@ class JwtCookieFactoryTest {
     void secureFlagFollowsConfigForLocalHttpDev() {
         JwtCookieFactory devFactory = new JwtCookieFactory(jwtService,
                 new AuthProperties(List.of(), List.of(), "test-secret-at-least-32-characters-long!!", 60),
-                false);
+                false, "http://localhost:5173");
 
-        Cookie cookie = devFactory.create(new User("ana@scoala.ro", "Ana Pop", Role.STUDENT));
+        ResponseCookie cookie = devFactory.create(new User("ana@scoala.ro", "Ana Pop", Role.STUDENT));
 
-        assertThat(cookie.getSecure()).isFalse();
+        assertThat(cookie.isSecure()).isFalse();
+    }
+
+    @Test
+    void anHttpsSiteRefusesToStartWithoutSecureCookies() {
+        AuthProperties properties = new AuthProperties(List.of(), List.of(),
+                "test-secret-at-least-32-characters-long!!", 60);
+
+        assertThatThrownBy(() -> new JwtCookieFactory(jwtService, properties, false, "https://mate.exemplu.ro"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("COOKIE_SECURE=true");
+        assertThatThrownBy(() -> JwtCookieFactory.requireSecureOverHttps(false, " HTTPS://mate.exemplu.ro"))
+                .isInstanceOf(IllegalStateException.class);
     }
 
     @Test
     void theLogoutCookieMatchesTheOneItDeletesButIsEmptyAndExpired() {
-        Cookie cleared = factory.expired();
+        ResponseCookie cleared = factory.expired();
 
         assertThat(cleared.getName()).isEqualTo(JwtCookieSuccessHandler.COOKIE_NAME);
         assertThat(cleared.getValue()).isEmpty();
         assertThat(cleared.getMaxAge()).isZero();
         assertThat(cleared.isHttpOnly()).isTrue();
-        assertThat(cleared.getSecure()).isTrue(); // was missing: CodeQL java/insecure-cookie
+        assertThat(cleared.isSecure()).isTrue(); // was missing: CodeQL java/insecure-cookie
         assertThat(cleared.getPath()).isEqualTo("/");
-        assertThat(cleared.getAttribute("SameSite")).isEqualTo("Lax");
+        assertThat(cleared.getSameSite()).isEqualTo("Lax");
     }
 }

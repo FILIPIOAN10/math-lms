@@ -34,7 +34,7 @@ public class JwtCookieSuccessHandler extends SimpleUrlAuthenticationSuccessHandl
         AppOidcUser principal = (AppOidcUser) authentication.getPrincipal();
         User user = principal.getUser();
 
-        response.addCookie(jwtCookieFactory.create(user));
+        response.addHeader(HttpHeaders.SET_COOKIE, jwtCookieFactory.create(user).toString());
         String refreshToken = refreshTokenService.createSession(user.getEmail());
         response.addHeader(HttpHeaders.SET_COOKIE, refreshTokenService.refreshCookie(refreshToken).toString());
 

@@ -1,6 +1,5 @@
 package ro.mathlms.auth;
 
-import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.ResponseCookie;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -27,7 +26,7 @@ class JwtCookieSuccessHandlerTest {
     @Test
     void aGoogleSignInEndsOnTheConfiguredFrontendWithBothCookies() throws Exception {
         User user = new User("ana@scoala.ro", "Ana", Role.STUDENT);
-        when(cookieFactory.create(user)).thenReturn(new Cookie(JwtCookieSuccessHandler.COOKIE_NAME, "jwt"));
+        when(cookieFactory.create(user)).thenReturn(ResponseCookie.from(JwtCookieSuccessHandler.COOKIE_NAME, "jwt").build());
         when(refreshTokens.createSession("ana@scoala.ro")).thenReturn("refresh");
         when(refreshTokens.refreshCookie(any())).thenReturn(ResponseCookie.from("MATHLMS_REFRESH", "refresh").build());
         JwtCookieSuccessHandler handler =

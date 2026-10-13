@@ -95,7 +95,7 @@ public class AuthController {
         User user = userRepository.findByEmail(rotation.email())
                 .filter(u -> !u.isErased())
                 .orElseThrow(() -> new InvalidRefreshTokenException("Account no longer active"));
-        response.addCookie(jwtCookieFactory.create(user));
+        response.addHeader(HttpHeaders.SET_COOKIE, jwtCookieFactory.create(user).toString());
         response.addHeader(HttpHeaders.SET_COOKIE, refreshTokenService.refreshCookie(rotation.token()).toString());
         return ResponseEntity.ok(UserDto.from(user));
     }
@@ -156,13 +156,13 @@ public class AuthController {
 
     /** Issues the access cookie and opens a rotating refresh-token session. */
     private void issueSession(User user, HttpServletResponse response) {
-        response.addCookie(jwtCookieFactory.create(user));
+        response.addHeader(HttpHeaders.SET_COOKIE, jwtCookieFactory.create(user).toString());
         String refreshToken = refreshTokenService.createSession(user.getEmail());
         response.addHeader(HttpHeaders.SET_COOKIE, refreshTokenService.refreshCookie(refreshToken).toString());
     }
 
     private void clearCookies(HttpServletResponse response) {
-        response.addCookie(jwtCookieFactory.expired());
+        response.addHeader(HttpHeaders.SET_COOKIE, jwtCookieFactory.expired().toString());
         response.addHeader(HttpHeaders.SET_COOKIE, refreshTokenService.cleanRefreshCookie().toString());
     }
 }

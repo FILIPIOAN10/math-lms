@@ -45,9 +45,8 @@ class AuthControllerTest {
     @BeforeEach
     void logoutCookieFromTheFactory() {
         // The real shape of factory.expired() (JwtCookieFactoryTest checks its attributes).
-        Cookie expired = new Cookie(JwtCookieSuccessHandler.COOKIE_NAME, "");
-        expired.setHttpOnly(true);
-        expired.setMaxAge(0);
+        ResponseCookie expired = ResponseCookie.from(JwtCookieSuccessHandler.COOKIE_NAME, "")
+                .httpOnly(true).maxAge(0).build();
         when(jwtCookieFactory.expired()).thenReturn(expired);
     }
 
@@ -185,7 +184,7 @@ class AuthControllerTest {
     @Test
     void loginIssuesCookieAndReturnsUser() {
         User user = new User("ana@scoala.ro", "Ana Pop", Role.STUDENT);
-        Cookie authCookie = new Cookie(JwtCookieSuccessHandler.COOKIE_NAME, "JWT");
+        ResponseCookie authCookie = ResponseCookie.from(JwtCookieSuccessHandler.COOKIE_NAME, "JWT").build();
         when(loginService.authenticate("ana@scoala.ro", "parola123")).thenReturn(user);
         when(jwtCookieFactory.create(user)).thenReturn(authCookie);
         when(refreshTokenService.createSession("ana@scoala.ro")).thenReturn("RT");
@@ -244,7 +243,7 @@ class AuthControllerTest {
         when(refreshTokenService.rotate("OLD"))
                 .thenReturn(new RefreshTokenService.Rotation("ana@scoala.ro", "NEW"));
         when(userRepository.findByEmail("ana@scoala.ro")).thenReturn(Optional.of(user));
-        when(jwtCookieFactory.create(user)).thenReturn(new Cookie(JwtCookieSuccessHandler.COOKIE_NAME, "JWT"));
+        when(jwtCookieFactory.create(user)).thenReturn(ResponseCookie.from(JwtCookieSuccessHandler.COOKIE_NAME, "JWT").build());
         when(refreshTokenService.refreshCookie("NEW"))
                 .thenReturn(ResponseCookie.from(RefreshTokenService.REFRESH_COOKIE_NAME, "NEW").build());
         MockHttpServletResponse servletResponse = new MockHttpServletResponse();
