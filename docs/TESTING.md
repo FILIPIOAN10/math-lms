@@ -792,6 +792,17 @@ recapitulare zilnică); la Subiectul III fiecare cerință a)/b) intră la capit
 | 5 | Profesor: pagina elevului (**Elevi → nume**) | Aceeași secțiune |
 | 6 | Profesor: **Clase → clasa → Pe capitole** | Sub grila capitolelor clasei, **Pe capitolele EN**: elevii × doar capitolele întâlnite de clasă (codul sus, titlul la mouse), „—” unde elevul n-are date, rândul **Media clasei** |
 
+### 31. Legături automate — ca profesor (`/admin/en-chapters/legaturi`)
+
+| # | Ce faci | Ce trebuie să vezi |
+|---|---|---|
+| 1 | **Capitole EN → Legături automate** | Subiectele I, II (6 exerciții) și III (6 probleme, fiecare cu a) și b)), completate ca în `docs/EN-capitole.md` §1; locurile fără legătură: „— fără legătură —”, cerințele fără legătură proprie: „Ca problema” |
+| 2 | Schimbă Exercițiul 2 de la Subiectul I pe A3 | Butonul devine **Salvează (1)**; **Anulează modificările** readuce valoarea veche |
+| 3 | **Salvează** | „Salvat. Întrebările fără capitol ales de tine urmează de acum aceste legături.” |
+| 4 | Deschide un test EN în editor | La întrebarea I.2 eticheta e acum **→ A3** (automat), fără să fi editat testul |
+| 5 | **Jurnal**, filtrul Conținut | „Legături automate EN modificate · Legături automate EN · 1 schimbare” cu „I.2: A2 → A3” |
+| 6 | Pune I.2 înapoi pe A2 și salvează | Totul revine |
+
 ## E. Debugging — unde te uiți când pică ceva
 
 ```bash

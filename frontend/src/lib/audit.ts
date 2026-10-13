@@ -31,6 +31,7 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   EN_EXAMPLE_ADDED: 'Model rezolvat adăugat',
   EN_EXAMPLE_UPDATED: 'Model rezolvat modificat',
   EN_EXAMPLE_DELETED: 'Model rezolvat șters',
+  EN_CHAPTER_SLOTS_UPDATED: 'Legături automate EN modificate',
   QUIZ_CREATED: 'Test creat',
   QUIZ_UPDATED: 'Test modificat',
   QUIZ_COPIED: 'Test copiat',

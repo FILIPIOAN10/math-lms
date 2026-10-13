@@ -37,9 +37,16 @@ import java.util.List;
 public class EnChapterController {
 
     private final EnChapterService service;
+    private final EnChapterSlotService slotService;
 
-    public EnChapterController(EnChapterService service) {
+    public EnChapterController(EnChapterService service, EnChapterSlotService slotService) {
         this.service = service;
+        this.slotService = slotService;
+    }
+
+    /** The whole list of automatic links, as the screen saves it. */
+    public record SlotsRequest(@jakarta.validation.constraints.NotNull
+                               @jakarta.validation.constraints.Size(max = 100) List<EnChapterSlotService.SlotDto> slots) {
     }
 
     // --- reading ---
@@ -149,6 +156,21 @@ public class EnChapterController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> removeExampleImage(@PathVariable Long id, @PathVariable Long exampleId) {
         service.removeExampleImage(id, exampleId);
+        return ResponseEntity.noContent().build();
+    }
+
+    // --- the automatic links (which chapter each place on the EN paper points at by default) ---
+
+    @GetMapping("/api/admin/en-chapter-slots")
+    @PreAuthorize("hasRole('ADMIN')")
+    public List<EnChapterSlotService.SlotDto> slots() {
+        return slotService.list();
+    }
+
+    @PutMapping("/api/admin/en-chapter-slots")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> replaceSlots(@Valid @RequestBody SlotsRequest request) {
+        slotService.replace(request.slots());
         return ResponseEntity.noContent().build();
     }
 }

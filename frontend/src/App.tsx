@@ -39,6 +39,7 @@ const AdminAuditPage = lazy(() => import('@/pages/AdminAuditPage').then((m) => (
 const EnChaptersPage = lazy(() => import('@/pages/EnChaptersPage').then((m) => ({ default: m.EnChaptersPage })))
 const EnChapterPage = lazy(() => import('@/pages/EnChapterPage').then((m) => ({ default: m.EnChapterPage })))
 const AdminEnChaptersPage = lazy(() => import('@/pages/AdminEnChaptersPage').then((m) => ({ default: m.AdminEnChaptersPage })))
+const AdminEnChapterSlotsPage = lazy(() => import('@/pages/AdminEnChapterSlotsPage').then((m) => ({ default: m.AdminEnChapterSlotsPage })))
 const AdminEnChapterPage = lazy(() => import('@/pages/AdminEnChapterPage').then((m) => ({ default: m.AdminEnChapterPage })))
 const AdminAiImportPage = lazy(() => import('@/pages/AdminAiImportPage').then((m) => ({ default: m.AdminAiImportPage })))
 
@@ -262,6 +263,14 @@ function App() {
               element={
                 <AdminRoute>
                   <AdminEnChaptersPage />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/en-chapters/legaturi"
+              element={
+                <AdminRoute>
+                  <AdminEnChapterSlotsPage />
                 </AdminRoute>
               }
             />

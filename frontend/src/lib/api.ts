@@ -1536,7 +1536,7 @@ export type AuditAction =
   | 'CHAPTER_CREATED' | 'CHAPTER_UPDATED' | 'CHAPTER_DELETED'
   | 'EXERCISE_CREATED' | 'EXERCISE_UPDATED' | 'EXERCISE_DELETED'
   | 'EN_CHAPTER_CREATED' | 'EN_CHAPTER_UPDATED' | 'EN_CHAPTER_DELETED' | 'EN_CHAPTER_PHOTO_ADDED' | 'EN_CHAPTER_PHOTO_REMOVED'
-  | 'EN_EXAMPLE_ADDED' | 'EN_EXAMPLE_UPDATED' | 'EN_EXAMPLE_DELETED'
+  | 'EN_EXAMPLE_ADDED' | 'EN_EXAMPLE_UPDATED' | 'EN_EXAMPLE_DELETED' | 'EN_CHAPTER_SLOTS_UPDATED'
   | 'QUIZ_CREATED' | 'QUIZ_UPDATED' | 'QUIZ_COPIED' | 'QUIZ_PUBLISHED' | 'QUIZ_UNPUBLISHED' | 'QUIZ_DELETED'
   | 'QUESTION_ADDED' | 'QUESTION_UPDATED' | 'QUESTION_DELETED' | 'QUESTION_IMAGE_SET' | 'QUESTION_IMAGE_REMOVED' | 'QUIZ_FROM_PHOTOS'
   | 'ANSWER_GRADED' | 'PAPER_COMMENTED' | 'PAPER_GRADED'
@@ -1787,4 +1787,23 @@ export async function getStudentEnMastery(studentId: number): Promise<EnChapterM
 export async function getClassEnMastery(classId: number): Promise<EnClassMastery> {
   const response = await apiFetch(`/admin/classes/${classId}/en-mastery`)
   return response.json()
+}
+
+// --- The automatic links: which EN chapter each place on the paper points at by default ---
+
+/** "I.1" (SUBIECTUL I, question 1) or "III.5.b" (problem 5, requirement b) → a chapter. */
+export interface EnChapterSlot {
+  slot: string
+  chapterId: number
+  code?: string
+}
+
+export async function getEnChapterSlots(): Promise<EnChapterSlot[]> {
+  const response = await apiFetch('/admin/en-chapter-slots')
+  return response.json()
+}
+
+/** Replaces the whole list; a place left out has no automatic link any more. */
+export async function saveEnChapterSlots(slots: EnChapterSlot[]): Promise<void> {
+  await putJson('/admin/en-chapter-slots', { slots })
 }

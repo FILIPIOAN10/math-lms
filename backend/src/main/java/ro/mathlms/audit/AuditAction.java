@@ -29,6 +29,8 @@ public enum AuditAction {
     EN_EXAMPLE_ADDED(AuditCategory.CONTENT),
     EN_EXAMPLE_UPDATED(AuditCategory.CONTENT),
     EN_EXAMPLE_DELETED(AuditCategory.CONTENT),
+    /** The automatic links: which EN chapter each place on the paper points at by default. */
+    EN_CHAPTER_SLOTS_UPDATED(AuditCategory.CONTENT),
 
     QUIZ_CREATED(AuditCategory.QUIZ),
     QUIZ_UPDATED(AuditCategory.QUIZ),

@@ -28,4 +28,9 @@ public class EnChapterSlot {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "chapter_id", nullable = false)
     private EnChapter chapter;
+
+    public EnChapterSlot(String slot, EnChapter chapter) {
+        this.slot = java.util.Objects.requireNonNull(slot, "slot");
+        this.chapter = java.util.Objects.requireNonNull(chapter, "chapter");
+    }
 }

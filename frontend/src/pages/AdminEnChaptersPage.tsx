@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { EnChapterDialog } from '@/components/EnChapterDialogs'
 import { PageHeader } from '@/components/PageHeader'
@@ -82,7 +82,12 @@ export function AdminEnChaptersPage() {
           title="Capitole EN"
           description="O pagină pentru fiecare capitol: poze cu materia și modele rezolvate. Elevul ajunge aici când greșește un exercițiu de la EN."
           breadcrumbs={[{ label: 'Clase', to: '/admin/content' }, { label: 'Capitole EN' }]}
-          actions={<Button onClick={() => setDialog('new')}>Adaugă capitol</Button>}
+          actions={
+            <>
+              <Link to="/admin/en-chapters/legaturi" className={buttonVariants({ variant: 'outline' })}>Legături automate</Link>
+              <Button onClick={() => setDialog('new')}>Adaugă capitol</Button>
+            </>
+          }
         />
         {error && <p className="text-sm text-destructive">{error}</p>}
         {!chapters && !error && <p className="text-muted-foreground">Se încarcă...</p>}
