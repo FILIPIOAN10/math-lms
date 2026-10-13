@@ -19,6 +19,9 @@ import type { ItemInput } from '@/lib/api'
  * lines under it, before its first question, are its instruction), every question after it belongs to that section,
  * and the points may come first, as on the paper: "5p 1. Rezultatul calculului … este:".
  *
+ * Variants may be written as a list ("- a) …", "• *b) …"). On a Subiectul III problem, requirements with their points
+ * first ("(2p) a) Arată că…", "(3p) b) Calculează…") are requirements graded one by one, not variants.
+ *
  * A line "[imagine]" (or "[figură]") inside a question marks it as needing a picture (a figure in the statement);
  * the editor then flags it until the teacher pastes the picture in.
  */
@@ -34,7 +37,10 @@ const ITEM_START_POINTS_FIRST = /^\s*\(?\s*(\d+)\s*(?:p|pct|puncte?)\s*\)?\s+(\d
 const SECTION = /^\s*subiectul\s+(?:al\s+)?(?:[ivxlc]+(?:-?lea)?|\d+)\b/i
 const MAX_SECTION = 300 // matches QuizItem.MAX_SECTION on the server
 const IMAGE_MARK = /^\[\s*(?:imagine|figur[aă])\s*\]$/i
-const OPTION = /^\s*(\*)?\s*([a-h])[).]\s+(.+)$/i
+/** "a) …", "*b) …", also as a list: "- a) …", "• *c) …", "(d) …" - the way other tools (and AIs) write variants. */
+const OPTION = /^\s*(?:[-–•·]\s*)?(\*)?\s*\(?([a-h])[).]\s+(.+)$/i
+/** An EN Subiectul III requirement: its points come first, "(2p) a) Arată că…" - a requirement, not a variant. */
+const PART = /^\s*(?:[-–•·]\s*)?\(?\s*(\d+)\s*(?:p|pct|puncte?)\s*\)?\s*([a-f])\)\s+(.+)$/i
 const POINTS = /\(\s*(\d+)\s*(?:p|pct|puncte?)\s*\)\s*$/i
 const SOLUTION = /^\s*R:\s*(.*)$/i
 const HINT = /^\s*I:\s*(.+)$/i
@@ -48,9 +54,19 @@ interface Draft {
   imageRequired: boolean
   statement: string[]
   options: { text: string; correct: boolean }[]
+  /** Requirements a), b)... with their points (EN Subiectul III). */
+  parts: { text: string; points: number }[]
   solution: string[]
   hints: string[]
-  part: 'statement' | 'options' | 'solution' | 'hints'
+  part: 'statement' | 'options' | 'parts' | 'solution' | 'hints'
+}
+
+/**
+ * An open question whose statement holds lettered variants ("a) …", "- b) …" on their own lines): it was meant as a
+ * grilă, but the student gets a photo upload and nothing to tick.
+ */
+export function hasVariantsInStatement(statement: string): boolean {
+  return statement.split(/\r?\n/).filter((line) => OPTION.test(line)).length >= 2
 }
 
 export function parseItems(text: string): ParsedItems {
@@ -64,7 +80,7 @@ export function parseItems(text: string): ParsedItems {
     sectionHasItems = true
     drafts.push({
       number, pointsFirst, section: section ? section.join('\n') : null, imageRequired: false,
-      statement: [statement.trim()], options: [], solution: [], hints: [], part: 'statement',
+      statement: [statement.trim()], options: [], parts: [], solution: [], hints: [], part: 'statement',
     })
   }
 
@@ -99,6 +115,12 @@ export function parseItems(text: string): ParsedItems {
       current.imageRequired = true
       return
     }
+    const requirement = PART.exec(line)
+    if (requirement) {
+      current.parts.push({ text: requirement[3].trim(), points: Number(requirement[1]) })
+      current.part = 'parts'
+      return
+    }
     const option = OPTION.exec(line)
     if (option) {
       current.options.push({ text: option[3].trim(), correct: option[1] === '*' })
@@ -119,6 +141,9 @@ export function parseItems(text: string): ParsedItems {
     }
     if (current.part === 'statement') {
       current.statement.push(line)
+    } else if (current.part === 'parts') {
+      const last = current.parts[current.parts.length - 1]
+      last.text = `${last.text}\n${line}` // a requirement over several lines
     } else if (current.part === 'solution') {
       current.solution.push(line)
     } else {
@@ -138,6 +163,9 @@ export function parseItems(text: string): ParsedItems {
       return
     }
     const choice = draft.options.length > 0
+    if (choice && draft.parts.length > 0) {
+      errors.push(`${label}: are și variante, și cerințe cu punctaj ((2p) a) …) - alege una dintre ele.`)
+    }
     if (choice) {
       if (draft.options.length < 2) errors.push(`${label}: o grilă are nevoie de cel puțin 2 variante.`)
       const correct = draft.options.filter((o) => o.correct).length
@@ -151,12 +179,17 @@ export function parseItems(text: string): ParsedItems {
       type: choice ? 'SINGLE_CHOICE' : 'OPEN',
       position: i,
       statement,
-      points: points ? Number(points[1]) : draft.pointsFirst ?? 1,
+      points: draft.parts.length > 0
+        ? draft.parts.reduce((sum, p) => sum + p.points, 0)
+        : points ? Number(points[1]) : draft.pointsFirst ?? 1,
       solution: draft.solution.join('\n').trim() || null,
       options: choice ? draft.options.map((o, p) => ({ position: p, text: o.text, correct: o.correct })) : null,
       hints: draft.hints,
       section: draft.section,
       imageRequired: draft.imageRequired,
+      parts: !choice && draft.parts.length > 0
+        ? draft.parts.map((p) => ({ statement: p.text, points: p.points, solution: null }))
+        : null,
     })
   })
   return { items, errors }

@@ -155,4 +155,48 @@ R: $x = 4$
       expect(errors).toEqual(['SUBIECTUL al II-lea, subiectul 1: marchează cu * exact o variantă corectă (acum: 0).'])
     })
   })
+
+  describe('variants written as a list, and EN requirements', () => {
+    it('reads "- a)" lines as the variants of a grilă, the star marking the right one', () => {
+      const { items, errors } = parseItems([
+        '1. Rezultatul calculului \\(\\dfrac{2}{3}+\\dfrac{1}{6}\\) este egal cu:',
+        '- a) \\(\\dfrac{3}{9}\\)',
+        '- *b) \\(\\dfrac{5}{6}\\)',
+        '• c) \\(\\dfrac{1}{2}\\)',
+        '(d) \\(\\dfrac{3}{6}\\)',
+      ].join('\n'))
+
+      expect(errors).toEqual([])
+      expect(items[0].type).toBe('SINGLE_CHOICE')
+      expect(items[0].statement).toBe('Rezultatul calculului \\(\\dfrac{2}{3}+\\dfrac{1}{6}\\) este egal cu:')
+      expect(items[0].options?.map((o) => [o.text, o.correct])).toEqual([
+        ['\\(\\dfrac{3}{9}\\)', false], ['\\(\\dfrac{5}{6}\\)', true], ['\\(\\dfrac{1}{2}\\)', false], ['\\(\\dfrac{3}{6}\\)', false],
+      ])
+    })
+
+    it('asks for the star when the variants of a list have no right one marked', () => {
+      const { errors } = parseItems('1. Cât face 2+2?\n- a) 3\n- b) 4')
+      expect(errors).toEqual(['Subiectul 1: marchează cu * exact o variantă corectă (acum: 0).'])
+    })
+
+    it('turns "(2p) a) …" lines of a Subiectul III problem into requirements worth their points', () => {
+      const { items, errors } = parseItems([
+        'SUBIECTUL al III-lea',
+        'Scrie rezolvările complete.',
+        '1. Se consideră numerele reale $x$ și $y$.',
+        '(2p) a) Arată că $x = 25$.',
+        '(3p) b) Calculează $(8y - x)^{27}$.',
+      ].join('\n'))
+
+      expect(errors).toEqual([])
+      expect(items[0]).toMatchObject({
+        type: 'OPEN', points: 5, statement: 'Se consideră numerele reale $x$ și $y$.',
+        section: 'SUBIECTUL al III-lea\nScrie rezolvările complete.',
+        parts: [
+          { statement: 'Arată că $x = 25$.', points: 2, solution: null },
+          { statement: 'Calculează $(8y - x)^{27}$.', points: 3, solution: null },
+        ],
+      })
+    })
+  })
 })

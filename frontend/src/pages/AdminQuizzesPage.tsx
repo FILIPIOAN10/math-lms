@@ -16,6 +16,7 @@ import { PublishDialog } from '@/components/PublishDialog'
 import { SectionHeadingView } from '@/components/SectionHeadingView'
 import { PartsView } from '@/components/PartsView'
 import { numberItems } from '@/lib/sections'
+import { hasVariantsInStatement } from '@/lib/importItems'
 import { useConfirm } from '@/components/useConfirm'
 import {
   addQuizItem,
@@ -904,6 +905,12 @@ export function AdminQuizzesPage() {
                         </div>
                         <MathContent className="text-sm">{item.statement}</MathContent>
                         <QuestionImage itemId={item.id} image={item.image} />
+                        {item.type === 'OPEN' && (item.parts ?? []).length === 0 && hasVariantsInStatement(item.statement) && (
+                          <p data-testid="variants-in-statement" className="text-sm font-medium text-amber-700 dark:text-amber-300">
+                            ⚠ Variantele a), b)… sunt scrise în enunț, așa că elevul nu le poate bifa (primește doar „Fă o poză”).
+                            Șterge subiectul și adaugă-l ca grilă, sau importă-l din nou cu * la varianta corectă (ex. „*b)”).
+                          </p>
+                        )}
                         {item.imageRequired && !item.image && (
                           <p data-testid="image-missing" className="text-sm font-medium text-amber-700 dark:text-amber-300">
                             ⚠ Lipsește imaginea — apasă „Editează” și lipește figura (Ctrl+V).

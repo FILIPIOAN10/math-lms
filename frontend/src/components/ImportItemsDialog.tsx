@@ -59,7 +59,7 @@ export function ImportItemsDialog({
       open={open}
       onOpenChange={(o) => !o && onClose()}
       title="Importă subiecte din text"
-      description="Un subiect începe cu „1.”, variantele cu a), b)… (* marchează varianta corectă), rezolvarea cu R:, indiciile cu I:. „(2p)” la finalul enunțului dă punctajul (implicit 1). Format Evaluare Națională: „SUBIECTUL I” (cu instrucțiunea pe rândul următor) grupează subiectele, iar „5p 1.” dă punctajul la început. Un rând „[imagine]” în subiect îl marchează: după import lipești figura (Ctrl+V) din „Editează”."
+      description="Un subiect începe cu „1.”, variantele cu a), b)… sau „- a)” (* marchează varianta corectă: „*b)” / „- *b)”), rezolvarea cu R:, indiciile cu I:. La Subiectul III, „(2p) a) …”, „(3p) b) …” sunt cerințe notate separat. „(2p)” la finalul enunțului dă punctajul (implicit 1). Format Evaluare Națională: „SUBIECTUL I” (cu instrucțiunea pe rândul următor) grupează subiectele, iar „5p 1.” dă punctajul la început. Un rând „[imagine]” în subiect îl marchează: după import lipești figura (Ctrl+V) din „Editează”."
     >
       <div className="flex max-h-[75vh] flex-col gap-4 overflow-y-auto pr-1">
         <div className="flex flex-col gap-2">
@@ -86,7 +86,13 @@ export function ImportItemsDialog({
                   {heading && <SectionHeadingView heading={heading} className="pb-1" />}
                   <span className="font-medium">{local}. </span>
                   <MathContent inline>{item.statement}</MathContent>{' '}
-                  <span className="text-muted-foreground">({item.points} p)</span>
+                  <span className="text-muted-foreground">
+                    ({item.points} p · {item.type === 'SINGLE_CHOICE'
+                      ? `grilă, ${item.options?.length ?? 0} variante`
+                      : (item.parts ?? []).length > 0
+                        ? `cerințe ${(item.parts ?? []).map((part, j) => `${String.fromCharCode(97 + j)}) ${part.points}p`).join(', ')}`
+                        : 'cu poză'})
+                  </span>
                   {item.imageRequired && <span className="ml-1 text-amber-700 dark:text-amber-300">· necesită imagine</span>}
                 </li>
               ))}
