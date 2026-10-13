@@ -195,7 +195,7 @@ public class MasteryService {
     }
 
     /** Points earned on one question of one attempt, or {@code null} when it does not count (yet). */
-    private static Integer earned(QuizAttempt attempt, QuizItem item, ItemResponse response) {
+    static Integer earned(QuizAttempt attempt, QuizItem item, ItemResponse response) {
         Integer awarded = response == null ? null : response.getAwardedPoints();
         if (attempt.getMode() == AttemptMode.PRACTICE) {
             return awarded; // answered multiple-choice only; a hint-only row or an open answer has none

@@ -7,13 +7,16 @@ import { AttemptModeBadge } from '@/components/AttemptModeBadge'
 import { AttemptStatusBadge } from '@/components/AttemptStatusBadge'
 import { HomeSection } from '@/components/home/HomeBits'
 import { MasteryList } from '@/components/MasteryList'
+import { EnMasteryList } from '@/components/EnMasteryList'
 import { PageHeader } from '@/components/PageHeader'
 import { ProgressChart } from '@/components/ProgressChart'
 import { ReviewStatusLine } from '@/components/ReviewStatusLine'
 import {
   getStudentAssignments,
   getStudentAttempts,
+  getStudentEnMastery,
   getStudentMastery,
+  type EnChapterMastery,
   getStudentProfile,
   getStudentProgress,
   getStudentReview,
@@ -46,6 +49,7 @@ export function AdminStudentPage() {
   const { studentId } = useParams<{ studentId: string }>()
   const [data, setData] = useState<StudentData | null>(null)
   const [mastery, setMastery] = useState<ChapterMastery[] | null>(null)
+  const [enMastery, setEnMastery] = useState<EnChapterMastery[] | null>(null)
   const [review, setReview] = useState<ReviewStatus | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -61,6 +65,9 @@ export function AdminStudentPage() {
     getStudentMastery(id)
       .then((m) => !cancelled && setMastery(m))
       .catch(() => !cancelled && setMastery([]))
+    getStudentEnMastery(id)
+      .then((m) => !cancelled && setEnMastery(m))
+      .catch(() => !cancelled && setEnMastery([]))
     getStudentReview(id)
       .then((r) => !cancelled && setReview(r))
       .catch(() => undefined)
@@ -139,6 +146,16 @@ export function AdminStudentPage() {
                 <Card>
                   <CardContent className="py-4">
                     <MasteryList rows={mastery} />
+                  </CardContent>
+                </Card>
+              </HomeSection>
+            )}
+
+            {enMastery && enMastery.some((r) => r.questions > 0) && (
+              <HomeSection title="Pe capitolele EN">
+                <Card>
+                  <CardContent className="py-4">
+                    <EnMasteryList rows={enMastery} />
                   </CardContent>
                 </Card>
               </HomeSection>

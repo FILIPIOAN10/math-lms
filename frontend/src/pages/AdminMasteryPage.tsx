@@ -2,9 +2,10 @@ import { Fragment, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
 import { MasteryLegend } from '@/components/MasteryLegend'
+import { EnMasteryGrid } from '@/components/EnMasteryGrid'
 import { PageHeader } from '@/components/PageHeader'
 import { HomeSection } from '@/components/home/HomeBits'
-import { getClassMastery, getClassReview, listClasses, type ClassMastery, type StudentReviewStatus } from '@/lib/api'
+import { getClassEnMastery, getClassMastery, getClassReview, listClasses, type ClassMastery, type EnClassMastery, type StudentReviewStatus } from '@/lib/api'
 import { roCount } from '@/lib/format'
 import { errorMessage } from '@/lib/errors'
 import { MASTERY_LABELS, MASTERY_TONES, masteryLevel } from '@/lib/mastery'
@@ -26,6 +27,7 @@ export function AdminMasteryPage() {
   const [grid, setGrid] = useState<ClassMastery | null>(null)
   const [className, setClassName] = useState<string | null>(null)
   const [review, setReview] = useState<StudentReviewStatus[] | null>(null)
+  const [enGrid, setEnGrid] = useState<EnClassMastery | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -39,6 +41,9 @@ export function AdminMasteryPage() {
     getClassReview(id)
       .then((r) => !cancelled && setReview(r))
       .catch(() => !cancelled && setReview([]))
+    getClassEnMastery(id)
+      .then((g) => !cancelled && setEnGrid(g))
+      .catch(() => undefined) // the class chapters above still work without it
     return () => {
       cancelled = true
     }
@@ -141,6 +146,12 @@ export function AdminMasteryPage() {
             </Card>
             <MasteryLegend />
           </>
+        )}
+
+        {enGrid && enGrid.chapters.length > 0 && (
+          <HomeSection title="Pe capitolele EN">
+            <EnMasteryGrid grid={enGrid} />
+          </HomeSection>
         )}
 
         {review && review.length > 0 && (

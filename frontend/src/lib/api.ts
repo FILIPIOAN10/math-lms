@@ -1747,3 +1747,44 @@ export interface EnChapterAssignment {
 export async function assignEnChapters(quizId: number, items: EnChapterAssignment[]): Promise<void> {
   await putJson(`/admin/quizzes/${quizId}/en-chapters`, { items })
 }
+
+// --- The map of EN chapters (stage 4) ---
+
+/** One EN chapter for one student; `percent` null = nothing scored there yet, `ready` = its page has content. */
+export interface EnChapterMastery {
+  chapterId: number
+  code: string
+  title: string
+  area: EnArea
+  earned: number
+  possible: number
+  percent: number | null
+  questions: number
+  ready: boolean
+}
+
+/** The class grid: students × the EN chapters the class has met (cells in the order of `chapters`). */
+export interface EnClassMastery {
+  chapters: { id: number; code: string; title: string; area: EnArea }[]
+  students: { studentId: number; fullName: string; cells: { chapterId: number; percent: number | null; questions: number }[] }[]
+}
+
+export async function getMyEnMastery(): Promise<EnChapterMastery[]> {
+  const response = await apiFetch('/quiz/en-mastery')
+  return response.json()
+}
+
+export async function getChildEnMastery(childId: number): Promise<EnChapterMastery[]> {
+  const response = await apiFetch(`/parent/children/${childId}/en-mastery`)
+  return response.json()
+}
+
+export async function getStudentEnMastery(studentId: number): Promise<EnChapterMastery[]> {
+  const response = await apiFetch(`/admin/students/${studentId}/en-mastery`)
+  return response.json()
+}
+
+export async function getClassEnMastery(classId: number): Promise<EnClassMastery> {
+  const response = await apiFetch(`/admin/classes/${classId}/en-mastery`)
+  return response.json()
+}

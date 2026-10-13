@@ -80,7 +80,7 @@ public class EnChapterLinks {
         }
 
         /** Where the question points: the teacher's choice, else the default for its place. */
-        EnChapter itemChapter(QuizItem item) {
+        public EnChapter itemChapter(QuizItem item) {
             return item.getEnChapter() != null ? item.getEnChapter() : itemDefault(item);
         }
 
@@ -92,7 +92,7 @@ public class EnChapterLinks {
             return own != null ? own : itemChapter(item);
         }
 
-        EnChapter partChapter(QuizItemPart part) {
+        public EnChapter partChapter(QuizItemPart part) {
             return part.getEnChapter() != null ? part.getEnChapter() : partDefault(part);
         }
 

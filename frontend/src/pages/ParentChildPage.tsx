@@ -8,10 +8,13 @@ import { AttemptModeBadge } from '@/components/AttemptModeBadge'
 import { AssignmentsSection } from '@/components/AssignmentsSection'
 import { HomeSection } from '@/components/home/HomeBits'
 import { MasteryList } from '@/components/MasteryList'
+import { EnMasteryList } from '@/components/EnMasteryList'
 import {
   getChildAssignments,
   getChildAttempts,
+  getChildEnMastery,
   getChildMastery,
+  type EnChapterMastery,
   getChildProgress,
   listMyChildren,
   type ChapterMastery,
@@ -35,6 +38,7 @@ export function ParentChildPage() {
   const [assignments, setAssignments] = useState<StudentAssignment[] | null>(null)
   const [childName, setChildName] = useState<string | null>(null)
   const [mastery, setMastery] = useState<ChapterMastery[] | null>(null)
+  const [enMastery, setEnMastery] = useState<EnChapterMastery[] | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -52,6 +56,9 @@ export function ParentChildPage() {
     getChildMastery(id)
       .then((m) => !cancelled && setMastery(m))
       .catch(() => !cancelled && setMastery([]))
+    getChildEnMastery(id)
+      .then((m) => !cancelled && setEnMastery(m))
+      .catch(() => !cancelled && setEnMastery([]))
     // Only for the title: the page still works without the name.
     listMyChildren()
       .then((children) => !cancelled && setChildName(children.find((c) => c.id === id)?.fullName ?? null))
@@ -85,6 +92,15 @@ export function ParentChildPage() {
             <Card>
               <CardContent className="py-4">
                 <MasteryList rows={mastery} />
+              </CardContent>
+            </Card>
+          </HomeSection>
+        )}
+        {enMastery && enMastery.some((r) => r.questions > 0) && (
+          <HomeSection title="Pe capitolele EN">
+            <Card>
+              <CardContent className="py-4">
+                <EnMasteryList rows={enMastery} />
               </CardContent>
             </Card>
           </HomeSection>

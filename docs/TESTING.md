@@ -778,6 +778,20 @@ cu `AI_PROVIDER=fake` capitolul se alege după cuvinte-cheie, fără rețea.
 | 5 | Debifează una, **Aplică (N)** | Doar cele bifate se schimbă; jurnalul: „Test modificat · capitol EN la N întrebări sau cerințe” |
 | 6 | Fără cheie OpenAI / OpenAI căzut | Mesaj clar în dialog („Cheia OpenAI lipsește…”, „OpenAI nu răspunde acum…”); la import, întrebările vin fără propunere, importul nu pică |
 
+### 30. Harta pe capitolele EN — elev, părinte, profesor
+
+Aceleași reguli ca harta pe capitolele clasei: contează ultimul răspuns notat la fiecare întrebare (teste, practică,
+recapitulare zilnică); la Subiectul III fiecare cerință a)/b) intră la capitolul ei, cu punctele ei.
+
+| # | Ce faci | Ce trebuie să vezi |
+|---|---|---|
+| 1 | Elev care n-a dat niciun test EN: **Progresul meu** | Fără secțiunea „Pe capitolele EN” |
+| 2 | Elevul dă un test EN, profesorul îl corectează (o cerință b) cu punctaj parțial) | — |
+| 3 | Elev: **Progresul meu → Pe capitolele EN** | Doar capitolele întâlnite, pe Algebră/Geometrie, cu bară, „x / y p · N întrebări”; sus **De recapitulat întâi** (sub 50%, cele mai slabe 3), cu link spre pagina capitolului dacă are materie |
+| 4 | Părinte: pagina copilului | Aceeași secțiune |
+| 5 | Profesor: pagina elevului (**Elevi → nume**) | Aceeași secțiune |
+| 6 | Profesor: **Clase → clasa → Pe capitole** | Sub grila capitolelor clasei, **Pe capitolele EN**: elevii × doar capitolele întâlnite de clasă (codul sus, titlul la mouse), „—” unde elevul n-are date, rândul **Media clasei** |
+
 ## E. Debugging — unde te uiți când pică ceva
 
 ```bash

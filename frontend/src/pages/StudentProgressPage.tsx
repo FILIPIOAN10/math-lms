@@ -1,16 +1,18 @@
 import { useEffect, useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { ProgressChart } from '@/components/ProgressChart'
-import { getMyMastery, getMyProgress, type ChapterMastery, type ProgressPointDto } from '@/lib/api'
+import { getMyEnMastery, getMyMastery, getMyProgress, type ChapterMastery, type EnChapterMastery, type ProgressPointDto } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
 import { PageHeader } from '@/components/PageHeader'
 import { HomeSection } from '@/components/home/HomeBits'
 import { MasteryList } from '@/components/MasteryList'
+import { EnMasteryList } from '@/components/EnMasteryList'
 
 /** The student's own progress: their level per chapter (tests and practice), and how every graded test went over time. */
 export function StudentProgressPage() {
   const [points, setPoints] = useState<ProgressPointDto[] | null>(null)
   const [mastery, setMastery] = useState<ChapterMastery[] | null>(null)
+  const [enMastery, setEnMastery] = useState<EnChapterMastery[] | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -21,6 +23,9 @@ export function StudentProgressPage() {
     getMyMastery()
       .then((m) => !cancelled && setMastery(m))
       .catch(() => !cancelled && setMastery([]))
+    getMyEnMastery()
+      .then((m) => !cancelled && setEnMastery(m))
+      .catch(() => !cancelled && setEnMastery([]))
     return () => {
       cancelled = true
     }
@@ -41,6 +46,15 @@ export function StudentProgressPage() {
           </HomeSection>
         )}
 
+        {enMastery && enMastery.some((r) => r.questions > 0) && (
+          <HomeSection title="Pe capitolele EN">
+            <Card>
+              <CardContent className="py-4">
+                <EnMasteryList rows={enMastery} />
+              </CardContent>
+            </Card>
+          </HomeSection>
+        )}
         {error && <p className="text-sm text-destructive">{error}</p>}
         {!points && !error && <p className="text-muted-foreground">Se încarcă...</p>}
         {points && (
