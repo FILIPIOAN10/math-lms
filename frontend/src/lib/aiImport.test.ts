@@ -91,9 +91,9 @@ describe('aiImport', () => {
 
   it('keeps the EN chapter the AI proposed (or the teacher picked) and sends it as the chapter id', () => {
     const enChapters = [
-      { id: 1, code: 'A1', title: 'Ordinea efectuării operațiilor', area: 'ALGEBRA' as const, position: 1, photoCount: 0, exampleCount: 0 },
-      { id: 19, code: 'G8', title: 'Corpuri', area: 'GEOMETRY' as const, position: 19, photoCount: 0, exampleCount: 0 },
-      { id: 20, code: 'G9', title: 'Drepte și plane', area: 'GEOMETRY' as const, position: 20, photoCount: 0, exampleCount: 0 },
+      { id: 1, code: 'A1', title: 'Ordinea efectuării operațiilor', area: 'ALGEBRA' as const, position: 1, parentId: null, bookPage: null, photoCount: 0, exampleCount: 0 },
+      { id: 19, code: 'G8', title: 'Corpuri', area: 'GEOMETRY' as const, position: 19, parentId: null, bookPage: null, photoCount: 0, exampleCount: 0 },
+      { id: 20, code: 'G9', title: 'Drepte și plane', area: 'GEOMETRY' as const, position: 20, parentId: null, bookPage: null, photoCount: 0, exampleCount: 0 },
     ]
     const drafts = toDrafts([
       read({ enChapter: 'A1', enChapterReason: 'Un calcul.' }),
