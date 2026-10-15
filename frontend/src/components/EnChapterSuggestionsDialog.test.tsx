@@ -11,7 +11,7 @@ const api = vi.hoisted(() => ({
 vi.mock('@/lib/api', async (original) => ({ ...(await original<typeof import('@/lib/api')>()), ...api }))
 
 const chapter = (id: number, code: string, title: string): EnChapterSummary => ({
-  id, code, title, area: code.startsWith('A') ? 'ALGEBRA' : 'GEOMETRY', position: id, photoCount: 0, exampleCount: 0,
+  id, code, title, area: code.startsWith('A') ? 'ALGEBRA' : 'GEOMETRY', position: id, parentId: null, bookPage: null, photoCount: 0, exampleCount: 0,
 })
 const enChapters = [chapter(1, 'A1', 'Ordinea operațiilor'), chapter(2, 'A2', 'Proporții'), chapter(3, 'A3', 'Procente'),
   chapter(19, 'G8', 'Corpuri'), chapter(20, 'G9', 'Drepte și plane')]

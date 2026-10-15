@@ -12,7 +12,7 @@ const api = vi.hoisted(() => ({
 vi.mock('@/lib/api', async (original) => ({ ...(await original<typeof import('@/lib/api')>()), ...api }))
 
 const chapter = (id: number, code: string, title: string): EnChapterSummary => ({
-  id, code, title, area: code.startsWith('A') ? 'ALGEBRA' : 'GEOMETRY', position: id, photoCount: 0, exampleCount: 0,
+  id, code, title, area: code.startsWith('A') ? 'ALGEBRA' : 'GEOMETRY', position: id, parentId: null, bookPage: null, photoCount: 0, exampleCount: 0,
 })
 
 describe('AdminEnChapterSlotsPage', () => {

@@ -730,19 +730,19 @@ conturilor `@mathlms.local`, iar emailurile lor ar rămâne în outbox până la
 
 ### 27. Capitole EN: materia și modelele rezolvate (V33) — ca profesor, apoi ca elev
 
-Lista celor 20 de capitole și de unde vine e în `docs/EN-capitole.md`.
+Lista celor 20 de capitole și de unde vine e în `docs/EN-capitole.md`. De la V35 fiecare capitol pornește cu teorie (textul de sus) și 4–5 modele rezolvate, scrise după acel document; le editezi sau le ștergi ca pe ale tale.
 
 | # | Ce faci | Ce trebuie să vezi |
 |---|---|---|
-| 1 | Profesor: **Clase → Capitole EN** (sau linkul de pe Acasă) | 20 de capitole, A1–A11 sub **Algebră**, G1–G9 sub **Geometrie**, fiecare cu „0 poze · 0 modele” |
+| 1 | Profesor: **Clase → Capitole EN** (sau linkul de pe Acasă) | 20 de capitole, A1–A11 sub **Algebră**, G1–G9 sub **Geometrie**, fiecare cu „0 poze · 4 modele” sau „0 poze · 5 modele” |
 | 2 | Deschide **A1**, **Adaugă poze**, alege 2 poze deodată | „Se încarcă poza 1 din 2…”, apoi „Materia (2)” cu paginile în ordinea aleasă; click pe una → vizualizatorul mare (←/→, rotire) |
-| 3 | **Adaugă model**: enunț cu `$36 : 4 - 4 \cdot 2$`, rezolvarea pas cu pas | Sub fiecare câmp apare previzualizarea cu formulele; după Salvează, „Modele rezolvate (1)” |
+| 3 | **Adaugă model**: enunț cu `$36 : 4 - 4 \cdot 2$`, rezolvarea pas cu pas | Sub fiecare câmp apare previzualizarea cu formulele; după Salvează, modelul apare ultimul în „Modele rezolvate” |
 | 4 | La model: **Adaugă figură**, apoi **Șterge figura** | Figura apare sub enunț, apoi dispare |
-| 5 | **Editează capitolul**: un text scurt pe pagină | Textul apare deasupra pozelor |
-| 6 | Înapoi în listă: **Șterge** la A1 | Refuzat: „are 2 poze și 1 model. Șterge-le întâi, apoi capitolul.” |
+| 5 | **Editează capitolul**: schimbă ceva în teoria de sus (câmpul mare „Text pe pagină”) | Previzualizarea arată formulele; după Salvează textul nou apare deasupra pozelor |
+| 6 | Înapoi în listă: **Șterge** la A1 | Refuzat: „are 2 poze și 6 modele. Șterge-le întâi, apoi capitolul.” |
 | 7 | **Adaugă capitol** cu codul `a1` | Refuzat: „Codul A1 e deja folosit…” (codul se scrie automat cu majuscule) |
 | 8 | Adaugă un capitol de test, mută-l cu ↑/↓, apoi șterge-l | Se mută doar printre capitolele din aceeași parte; fiind gol, se șterge |
-| 9 | Elev: **Capitole EN** în meniu | A1 e link, cu „2 poze · 1 model”; restul apar cu „în pregătire” și nu se deschid |
+| 9 | Elev: **Capitole EN** în meniu | Toate cele 20 sunt linkuri (au modele); A1 arată „2 poze · 6 modele”. Pe pagină: teoria sus, apoi materia, apoi „Modele rezolvate” cu formulele randate |
 | 10 | Elev: deschide A1, apasă **Arată rezolvarea** | Întâi vede doar enunțul; rezolvarea apare la apăsare și se ascunde la „Ascunde rezolvarea” |
 | 11 | Profesor: **Jurnal**, filtrul Conținut | Rânduri „Capitol EN modificat”, „Poză cu materia adăugată”, „Model rezolvat adăugat”… |
 

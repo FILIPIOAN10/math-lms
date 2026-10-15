@@ -4,7 +4,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { PageHeader } from '@/components/PageHeader'
 import { HomeSection } from '@/components/home/HomeBits'
 import { listEnChapters, type EnChapterSummary } from '@/lib/api'
-import { EN_AREAS, enPageContents, hasEnContent, inArea } from '@/lib/enChapters'
+import { EN_AREAS, enPageContents, hasEnContent, inArea, rootsOf } from '@/lib/enChapters'
 import { errorMessage } from '@/lib/errors'
 
 /**
@@ -36,7 +36,7 @@ export function EnChaptersPage() {
         {!chapters && !error && <p className="text-muted-foreground">Se încarcă...</p>}
         {chapters &&
           EN_AREAS.map((area) => {
-            const list = inArea(chapters, area.value)
+            const list = inArea(rootsOf(chapters), area.value)
             if (list.length === 0) return null
             return (
               <HomeSection key={area.value} title={area.label}>

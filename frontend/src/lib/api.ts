@@ -1607,8 +1607,23 @@ export interface EnChapterSummary {
   title: string
   area: EnArea
   position: number
+  /** The chapter (or section) this is a section (or point) of; null = a chapter of its own. */
+  parentId: number | null
+  /** The page printed in the book where it starts; null = not known. */
+  bookPage: number | null
   photoCount: number
   exampleCount: number
+}
+
+/** A section or a point under a chapter, with the page of the book it starts on. */
+export interface EnSection {
+  id: number
+  code: string
+  title: string
+  parentId: number | null
+  bookPage: number | null
+  /** The written theory of this section (LaTeX between $...$); null = none yet. */
+  notes: string | null
 }
 
 /** A worked example; `image` is a version token for enExampleImageUrl(), or null when it has no figure. */
@@ -1626,6 +1641,12 @@ export interface EnChapterPage {
   area: EnArea
   /** Optional text above the photos (LaTeX allowed). */
   notes: string | null
+  parentId: number | null
+  /** The chapter whose photos hold this page: itself for a chapter, the chapter above for a section or a point. */
+  rootId: number
+  bookPage: number | null
+  /** Everything under this page (sections, then their points), in book order. */
+  sections: EnSection[]
   photos: { id: number }[]
   examples: EnExample[]
 }
@@ -1635,6 +1656,9 @@ export interface EnChapterInput {
   title: string
   area: EnArea
   notes: string | null
+  /** Omitted = keep it a chapter of its own. */
+  parentId?: number | null
+  bookPage?: number | null
 }
 
 export interface EnExampleInput {

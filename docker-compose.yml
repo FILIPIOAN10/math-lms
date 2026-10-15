@@ -1,6 +1,9 @@
 services:
   postgres:
-    image: postgres:16-alpine
+    # pgvector/pgvector is the official Postgres image plus the `vector` extension (the tutor service stores
+    # embeddings here). Same major version as before; it is Debian-based, not Alpine, so after switching an old
+    # volume run `REINDEX DATABASE mathlms` (text ordering differs between the two C libraries).
+    image: pgvector/pgvector:pg16
     container_name: mathlms-postgres
     restart: unless-stopped
     environment:

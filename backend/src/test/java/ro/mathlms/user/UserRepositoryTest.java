@@ -10,6 +10,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import ro.mathlms.TestImages;
 
 import java.util.Optional;
 
@@ -25,7 +26,7 @@ class UserRepositoryTest {
     @Container
     @ServiceConnection
     static PostgreSQLContainer<?> postgres =
-            new PostgreSQLContainer<>("postgres:16-alpine");
+            new PostgreSQLContainer<>(TestImages.POSTGRES);
 
     @Autowired
     private UserRepository userRepository;

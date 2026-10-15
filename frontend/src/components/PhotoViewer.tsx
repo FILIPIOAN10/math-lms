@@ -11,12 +11,15 @@ import { cn } from '@/lib/utils'
 export function PhotoViewer({
   urls,
   alt,
+  title,
   index,
   onIndexChange,
   onClose,
 }: {
   urls: string[]
   alt: (page: number) => string
+  /** The heading ("Pagina 3 din 5" by default); `page` is 1-based. */
+  title?: (page: number, total: number) => string
   /** The page shown (0-based); null = closed. */
   index: number | null
   onIndexChange: (index: number) => void
@@ -63,7 +66,7 @@ export function PhotoViewer({
         >
           <div className="flex flex-wrap items-center gap-2 border-b px-3 py-2">
             <DialogPrimitive.Title className="mr-auto text-sm font-medium">
-              Pagina {page + 1} din {urls.length}
+              {title ? title(page + 1, urls.length) : `Pagina ${page + 1} din ${urls.length}`}
             </DialogPrimitive.Title>
             <Button size="sm" variant="outline" onClick={() => go(page - 1)} disabled={page === 0} aria-label="Pagina anterioară">←</Button>
             <Button size="sm" variant="outline" onClick={() => go(page + 1)} disabled={page >= urls.length - 1} aria-label="Pagina următoare">→</Button>

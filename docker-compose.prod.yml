@@ -12,7 +12,8 @@ name: mathlms-prod
 
 services:
   postgres:
-    image: postgres:16-alpine
+    # Postgres 16 + the pgvector extension (V36). Same image as docker-compose.yml and the integration tests.
+    image: pgvector/pgvector:pg16
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-mathlms}

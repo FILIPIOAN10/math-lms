@@ -268,9 +268,9 @@ describe('ItemDialog requirements a), b) (EN Subiectul III)', () => {
 
 describe('ItemDialog EN chapter', () => {
   const enChapters = [
-    { id: 1, code: 'A1', title: 'Ordinea efectuării operațiilor', area: 'ALGEBRA' as const, position: 1, photoCount: 1, exampleCount: 0 },
-    { id: 19, code: 'G8', title: 'Corpuri geometrice', area: 'GEOMETRY' as const, position: 19, photoCount: 0, exampleCount: 0 },
-    { id: 20, code: 'G9', title: 'Drepte și plane', area: 'GEOMETRY' as const, position: 20, photoCount: 0, exampleCount: 0 },
+    { id: 1, code: 'A1', title: 'Ordinea efectuării operațiilor', area: 'ALGEBRA' as const, position: 1, parentId: null, bookPage: null, photoCount: 1, exampleCount: 0 },
+    { id: 19, code: 'G8', title: 'Corpuri geometrice', area: 'GEOMETRY' as const, position: 19, parentId: null, bookPage: null, photoCount: 0, exampleCount: 0 },
+    { id: 20, code: 'G9', title: 'Drepte și plane', area: 'GEOMETRY' as const, position: 20, parentId: null, bookPage: null, photoCount: 0, exampleCount: 0 },
   ]
 
   it('says where "automatic" sends the student, and sends a chapter picked for the question and a requirement', async () => {
