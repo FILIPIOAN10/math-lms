@@ -122,6 +122,18 @@ def test_a_figure_description_cannot_break_the_link():
     assert token.startswith("![Axa  O   A  M](poza:1?")
 
 
+def test_a_list_item_numbered_like_a_section_stays_in_the_section_it_is_in():
+    # as it came out of a real photo: item 7 of the divisibility criteria printed as a "## 7." heading
+    page = Page("book.pdf", 18, "## 7. Divizibilitatea\n\n### 7.3. CRITERII DE DIVIZIBILITATE\n\nIntro.\n\n"
+                                "## 7. Criteriul de divizibilitate cu 10, 100\n\nSe termină în zero.\n\n"
+                                "# 8. Mulțimi\n\nColecție de obiecte.")
+
+    documents, _ = chunk_pages([page])
+
+    assert codes(documents) == ["AIS7P3", "AIS8"]
+    assert "Criteriul de divizibilitate cu 10" in documents[0].page_content
+
+
 def test_a_gap_in_page_numbers_does_not_inherit_the_section():
     distant = Page("book.pdf", 13, "Text care continuă ceva din altă parte.")
 
