@@ -34,8 +34,13 @@ Rules:
   roots \\sqrt{x}, \\cdot for multiplication, \\neq, \\leq. A printed dot between numbers is multiplication, a dash is
   subtraction: never swap them. Number sets printed in blackboard bold are \\mathbb{N}, \\mathbb{Z}, \\mathbb{Q},
   \\mathbb{R}; with a star (non-zero elements) \\mathbb{N}^*.
+- Never put Markdown emphasis (** or _) inside a formula or inside \\text{...}; emphasis goes outside the $...$.
 - Tables become Markdown tables.
-- Where a figure or diagram is printed, write [figură: short description]; do not try to reproduce it.
+- Where a figure, diagram, number line or drawing is printed, write [figura N] on its own line (N = 1, 2, ... in
+  reading order) and list it in `figures` with a short Romanian description and a tight bounding box: x and y are
+  the top-left corner, width and height the size, all as fractions (0 to 1) of the whole image's width and height.
+  The box must contain the whole drawing with its labels, and nothing of the surrounding text. Do not describe the
+  figure inside the text and do not try to reproduce it.
 - IGNORE the diagonal watermark "UNIVERSUL MATEMATIC by Bogdan Oltianu" and any faint text that shows through from
   the other side of the page.
 - If something is unreadable write [?] instead of guessing.
@@ -50,9 +55,25 @@ SCHEMA = {
     "properties": {
         "page_number": {"type": ["integer", "null"]},
         "markdown": {"type": "string"},
+        "figures": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "number": {"type": "integer"},
+                    "description": {"type": "string"},
+                    "x": {"type": "number"},
+                    "y": {"type": "number"},
+                    "width": {"type": "number"},
+                    "height": {"type": "number"},
+                },
+                "required": ["number", "description", "x", "y", "width", "height"],
+            },
+        },
         "warnings": {"type": "array", "items": {"type": "string"}},
     },
-    "required": ["page_number", "markdown", "warnings"],
+    "required": ["page_number", "markdown", "figures", "warnings"],
 }
 
 
@@ -69,6 +90,18 @@ class PageImage:
 
 
 @dataclass(frozen=True)
+class Figure:
+    """A drawing on the page: where it is, as fractions of the whole image (top-left corner and size)."""
+
+    number: int
+    description: str
+    x: float
+    y: float
+    width: float
+    height: float
+
+
+@dataclass(frozen=True)
 class Transcription:
     page_number: int | None
     markdown: str
@@ -76,6 +109,7 @@ class Transcription:
     model: str
     input_tokens: int
     output_tokens: int
+    figures: tuple[Figure, ...] = ()
 
 
 def cost_usd(input_tokens: int, output_tokens: int, settings: Settings) -> float:
@@ -153,6 +187,13 @@ def parse_response(response: dict, fallback_model: str) -> Transcription:
     except json.JSONDecodeError as error:
         raise TranscriptionError("Răspunsul nu e JSON-ul așteptat.") from error
     usage = response.get("usage", {})
+    figures = []
+    for raw in data.get("figures", []):
+        # A box is fractions of the image: keep it inside [0, 1] whatever the model answered.
+        x, y = min(max(float(raw["x"]), 0.0), 1.0), min(max(float(raw["y"]), 0.0), 1.0)
+        width, height = min(max(float(raw["width"]), 0.0), 1.0 - x), min(max(float(raw["height"]), 0.0), 1.0 - y)
+        if width > 0 and height > 0:
+            figures.append(Figure(int(raw["number"]), str(raw["description"]), x, y, width, height))
     return Transcription(
         page_number=data.get("page_number"),
         markdown=data.get("markdown", ""),
@@ -160,6 +201,7 @@ def parse_response(response: dict, fallback_model: str) -> Transcription:
         model=response.get("model", fallback_model),
         input_tokens=int(usage.get("input_tokens", 0)),
         output_tokens=int(usage.get("output_tokens", 0)),
+        figures=tuple(figures),
     )
 
 
@@ -194,9 +236,10 @@ def render_markdown(pdf_name: str, page: PageImage, result: Transcription, cost:
         f"tokens_in: {result.input_tokens}",
         f"tokens_out: {result.output_tokens}",
         f"cost_usd: {cost:.5f}",
-        "---",
-        "",
     ]
+    if result.figures:
+        header.append("figures: " + json.dumps([f.__dict__ for f in result.figures], ensure_ascii=False))
+    header += ["---", ""]
     warnings = [f"<!-- warning: {w} -->" for w in result.warnings]
     return "\n".join(header + warnings + [result.markdown.strip(), ""])
 

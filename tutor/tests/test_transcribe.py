@@ -75,6 +75,34 @@ def test_parse_reads_text_page_number_and_usage():
     assert (result.input_tokens, result.output_tokens) == (1200, 300)
 
 
+def test_parse_keeps_the_figures_with_their_boxes_inside_the_image():
+    response = answer()
+    payload = json.loads(response["output"][1]["content"][0]["text"])
+    payload["figures"] = [
+        {"number": 1, "description": "Axa", "x": 0.1, "y": 0.5, "width": 0.6, "height": 0.1},
+        {"number": 2, "description": "Ieșit din poză", "x": 0.9, "y": 0.95, "width": 0.5, "height": 0.5},
+        {"number": 3, "description": "Fără suprafață", "x": 0.2, "y": 0.2, "width": 0.0, "height": 0.1},
+    ]
+    response["output"][1]["content"][0]["text"] = json.dumps(payload)
+
+    result = parse_response(response, "fallback")
+
+    assert [f.number for f in result.figures] == [1, 2]  # an empty box is dropped
+    assert result.figures[1].width == pytest.approx(0.1) and result.figures[1].height == pytest.approx(0.05)
+
+
+def test_the_rendered_page_says_where_its_figures_are():
+    from tutor.chunking import parse_transcript
+    from tutor.transcribe import Figure, PageImage, Transcription, render_markdown
+
+    result = Transcription(9, "[figura 1]", [], "m", 1, 1, (Figure(1, "Axa", 0.1, 0.2, 0.3, 0.4),))
+
+    text = render_markdown("AI (LMS)", PageImage(1, b"", 1, 1), result, 0.001)
+
+    assert parse_transcript(text, "x").figures == ({"number": 1, "description": "Axa", "x": 0.1, "y": 0.2,
+                                                    "width": 0.3, "height": 0.4},)
+
+
 def test_parse_rejects_a_truncated_answer():
     truncated = answer()
     truncated["status"] = "incomplete"

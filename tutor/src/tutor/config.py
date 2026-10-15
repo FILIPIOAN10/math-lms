@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     price_in_per_million: float = 0.10
     price_out_per_million: float = 0.50
 
+    # Where the backend keeps the photos uploaded on the chapter pages (its EN_CHAPTER_IMAGES_DIR).
+    en_chapter_images_dir: str = "../backend/uploads/en-chapters"
+
     # The LMS database (docker-compose.yml: Postgres + pgvector on host port 5433).
     database_url: str = "postgresql+psycopg://mathlms:mathlms_dev_password@localhost:5433/mathlms"
 
