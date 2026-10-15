@@ -16,7 +16,10 @@ import ro.mathlms.enchapter.EnChapterDtos.EnChapterSummaryDto;
 import ro.mathlms.enchapter.EnChapterDtos.ExampleDto;
 import ro.mathlms.enchapter.EnChapterDtos.ExampleRequest;
 import ro.mathlms.enchapter.EnChapterDtos.PhotoDto;
+import ro.mathlms.enchapter.EnChapterDtos.SectionDto;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -31,8 +34,8 @@ import java.util.Set;
 @Service
 public class EnChapterService {
 
-    /** Enough for a chapter's theory; more is a sign of the wrong photos going up. */
-    static final int MAX_PHOTOS = 20;
+    /** Enough for a long chapter (one PDF of the book, up to 40 pages); more is a sign of the wrong photos going up. */
+    static final int MAX_PHOTOS = 40;
     static final int MAX_EXAMPLES = 30;
 
     private final EnChapterRepository chapterRepository;
@@ -73,19 +76,33 @@ public class EnChapterService {
                 .toList();
     }
 
-    /** The chapters whose page has anything on it (photos or worked examples). */
+    /**
+     * The pages a student can open to something: those with photos or worked examples, and every section and point
+     * under one of them (they open that chapter at their page).
+     */
     @Transactional(readOnly = true)
     public Set<Long> readyIds() {
-        Set<Long> ready = new HashSet<>(counts(photoRepository.countPerChapter()).keySet());
-        ready.addAll(counts(exampleRepository.countPerChapter()).keySet());
+        Set<Long> withContent = new HashSet<>(counts(photoRepository.countPerChapter()).keySet());
+        withContent.addAll(counts(exampleRepository.countPerChapter()).keySet());
+        Set<Long> ready = new HashSet<>(withContent);
+        if (withContent.isEmpty()) {
+            return ready;
+        }
+        EnChapterTree tree = new EnChapterTree(chapterRepository.findAllByOrderByPositionAscIdAsc());
+        for (EnChapter chapter : chapterRepository.findAllById(withContent)) {
+            tree.descendantsOf(chapter).forEach(under -> ready.add(under.getId()));
+        }
         return ready;
     }
 
     @Transactional(readOnly = true)
     public EnChapterPageDto page(Long id) {
         EnChapter chapter = requireChapter(id);
+        EnChapterTree tree = new EnChapterTree(chapterRepository.findAllByOrderByPositionAscIdAsc());
+        EnChapter root = tree.rootOf(chapter);
         return new EnChapterPageDto(chapter.getId(), chapter.getCode(), chapter.getTitle(), chapter.getArea(),
-                chapter.getNotes(),
+                chapter.getNotes(), chapter.getParentId(), root.getId(), chapter.getBookPage(),
+                tree.descendantsOf(chapter).stream().map(SectionDto::of).toList(),
                 photoRepository.findByChapterIdOrderByPositionAscIdAsc(id).stream().map(p -> new PhotoDto(p.getId())).toList(),
                 exampleRepository.findByChapterIdOrderByPositionAscIdAsc(id).stream().map(ExampleDto::from).toList());
     }
@@ -112,8 +129,11 @@ public class EnChapterService {
     public EnChapterSummaryDto create(EnChapterRequest request) {
         String code = EnChapter.normalizeCode(request.code());
         requireFreeCode(code, null);
-        EnChapter saved = chapterRepository.save(new EnChapter(code, request.title(), request.area(),
-                chapterRepository.maxPosition() + 1, request.notes()));
+        requireParent(request.parentId(), request.area(), null);
+        EnChapter created = new EnChapter(code, request.title(), request.area(),
+                chapterRepository.maxPosition() + 1, request.notes());
+        created.placeIn(request.parentId(), request.bookPage());
+        EnChapter saved = chapterRepository.save(created);
         auditLog.record(AuditEvent.of(AuditAction.EN_CHAPTER_CREATED, saved.getId(), label(saved)));
         return EnChapterSummaryDto.of(saved, 0, 0);
     }
@@ -123,12 +143,16 @@ public class EnChapterService {
         EnChapter chapter = requireChapter(id);
         String code = EnChapter.normalizeCode(request.code());
         requireFreeCode(code, chapter);
+        requireParent(request.parentId(), request.area(), chapter);
         String before = label(chapter);
         String notesBefore = chapter.getNotes();
+        String placeBefore = place(chapter);
         chapter.update(code, request.title(), request.area(), request.notes());
+        chapter.placeIn(request.parentId(), request.bookPage());
         String details = new AuditText.Changes()
                 .addIfDifferent(before, label(chapter), "fost „" + before + "”")
                 .addIfDifferent(notesBefore, chapter.getNotes(), "textul paginii")
+                .addIfDifferent(placeBefore, place(chapter), "locul în carte")
                 .joined();
         auditLog.record(AuditEvent.of(AuditAction.EN_CHAPTER_UPDATED, id, label(chapter)).details(details));
         return EnChapterSummaryDto.of(chapter, photoRepository.countByChapterId(id), exampleRepository.countByChapterId(id));
@@ -149,6 +173,12 @@ public class EnChapterService {
                     + RoCount.of(photos, "poză", "poze") + " și " + RoCount.of(examples, "model", "modele")
                     + ". Șterge-le întâi, apoi capitolul.");
         }
+        long sections = new EnChapterTree(chapterRepository.findAllByOrderByPositionAscIdAsc())
+                .descendantsOf(chapter).size();
+        if (sections > 0) {
+            throw new EnChapterConflictException("Capitolul „" + label(chapter) + "” are "
+                    + RoCount.of(sections, "subcapitol", "subcapitole") + ". Șterge-le întâi, apoi capitolul.");
+        }
         List<String> slots = slotRepository.findSlotsOfChapter(id).stream()
                 .sorted(EnChapterSlotService::paperOrder).toList();
         if (!slots.isEmpty()) {
@@ -165,27 +195,42 @@ public class EnChapterService {
     }
 
     /**
-     * Swaps the chapter with its neighbour above or below in its own part (algebra or geometry - the pages list them
-     * apart); at either end nothing changes. Layout only: not journalled.
+     * Swaps the page with its neighbour above or below among its siblings - the other chapters of its own part
+     * (algebra or geometry - the pages list them apart), or the other sections of its chapter; at either end nothing
+     * changes. A chapter takes its sections with it. Layout only: not journalled.
      */
     @Transactional
     public void move(Long id, Direction direction) {
         EnChapter chapter = requireChapter(id);
-        List<EnChapter> all = chapterRepository.findAllByOrderByPositionAscIdAsc();
-        // Renumber the whole list 1..n first: positions may have gaps or ties after deletions.
-        for (int i = 0; i < all.size(); i++) {
-            all.get(i).moveTo(i + 1);
-        }
-        List<EnChapter> sameArea = all.stream().filter(c -> c.getArea() == chapter.getArea()).toList();
-        int index = sameArea.indexOf(chapter);
+        EnChapterTree tree = new EnChapterTree(chapterRepository.findAllByOrderByPositionAscIdAsc());
+        EnChapter parent = tree.parentOf(chapter);
+        List<EnChapter> order = new ArrayList<>(parent == null ? tree.roots() : tree.childrenOf(parent));
+        List<EnChapter> siblings = order.stream().filter(c -> c.getArea() == chapter.getArea()).toList();
+        int index = siblings.indexOf(chapter);
         int other = direction == Direction.UP ? index - 1 : index + 1;
-        if (other < 0 || other >= sameArea.size()) {
-            return;
+        if (other >= 0 && other < siblings.size()) {
+            Collections.swap(order, order.indexOf(chapter), order.indexOf(siblings.get(other)));
         }
-        EnChapter neighbour = sameArea.get(other);
-        int mine = chapter.getPosition();
-        chapter.moveTo(neighbour.getPosition());
-        neighbour.moveTo(mine);
+        // Renumber the whole list 1..n in book order (a chapter, then its sections, then the next chapter): positions
+        // may have gaps or ties after deletions, and a moved chapter's sections must follow it.
+        List<EnChapter> numbered = new ArrayList<>();
+        for (EnChapter root : parent == null ? order : tree.roots()) {
+            appendInBookOrder(root, tree, parent, order, numbered);
+        }
+        for (int i = 0; i < numbered.size(); i++) {
+            numbered.get(i).moveTo(i + 1);
+        }
+    }
+
+    /** Pre-order walk where the children of {@code reorderedParent} come in the {@code reordered} order. */
+    private static void appendInBookOrder(EnChapter page, EnChapterTree tree, EnChapter reorderedParent,
+                                          List<EnChapter> reordered, List<EnChapter> out) {
+        out.add(page);
+        List<EnChapter> kids = reorderedParent != null && page.getId().equals(reorderedParent.getId())
+                ? reordered : tree.childrenOf(page);
+        for (EnChapter kid : kids) {
+            appendInBookOrder(kid, tree, reorderedParent, reordered, out);
+        }
     }
 
     // --- theory photos (teacher) ---
@@ -274,6 +319,35 @@ public class EnChapterService {
     private EnChapterExample requireExample(Long chapterId, Long exampleId) {
         return exampleRepository.findByIdAndChapterId(exampleId, chapterId)
                 .orElseThrow(() -> new EnChapterNotFoundException("example", exampleId));
+    }
+
+    /** "9:null" / "12:5": where a page sits, for the journal. */
+    private static String place(EnChapter chapter) {
+        return "pagina " + chapter.getBookPage() + ", sub " + chapter.getParentId();
+    }
+
+    /**
+     * A parent must exist, be in the same part (algebra or geometry), leave room for the page and what is under it
+     * (chapter, section, point: nothing deeper), and not be the page itself or one of its own sections.
+     */
+    private void requireParent(Long parentId, EnArea area, EnChapter self) {
+        if (parentId == null) {
+            return;
+        }
+        EnChapter parent = chapterRepository.findById(parentId)
+                .orElseThrow(() -> new IllegalArgumentException("Capitolul-părinte nu există."));
+        EnChapterTree tree = new EnChapterTree(chapterRepository.findAllByOrderByPositionAscIdAsc());
+        if (parent.getArea() != area) {
+            throw new IllegalArgumentException("Subcapitolul trebuie să fie în aceeași parte (algebră sau geometrie) "
+                    + "ca „" + label(parent) + "”.");
+        }
+        if (self != null && tree.isSelfOrAncestor(self, parent)) {
+            throw new IllegalArgumentException("Un capitol nu poate fi sub propriile subcapitole.");
+        }
+        int below = self == null ? 0 : tree.heightOf(self);
+        if (tree.depthOf(parent) + 1 + below > EnChapterTree.MAX_DEPTH) {
+            throw new IllegalArgumentException("Capitol, secțiune, punct: mai adânc de atât nu merge.");
+        }
     }
 
     /** A code belongs to one chapter only ({@code self} may keep its own). */

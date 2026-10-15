@@ -28,7 +28,9 @@ public class EnChapter {
 
     public static final int MAX_CODE = 10;
     public static final int MAX_TITLE = 200;
-    public static final int MAX_NOTES = 10_000;
+    /** A whole chapter of the book's theory is tens of thousands of characters; the page text may hold it. */
+    public static final int MAX_NOTES = 60_000;
+    public static final int MAX_BOOK_PAGE = 5000;
     private static final Pattern CODE = Pattern.compile("[A-Z0-9]{1," + MAX_CODE + "}");
 
     @Id
@@ -52,9 +54,26 @@ public class EnChapter {
     @Column(columnDefinition = "TEXT")
     private String notes;
 
+    /** The chapter this is a section (or a point) of; {@code null} = a chapter of its own. */
+    @Column(name = "parent_id")
+    private Long parentId;
+
+    /** The page printed in the book where this starts; {@code null} = not known. */
+    @Column(name = "book_page")
+    private Integer bookPage;
+
     public EnChapter(String code, String title, EnArea area, int position, String notes) {
         this.position = position;
         update(code, title, area, notes);
+    }
+
+    /** Where this sits in the book; the rules about which parent is allowed belong to the service (it sees the tree). */
+    public void placeIn(Long parentId, Integer bookPage) {
+        if (bookPage != null && (bookPage < 1 || bookPage > MAX_BOOK_PAGE)) {
+            throw new IllegalArgumentException("Pagina din carte e un număr între 1 și " + MAX_BOOK_PAGE + ".");
+        }
+        this.parentId = parentId;
+        this.bookPage = bookPage;
     }
 
     /** Everything the teacher edits; the place in the list changes only through {@link #moveTo}. */
