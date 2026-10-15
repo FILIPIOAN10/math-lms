@@ -12,7 +12,7 @@ Fișier de reluare între sesiuni. **Actualizat: 2026-10-15** (după pasul 3). P
 | 0 | pgvector în Docker-ul existent, V36, pachetul Python `tutor` | ✅ comis, pe GitHub |
 | 1 | Teoria: poze/PDF → text (vision), capitole + secțiuni în LMS (V37, V38), text afișat în aplicație cu figuri | ✅ comis, pe GitHub |
 | 2 | Chunking pe titluri, embeddings, `tutor_chunks`, idempotent | ✅ comis, pe GitHub |
-| 3 | Retrieval: vector / fulltext / BM25 / hybrid / MMR / loc din test, set de aur, prag de refuz | ✅ făcut, **necomis** |
+| 3 | Retrieval: vector / fulltext / BM25 / hybrid / MMR / loc din test, set de aur, prag de refuz | ✅ comis pe branch |
 | 4 | Lanț de ajutor pe 3 trepte (LCEL), grounded, cu citări și refuz | ⬜ următorul |
 | 5 | CLI de dezvoltare (`python -m tutor.cli`: enunț → treapta 1/2/3, „similar", istoric limitat) | ⬜ |
 | 6 | Exerciții similare + verificare cu sympy (tool calling) | ⬜ |
@@ -25,11 +25,12 @@ Fișier de reluare între sesiuni. **Actualizat: 2026-10-15** (după pasul 3). P
 
 ## Starea codului
 
-- Branch `feat/tutor-ai`; ultimul commit **`e37620f`** e pe GitHub (`origin/feat/tutor-ai`).
-- **Necomis (pasul 3):** `src/tutor/retrieval.py`, `src/tutor/evaluate.py`, `tests/test_retrieval.py`, `eval/golden.jsonl`,
-  `eval/report.md`, `src/tutor/chunking.py` + `tests/test_chunking.py` (corecția `_moves_forward`: „7. Criteriul…" dintr-o
-  listă nu mai e luat drept secțiunea 7), `pyproject.toml` + `uv.lock` (+`snowballstemmer`), acest fișier.
+- Branch `feat/tutor-ai`, PR [#4](https://github.com/FILIPIOAN10/math-lms/pull/4); pașii 0–3 sunt comiși.
+- Ce nu e încă pe GitHub: `git log origin/feat/tutor-ai..HEAD --oneline` (gol = totul e împins).
+- Pasul 3 = `src/tutor/retrieval.py`, `src/tutor/evaluate.py`, `tests/test_retrieval.py`, `eval/`, plus corecția
+  `_moves_forward` din `chunking.py` („7. Criteriul…" dintr-o listă nu mai e luat drept secțiunea 7) și `snowballstemmer`.
 - `structura_proiect.txt` din rădăcină nu e al proiectului tutor; nu intră în commit.
+- CI din PR cere **Dependency graph** activat în setările repo-ului (activat 2026-10-15).
 - Commit/push **doar când spui tu**.
 
 ## Ce e încărcat acum
