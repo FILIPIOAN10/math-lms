@@ -16,6 +16,13 @@ class Settings(BaseSettings):
     chat_model: str = "gpt-6-luna"
     embedding_model: str = "text-embedding-3-small"
 
+    openai_base_url: str = "https://api.openai.com/v1"
+    reasoning_effort: str = "low"
+    image_detail: str = "high"
+    # USD per million tokens, only for the cost estimate printed by the tools (same as backend application.yml).
+    price_in_per_million: float = 0.10
+    price_out_per_million: float = 0.50
+
     # The LMS database (docker-compose.yml: Postgres + pgvector on host port 5433).
     database_url: str = "postgresql+psycopg://mathlms:mathlms_dev_password@localhost:5433/mathlms"
 
