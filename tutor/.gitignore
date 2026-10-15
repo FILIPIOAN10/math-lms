@@ -1,0 +1,11 @@
+.env
+.venv/
+__pycache__/
+.pytest_cache/
+*.egg-info/
+
+# manualul (poze, text transcris, OCR): drepturi de autor, repo-ul e public; rămâne doar local
+data/
+
+# notițele personale pentru interviu (documentul Word + generatorul lui): nu intră în repo-ul public
+interview/

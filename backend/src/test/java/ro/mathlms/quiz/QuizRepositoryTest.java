@@ -8,6 +8,7 @@ import org.springframework.boot.testcontainers.service.connection.ServiceConnect
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import ro.mathlms.TestImages;
 import ro.mathlms.content.SchoolClass;
 import ro.mathlms.content.SchoolClassRepository;
 
@@ -23,7 +24,7 @@ class QuizRepositoryTest {
     @Container
     @ServiceConnection
     static PostgreSQLContainer<?> postgres =
-            new PostgreSQLContainer<>("postgres:16-alpine");
+            new PostgreSQLContainer<>(TestImages.POSTGRES);
 
     @Autowired
     private QuizRepository quizRepository;
