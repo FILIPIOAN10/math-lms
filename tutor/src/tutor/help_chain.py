@@ -13,7 +13,7 @@ Run:  uv run python -X utf8 -m tutor.help_chain "Rezultatul calculului 20 - 2*(7
 import argparse
 import re
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
 
@@ -157,7 +157,7 @@ class HelpResult(BaseModel):
 
 Retriever = Callable[[str, str | None], Found]  # (exercise, exam position) -> passages
 
-_OUR_TAGS = re.compile(r"</?\s*(theory|already_given|exercise)\s*>", re.IGNORECASE)
+_OUR_TAGS = re.compile(r"</?\s*(theory|already_given|exercise|conversation|message)\s*>", re.IGNORECASE)
 
 
 def _neutralize(text: str) -> str:
@@ -229,6 +229,14 @@ class HelpService:
                                 settings.max_distance)
         return cls(retriever, chat_model(settings))
 
+    def step(self, statement: str, *, slot: str | None = None, level: int = 1, previous: Sequence[str] = (),
+             found: Found | None = None) -> Outcome:
+        """One level. `previous` are the texts of the lower levels; `found` reuses the passages already looked up."""
+        if level not in LEVELS:
+            raise ValueError(f"level trebuie să fie 1, 2 sau 3, nu {level}")
+        return self.chain.invoke({"statement": statement, "slot": slot, "level": level,
+                                  "previous": list(previous), "found": found})
+
     def run(self, statement: str, *, slot: str | None = None, levels: int = 3) -> HelpResult:
         """Writes levels 1..`levels` in order, each seeing the ones before; stops at the first refusal."""
         if levels not in LEVELS:
@@ -238,10 +246,7 @@ class HelpService:
         refusal = None
         tokens_in = tokens_out = 0
         for level in LEVELS[:levels]:
-            outcome: Outcome = self.chain.invoke({
-                "statement": statement, "slot": slot, "level": level,
-                "previous": [step.text for step in steps], "found": found,
-            })
+            outcome = self.step(statement, slot=slot, level=level, previous=[step.text for step in steps], found=found)
             found = outcome.found
             tokens_in += outcome.input_tokens
             tokens_out += outcome.output_tokens
@@ -285,8 +290,8 @@ def _drafted(result: dict) -> Drafted:
     return Drafted(parsed, usage.get("input_tokens", 0), usage.get("output_tokens", 0))
 
 
-def chat_model(settings: Settings) -> Runnable:
-    """The real model: the Responses API, nothing stored at the provider, strict JSON in the shape of `Draft`."""
+def chat_options(settings: Settings, max_tokens: int) -> dict:
+    """Arguments for the real model client: the Responses API, nothing stored at the provider."""
     if settings.openai_api_key is None:
         raise RuntimeError("Lipsește OPENAI_API_KEY (pune-l în tutor/.env).")
     options: dict = {
@@ -295,28 +300,44 @@ def chat_model(settings: Settings) -> Runnable:
         "base_url": settings.openai_base_url,
         "use_responses_api": True,
         "store": False,
-        "max_tokens": settings.help_max_output_tokens,
+        "max_tokens": max_tokens,
     }
     if settings.reasoning_effort:
         options["reasoning"] = {"effort": settings.reasoning_effort}
     if settings.chat_temperature is not None:
         options["temperature"] = settings.chat_temperature
-    structured = ChatOpenAI(**options).with_structured_output(Draft, method="json_schema", strict=True, include_raw=True)
-    return structured | RunnableLambda(_drafted)
+    return options
+
+
+def chat_model(settings: Settings) -> Runnable:
+    """The real model with strict JSON in the shape of `Draft`."""
+    llm = ChatOpenAI(**chat_options(settings, settings.help_max_output_tokens))
+    return llm.with_structured_output(Draft, method="json_schema", strict=True, include_raw=True) | RunnableLambda(_drafted)
+
+
+def passage_lines(passages: list[Passage]) -> list[str]:
+    return [f"  [{p.n}] {p.code} - {p.title} (pag. {p.book_page}"
+            + (f", distanța {p.distance:.2f}" if p.distance is not None else "") + ")" for p in passages]
+
+
+def step_lines(step: HelpStep) -> list[str]:
+    return [f"Treapta {step.level}:", step.text,
+            "Surse: " + "; ".join(f"{s.title} (pag. {s.book_page})" for s in step.sources)]
+
+
+def refusal_line(refusal: Refusal) -> str:
+    return f"{refusal.message}  [motiv: {refusal.reason}]"
 
 
 def render(result: HelpResult, show_passages: bool) -> str:
     lines = [f"Pasaje: {len(result.passages)} (strategie: {result.strategy}"
              + (f", cea mai apropiată: {result.best_distance:.2f}" if result.best_distance is not None else "") + ")"]
     if show_passages:
-        for p in result.passages:
-            far = f", distanța {p.distance:.2f}" if p.distance is not None else ""
-            lines.append(f"  [{p.n}] {p.code} - {p.title} (pag. {p.book_page}{far})")
+        lines += passage_lines(result.passages)
     for step in result.steps:
-        lines += ["", f"Treapta {step.level}:", step.text,
-                  "Surse: " + "; ".join(f"{s.title} (pag. {s.book_page})" for s in step.sources)]
+        lines += ["", *step_lines(step)]
     if result.refusal:
-        lines += ["", f"{result.refusal.message}  [motiv: {result.refusal.reason}]"]
+        lines += ["", refusal_line(result.refusal)]
     return "\n".join(lines)
 
 

@@ -1,6 +1,6 @@
 # Tutor AI — unde am rămas
 
-Fișier de reluare între sesiuni. **Actualizat: 2026-10-16** (pașii 0–4 făcuți; pasul 4 comis local, nepus pe GitHub). Planul complet cu „de ce" la
+Fișier de reluare între sesiuni. **Actualizat: 2026-10-16** (pașii 0–5 făcuți și comiși local; 4–5 nepuse pe GitHub). Planul complet cu „de ce" la
 fiecare pas e în `tutor/ROADMAP.md` (local, nu e în git); povestea pentru interviu e în `tutor/interview/` (local, nu e în git).
 
 **Ca să reiei într-o sesiune nouă, spune:** „continuăm `tutor/`, citește `tutor/CHECKLIST.md`; următorul pas e …".
@@ -10,8 +10,9 @@ fiecare pas e în `tutor/ROADMAP.md` (local, nu e în git); povestea pentru inte
 Construim, în `math-lms/tutor/`, un tutor AI de matematică (clasa a 8-a, Evaluarea Națională) care demonstrează RAG + LangChain,
 **măsurat și demonstrabil la interviu**. Ajutorul e pentru profesor (el aprobă fiecare sugestie), nu direct pentru elev.
 
-**5 din 13 pași făcuți** (0–4): teoria e în baza de date ca text și ca vectori, căutarea ei e comparată pe cifre, iar lanțul
-scrie indicii pe 3 trepte doar din manual (sau spune „Nu am asta în manual"). Urmează CLI-ul de dezvoltare (pasul 5).
+**6 din 13 pași făcuți** (0–5): teoria e în baza de date ca text și ca vectori, căutarea ei e comparată pe cifre, lanțul
+scrie indicii pe 3 trepte doar din manual (sau spune „Nu am asta în manual"), iar un CLI cu conversație rescrie continuările
+scurte în întrebări complete. Urmează exercițiile similare cu verificare sympy (pasul 6).
 
 ## Starea pașilor
 
@@ -22,8 +23,8 @@ scrie indicii pe 3 trepte doar din manual (sau spune „Nu am asta în manual").
 | 2 | Chunking pe titluri, embeddings, `tutor_chunks`, idempotent | ✅ | `main` (PR #4) |
 | 3 | Retrieval: vector / fulltext / BM25 / hybrid / MMR / loc din test, set de aur, prag de refuz | ✅ | PR #5 (deschis, CI verde) |
 | 4 | Lanț de ajutor pe 3 trepte (LCEL), grounded, cu citări și refuz | ✅ | comis local pe `feat/tutor-help-chain`, **nepus** |
-| 5 | CLI de dezvoltare (`python -m tutor.cli`: enunț → treapta 1/2/3, „similar", istoric limitat) | ⬜ **următorul** | |
-| 6 | Exerciții similare + verificare cu sympy (tool calling) | ⬜ | |
+| 5 | CLI de dezvoltare (`python -m tutor.cli`: enunț → treapta 1/2/3, `/mai`, istoric limitat, continuări rescrise) | ✅ | comis local pe `feat/tutor-help-chain`, **nepus** |
+| 6 | Exerciții similare + verificare cu sympy (tool calling); aici intră și comanda „similar" din CLI | ⬜ **următorul** | |
 | 7 | Evaluare completă: set de aur extins, faithfulness, cost per apel | ⬜ | |
 | 8 | Serviciu FastAPI intern + Docker | ⬜ | |
 | 9 | Proxy Spring `/api/admin/tutor/*` (doar ADMIN, rate limit, audit, flag `tutor.enabled`) | ⬜ | |
@@ -71,8 +72,17 @@ scrie indicii pe 3 trepte doar din manual (sau spune „Nu am asta în manual").
 - ✗ `temperature=0`: modelul îl respinge; stabilitatea vine din `reasoning.effort=low` + schema strictă + filtre (aceleași decizii la 2 rulări)
 - [ ] Rămas pentru pașii următori: treapta 3 nu e verificată automat (sympy, pasul 6); pragul e reglat pe aceleași 30 de întrebări (pasul 7 îl verifică pe întrebări noi)
 
-### Pașii 5–12 ⬜
-Detaliile și „de ce" sunt în `tutor/ROADMAP.md`. Pe scurt: 5 CLI · 6 exerciții similare + sympy (curățat înainte de `sympify`) ·
+### Pasul 5 — CLI + conversație ✅ (2026-10-16, comis local)
+- [x] `conversation.py`: clasa `Conversation` (exercițiul deschis, treptele date, ultimele 6 mesaje); fără nimic de terminal în ea, ca s-o refolosească FastAPI la pasul 8
+- [x] Continuările scurte (≤ 200 de caractere, când există istoric) sunt rescrise în întrebări complete **înainte** de căutare; mesajele lungi rămân neatinse; rescrierea goală cade pe textul scris
+- [x] `cli.py`: `/mai`, `/loc`, `/pasaje`, `/istoric`, `/nou`, `/ajutor`, `/iesire`; arată `(am înțeles: …)`; merge și cu stdin pentru demo scriptat
+- [x] `HelpService.step()` (o singură treaptă) + `chat_options`, `passage_lines`/`step_lines`/`refusal_line` scoase în funcții, ca să le refolosească CLI-ul
+- [x] 29 de teste noi (model fals + rescriitor fals, fără rețea) → **117 verzi**; `tests/fakes.py` e modulul comun de simulatoare
+- [x] Sesiune reală de 5 mesaje (~0,0014 $): fără rescriere, continuările ar fi fost refuzate (0,509 / 0,486 > 0,48); rescrise au trecut (0,338 / 0,379)
+- [ ] Rămas: calitatea rescrierii nu e măsurată (doar 2 exemple reale) → pasul 7; comanda „similar" → pasul 6
+
+### Pașii 6–12 ⬜
+Detaliile și „de ce" sunt în `tutor/ROADMAP.md`. Pe scurt: 6 exerciții similare + sympy (curățat înainte de `sympify`) ·
 7 evaluare completă, faithfulness, cost per apel · 8 FastAPI intern + Docker · 9 proxy Spring doar ADMIN, cu rate limit,
 audit, flag `tutor.enabled` și cache · 10 „Laborator Tutor" în frontend · 11 CI, Azure, pachetul de interviu · 12 opțional.
 
@@ -81,9 +91,10 @@ audit, flag `tutor.enabled` și cache · 10 „Laborator Tutor" în frontend · 
 - Pașii 0–2 sunt în `main` (PR [#4](https://github.com/FILIPIOAN10/math-lms/pull/4), combinat 2026-10-15, `b925503`).
 - Pasul 3: PR [#5](https://github.com/FILIPIOAN10/math-lms/pull/5), `feat/tutor-ai` → `main`, **8 din 8 verificări verzi, fără conflicte** (2026-10-16), încă deschis.
   Comit-urile lui: `03587db` (corecția de chunking), `e791976` (pasul 3), `88e2297` (checklist).
-- **Pasul 4** e comis pe branch-ul local `feat/tutor-help-chain` (creat din `feat/tutor-ai`, deci conține și commit-urile din PR #5):
+- **Pașii 4 și 5** sunt pe branch-ul local `feat/tutor-help-chain` (creat din `feat/tutor-ai`, deci conține și commit-urile din PR #5):
   `547a2fd` (politica de retrieval ca funcție, pragul exact în raport) și `a8a8d0a` (lanțul de ajutor, evaluarea lui, teste, prag 0,48).
-  **Nu e împins încă.** Când îl împingi: combini întâi PR #5, apoi deschizi PR din `feat/tutor-help-chain` (va arăta doar pasul 4).
+  Pasul 5 = `conversation.py`, `cli.py`, `tests/fakes.py`, `test_conversation.py`, `test_cli.py` și mici modificări în `help_chain.py`/`config.py`.
+  **Nimic din 4–5 nu e împins.** Când îl împingi: combini întâi PR #5, apoi deschizi PR din `feat/tutor-help-chain` (va arăta doar pasul 4).
 - Ce nu e în `main`: `git log origin/main..HEAD --oneline` · ce nu e pe GitHub: `git log origin/feat/tutor-ai..HEAD --oneline`.
 - `structura_proiect.txt` din rădăcină nu e al proiectului tutor; nu intră în commit.
 - CI-ul din PR cere **Dependency graph** activat în setările repo-ului (activat de tine 2026-10-15; fără el pică pasul dependency-review).
@@ -105,6 +116,7 @@ audit, flag `tutor.enabled` și cache · 10 „Laborator Tutor" în frontend · 
 | Evaluarea retrieval-ului (30 de întrebări) | sub un cent |
 | Evaluarea cap-coadă a lanțului, cu modelul real (30 de întrebări) | ≈ 0,0055 $ |
 | Un exercițiu, cele 3 trepte | ≈ 0,0006 $ |
+| O sesiune de 5 mesaje în CLI (cu 2 rescrieri) | ≈ 0,0014 $ |
 
 ## Rezultatele pasului 3 (capitolul I, 24 de întrebări cu răspuns în manual)
 
@@ -139,7 +151,7 @@ reglat pe el; cifrele sunt orientative. Rapoarte: `eval/report.md` (retrieval), 
 
 ## Povestea pentru interviu
 
-Word-ul `tutor/interview/Tutor-AI-povestea-proiectului.docx` are etapele 0–4 (cu tabele de rezultate la 3 și 4) și o secțiune
+Word-ul `tutor/interview/Tutor-AI-povestea-proiectului.docx` are etapele 0–5 (cu tabele de rezultate la 3, 4 și 5) și o secțiune
 **„How this maps to the job ad"**: fiecare cerință din anunț → ce arată proiectul → unde se oprește (cloud nedeplasat încă,
 fără Kubernetes, FastAPI/proxy încă nefăcute). Se reface cu `cd interview; node build_story.js`; la fiecare etapă nouă adaugi un
 obiect în `STAGES`, treci rândul din `OVERVIEW` pe „Done" și, dacă s-a schimbat ceva, actualizezi `JOB_AD`.
@@ -157,8 +169,9 @@ Anunțul actual cere „AWS, Azure sau Google Cloud" (nu doar Azure) și baze de
 ## Comenzi (din folderul `tutor/`)
 
 ```powershell
-uv run pytest -q                                          # 88 de teste; au nevoie de Postgres pe :5433 (Docker pornit)
+uv run pytest -q                                          # 117 teste; au nevoie de Postgres pe :5433 (Docker pornit)
 uv run python -m tutor.check_db                           # pgvector + tabele
+uv run python -X utf8 -m tutor.cli --show-passages                  # conversație: enunț, /mai, continuări scurte, /ajutor
 uv run python -X utf8 -m tutor.help_chain "Calculează 20 - 2·(7 - 2)" --slot I.1 --show-passages   # ajutor pe 3 trepte (~0,0006 $)
 uv run python -X utf8 -m tutor.evaluate_help --write-report eval/help-report.md   # răspunde/refuză, 30 de întrebări (~0,0055 $)
 uv run python -X utf8 -m tutor.build_chapter AII --dry-run          # ce ar face, fără apeluri plătite
@@ -179,6 +192,7 @@ cd interview; node build_story.js                         # reface documentul Wo
 | Hartă pagini → capitole | `src/tutor/page_map.py` (din Cuprinsul manualului) |
 | Căutare + evaluare | `src/tutor/retrieval.py`, `src/tutor/evaluate.py`, `eval/` |
 | Lanțul de ajutor + evaluarea lui | `src/tutor/help_chain.py`, `src/tutor/evaluate_help.py` |
+| Conversația + CLI | `src/tutor/conversation.py`, `src/tutor/cli.py`; simulatoarele de test: `tests/fakes.py` |
 
 ## Capcane de mediu (le-am călcat deja)
 
@@ -186,6 +200,7 @@ cd interview; node build_story.js                         # reface documentul Wo
 - Codurile paginilor sunt doar litere + cifre, ≤ 10 caractere (`AIS5P5`), altfel formularul din LMS le respinge.
 - Chunk-urile se leagă de cea mai apropiată pagină LMS **existentă**; creează paginile înainte de a rula `build_chapter`.
 - Biblioteca `rank_bm25` dă scor 0 pe un corpus de 2 chunk-uri (IDF = log 1); de aceea BM25 e scris de mână.
+- Testele partajează simulatoarele din `tests/fakes.py` (se importă simplu: `from fakes import ...`).
 - Modelul `gpt-6-luna` respinge `temperature` („Unsupported parameter"); nu-l pune în setări.
 - Șabloanele de prompt LangChain tratează `{...}` ca variabile: în textul fix al promptului nu pune LaTeX cu acolade (valorile inserate sunt în regulă).
 - PowerShell nu are heredoc (`<<'EOF'`); pentru scripturi Python scurte folosește Bash sau un fișier.

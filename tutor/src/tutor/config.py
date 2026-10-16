@@ -29,6 +29,11 @@ class Settings(BaseSettings):
     # model's own `covered` flag (eval/help-report.md). Do not round the measured boundary down: 0.46 refused a covered one.
     retrieval_k: int = 4
     max_distance: float = 0.48
+
+    # Conversation: how many of the last messages (student + tutor) are kept, and how long a message can be and still
+    # be treated as a possible follow-up that needs the history to make sense (a longer one is an exercise of its own).
+    history_messages: int = 6
+    condense_max_chars: int = 200
     image_detail: str = "high"
     # USD per million tokens, only for the cost estimate printed by the tools (same as backend application.yml).
     price_in_per_million: float = 0.10
