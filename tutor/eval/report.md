@@ -1,4 +1,4 @@
-# Evaluare retrieval — 2026-10-15
+# Evaluare retrieval — 2026-10-16
 
 Corpus: 42 de chunk-uri (capitolul I). Întrebări: 20 de concept, 4 în stil EN (cu locul din test), 6 din afara manualului. Embeddings: text-embedding-3-small.
 
@@ -40,7 +40,7 @@ Setul de aur e scris de un om după capitol (nu e măsurat pe elevi): cifrele su
 ## Refuzul: distanța celui mai apropiat chunk
 - întrebări la care manualul răspunde: 0.25 – 0.46 (mediana 0.34)
 - întrebări din afara manualului: 0.40 – 0.68 (mediana 0.54)
-- cel mai bun prag: 0.46 → 97% corecte (răspunde sub prag, refuză peste)
+- cel mai bun prag: 0.465 → 97% corecte (răspunde sub prag, refuză peste; nu-l rotunji în jos: o întrebare acoperită stă chiar la 0.465)
 
 ## Unde a ratat (nicio bucată corectă în primele 5)
 - vector: e02

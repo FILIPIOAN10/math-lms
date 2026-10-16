@@ -219,6 +219,38 @@ def search(conn: psycopg.Connection, strategy: str, question: str, embeddings: E
     return max_marginal_relevance(np.asarray(vector, dtype=float), candidates, k)
 
 
+@dataclass(frozen=True)
+class Retrieval:
+    """What the help chain gets for an exercise: the passages, how they were found and, if none, why."""
+
+    strategy: str  # "slot" (the exam position names the page) or "vector" (nearest by meaning)
+    hits: list[Hit]
+    best_distance: float | None  # vector only; for "slot" the platform's own link is the evidence
+    reason: str | None = None  # None = usable; "no_passages" = nothing stored; "too_far" = nothing close enough
+
+    @property
+    def usable(self) -> bool:
+        return self.reason is None and bool(self.hits)
+
+
+def retrieve_for_exercise(conn: psycopg.Connection, statement: str, embeddings: Embeddings, slot: str | None = None,
+                          k: int = 4, max_distance: float = 0.46) -> Retrieval:
+    """
+    The policy measured in eval/report.md: when the exercise has a place in the exam paper (I.1, III.5.b, ...) the
+    page linked to it decides, with no search; otherwise the nearest chunks by meaning, refused as a whole when even
+    the nearest is farther than `max_distance`. A slot whose page has no text yet falls back to the search.
+    """
+    if slot:
+        hits = slot_baseline(conn, slot, k)
+        if hits:
+            return Retrieval("slot", hits, None)
+    hits = search(conn, "vector", statement, embeddings, k=k)
+    if not hits:
+        return Retrieval("vector", [], None, "no_passages")
+    best = hits[0].score
+    return Retrieval("vector", hits, best, "too_far" if best > max_distance else None)
+
+
 class ChunkRetriever(BaseRetriever):
     """A LangChain retriever over the chunks of the book; `strategy` is one of STRATEGIES."""
 
