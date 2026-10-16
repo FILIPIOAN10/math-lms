@@ -1,6 +1,6 @@
 # Tutor AI — unde am rămas
 
-Fișier de reluare între sesiuni. **Actualizat: 2026-10-16** (pașii 0–4 făcuți; pasul 4 necomis). Planul complet cu „de ce" la
+Fișier de reluare între sesiuni. **Actualizat: 2026-10-16** (pașii 0–4 făcuți; pasul 4 comis local, nepus pe GitHub). Planul complet cu „de ce" la
 fiecare pas e în `tutor/ROADMAP.md` (local, nu e în git); povestea pentru interviu e în `tutor/interview/` (local, nu e în git).
 
 **Ca să reiei într-o sesiune nouă, spune:** „continuăm `tutor/`, citește `tutor/CHECKLIST.md`; următorul pas e …".
@@ -21,7 +21,7 @@ scrie indicii pe 3 trepte doar din manual (sau spune „Nu am asta în manual").
 | 1 | Teoria: poze/PDF → text (vision), capitole + secțiuni în LMS (V37, V38), text afișat în aplicație cu figuri | ✅ | `main` (PR #4) |
 | 2 | Chunking pe titluri, embeddings, `tutor_chunks`, idempotent | ✅ | `main` (PR #4) |
 | 3 | Retrieval: vector / fulltext / BM25 / hybrid / MMR / loc din test, set de aur, prag de refuz | ✅ | PR #5 (deschis, CI verde) |
-| 4 | Lanț de ajutor pe 3 trepte (LCEL), grounded, cu citări și refuz | ✅ | **necomis**, pe `feat/tutor-ai` |
+| 4 | Lanț de ajutor pe 3 trepte (LCEL), grounded, cu citări și refuz | ✅ | comis local pe `feat/tutor-help-chain`, **nepus** |
 | 5 | CLI de dezvoltare (`python -m tutor.cli`: enunț → treapta 1/2/3, „similar", istoric limitat) | ⬜ **următorul** | |
 | 6 | Exerciții similare + verificare cu sympy (tool calling) | ⬜ | |
 | 7 | Evaluare completă: set de aur extins, faithfulness, cost per apel | ⬜ | |
@@ -60,7 +60,7 @@ scrie indicii pe 3 trepte doar din manual (sau spune „Nu am asta în manual").
 - [x] Prag de refuz măsurat (exact 0,4646; pus la 0,48 la pasul 4) și politica aleasă (vezi mai jos)
 - [x] 64 de teste Python verzi
 
-### Pasul 4 — lanțul de ajutor pe 3 trepte ✅ (2026-10-16, necomis)
+### Pasul 4 — lanțul de ajutor pe 3 trepte ✅ (2026-10-16, comis local)
 - [x] `help_chain.py`: lanț LCEL — retrieval (loc din test, altfel vector k = 4) → refuz dacă nu e nimic apropiat → prompt → model cu JSON strict → verificarea citărilor → `HelpResult`
 - [x] Prompt „grounded": doar pasajele numerotate, enunțul e doar date (nu poate închide secțiunea din prompt), un nivel pe cerere, treapta N vede treptele 1..N-1
 - [x] Trei filtre de refuz: distanța (modelul nici nu e apelat) → `covered=false` al modelului → răspuns fără citare validă (nu se afișează)
@@ -81,11 +81,9 @@ audit, flag `tutor.enabled` și cache · 10 „Laborator Tutor" în frontend · 
 - Pașii 0–2 sunt în `main` (PR [#4](https://github.com/FILIPIOAN10/math-lms/pull/4), combinat 2026-10-15, `b925503`).
 - Pasul 3: PR [#5](https://github.com/FILIPIOAN10/math-lms/pull/5), `feat/tutor-ai` → `main`, **8 din 8 verificări verzi, fără conflicte** (2026-10-16), încă deschis.
   Comit-urile lui: `03587db` (corecția de chunking), `e791976` (pasul 3), `88e2297` (checklist).
-- **Necomis acum (pasul 4):** `src/tutor/help_chain.py`, `src/tutor/evaluate_help.py`, `tests/test_help_chain.py`,
-  `tests/test_evaluate_help.py`, `eval/help-report.md`, plus modificări în `config.py` (prag 0,48, setări de lanț),
-  `retrieval.py` (`retrieve_for_exercise`), `evaluate.py` (pragul afișat cu 3 zecimale), `tests/test_retrieval.py`,
-  `eval/report.md` și acest fișier.
-- **Atenție la push:** dacă pasul 4 se comite pe `feat/tutor-ai` cât timp PR #5 e deschis, intră în #5. Mai curat: combini întâi #5, apoi pasul 4 pe un branch nou (un branch per felie).
+- **Pasul 4** e comis pe branch-ul local `feat/tutor-help-chain` (creat din `feat/tutor-ai`, deci conține și commit-urile din PR #5):
+  `547a2fd` (politica de retrieval ca funcție, pragul exact în raport) și `a8a8d0a` (lanțul de ajutor, evaluarea lui, teste, prag 0,48).
+  **Nu e împins încă.** Când îl împingi: combini întâi PR #5, apoi deschizi PR din `feat/tutor-help-chain` (va arăta doar pasul 4).
 - Ce nu e în `main`: `git log origin/main..HEAD --oneline` · ce nu e pe GitHub: `git log origin/feat/tutor-ai..HEAD --oneline`.
 - `structura_proiect.txt` din rădăcină nu e al proiectului tutor; nu intră în commit.
 - CI-ul din PR cere **Dependency graph** activat în setările repo-ului (activat de tine 2026-10-15; fără el pică pasul dependency-review).
