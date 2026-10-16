@@ -1,0 +1,30 @@
+{"id": "c01", "kind": "concept", "question": "Ce înseamnă să rotunjesc un număr la sute?", "gold": ["AIS1P2"], "slot": null}
+{"id": "c02", "kind": "concept", "question": "Cum calculez suma 1 + 2 + 3 + ... + 100 fără să adun termen cu termen?", "gold": ["AIS2P1"], "slot": null}
+{"id": "c03", "kind": "concept", "question": "Cum se numesc numerele dintr-o scădere și ce obțin la final?", "gold": ["AIS2P2"], "slot": null}
+{"id": "c04", "kind": "concept", "question": "Ce proprietăți are înmulțirea numerelor naturale?", "gold": ["AIS3P1"], "slot": null}
+{"id": "c05", "kind": "concept", "question": "Cum dau factor comun în expresia a·b + a·c?", "gold": ["AIS3P2"], "slot": null}
+{"id": "c06", "kind": "concept", "question": "Cum scriu teorema împărțirii cu rest?", "gold": ["AIS4P2"], "slot": null}
+{"id": "c07", "kind": "concept", "question": "Cum verific prin probă o împărțire exactă?", "gold": ["AIS4P1"], "slot": null}
+{"id": "c08", "kind": "concept", "question": "Care este ultima cifră a lui 7 la puterea 2025?", "gold": ["AIS5P3"], "slot": null}
+{"id": "c09", "kind": "concept", "question": "Cum înmulțesc două puteri care au aceeași bază?", "gold": ["AIS5P1"], "slot": null}
+{"id": "c10", "kind": "concept", "question": "Cum compar două puteri, de exemplu 2 la puterea 30 cu 3 la puterea 20?", "gold": ["AIS5P2"], "slot": null}
+{"id": "c11", "kind": "concept", "question": "Ce este pătratul și cubul unui număr natural?", "gold": ["AIS5P4"], "slot": null}
+{"id": "c12", "kind": "concept", "question": "Cum scriu numărul abc ca sumă de sute, zeci și unități?", "gold": ["AIS6"], "slot": null}
+{"id": "c13", "kind": "concept", "question": "Ce înseamnă că un număr este divizibil cu altul?", "gold": ["AIS7P1"], "slot": null}
+{"id": "c14", "kind": "concept", "question": "Cum aflu cel mai mic multiplu comun a două numere?", "gold": ["AIS7P2"], "slot": null}
+{"id": "c15", "kind": "concept", "question": "Cum știu dacă un număr se împarte exact la 9?", "gold": ["AIS7P3"], "slot": null}
+{"id": "c16", "kind": "concept", "question": "Ce este o mulțime finită și ce este una infinită?", "gold": ["AIS8P3"], "slot": null}
+{"id": "c17", "kind": "concept", "question": "Ce înseamnă reuniunea și intersecția a două mulțimi?", "gold": ["AIS8P4"], "slot": null}
+{"id": "c18", "kind": "concept", "question": "Când este o mulțime inclusă în altă mulțime?", "gold": ["AIS8P2"], "slot": null}
+{"id": "c19", "kind": "concept", "question": "Cum se notează mulțimea numerelor naturale nenule?", "gold": ["AIS1"], "slot": null}
+{"id": "c20", "kind": "concept", "question": "Cum reprezint numerele naturale pe o axă? Ce este originea?", "gold": ["AIS1P1"], "slot": null}
+{"id": "e01", "kind": "exam", "question": "Rezultatul calculului 20 − 2·(7 − 2) este egal cu:", "gold": ["AIS5P5"], "slot": "I.1"}
+{"id": "e02", "kind": "exam", "question": "Valoarea expresiei 100 : (5 + 5) · 3 este:", "gold": ["AIS5P5"], "slot": "I.1"}
+{"id": "e03", "kind": "exam", "question": "Calculează 2^3 + 3·2^2 − 4.", "gold": ["AIS5P5", "AIS5P1"], "slot": "I.1"}
+{"id": "e04", "kind": "exam", "question": "Rezultatul calculului 5·[10 − (2 + 3)] este:", "gold": ["AIS5P5"], "slot": "I.1"}
+{"id": "n01", "kind": "negative", "question": "Cum calculez aria unui cerc?", "gold": [], "slot": null}
+{"id": "n02", "kind": "negative", "question": "Care este teorema lui Pitagora?", "gold": [], "slot": null}
+{"id": "n03", "kind": "negative", "question": "Cum rezolv o ecuație de gradul al doilea?", "gold": [], "slot": null}
+{"id": "n04", "kind": "negative", "question": "Cum calculez media aritmetică a trei numere?", "gold": [], "slot": null}
+{"id": "n05", "kind": "negative", "question": "Ce este un triunghi isoscel?", "gold": [], "slot": null}
+{"id": "n06", "kind": "negative", "question": "Cum desenez graficul unei funcții liniare?", "gold": [], "slot": null}

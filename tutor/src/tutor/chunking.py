@@ -158,11 +158,15 @@ def chunk_pages(pages: list[Page], max_chars: int = MAX_CHARS, min_chars: int = 
                     continue
                 match = _NUMBERED.match(title)
                 if match is not None and chapter is not None:
-                    state_section = int(match.group(1))
-                    state_point = int(match.group(2)) if match.group(2) else None
-                    open_block()
-                    blocks[-1].lines.append(line)
-                    continue
+                    number = int(match.group(1))
+                    point = int(match.group(2)) if match.group(2) else None
+                    # A numbered list item that came out as a heading ("7. Criteriul de divizibilitate cu 10" inside
+                    # section 7.3) is text, not a new section: a section number only moves forward.
+                    if _moves_forward(state_section, state_point, number, point):
+                        state_section, state_point = number, point
+                        open_block()
+                        blocks[-1].lines.append(line)
+                        continue
             blocks[-1].lines.append(line)
         state_chapter = chapter
 
@@ -184,6 +188,15 @@ def chunk_pages(pages: list[Page], max_chars: int = MAX_CHARS, min_chars: int = 
                     "position": position,
                 }))
     return documents, problems
+
+
+def _moves_forward(section: int | None, point: int | None, number: int, new_point: int | None) -> bool:
+    """Does heading `number[.new_point]` come after where we are (`section[.point]`) in the chapter?"""
+    if section is None or number > section:
+        return True
+    if number < section or new_point is None:
+        return False
+    return point is None or new_point > point
 
 
 def _split(text: str, max_chars: int, min_chars: int) -> list[str]:
