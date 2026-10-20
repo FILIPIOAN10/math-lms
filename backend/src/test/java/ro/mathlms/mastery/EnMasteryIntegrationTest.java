@@ -1,11 +1,11 @@
 package ro.mathlms.mastery;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.mock.web.MockMultipartFile;
@@ -105,7 +105,7 @@ class EnMasteryIntegrationTest {
         classId = clasa.getId();
         enrollmentRepository.save(new Enrollment(student, clasa));
         for (JsonNode c : json(mockMvc.perform(get("/api/en-chapters").with(TEACHER)))) {
-            chapters.put(c.get("code").asText(), c.get("id").asLong());
+            chapters.put(c.get("code").asString(), c.get("id").asLong());
         }
 
         quizId = json(send(post("/api/admin/quizzes"), Map.of("title", "Simulare " + stamp, "schoolClassId", classId))
@@ -135,7 +135,7 @@ class EnMasteryIntegrationTest {
         for (JsonNode item : started.get("quiz").get("items")) {
             String wanted = item.get("id").asLong() == grilaRight ? "bun" : "greșit";
             for (JsonNode option : item.get("options")) {
-                if (option.get("text").asText().equals(wanted)) {
+                if (option.get("text").asString().equals(wanted)) {
                     mockMvc.perform(put("/api/quiz/attempts/" + attempt + "/responses/" + item.get("id").asLong())
                                     .with(as(student)).with(csrf()).contentType("application/json")
                                     .content("{\"optionId\":" + option.get("id").asLong() + "}"))
@@ -165,7 +165,7 @@ class EnMasteryIntegrationTest {
 
     private static Map<String, JsonNode> byCode(JsonNode rows) {
         Map<String, JsonNode> out = new HashMap<>();
-        rows.forEach(r -> out.put(r.get("code").asText(), r));
+        rows.forEach(r -> out.put(r.get("code").asString(), r));
         return out;
     }
 
@@ -185,7 +185,7 @@ class EnMasteryIntegrationTest {
         assertThat(mine.get("G9").get("possible").asInt()).isEqualTo(3);
         assertThat(mine.get("G9").get("percent").asInt()).isEqualTo(33);
         assertThat(mine.get("G5").get("percent").isNull()).isTrue();
-        assertThat(mine.get("A1").get("title").asText()).isEqualTo("Ordinea efectuării operațiilor");
+        assertThat(mine.get("A1").get("title").asString()).isEqualTo("Ordinea efectuării operațiilor");
         assertThat(mine.get("A1").has("ready")).isTrue();
 
         // The parent sees the same; the teacher too, on the student's page.
@@ -204,10 +204,10 @@ class EnMasteryIntegrationTest {
         JsonNode grid = json(mockMvc.perform(get("/api/admin/classes/" + classId + "/en-mastery").with(TEACHER))
                 .andExpect(status().isOk()));
 
-        List<String> columns = grid.get("chapters").findValuesAsText("code");
+        List<String> columns = grid.get("chapters").findValuesAsString("code");
         assertThat(columns).containsExactly("A1", "A3", "A9", "G9"); // only what the class met, in list order
         JsonNode row = grid.get("students").get(0);
-        assertThat(row.get("fullName").asText()).isEqualTo("Ana");
+        assertThat(row.get("fullName").asString()).isEqualTo("Ana");
         assertThat(row.get("cells").findValues("percent").stream().map(JsonNode::asInt)).containsExactly(100, 0, 100, 33);
     }
 

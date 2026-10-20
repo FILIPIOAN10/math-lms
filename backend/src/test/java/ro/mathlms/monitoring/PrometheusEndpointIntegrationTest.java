@@ -2,8 +2,8 @@ package ro.mathlms.monitoring;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.actuate.observability.AutoConfigureObservability;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.micrometer.metrics.test.autoconfigure.AutoConfigureMetrics;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
@@ -20,7 +20,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest(properties = "app.metrics.token=test-scrape-token")
 @AutoConfigureMockMvc
-@AutoConfigureObservability // Spring Boot switches metric exporters off in tests unless asked
+@AutoConfigureMetrics // Spring Boot switches metric exporters off in tests unless asked
 class PrometheusEndpointIntegrationTest {
 
     @Autowired

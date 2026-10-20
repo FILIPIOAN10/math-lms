@@ -1,10 +1,4 @@
 # Accepted CVEs: every entry needs a reason and an expiry date (exp:), after which Trivy flags it again.
 # Used by the image scans (build-push.yml) and the filesystem scan (ci.yml).
 
-# Spring Framework 6.2.19 (Boot 3.5.16). Fixed only in Spring 7.0.9 / Boot 4; no 6.2.x OSS release has the fix.
-# Not reachable here: no XsltView, no SSE (SseEmitter / text/event-stream), no server-rendered views; the backend
-# is @RestController + JSON only. Real fix = upgrade to Spring Boot 4 (2026-10-20 decision: release now, upgrade next).
-# CVE-2026-47884: RCE via improper path limitation in XsltView
-CVE-2026-47884 exp:2026-12-31
-# CVE-2026-47890: stream corruption in Server-Sent Events with view rendering
-CVE-2026-47890 exp:2026-12-31
+# (none at the moment: the 2 Spring Framework 6.2 CVEs accepted for v0.3.0 are fixed by the Spring Boot 4 upgrade)

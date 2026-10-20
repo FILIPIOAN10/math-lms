@@ -1,9 +1,8 @@
 package ro.mathlms.cache;
 
-import com.fasterxml.jackson.databind.JavaType;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import tools.jackson.databind.JavaType;
+import tools.jackson.databind.cfg.DateTimeFeature;
+import tools.jackson.databind.json.JsonMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.Cache;
@@ -14,8 +13,9 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.cache.RedisCacheManager;
+import org.springframework.data.redis.cache.RedisCacheWriter;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
-import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
+import org.springframework.data.redis.serializer.JacksonJsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext.SerializationPair;
 import ro.mathlms.quiz.QuizStatsDtos.QuizStatsDto;
 import ro.mathlms.quiz.StudentQuizDtos.ProgressPointDto;
@@ -39,9 +39,10 @@ public class CacheConfig implements CachingConfigurer {
 
     @Bean
     public RedisCacheManager cacheManager(RedisConnectionFactory connectionFactory) {
-        ObjectMapper mapper = new ObjectMapper()
-                .registerModule(new JavaTimeModule())
-                .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        // Jackson 3 has java.time built in; Jackson 2 defaults keep the stored JSON exactly as before the Boot 4 upgrade.
+        JsonMapper mapper = JsonMapper.builderWithJackson2Defaults()
+                .disable(DateTimeFeature.WRITE_DATES_AS_TIMESTAMPS)
+                .build();
         JavaType progressList = mapper.getTypeFactory().constructCollectionType(List.class, ProgressPointDto.class);
 
         RedisCacheConfiguration base = RedisCacheConfiguration.defaultCacheConfig()
@@ -49,13 +50,17 @@ public class CacheConfig implements CachingConfigurer {
                 .disableCachingNullValues()
                 .prefixCacheNameWith("mathlms:");
 
-        return RedisCacheManager.builder(connectionFactory)
+        // Spring Data Redis 4 may run cache writes asynchronously on Lettuce; the after-commit eviction relies on
+        // the entry being gone when commit returns, so writes stay synchronous as they were before Boot 4.
+        RedisCacheWriter writer = RedisCacheWriter.create(connectionFactory, config -> config.immediateWrites());
+
+        return RedisCacheManager.builder(writer)
                 .cacheDefaults(base)
                 .withInitialCacheConfigurations(Map.of(
                         CacheNames.QUIZ_STATS, base.serializeValuesWith(SerializationPair.fromSerializer(
-                                new Jackson2JsonRedisSerializer<>(mapper, QuizStatsDto.class))),
+                                new JacksonJsonRedisSerializer<>(mapper, QuizStatsDto.class))),
                         CacheNames.PROGRESS, base.serializeValuesWith(SerializationPair.fromSerializer(
-                                new Jackson2JsonRedisSerializer<>(mapper, progressList)))))
+                                new JacksonJsonRedisSerializer<>(mapper, progressList)))))
                 .build();
     }
 

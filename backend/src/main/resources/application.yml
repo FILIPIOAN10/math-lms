@@ -5,6 +5,11 @@ spring:
   application:
     name: math-lms-backend
 
+  # Boot 4 serialises with Jackson 3, whose defaults differ from Jackson 2 (alphabetical property order,
+  # enums via toString(), null for a primitive = 400...). Keep the Jackson 2 behaviour the frontend was built on.
+  jackson:
+    use-jackson2-defaults: true
+
   datasource:
     url: jdbc:postgresql://localhost:5433/mathlms
     username: mathlms

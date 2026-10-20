@@ -1,11 +1,11 @@
 package ro.mathlms.ingest;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.mock.web.MockMultipartFile;
@@ -105,7 +105,7 @@ class AiImportIntegrationTest {
     private List<Path> pageFiles(long id) throws Exception {
         String keys = importRepository.findById(id).orElseThrow().getPageKeys();
         List<Path> files = new ArrayList<>();
-        objectMapper.readTree(keys).forEach(p -> files.add(Path.of(properties.pagesDir(), p.get("key").asText())));
+        objectMapper.readTree(keys).forEach(p -> files.add(Path.of(properties.pagesDir(), p.get("key").asString())));
         return files;
     }
 
@@ -115,15 +115,15 @@ class AiImportIntegrationTest {
         List<Path> files = pageFiles(id);
         assertThat(files).hasSize(2).allMatch(Files::exists);
         assertThat(json(mockMvc.perform(get("/api/admin/ai-imports/" + id).with(as(teacher))))
-                .get("status").asText()).isEqualTo("QUEUED");
+                .get("status").asString()).isEqualTo("QUEUED");
 
         assertThat(service.processNext()).isTrue();
 
         JsonNode done = json(mockMvc.perform(get("/api/admin/ai-imports/" + id).with(as(teacher))).andExpect(status().isOk()));
-        assertThat(done.get("status").asText()).isEqualTo("DONE");
+        assertThat(done.get("status").asString()).isEqualTo("DONE");
         assertThat(done.get("itemCount").asInt()).isEqualTo(4);
         JsonNode items = done.get("items");
-        assertThat(items.get(0).get("type").asText()).isEqualTo("SINGLE_CHOICE");
+        assertThat(items.get(0).get("type").asString()).isEqualTo("SINGLE_CHOICE");
         assertThat(items.get(0).get("options").size()).isEqualTo(3);
         assertThat(items.get(1).get("hasFigure").asBoolean()).isTrue();
         assertThat(items.get(1).get("warnings").toString()).contains("desen");
@@ -134,12 +134,12 @@ class AiImportIntegrationTest {
 
         // the teacher keeps the grilă (marking its answer) and the open question, drops the rest
         Map<String, Object> body = Map.of("title", "Din manual " + id, "items", List.of(
-                Map.of("type", "SINGLE_CHOICE", "statement", items.get(0).get("statement").asText(), "points", 5,
+                Map.of("type", "SINGLE_CHOICE", "statement", items.get(0).get("statement").asString(), "points", 5,
                         "section", "SUBIECTUL I", "options", List.of(
                                 Map.of("position", 0, "text", "5", "correct", false),
                                 Map.of("position", 1, "text", "7", "correct", true),
                                 Map.of("position", 2, "text", "9", "correct", false))),
-                Map.of("type", "OPEN", "statement", items.get(1).get("statement").asText(), "points", 10,
+                Map.of("type", "OPEN", "statement", items.get(1).get("statement").asString(), "points", 10,
                         "solution", "P = 18 cm", "section", "SUBIECTUL al II-lea", "imageRequired", true)));
         long quizId = json(mockMvc.perform(post("/api/admin/ai-imports/" + id + "/quiz").with(as(teacher)).with(csrf())
                 .contentType("application/json").content(objectMapper.writeValueAsString(body)))
@@ -229,7 +229,7 @@ class AiImportIntegrationTest {
         ai.fail("Nu am putut citi paginile.", Instant.now());
         importRepository.save(ai);
         JsonNode failed = json(mockMvc.perform(get("/api/admin/ai-imports/" + id).with(as(teacher))));
-        assertThat(failed.get("error").asText()).isEqualTo("Nu am putut citi paginile.");
+        assertThat(failed.get("error").asString()).isEqualTo("Nu am putut citi paginile.");
 
         mockMvc.perform(post("/api/admin/ai-imports/" + id + "/retry").with(as(teacher)).with(csrf()))
                 .andExpect(status().isOk());

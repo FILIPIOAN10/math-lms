@@ -1,11 +1,11 @@
 package ro.mathlms.grading;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -68,7 +68,7 @@ class CommentSnippetIntegrationTest {
         JsonNode list = objectMapper.readTree(mockMvc.perform(get("/api/admin/comment-snippets").with(as(who)))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
         List<String> texts = new ArrayList<>();
-        list.forEach(s -> texts.add(s.get("text").asText()));
+        list.forEach(s -> texts.add(s.get("text").asString()));
         return texts;
     }
 

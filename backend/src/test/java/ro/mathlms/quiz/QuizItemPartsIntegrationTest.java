@@ -1,11 +1,11 @@
 package ro.mathlms.quiz;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.mock.web.MockMultipartFile;
@@ -83,7 +83,7 @@ class QuizItemPartsIntegrationTest {
                 .andExpect(status().isCreated()));
         itemId = item.get("id").asLong();
         assertThat(item.get("points").asInt()).isEqualTo(5); // the sum of its requirements
-        assertThat(item.get("parts").findValuesAsText("label")).containsExactly("a", "b");
+        assertThat(item.get("parts").findValuesAsString("label")).containsExactly("a", "b");
         send(post("/api/admin/quizzes/" + quizId + "/publish"), Map.of()).andExpect(status().isOk());
     }
 
@@ -91,7 +91,7 @@ class QuizItemPartsIntegrationTest {
         JsonNode started = json(mockMvc.perform(post("/api/quiz/quizzes/" + quizId + "/attempts")
                 .with(asStudent()).with(csrf())).andExpect(status().isOk()));
         JsonNode seen = started.get("quiz").get("items").get(0);
-        assertThat(seen.get("parts").findValuesAsText("statement")).containsExactly("Arată că $x=25$.", "Calculează $(8y-x)^{27}$.");
+        assertThat(seen.get("parts").findValuesAsString("statement")).containsExactly("Arată că $x=25$.", "Calculează $(8y-x)^{27}$.");
         assertThat(started.toString()).doesNotContain("x = 25 (2p)"); // no barem before the result
         long attemptId = started.get("attemptId").asLong();
         mockMvc.perform(multipart("/api/quiz/attempts/" + attemptId + "/responses/" + itemId + "/photo")
@@ -133,7 +133,7 @@ class QuizItemPartsIntegrationTest {
         JsonNode item = result.get("items").get(0);
         assertThat(item.get("awardedPoints").asInt()).isEqualTo(3);
         assertThat(item.get("parts").findValues("awardedPoints").stream().map(JsonNode::asInt)).containsExactly(2, 1);
-        assertThat(item.get("parts").findValuesAsText("barem")).containsExactly("x = 25 (2p)", "-1 (3p)");
+        assertThat(item.get("parts").findValuesAsString("barem")).containsExactly("x = 25 (2p)", "-1 (3p)");
         assertThat(result.get("finalScore").asInt()).isEqualTo(3);
     }
 
@@ -158,7 +158,7 @@ class QuizItemPartsIntegrationTest {
                 "parts", List.of(Map.of("statement", "Arată că $x = 25$.", "points", 2, "solution", "x = 25"),
                         Map.of("statement", "Calculează $(8y - x)^{27}$.", "points", 3)));
         JsonNode saved = json(send(put("/api/admin/quiz-items/" + itemId), fixedText).andExpect(status().isOk()));
-        assertThat(saved.get("parts").get(0).get("statement").asText()).isEqualTo("Arată că $x = 25$.");
+        assertThat(saved.get("parts").get(0).get("statement").asString()).isEqualTo("Arată că $x = 25$.");
 
         long copyId = json(send(post("/api/admin/quizzes/" + quizId + "/copy"), Map.of()).andExpect(status().isCreated()))
                 .get("id").asLong();

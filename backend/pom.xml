@@ -5,7 +5,7 @@
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>3.5.16</version>
+		<version>4.1.1</version>
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>ro.mathlms</groupId>
@@ -16,18 +16,15 @@
 
 	<properties>
 		<java.version>21</java.version>
-		<!-- Security overrides (Trivy, 2026-10-04): the versions Spring Boot 3.5.16 manages have CVEs that are fixed upstream.
+		<!-- Security overrides (Trivy, 2026-10-20): the versions Spring Boot 4.1.1 manages have CVEs that are fixed upstream.
 		     Remove each override once the Boot parent ships these versions or newer. -->
-		<jackson-bom.version>2.21.7</jackson-bom.version>   <!-- jackson-core/databind DoS (CVE-2026-89407/89425/68497/91776/91777) -->
-		<netty.version>4.1.137.Final</netty.version>        <!-- netty-handler SNI bypass (CRITICAL CVE-2026-75595), netty-codec bzip2 loop -->
-		<tomcat.version>10.1.60</tomcat.version>            <!-- tomcat auth/constraint bypasses (CVE-2026-65182/65905/68525): fixed from 10.1.58; 10.1.58 was never published, 10.1.60 is the newest -->
+		<jackson-bom.version>3.1.8</jackson-bom.version>     <!-- Jackson 3 core/databind DoS (CVE-2026-89407/89425/68497/91776/91777): fixed in 3.1.7 -->
+		<jackson-2-bom.version>2.21.7</jackson-2-bom.version> <!-- same CVEs in Jackson 2, which only jjwt-jackson 0.13.0 still uses (Boot pins 2.21.5) -->
+		<tomcat.version>11.0.27</tomcat.version>            <!-- tomcat auth/constraint bypasses (CVE-2026-65182/65905/68525): fixed from 11.0.25 -->
 		<!-- Testele @Tag("e2e") (Selenium, Step Q12) sunt excluse implicit: au nevoie de stack-ul
 		     pornit (backend :8080 + Vite :5173) si de Chrome. Rulare:
 		     ./mvnw test -Dgroups=e2e -DexcludedGroups= -->
 		<excludedGroups>e2e</excludedGroups>
-		<!-- Override peste BOM-ul Spring Boot: 42.7.11 are CVE-2026-54291 (HIGH, downgrade SCRAM-PLUS),
-		     reparat in 42.7.12. De scos cand un Boot 3.5.x nou aduce >= 42.7.12. -->
-		<postgresql.version>42.7.12</postgresql.version>
 		<!-- Empty default so @{argLine} below resolves even when JaCoCo's prepare-agent does not run (e.g. -Djacoco.skip). -->
 		<argLine></argLine>
 	</properties>
@@ -36,7 +33,13 @@
 		<!-- Web / REST -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-web</artifactId>
+			<artifactId>spring-boot-starter-webmvc</artifactId>
+		</dependency>
+
+		<!-- RestClient.Builder for the OpenAI calls (AI import); Boot 4 auto-configures it only through this starter -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-restclient</artifactId>
 		</dependency>
 
 		<!-- Security + Google OAuth2 login (Step 1.3) -->
@@ -46,7 +49,7 @@
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-oauth2-client</artifactId>
+			<artifactId>spring-boot-starter-security-oauth2-client</artifactId>
 		</dependency>
 
 		<!-- Persistence (Step 1.2) -->
@@ -83,10 +86,10 @@
 			<artifactId>micrometer-registry-prometheus</artifactId>
 		</dependency>
 
-		<!-- Flyway: versioned schema migrations (Step 1.2) -->
+		<!-- Flyway: versioned schema migrations (Step 1.2). Boot 4 auto-configures Flyway only through its starter. -->
 		<dependency>
-			<groupId>org.flywaydb</groupId>
-			<artifactId>flyway-core</artifactId>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-flyway</artifactId>
 		</dependency>
 		<dependency>
 			<groupId>org.flywaydb</groupId>
@@ -134,19 +137,36 @@
 			<scope>runtime</scope>
 		</dependency>
 
-		<!-- Testing: JUnit 5, Mockito, AssertJ (bundled in starter-test) -->
+		<!-- Testing: JUnit 5, Mockito, AssertJ. Boot 4 splits test slices per module: each *-test starter brings the
+		     @WebMvcTest / @DataJpaTest / @AutoConfigureMockMvc / @AutoConfigureMetrics support for that module. -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-test</artifactId>
+			<artifactId>spring-boot-starter-webmvc-test</artifactId>
 			<scope>test</scope>
 		</dependency>
 		<dependency>
-			<groupId>org.springframework.security</groupId>
-			<artifactId>spring-security-test</artifactId>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-jpa-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-security-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-actuator-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<!-- TestRestTemplate (real-port tests) lives in its own module in Boot 4 -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-resttestclient</artifactId>
 			<scope>test</scope>
 		</dependency>
 
-		<!-- Testcontainers: real PostgreSQL in repository tests (Step 1.2) -->
+		<!-- Testcontainers 2: real PostgreSQL in repository tests (Step 1.2) -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-testcontainers</artifactId>
@@ -154,12 +174,12 @@
 		</dependency>
 		<dependency>
 			<groupId>org.testcontainers</groupId>
-			<artifactId>junit-jupiter</artifactId>
+			<artifactId>testcontainers-junit-jupiter</artifactId>
 			<scope>test</scope>
 		</dependency>
 		<dependency>
 			<groupId>org.testcontainers</groupId>
-			<artifactId>postgresql</artifactId>
+			<artifactId>testcontainers-postgresql</artifactId>
 			<scope>test</scope>
 		</dependency>
 

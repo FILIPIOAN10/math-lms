@@ -1,10 +1,10 @@
 package ro.mathlms.enchapter;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -45,21 +45,21 @@ class EnChapterTheoryIntegrationTest {
     void everySeededChapterStartsWithTheoryAndWorkedExamples() throws Exception {
         Map<String, Long> ids = new HashMap<>();
         for (JsonNode c : read("/api/en-chapters")) {
-            ids.put(c.get("code").asText(), c.get("id").asLong());
+            ids.put(c.get("code").asString(), c.get("id").asLong());
         }
         for (String code : SEEDED) {
             JsonNode page = read("/api/en-chapters/" + ids.get(code));
-            assertThat(page.get("notes").asText()).as(code).hasSizeGreaterThan(500);
+            assertThat(page.get("notes").asString()).as(code).hasSizeGreaterThan(500);
             assertThat(page.get("examples")).as(code).hasSizeGreaterThanOrEqualTo(4);
             page.get("examples").forEach(e -> {
-                assertThat(e.get("statement").asText()).as(code).isNotBlank();
-                assertThat(e.get("solution").asText()).as(code).isNotBlank();
+                assertThat(e.get("statement").asString()).as(code).isNotBlank();
+                assertThat(e.get("solution").asString()).as(code).isNotBlank();
             });
         }
 
         JsonNode a1 = read("/api/en-chapters/" + ids.get("A1"));
-        assertThat(a1.get("notes").asText()).startsWith("Ordinea efectuării operațiilor");
-        assertThat(a1.get("examples").get(0).get("statement").asText()).isEqualTo("Calculează $30 - 18 : 3$.");
-        assertThat(a1.get("examples").get(0).get("solution").asText()).contains("Rezultat: $24$");
+        assertThat(a1.get("notes").asString()).startsWith("Ordinea efectuării operațiilor");
+        assertThat(a1.get("examples").get(0).get("statement").asString()).isEqualTo("Calculează $30 - 18 : 3$.");
+        assertThat(a1.get("examples").get(0).get("solution").asString()).contains("Rezultat: $24$");
     }
 }

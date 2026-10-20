@@ -1,9 +1,9 @@
 package ro.mathlms.outbox;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.json.JsonMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import org.springframework.stereotype.Component;
 
 /**
@@ -14,15 +14,15 @@ import org.springframework.stereotype.Component;
 @Component
 public class OutboxPayloadCodec {
 
-    private final ObjectMapper objectMapper = JsonMapper.builder()
-            .findAndAddModules()
+    // Jackson 2 defaults: rows queued before the Boot 4 upgrade are read exactly as they were written.
+    private final ObjectMapper objectMapper = JsonMapper.builderWithJackson2Defaults()
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
             .build();
 
     public String serialize(Object payload) {
         try {
             return objectMapper.writeValueAsString(payload);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             throw new IllegalArgumentException("Outbox payload is not serialisable: " + payload.getClass().getName(), e);
         }
     }
@@ -30,7 +30,7 @@ public class OutboxPayloadCodec {
     public <T> T deserialize(String payload, Class<T> type) {
         try {
             return objectMapper.readValue(payload, type);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             throw new IllegalArgumentException("Outbox payload cannot be read as " + type.getName(), e);
         }
     }
