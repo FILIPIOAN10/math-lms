@@ -15,6 +15,7 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.node.ObjectNode;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -39,9 +40,19 @@ public class GeminiClient {
     static final String NO_ACCESS = "Contul Google nu are acces la Gemini: verifică rolul „Agent Platform user” și că "
             + "API-ul e pornit în proiect.";
     static final String NO_MODEL = "Modelul Gemini setat nu există în regiunea aleasă (GEMINI_MODEL, GEMINI_LOCATION).";
-    static final String RATE_LIMITED = "Google refuză momentan cererile (limită atinsă sau credit epuizat). Încearcă mai târziu.";
+    static final String RATE_LIMITED = "Google e ocupat momentan și a refuzat cererea de mai multe ori. Încearcă din nou "
+            + "peste câteva minute (pozele rămân salvate).";
     static final String UNAVAILABLE = "Google nu răspunde acum. Încearcă din nou peste câteva minute.";
     static final String REJECTED = "Google a respins cererea. Verifică pozele (format, mărime) și încearcă din nou.";
+
+    /**
+     * Pauses before asking again when Google answers "busy" (429 RESOURCE_EXHAUSTED: no free shared capacity at that
+     * moment, not the credit) or a 5xx: Google's own advice is truncated exponential backoff. Only answers that come
+     * back at once are retried - a timeout is not - so the worst case stays about two minutes over one read, well under
+     * the 10 minutes after which a read is taken as stuck.
+     */
+    static final List<Duration> BACKOFF = List.of(Duration.ofSeconds(10), Duration.ofSeconds(30), Duration.ofSeconds(60));
+    private static final Set<Integer> RETRIED = Set.of(429, 500, 502, 503, 504);
 
     /** Finish reasons that mean "the model would not answer", not "the answer is broken". */
     private static final Set<String> BLOCKED = Set.of("SAFETY", "RECITATION", "BLOCKLIST", "PROHIBITED_CONTENT", "SPII",
@@ -62,6 +73,7 @@ public class GeminiClient {
     private final String project;
     private final String location;
     private final String model;
+    private final List<Duration> backoff;
 
     @Autowired
     public GeminiClient(RestClient.Builder builder, GoogleAccessTokens accessTokens,
@@ -69,11 +81,18 @@ public class GeminiClient {
                         @Value("${app.ai.gemini.location:global}") String location,
                         @Value("${app.ai.gemini.model:gemini-3.8-flash}") String model) {
         this(builder.clone().baseUrl(baseUrl(location)).requestFactory(timeouts()).build(), accessTokens, project,
-                location, model);
+                location, model, BACKOFF);
     }
 
-    /** For tests: a client bound to a mock server. */
+    /** For tests: a client bound to a mock server, asking once (no retries). */
     GeminiClient(RestClient restClient, AccessToken accessToken, String project, String location, String model) {
+        this(restClient, accessToken, project, location, model, List.of());
+    }
+
+    /** For tests: a client bound to a mock server, with these pauses between tries (zero = at once). */
+    GeminiClient(RestClient restClient, AccessToken accessToken, String project, String location, String model,
+                 List<Duration> backoff) {
+        this.backoff = List.copyOf(backoff);
         this.restClient = restClient;
         this.accessToken = accessToken;
         this.project = project == null ? "" : project.strip();
@@ -107,14 +126,7 @@ public class GeminiClient {
         String bearer = accessToken.get();
         JsonNode response;
         try {
-            response = restClient.post()
-                    .uri("/v1/projects/{project}/locations/{location}/publishers/google/models/{model}:generateContent",
-                            project, location, model)
-                    .header("Authorization", "Bearer " + bearer)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(body)
-                    .retrieve()
-                    .body(JsonNode.class);
+            response = postWithRetries(body, bearer);
         } catch (RestClientResponseException e) {
             // The body explains a 400/404 (bad image, unknown model); it never contains the token.
             log.warn("Gemini answered {}: {}", e.getStatusCode().value(), e.getResponseBodyAsString());
@@ -128,6 +140,35 @@ public class GeminiClient {
             throw new ExtractionException(PageReading.UNREADABLE_ANSWER);
         }
         return response;
+    }
+
+    /** One call, asked again after each pause in {@link #backoff} while Google answers "busy". */
+    private JsonNode postWithRetries(ObjectNode body, String bearer) throws ExtractionException {
+        for (int attempt = 0; ; attempt++) {
+            try {
+                return restClient.post()
+                        .uri("/v1/projects/{project}/locations/{location}/publishers/google/models/{model}:generateContent",
+                                project, location, model)
+                        .header("Authorization", "Bearer " + bearer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body(body)
+                        .retrieve()
+                        .body(JsonNode.class);
+            } catch (RestClientResponseException e) {
+                if (attempt >= backoff.size() || !RETRIED.contains(e.getStatusCode().value())) {
+                    throw e;
+                }
+                Duration pause = backoff.get(attempt);
+                log.info("Gemini answered {} (busy), asking again in {} s ({}/{})", e.getStatusCode().value(),
+                        pause.toSeconds(), attempt + 1, backoff.size());
+                try {
+                    Thread.sleep(pause);
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    throw new ExtractionException(UNAVAILABLE, interrupted);
+                }
+            }
+        }
     }
 
     static String messageFor(HttpStatusCode status) {

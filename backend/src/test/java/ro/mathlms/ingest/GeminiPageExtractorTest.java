@@ -146,6 +146,41 @@ class GeminiPageExtractorTest {
         assertThatThrownBy(() -> extractor.extract(PAGES)).hasMessage(PageReading.UNREADABLE_ANSWER);
     }
 
+    /** A reader whose client retries a busy Google right away (the real pauses are 10, 30 and 60 s). */
+    private GeminiPageExtractor retrying() {
+        return new GeminiPageExtractor(new GeminiClient(restClient, () -> "ya29.test", "proj-1", "global", "gemini-3.8-flash",
+                List.of(java.time.Duration.ZERO, java.time.Duration.ZERO, java.time.Duration.ZERO)), new ObjectMapper());
+    }
+
+    @Test
+    void aBusyGoogleIsAskedAgainBeforeTheTeacherSeesAnError() throws Exception {
+        server.expect(requestTo(URL)).andRespond(withStatus(HttpStatus.TOO_MANY_REQUESTS)
+                .body("{\"error\": {\"code\": 429, \"status\": \"RESOURCE_EXHAUSTED\"}}"));
+        server.expect(requestTo(URL)).andRespond(withStatus(HttpStatus.SERVICE_UNAVAILABLE));
+        server.expect(requestTo(URL)).andRespond(withSuccess(answer("{\"items\": []}", "STOP"), MediaType.APPLICATION_JSON));
+
+        assertThat(retrying().extract(PAGES).items()).isEmpty();
+        server.verify();
+    }
+
+    @Test
+    void afterTheLastRetryTheTeacherIsToldGoogleIsBusy() {
+        for (int i = 0; i < 4; i++) {
+            server.expect(requestTo(URL)).andRespond(withStatus(HttpStatus.TOO_MANY_REQUESTS));
+        }
+
+        assertThatThrownBy(() -> retrying().extract(PAGES)).hasMessage(GeminiClient.RATE_LIMITED);
+        server.verify(); // the first try and three more, no fifth
+    }
+
+    @Test
+    void aRequestGoogleRejectsIsNotSentAgain() {
+        server.expect(requestTo(URL)).andRespond(withStatus(HttpStatus.BAD_REQUEST));
+
+        assertThatThrownBy(() -> retrying().extract(PAGES)).hasMessage(GeminiClient.REJECTED);
+        server.verify();
+    }
+
     @Test
     void httpErrorsBecomeReasonsTheTeacherUnderstands() {
         server.expect(requestTo(URL)).andRespond(withStatus(HttpStatus.FORBIDDEN)
