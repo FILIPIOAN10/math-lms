@@ -42,6 +42,8 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          # New value per run: the "apk upgrade" layer is rebuilt, never reused stale from the gha cache.
+          build-args: APK_CACHE_BUST=${{ github.run_id }}-${{ github.run_attempt }}
           cache-from: type=gha,scope=backend
           cache-to: type=gha,scope=backend,mode=max
       - name: Trivy image scan
@@ -50,6 +52,7 @@ jobs:
           image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-backend:latest
           severity: CRITICAL,HIGH
           ignore-unfixed: true
+          trivyignores: .trivyignore
           exit-code: "1"
 
   frontend:
@@ -85,6 +88,8 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          # New value per run: the "apk upgrade" layer is rebuilt, never reused stale from the gha cache.
+          build-args: APK_CACHE_BUST=${{ github.run_id }}-${{ github.run_attempt }}
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,scope=frontend,mode=max
       - name: Trivy image scan
@@ -93,4 +98,5 @@ jobs:
           image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-frontend:latest
           severity: CRITICAL,HIGH
           ignore-unfixed: true
+          trivyignores: .trivyignore
           exit-code: "1"

@@ -11,7 +11,9 @@ RUN npm run build
 
 FROM nginx:1.30-alpine
 # Pull in the OS security fixes published since the base image was built (Trivy gates the release on these).
-RUN apk upgrade --no-cache
+# Changes on every release build (build-push.yml), so this layer is never served stale from the build cache.
+ARG APK_CACHE_BUST=local
+RUN echo "apk cache bust: $APK_CACHE_BUST" && apk upgrade --no-cache
 COPY nginx/security-headers.conf /etc/nginx/snippets/security-headers.conf
 COPY nginx/default.conf /etc/nginx/conf.d/default.conf
 COPY nginx/proxy-params.inc /etc/nginx/conf.d/proxy-params.inc

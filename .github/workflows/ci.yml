@@ -112,6 +112,7 @@ jobs:
           scan-ref: .
           severity: CRITICAL,HIGH
           ignore-unfixed: true
+          trivyignores: .trivyignore
           exit-code: "1"
           skip-dirs: backend/target,frontend/node_modules,frontend/dist
 
