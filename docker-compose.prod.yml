@@ -76,6 +76,9 @@ services:
       METRICS_TOKEN: ${METRICS_TOKEN:-}
       RATE_LIMIT_ENABLED: ${RATE_LIMIT_ENABLED:-true}
       RATE_LIMIT_TRUST_XFF: "true"          # nginx (the only way in) sets X-Forwarded-For
+      # Trust nginx's X-Forwarded-Proto/Host (Tomcat only believes private-network proxies). Without it the app thinks it
+      # runs on plain http and sends Google redirect_uri=http://..., which Google rejects for a public domain.
+      SERVER_FORWARD_HEADERS_STRATEGY: native
       SECURITY_LOG_LEVEL: ${SECURITY_LOG_LEVEL:-INFO}
       LOG_FORMAT: ${LOG_FORMAT:-logstash}     # structured JSON logs (one object per line, with requestId)
       # Faza 3 - quiz from textbook photos. OFF unless AI_IMPORT_ENABLED=true and OPENAI_API_KEY is set.
