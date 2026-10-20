@@ -1,11 +1,11 @@
 package ro.mathlms.quiz;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -110,7 +110,7 @@ class EnChapterLinksIntegrationTest {
     void setUp() throws Exception {
         student = userRepository.save(new User("elev-" + System.nanoTime() + "@scoala.ro", "Ana", Role.STUDENT));
         for (JsonNode c : json(mockMvc.perform(get("/api/en-chapters").with(TEACHER)))) {
-            chapters.put(c.get("code").asText(), c.get("id").asLong());
+            chapters.put(c.get("code").asString(), c.get("id").asLong());
         }
         quizId = json(send(post("/api/admin/quizzes"), Map.of("title", "Simulare EN " + System.nanoTime()))
                 .andExpect(status().isCreated())).get("id").asLong();
@@ -191,7 +191,7 @@ class EnChapterLinksIntegrationTest {
         JsonNode first = started.get("quiz").get("items").get(0);
         long wrong = -1;
         for (JsonNode option : first.get("options")) {
-            if (option.get("text").asText().equals("17")) {
+            if (option.get("text").asString().equals("17")) {
                 wrong = option.get("id").asLong();
             }
         }
@@ -204,12 +204,12 @@ class EnChapterLinksIntegrationTest {
 
         JsonNode result = json(mockMvc.perform(get("/api/quiz/attempts/" + attemptId + "/result")
                 .with(user(student.getEmail()).authorities(STUDENT))).andExpect(status().isOk())).get("items");
-        assertThat(result.get(0).get("enChapter").get("code").asText()).isEqualTo("A1");
-        assertThat(result.get(0).get("enChapter").get("title").asText()).isEqualTo("Ordinea efectuării operațiilor");
-        assertThat(result.get(1).get("enChapter").get("code").asText()).isEqualTo(code);
+        assertThat(result.get(0).get("enChapter").get("code").asString()).isEqualTo("A1");
+        assertThat(result.get(0).get("enChapter").get("title").asString()).isEqualTo("Ordinea efectuării operațiilor");
+        assertThat(result.get(1).get("enChapter").get("code").asString()).isEqualTo(code);
         assertThat(result.get(1).get("enChapter").get("ready").asBoolean()).isTrue();
         JsonNode cubeParts = result.get(7).get("parts");
-        assertThat(cubeParts.get(0).get("enChapter").get("code").asText()).isEqualTo("G8");
-        assertThat(cubeParts.get(1).get("enChapter").get("code").asText()).isEqualTo("G9");
+        assertThat(cubeParts.get(0).get("enChapter").get("code").asString()).isEqualTo("G8");
+        assertThat(cubeParts.get(1).get("enChapter").get("code").asString()).isEqualTo("G9");
     }
 }

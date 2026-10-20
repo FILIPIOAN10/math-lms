@@ -28,7 +28,8 @@ public class MetricsTokenAuthorizationManager implements AuthorizationManager<Re
     }
 
     @Override
-    public AuthorizationDecision check(Supplier<Authentication> authentication, RequestAuthorizationContext context) {
+    public AuthorizationDecision authorize(Supplier<? extends Authentication> authentication,
+                                           RequestAuthorizationContext context) {
         if (expected.length == 0) {
             return new AuthorizationDecision(false);
         }

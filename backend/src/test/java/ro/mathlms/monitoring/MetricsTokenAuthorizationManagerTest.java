@@ -14,7 +14,7 @@ class MetricsTokenAuthorizationManagerTest {
             request.addHeader("Authorization", authorizationHeader);
         }
         return new MetricsTokenAuthorizationManager(configuredToken)
-                .check(() -> null, new RequestAuthorizationContext(request)).isGranted();
+                .authorize(() -> null, new RequestAuthorizationContext(request)).isGranted();
     }
 
     @Test

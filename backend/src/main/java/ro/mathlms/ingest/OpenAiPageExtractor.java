@@ -1,9 +1,9 @@
 package ro.mathlms.ingest;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ArrayNode;
+import tools.jackson.databind.node.ObjectNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -230,28 +230,28 @@ public class OpenAiPageExtractor implements PageExtractor {
     }
 
     ExtractionResult parse(JsonNode response) throws ExtractionException {
-        if ("incomplete".equals(response.path("status").asText())) {
+        if ("incomplete".equals(response.path("status").asString())) {
             log.warn("OpenAI response incomplete: {}", response.path("incomplete_details"));
             throw new ExtractionException(TOO_LONG);
         }
         String text = null;
         for (JsonNode output : response.path("output")) {
-            if (!"message".equals(output.path("type").asText())) {
+            if (!"message".equals(output.path("type").asString())) {
                 continue; // reasoning items
             }
             for (JsonNode part : output.path("content")) {
-                switch (part.path("type").asText()) {
+                switch (part.path("type").asString()) {
                     case "refusal" -> {
-                        log.warn("OpenAI refused: {}", part.path("refusal").asText());
+                        log.warn("OpenAI refused: {}", part.path("refusal").asString());
                         throw new ExtractionException(REFUSED);
                     }
-                    case "output_text" -> text = part.path("text").asText();
+                    case "output_text" -> text = part.path("text").asString();
                     default -> { }
                 }
             }
         }
         if (text == null) {
-            log.warn("OpenAI response without text, status {}", response.path("status").asText());
+            log.warn("OpenAI response without text, status {}", response.path("status").asString());
             throw new ExtractionException(UNREADABLE_ANSWER);
         }
         List<ExtractedItem> items = new ArrayList<>();
@@ -264,7 +264,7 @@ public class OpenAiPageExtractor implements PageExtractor {
             throw new ExtractionException(UNREADABLE_ANSWER, e);
         }
         JsonNode usage = response.path("usage");
-        return new ExtractionResult(items, response.path("model").asText(model),
+        return new ExtractionResult(items, response.path("model").asString(model),
                 usage.has("input_tokens") ? usage.get("input_tokens").asInt() : null,
                 usage.has("output_tokens") ? usage.get("output_tokens").asInt() : null);
     }

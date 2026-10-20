@@ -1,12 +1,12 @@
 package ro.mathlms.enchapter;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -65,7 +65,7 @@ class EnChapterSlotsIntegrationTest {
     @BeforeEach
     void setUp() throws Exception {
         for (JsonNode c : json(mockMvc.perform(get("/api/en-chapters").with(TEACHER)))) {
-            chapters.put(c.get("code").asText(), c.get("id").asLong());
+            chapters.put(c.get("code").asString(), c.get("id").asLong());
         }
         seeded = json(mockMvc.perform(get("/api/admin/en-chapter-slots").with(TEACHER)).andExpect(status().isOk()));
     }
@@ -77,7 +77,7 @@ class EnChapterSlotsIntegrationTest {
 
     private Map<String, Long> bySlot(JsonNode slots) {
         Map<String, Long> out = new LinkedHashMap<>();
-        slots.forEach(s -> out.put(s.get("slot").asText(), s.get("chapterId").asLong()));
+        slots.forEach(s -> out.put(s.get("slot").asString(), s.get("chapterId").asLong()));
         return out;
     }
 

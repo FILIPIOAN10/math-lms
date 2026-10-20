@@ -1,11 +1,11 @@
 package ro.mathlms.audit;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
@@ -98,14 +98,14 @@ class AuditLogIntegrationTest {
         JsonNode entries = journal("").get("entries");
         assertThat(entries).hasSize(2);
         JsonNode latest = entries.get(0);
-        assertThat(latest.get("action").asText()).isEqualTo("ANSWER_GRADED");
-        assertThat(latest.get("category").asText()).isEqualTo("GRADING");
-        assertThat(latest.get("label").asText()).isEqualTo("Teză " + stamp + " · întrebarea 2");
-        assertThat(latest.get("details").asText()).isEqualTo("3 → 5 p din 5");
-        assertThat(latest.get("actorName").asText()).isEqualTo("Prof. Ionescu");
-        assertThat(latest.get("studentName").asText()).isEqualTo("Ana Pop");
+        assertThat(latest.get("action").asString()).isEqualTo("ANSWER_GRADED");
+        assertThat(latest.get("category").asString()).isEqualTo("GRADING");
+        assertThat(latest.get("label").asString()).isEqualTo("Teză " + stamp + " · întrebarea 2");
+        assertThat(latest.get("details").asString()).isEqualTo("3 → 5 p din 5");
+        assertThat(latest.get("actorName").asString()).isEqualTo("Prof. Ionescu");
+        assertThat(latest.get("studentName").asString()).isEqualTo("Ana Pop");
         assertThat(latest.get("entityId").asLong()).isEqualTo(attempt.getId());
-        assertThat(entries.get(1).get("details").asText()).isEqualTo("3 p din 5");
+        assertThat(entries.get(1).get("details").asString()).isEqualTo("3 p din 5");
     }
 
     @Test
@@ -122,7 +122,7 @@ class AuditLogIntegrationTest {
         erased.erase("erased-" + stamp + "@erased.invalid", "Utilizator șters");
         userRepository.save(erased);
 
-        assertThat(journal("").get("entries").get(0).get("studentName").asText()).isEqualTo("Utilizator șters");
+        assertThat(journal("").get("entries").get(0).get("studentName").asString()).isEqualTo("Utilizator șters");
     }
 
     @Test
@@ -138,10 +138,10 @@ class AuditLogIntegrationTest {
 
         assertThat(journal("&category=GRADING").get("entries")).hasSize(1);
         JsonNode first = journal("&category=PEOPLE&limit=1");
-        assertThat(first.get("entries").get(0).get("label").asText()).isEqualTo("Clasa B " + stamp);
+        assertThat(first.get("entries").get(0).get("label").asString()).isEqualTo("Clasa B " + stamp);
         long next = first.get("nextBefore").asLong();
         JsonNode second = journal("&category=PEOPLE&limit=1&before=" + next);
-        assertThat(second.get("entries").get(0).get("label").asText()).isEqualTo("Clasa A " + stamp);
+        assertThat(second.get("entries").get(0).get("label").asString()).isEqualTo("Clasa A " + stamp);
         assertThat(second.get("nextBefore").isNull()).isTrue();
     }
 

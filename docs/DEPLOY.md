@@ -65,6 +65,11 @@ Pe server, o singură dată: `docker login ghcr.io` cu un token `read:packages` 
 Rollback-ul nu anulează migrările Flyway deja aplicate — migrările se scriu compatibil cu versiunea anterioară (adaugă coloane nullable,
 nu redenumi/șterge în același release).
 
+**Spring Boot 4 (după v0.3.0)**: backend-ul rulează pe Spring Boot 4.1.1 / Spring Framework 7.0.9 / Jackson 3. Nicio variabilă din
+`.env.prod` nu s-a schimbat. Singura cheie nouă e în `application.yml`, nu în env: `spring.jackson.use-jackson2-defaults: true`,
+care păstrează JSON-ul API-ului identic cu cel de dinainte. Nu există migrări noi, iar formatul din Redis e același (sesiunile sunt
+string-uri, cache-ul are același JSON), deci un rollback la imaginea v0.3.0 rămâne sigur.
+
 ## 4. Backup și restaurare (Pasul 6.7)
 
 Ce nu se poate reconstrui: **baza de date** (conturi, note) și **pozele elevilor** (volumul `uploads`; sunt date ale unor minori).

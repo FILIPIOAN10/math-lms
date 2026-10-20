@@ -1,8 +1,8 @@
 package ro.mathlms.ingest;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -205,15 +205,15 @@ public class OpenAiChapterSuggester implements ChapterSuggester {
     List<Suggestion> parse(JsonNode response, List<Question> questions, List<Choice> chapters) throws ExtractionException {
         String text = null;
         for (JsonNode output : response.path("output")) {
-            if (!"message".equals(output.path("type").asText())) {
+            if (!"message".equals(output.path("type").asString())) {
                 continue;
             }
             for (JsonNode part : output.path("content")) {
-                if ("refusal".equals(part.path("type").asText())) {
+                if ("refusal".equals(part.path("type").asString())) {
                     throw new ExtractionException(OpenAiPageExtractor.REFUSED);
                 }
-                if ("output_text".equals(part.path("type").asText())) {
-                    text = part.path("text").asText();
+                if ("output_text".equals(part.path("type").asString())) {
+                    text = part.path("text").asString();
                 }
             }
         }
@@ -251,11 +251,11 @@ public class OpenAiChapterSuggester implements ChapterSuggester {
 
     /** A code we do not have is no suggestion at all (and its reason goes with it). */
     private static PartSuggestion read(JsonNode node, Set<String> known) {
-        String code = node.path("code").isTextual() ? node.path("code").asText().strip().toUpperCase() : null;
+        String code = node.path("code").isString() ? node.path("code").asString().strip().toUpperCase() : null;
         if (code == null || !known.contains(code)) {
             return new PartSuggestion(null, null);
         }
-        String reason = node.path("reason").isTextual() ? node.path("reason").asText().strip() : null;
+        String reason = node.path("reason").isString() ? node.path("reason").asString().strip() : null;
         return new PartSuggestion(code, reason == null || reason.isEmpty() ? null : truncate(reason));
     }
 

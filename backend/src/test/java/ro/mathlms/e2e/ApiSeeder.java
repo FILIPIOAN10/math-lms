@@ -1,7 +1,7 @@
 package ro.mathlms.e2e;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 import java.net.CookieManager;
@@ -53,7 +53,7 @@ final class ApiSeeder {
 
     private long userId(String role, String email) {
         for (JsonNode user : send("GET", "/api/admin/users?role=" + role, null)) {
-            if (user.get("email").asText().equals(email)) {
+            if (user.get("email").asString().equals(email)) {
                 return user.get("id").asLong();
             }
         }
@@ -70,9 +70,9 @@ final class ApiSeeder {
         JsonNode started = send("POST", "/api/quiz/quizzes/" + quizId + "/attempts", Map.of());
         long attemptId = started.get("attemptId").asLong();
         for (JsonNode item : started.get("quiz").get("items")) {
-            if (item.get("type").asText().equals("SINGLE_CHOICE")) {
+            if (item.get("type").asString().equals("SINGLE_CHOICE")) {
                 for (JsonNode option : item.get("options")) {
-                    if (wanted.contains(option.get("text").asText())) {
+                    if (wanted.contains(option.get("text").asString())) {
                         send("PUT", "/api/quiz/attempts/" + attemptId + "/responses/" + item.get("id").asLong(),
                                 Map.of("optionId", option.get("id").asLong()));
                     }
@@ -126,12 +126,12 @@ final class ApiSeeder {
      */
     void ensureActiveStudent(String email) {
         for (JsonNode user : send("GET", "/api/admin/users?role=STUDENT", null)) {
-            if (user.get("email").asText().equals(email)) {
+            if (user.get("email").asString().equals(email)) {
                 return;
             }
         }
         for (JsonNode pending : send("GET", "/api/admin/users/pending", null)) {
-            if (pending.get("email").asText().equals(email)) {
+            if (pending.get("email").asString().equals(email)) {
                 send("POST", "/api/admin/users/" + pending.get("id").asLong() + "/approve", Map.of("role", "STUDENT"));
                 return;
             }

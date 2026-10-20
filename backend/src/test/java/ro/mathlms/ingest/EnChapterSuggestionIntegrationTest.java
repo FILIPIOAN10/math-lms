@@ -1,11 +1,11 @@
 package ro.mathlms.ingest;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.mock.web.MockMultipartFile;
@@ -63,7 +63,7 @@ class EnChapterSuggestionIntegrationTest {
             // other tests' leftovers must not be read as ours
         }
         for (JsonNode c : json(mockMvc.perform(get("/api/en-chapters").with(teacher)))) {
-            chapters.put(c.get("code").asText(), c.get("id").asLong());
+            chapters.put(c.get("code").asString(), c.get("id").asLong());
         }
     }
 
@@ -85,20 +85,20 @@ class EnChapterSuggestionIntegrationTest {
 
         JsonNode items = json(mockMvc.perform(get("/api/admin/ai-imports/" + id).with(teacher))).get("items");
         // The fake reads "Rezultatul calculului ..." and "triunghiul ABC ... perimetrul".
-        assertThat(items.get(0).get("enChapter").asText()).isEqualTo("A1");
-        assertThat(items.get(0).get("enChapterReason").asText()).isNotBlank();
-        assertThat(items.get(1).get("enChapter").asText()).isEqualTo("G3");
+        assertThat(items.get(0).get("enChapter").asString()).isEqualTo("A1");
+        assertThat(items.get(0).get("enChapterReason").asString()).isNotBlank();
+        assertThat(items.get(1).get("enChapter").asString()).isEqualTo("G3");
 
         Map<String, Object> grila = new LinkedHashMap<>();
         grila.put("type", "SINGLE_CHOICE");
-        grila.put("statement", items.get(0).get("statement").asText());
+        grila.put("statement", items.get(0).get("statement").asString());
         grila.put("points", 5);
         grila.put("section", "SUBIECTUL I");
         grila.put("options", List.of(Map.of("position", 0, "text", "5", "correct", false),
                 Map.of("position", 1, "text", "7", "correct", true)));
         grila.put("enChapterId", chapters.get("A1")); // I.1's automatic link anyway
         Map<String, Object> triangle = new LinkedHashMap<>(grila);
-        triangle.put("statement", items.get(1).get("statement").asText());
+        triangle.put("statement", items.get(1).get("statement").asString());
         triangle.put("enChapterId", chapters.get("G3")); // not I.2's A2: the teacher's own choice
         long quizId = json(send(post("/api/admin/ai-imports/" + id + "/quiz"),
                 Map.of("title", "Din manual " + id, "items", List.of(grila, triangle))).andExpect(status().isCreated()))
@@ -159,12 +159,12 @@ class EnChapterSuggestionIntegrationTest {
                 .with(teacher).with(csrf())).andExpect(status().isOk())).get("items");
 
         assertThat(proposals.get(0).get("itemId").asLong()).isEqualTo(grila);
-        assertThat(proposals.get(0).get("code").asText()).isEqualTo("A3");
+        assertThat(proposals.get(0).get("code").asString()).isEqualTo("A3");
         assertThat(proposals.get(0).get("chapterId").asLong()).isEqualTo(chapters.get("A3"));
-        assertThat(proposals.get(0).get("reason").asText()).isNotBlank();
+        assertThat(proposals.get(0).get("reason").asString()).isNotBlank();
         JsonNode parts = proposals.get(1).get("parts");
-        assertThat(parts.get(0).get("code").asText()).isEqualTo("G8");
-        assertThat(parts.get(1).get("code").asText()).isEqualTo("G9");
+        assertThat(parts.get(0).get("code").asString()).isEqualTo("G8");
+        assertThat(parts.get(1).get("code").asString()).isEqualTo("G9");
 
         // Nothing changes until the teacher applies what they keep: here the grilă and requirement b) only.
         JsonNode before = json(mockMvc.perform(get("/api/admin/quizzes/" + quizId).with(teacher))).get("items");
