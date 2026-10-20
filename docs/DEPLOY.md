@@ -136,3 +136,33 @@ pentru `BACKUP_REMOTE`, SMTP real și testarea unei restaurări.
 
 > Verificat într-un container Ubuntu cu `docker` simulat (validare, copiere, utilizator + cheie, cron, Caddyfile, re-rulare); instalarea reală a Docker
 > și emiterea certificatului nu au putut fi încercate fără un server real — la prima rulare urmărește output-ul.
+
+## 8. Test din poze cu Gemini (Google Cloud)
+
+Importul „test din poze” (Faza 3) poate citi paginile cu **Gemini pe Google Cloud** (Vertex AI, redenumit „Agent Platform”). Costul se
+plătește din proiectul Google Cloud, deci și din creditul de probă de 300$. O cheie din AI Studio **nu** e acoperită de acel credit pentru
+conturile deschise după 2 martie 2026, de aceea folosim un cont de serviciu, nu o cheie API.
+
+**O singură dată, în Google Cloud Console** (proiectul aplicației, ex. `math-lms-507017`):
+1. APIs & Services → Library → **Agent Platform API** (`aiplatform.googleapis.com`) → Enable.
+2. IAM & Admin → Service accounts → Create: `math-lms-reader`, rol **Agent Platform user** (fostul „Vertex AI User”); nimic la pasul 3.
+3. Contul creat → Keys → Add key → JSON. Fișierul e o parolă: nu intră niciodată în git, în chat sau în imagine.
+4. Billing → Budgets & alerts: un buget (ex. 50$) cu alertă pe email.
+
+**Pe server** (cheia stă lângă `docker-compose.prod.yml`, în `secrets/`, montat read-only în container la `/app/secrets`; utilizatorul
+din containerul backend are `uid=100 gid=101`, deci fișierul îi aparține lui):
+
+```bash
+scp -i ~/.ssh/math-lms-aws.pem ~/.ssh/math-lms-vertex.json ubuntu@SERVER:~/gcp-vertex.json
+ssh -i ~/.ssh/math-lms-aws.pem ubuntu@SERVER "sudo mkdir -p /opt/math-lms/secrets && sudo mv ~/gcp-vertex.json /opt/math-lms/secrets/gcp-vertex.json && sudo chown 100:101 /opt/math-lms/secrets/gcp-vertex.json && sudo chmod 400 /opt/math-lms/secrets/gcp-vertex.json"
+```
+
+În `/opt/math-lms/.env.prod` (editat pe server, `sudo nano`): `AI_IMPORT_ENABLED=true`, `AI_PROVIDER=gemini`,
+`GEMINI_PROJECT=<id-ul proiectului>`; opțional `GEMINI_LOCATION` (implicit `global`) și `GEMINI_MODEL` (implicit `gemini-3.8-flash`).
+`GEMINI_CREDENTIALS_FILE` are deja valoarea corectă în compose (`/app/secrets/gcp-vertex.json`). Apoi `up -d backend`.
+
+- **Regiunea:** `global` are modelele noi (2026-10: `gemini-3.8-flash`, `gemini-4-argon`), dar Google poate procesa cererea oriunde;
+  `europe-west1` ține procesarea în UE, dar are doar `gemini-2.5-*`. Se trimit doar poze cu pagini de manual, niciodată date ale elevilor.
+- **Erorile** apar profesorului în română, pe ecranul importului (cheie lipsă / respinsă, rol lipsă, model inexistent în regiune, credit
+  epuizat); detaliile tehnice sunt în logul backend-ului (`Gemini answered …`).
+- **Cheia nu e în backup** (`deploy/backup.sh` salvează baza și pozele): dacă se pierde, creezi alta din Google Cloud și o ștergi pe cea veche.

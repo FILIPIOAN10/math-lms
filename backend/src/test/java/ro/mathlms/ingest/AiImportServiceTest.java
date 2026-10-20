@@ -91,7 +91,7 @@ class AiImportServiceTest {
 
     @Test
     void anUnknownProviderFailsTheReadInsteadOfHanging() {
-        service("gemini", true).processNext();
+        service("nimeni", true).processNext();
 
         assertThat(queued.getError()).isEqualTo(AiImportService.NO_PROVIDER);
     }

@@ -81,15 +81,23 @@ services:
       SERVER_FORWARD_HEADERS_STRATEGY: native
       SECURITY_LOG_LEVEL: ${SECURITY_LOG_LEVEL:-INFO}
       LOG_FORMAT: ${LOG_FORMAT:-logstash}     # structured JSON logs (one object per line, with requestId)
-      # Faza 3 - quiz from textbook photos. OFF unless AI_IMPORT_ENABLED=true and OPENAI_API_KEY is set.
+      # Faza 3 - quiz from textbook photos. OFF unless AI_IMPORT_ENABLED=true and the provider's key is set
+      # (gemini: the service-account JSON in ./secrets/, see docs/DEPLOY.md; openai: OPENAI_API_KEY).
       AI_IMPORT_ENABLED: ${AI_IMPORT_ENABLED:-false}
       AI_PROVIDER: ${AI_PROVIDER:-openai}
       AI_DAILY_PAGE_LIMIT: ${AI_DAILY_PAGE_LIMIT:-50}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-6-luna}
+      GEMINI_PROJECT: ${GEMINI_PROJECT:-}
+      GEMINI_LOCATION: ${GEMINI_LOCATION:-global}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.8-flash}
+      GEMINI_CREDENTIALS_FILE: ${GEMINI_CREDENTIALS_FILE:-/app/secrets/gcp-vertex.json}
     volumes:
       # Student solution photos: lose this volume and the photos are gone (see backup, step 6.7).
       - uploads:/app/uploads
+      # Provider keys kept as files (the Gemini service-account JSON). A directory, so a missing key is just an empty
+      # folder and the app starts anyway; read-only, never in the image or in git.
+      - ./secrets:/app/secrets:ro
 
   frontend:
     image: ${FRONTEND_IMAGE:-mathlms-frontend:local}

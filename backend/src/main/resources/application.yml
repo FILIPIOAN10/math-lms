@@ -135,7 +135,8 @@ app:
     # EN chapter pages: theory photos and worked-example figures (same uploads volume, so backups include them).
     en-chapter-images-dir: ${EN_CHAPTER_IMAGES_DIR:uploads/en-chapters}
   # Faza 3: a quiz from photographed textbook pages (only textbook pages - never student work or personal data).
-  # OFF by default. AI_PROVIDER=openai needs OPENAI_API_KEY in .env; AI_PROVIDER=fake reads made-up questions (dev).
+  # OFF by default. AI_PROVIDER=gemini needs a Google Cloud service-account key (GEMINI_*); AI_PROVIDER=openai needs
+  # OPENAI_API_KEY in .env; AI_PROVIDER=fake reads made-up questions (dev).
   ai:
     enabled: ${AI_IMPORT_ENABLED:false}
     provider: ${AI_PROVIDER:openai}
@@ -153,6 +154,15 @@ app:
       model: ${OPENAI_MODEL:gpt-6-luna}
       reasoning-effort: ${OPENAI_REASONING_EFFORT:low}
       image-detail: ${OPENAI_IMAGE_DETAIL:high}
+    # The Gemini reader (AI_PROVIDER=gemini) on Google Cloud (Vertex AI / Agent Platform), billed to the project - so a
+    # Cloud free-trial credit pays for it, unlike an AI Studio key. Sign-in: the JSON key of a service account with the
+    # "Agent Platform user" role, kept OUTSIDE the repo. Location "global" serves the newest models (2026-10:
+    # gemini-3.8-flash); a region such as europe-west1 keeps processing in the EU but only offers gemini-2.5-*.
+    gemini:
+      credentials-file: ${GEMINI_CREDENTIALS_FILE:}
+      project: ${GEMINI_PROJECT:}
+      location: ${GEMINI_LOCATION:global}
+      model: ${GEMINI_MODEL:gemini-3.8-flash}
 
 # Rate limiting (Phase 6.1): per-endpoint fixed windows in Redis, rules in RateLimitConfig.
 rate:

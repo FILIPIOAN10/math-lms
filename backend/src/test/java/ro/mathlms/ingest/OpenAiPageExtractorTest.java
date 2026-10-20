@@ -100,7 +100,7 @@ class OpenAiPageExtractorTest {
                 {"status": "completed", "output": [{"type": "message", "content": [{"type": "refusal", "refusal": "No."}]}]}
                 """, MediaType.APPLICATION_JSON));
 
-        assertThatThrownBy(() -> extractor.extract(PAGES)).hasMessage(OpenAiPageExtractor.REFUSED);
+        assertThatThrownBy(() -> extractor.extract(PAGES)).hasMessage(PageReading.REFUSED);
     }
 
     @Test
@@ -110,7 +110,7 @@ class OpenAiPageExtractorTest {
                  "output": [{"type": "message", "content": [{"type": "output_text", "text": "{\\"items\\": [{\\"pa"}]}]}
                 """, MediaType.APPLICATION_JSON));
 
-        assertThatThrownBy(() -> extractor.extract(PAGES)).hasMessage(OpenAiPageExtractor.TOO_LONG);
+        assertThatThrownBy(() -> extractor.extract(PAGES)).hasMessage(PageReading.TOO_LONG);
     }
 
     @Test
@@ -118,7 +118,7 @@ class OpenAiPageExtractorTest {
         server.expect(requestTo("https://api.openai.com/v1/responses"))
                 .andRespond(withSuccess(answer("nu e JSON"), MediaType.APPLICATION_JSON));
 
-        assertThatThrownBy(() -> extractor.extract(PAGES)).hasMessage(OpenAiPageExtractor.UNREADABLE_ANSWER);
+        assertThatThrownBy(() -> extractor.extract(PAGES)).hasMessage(PageReading.UNREADABLE_ANSWER);
     }
 
     @Test
