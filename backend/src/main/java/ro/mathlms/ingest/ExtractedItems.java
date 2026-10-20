@@ -25,6 +25,12 @@ final class ExtractedItems {
     static final String UNBALANCED_MATH = "Formulă incompletă (un $ fără pereche) - verifică enunțul.";
     static final String TOO_FEW_OPTIONS = "Grilă cu mai puțin de 2 variante - completează variantele sau fă-o întrebare cu rezolvare.";
     static final String FIGURE = "Are un desen: adaugă-l ca imagine după ce creezi testul.";
+    static final String FIGURE_CROPPED = "Am decupat desenul din poză: verifică decupajul (îl poți ajusta sau scoate).";
+
+    /** Added around the AI's box on the 0-1000 scale (about 0.8 %): its boxes tend to touch the drawing's edges. */
+    static final int FIGURE_MARGIN = 8;
+    /** A box thinner than this (1.5 % of the page) is a misreading, not a drawing. */
+    static final int MIN_FIGURE = 15;
 
     private ExtractedItems() {
     }
@@ -63,8 +69,14 @@ final class ExtractedItems {
             if (type == QuizItemType.SINGLE_CHOICE && options.size() < 2) {
                 warnings.add(TOO_FEW_OPTIONS);
             }
+            int page = Math.clamp(item.page(), 1, Math.max(1, pageCount));
+            Integer figurePage = item.figurePage() == null ? page : item.figurePage();
+            List<Integer> figureBox = item.hasFigure() ? figureBox(item.figureBox(), figurePage, pageCount) : List.of();
+            if (figureBox.isEmpty()) {
+                figurePage = null;
+            }
             if (item.hasFigure()) {
-                warnings.add(FIGURE);
+                warnings.add(figureBox.isEmpty() ? FIGURE : FIGURE_CROPPED);
             }
             List<ExtractedItem.Part> parts = new ArrayList<>();
             if (type == QuizItemType.OPEN && item.parts() != null) {
@@ -84,11 +96,29 @@ final class ExtractedItems {
             if (!parts.isEmpty() && parts.stream().allMatch(p -> p.points() != null)) {
                 points = parts.stream().mapToInt(ExtractedItem.Part::points).sum(); // the printed parts are what counts
             }
-            int page = Math.clamp(item.page(), 1, Math.max(1, pageCount));
             out.add(new ExtractedItem(page, cap(enHeading(trim(item.section())), QuizItem.MAX_SECTION), type, statement,
-                    List.copyOf(options), points, item.hasFigure(), List.copyOf(warnings), List.copyOf(parts)));
+                    List.copyOf(options), points, item.hasFigure(), List.copyOf(warnings), List.copyOf(parts), null, null,
+                    figurePage, figureBox));
         }
         return out;
+    }
+
+    /**
+     * The AI's box for a drawing, with a small margin, or empty when it cannot be trusted: not four numbers
+     * {@code [ymin, xmin, ymax, xmax]} within 0-1000, upside down, too thin to be a drawing, or on a page not sent.
+     * An empty box keeps the old behaviour - the teacher adds the picture by hand.
+     */
+    static List<Integer> figureBox(List<Integer> box, int figurePage, int pageCount) {
+        if (box == null || box.size() != 4 || box.stream().anyMatch(Objects::isNull)
+                || figurePage < 1 || figurePage > pageCount) {
+            return List.of();
+        }
+        int ymin = box.get(0), xmin = box.get(1), ymax = box.get(2), xmax = box.get(3);
+        if (ymin < 0 || xmin < 0 || ymax > 1000 || xmax > 1000 || ymax - ymin < MIN_FIGURE || xmax - xmin < MIN_FIGURE) {
+            return List.of();
+        }
+        return List.of(Math.max(0, ymin - FIGURE_MARGIN), Math.max(0, xmin - FIGURE_MARGIN),
+                Math.min(1000, ymax + FIGURE_MARGIN), Math.min(1000, xmax + FIGURE_MARGIN));
     }
 
     /**

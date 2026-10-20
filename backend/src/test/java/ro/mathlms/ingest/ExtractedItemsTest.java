@@ -107,4 +107,52 @@ class ExtractedItemsTest {
         assertThat(ExtractedItems.balancedMath("$$x^2$$")).isTrue();
         assertThat(ExtractedItems.balancedMath("$x")).isFalse();
     }
+
+    /** A question with a drawing, the AI's box for it on {@code figurePage}, nothing else. */
+    private static ExtractedItem withFigure(int page, Integer figurePage, List<Integer> box) {
+        return new ExtractedItem(page, "SUBIECTUL al II-lea", QuizItemType.SINGLE_CHOICE, "În figura alăturată, aria este:",
+                List.of("4", "6"), 5, true, List.of(), List.of(), null, null, figurePage, box);
+    }
+
+    @Test
+    void aFigureBoxIsKeptWithASmallMarginAndTheWarningSaysItWasCut() {
+        List<ExtractedItem> out = ExtractedItems.normalize(List.of(
+                withFigure(1, 1, List.of(291, 630, 347, 959)),
+                withFigure(2, null, List.of(0, 900, 400, 1000))), 2); // no page given: the question's own
+
+        assertThat(out.get(0).figurePage()).isEqualTo(1);
+        assertThat(out.get(0).figureBox()).containsExactly(283, 622, 355, 967);
+        assertThat(out.get(0).warnings()).containsExactly(ExtractedItems.FIGURE_CROPPED);
+        assertThat(out.get(1).figurePage()).isEqualTo(2);
+        assertThat(out.get(1).figureBox()).containsExactly(0, 892, 408, 1000); // the margin stops at the page edge
+    }
+
+    @Test
+    void aBoxThatCannotBeTrustedIsDroppedAndTheTeacherAddsTheDrawing() {
+        List<ExtractedItem> out = ExtractedItems.normalize(List.of(
+                withFigure(1, 1, List.of(10, 20, 30)),              // not four numbers
+                withFigure(1, 1, List.of(500, 100, 400, 300)),      // upside down
+                withFigure(1, 1, List.of(100, 100, 1200, 300)),     // off the page
+                withFigure(1, 1, List.of(100, 100, 108, 300)),      // a sliver, not a drawing
+                withFigure(1, 3, List.of(100, 100, 300, 300)),      // a page that was not sent
+                withFigure(1, 1, null)), 2);
+
+        assertThat(out).allSatisfy(item -> {
+            assertThat(item.figurePage()).isNull();
+            assertThat(item.figureBox()).isEmpty();
+            assertThat(item.warnings()).containsExactly(ExtractedItems.FIGURE);
+        });
+    }
+
+    @Test
+    void noDrawingMeansNoBox() {
+        ExtractedItem plain = new ExtractedItem(1, null, QuizItemType.OPEN, "Rezolvă ecuația.", List.of(), 5, false,
+                List.of(), List.of(), null, null, 1, List.of(100, 100, 300, 300));
+
+        ExtractedItem out = ExtractedItems.normalize(List.of(plain), 1).getFirst();
+
+        assertThat(out.figurePage()).isNull();
+        assertThat(out.figureBox()).isEmpty();
+        assertThat(out.warnings()).isEmpty();
+    }
 }

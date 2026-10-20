@@ -165,6 +165,67 @@ class AiImportIntegrationTest {
                 .andExpect(status().isConflict());
     }
 
+    /** A real 2000 x 1000 page: white, with the "drawing" (a black block) where the fake reader says it is. */
+    private static byte[] pageWithDrawing() throws Exception {
+        java.awt.image.BufferedImage image = new java.awt.image.BufferedImage(2000, 1000, java.awt.image.BufferedImage.TYPE_INT_RGB);
+        java.awt.Graphics2D g = image.createGraphics();
+        g.setColor(java.awt.Color.WHITE);
+        g.fillRect(0, 0, 2000, 1000);
+        g.setColor(java.awt.Color.BLACK);
+        g.fillRect(600, 200, 400, 300);
+        g.dispose();
+        java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+        javax.imageio.ImageIO.write(image, "png", out);
+        return out.toByteArray();
+    }
+
+    @Test
+    void theFigureTheAiFoundBecomesTheQuestionsPictureWhenTheQuizIsMade() throws Exception {
+        long id = uploadedId(mockMvc.perform(multipart("/api/admin/ai-imports")
+                .file(new MockMultipartFile("files", "pagina.png", "image/png", pageWithDrawing()))
+                .with(as(teacher)).with(csrf())));
+        assertThat(service.processNext()).isTrue();
+        JsonNode figureItem = json(mockMvc.perform(get("/api/admin/ai-imports/" + id).with(as(teacher)))).get("items").get(1);
+        assertThat(figureItem.get("figurePage").asInt()).isEqualTo(1);
+        assertThat(figureItem.get("figureBox").size()).isEqualTo(4);
+        assertThat(figureItem.get("warnings").toString()).contains("decupat");
+
+        Map<String, Object> grila = Map.of("type", "SINGLE_CHOICE", "statement", "Cât face 2+3?", "points", 5,
+                "options", List.of(Map.of("position", 0, "text", "5", "correct", true), Map.of("position", 1, "text", "6", "correct", false)));
+        Map<String, Object> withFigure = Map.of("type", "OPEN", "statement", figureItem.get("statement").asString(),
+                "points", 10, "imageRequired", true);
+        // a figure on a page that was never sent is refused, and nothing is made
+        long quizzesBefore = quizRepository.count();
+        mockMvc.perform(post("/api/admin/ai-imports/" + id + "/quiz").with(as(teacher)).with(csrf())
+                        .contentType("application/json").content(objectMapper.writeValueAsString(Map.of("title", "Figuri " + id,
+                                "items", List.of(grila, withFigure),
+                                "figures", List.of(Map.of("index", 1, "page", 2, "box", List.of(200, 300, 500, 500)))))))
+                .andExpect(status().isBadRequest());
+        assertThat(quizRepository.count()).isEqualTo(quizzesBefore);
+
+        // the teacher kept the cut (as adjusted: exactly the black block) for the second question
+        long quizId = json(mockMvc.perform(post("/api/admin/ai-imports/" + id + "/quiz").with(as(teacher)).with(csrf())
+                .contentType("application/json").content(objectMapper.writeValueAsString(Map.of("title", "Figuri " + id,
+                        "items", List.of(grila, withFigure),
+                        "figures", List.of(Map.of("index", 1, "page", 1, "box", List.of(200, 300, 500, 500)))))))
+                .andExpect(status().isCreated())).get("quizId").asLong();
+
+        var created = itemRepository.findByQuizIdOrderByPosition(quizId);
+        assertThat(created.get(0).getImageKey()).isNull();
+        assertThat(created.get(1).getImageKey()).isNotNull();
+        assertThat(created.get(1).isImageRequired()).isFalse(); // it has its picture: nothing left to add
+        // served like any question picture (an active account; the teacher owns the quiz)
+        byte[] picture = mockMvc.perform(get("/api/quiz/items/" + created.get(1).getId() + "/image")
+                        .with(user(teacher.getEmail()).authorities(
+                                new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_ADMIN"),
+                                new org.springframework.security.core.authority.SimpleGrantedAuthority("STATUS_ACTIVE"))))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsByteArray();
+        java.awt.image.BufferedImage figure = javax.imageio.ImageIO.read(new java.io.ByteArrayInputStream(picture));
+        assertThat(figure.getWidth()).isEqualTo(400);
+        assertThat(figure.getHeight()).isEqualTo(300);
+        assertThat(pageFiles(id)).isEmpty(); // the page photos are gone, the cut is kept
+    }
+
     @Test
     void aGrilaWithoutItsCorrectAnswerMakesNoQuizAtAll() throws Exception {
         long id = uploadedId(upload(teacher, 1));

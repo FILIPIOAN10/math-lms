@@ -825,6 +825,10 @@ export interface ExtractedItem {
   enChapter?: string | null
   /** Why, in one sentence. */
   enChapterReason?: string | null
+  /** The photo the drawing is on (with figureBox); null/absent = no usable box, the teacher adds the picture. */
+  figurePage?: number | null
+  /** The drawing's box on that photo: [ymin, xmin, ymax, xmax] on a 0-1000 scale; empty/absent = none. */
+  figureBox?: number[] | null
 }
 
 export interface AiImport {
@@ -889,6 +893,15 @@ export interface QuizFromImportInput {
   chapterId: number | null
   /** The kept questions in order (positions are assigned by the server). */
   items: ItemInput[]
+  /** Drawings to cut out of the page photos, each for items[index]. */
+  figures?: FigureInput[]
+}
+
+/** The picture of a question: `box` ([ymin, xmin, ymax, xmax], 0-1000) of page `page` (1-based). */
+export interface FigureInput {
+  index: number
+  page: number
+  box: number[]
 }
 
 /** The reviewed questions become a DRAFT quiz; returns its id. */

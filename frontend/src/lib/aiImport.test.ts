@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ExtractedItem } from '@/lib/api'
-import { draftProblems, toDrafts, toItemInputs } from '@/lib/aiImport'
+import { boxFromDrag, boxToPhoto, draftProblems, photoToBox, toDrafts, toFigureInputs, toItemInputs } from '@/lib/aiImport'
 
 const read = (over: Partial<ExtractedItem> = {}): ExtractedItem => ({
   page: 1, section: 'SUBIECTUL I', type: 'SINGLE_CHOICE', statement: 'Cât face $2+3$?', options: ['4', '5', '6'],
@@ -112,5 +112,40 @@ describe('aiImport', () => {
     const inputs = toItemInputs(drafts, enChapters)
     expect(inputs.map((i) => i.enChapterId)).toEqual([1, 19, null])
     expect(inputs[1].parts?.map((p) => p.enChapterId)).toEqual([null, 20])
+  })
+
+  it('keeps the drawing the AI boxed, and nothing for a question without one', () => {
+    const [withBox, without] = toDrafts([
+      read({ type: 'OPEN', options: [], hasFigure: true, figurePage: 2, figureBox: [200, 300, 500, 500] }),
+      read({ hasFigure: true, figurePage: null, figureBox: [] }),
+    ])
+
+    expect(withBox.figure).toEqual({ page: 2, box: [200, 300, 500, 500] })
+    expect(without.figure).toBeNull()
+  })
+
+  it('turns the 0-1000 box into the fractions the picture is drawn with, and back', () => {
+    expect(boxToPhoto([200, 300, 500, 500])).toEqual({ x: 0.3, y: 0.2, w: 0.2, h: 0.3 })
+    expect(photoToBox({ x: 0.3, y: 0.2, w: 0.2, h: 0.3 })).toEqual([200, 300, 500, 500])
+    expect(photoToBox({ x: -0.1, y: 0.95, w: 0.5, h: 0.2 })).toEqual([950, 0, 1000, 400]) // kept on the page
+  })
+
+  it('makes a box from a drag in any direction, and none from a click', () => {
+    expect(boxFromDrag({ x: 0.6, y: 0.5 }, { x: 0.2, y: 0.1 })).toEqual({ x: 0.2, y: 0.1, w: expect.closeTo(0.4), h: expect.closeTo(0.4) })
+    expect(boxFromDrag({ x: 0.5, y: 0.5 }, { x: 0.505, y: 0.6 })).toBeNull() // too thin to be a drawing
+  })
+
+  it('sends the figures of the kept questions only, numbered as they will be in the quiz', () => {
+    const drafts = toDrafts([
+      read({ hasFigure: true, figurePage: 1, figureBox: [100, 100, 300, 300] }),
+      read({ hasFigure: true, figurePage: 1, figureBox: [400, 100, 600, 300] }),
+      read({ hasFigure: true, figurePage: 2, figureBox: [100, 500, 300, 900] }),
+    ])
+    drafts[1].include = false
+
+    expect(toFigureInputs(drafts)).toEqual([
+      { index: 0, page: 1, box: [100, 100, 300, 300] },
+      { index: 1, page: 2, box: [100, 500, 300, 900] },
+    ])
   })
 })

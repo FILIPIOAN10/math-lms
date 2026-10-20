@@ -17,10 +17,21 @@ import java.util.List;
  * @param parts           an open problem's requirements a), b)... with their printed points (EN Subiectul III); empty = none
  * @param enChapter       the EN chapter proposed for it ("A1"), or null; the teacher confirms or changes it
  * @param enChapterReason why, in one Romanian sentence ("Un calcul cu paranteze."), or null
+ * @param figurePage      the photo the drawing is on (usually {@code page}), or null when there is no usable box
+ * @param figureBox       the drawing's box on that photo, {@code [ymin, xmin, ymax, xmax]} on a 0-1000 scale; empty =
+ *                        none (the teacher adds the picture by hand, as before)
  */
 public record ExtractedItem(int page, String section, QuizItemType type, String statement, List<String> options,
                             Integer points, boolean hasFigure, List<String> warnings, List<Part> parts,
-                            String enChapter, String enChapterReason) {
+                            String enChapter, String enChapterReason, Integer figurePage, List<Integer> figureBox) {
+
+    /** A reading with a chapter proposal but no figure box (older readings, OpenAI tests). */
+    public ExtractedItem(int page, String section, QuizItemType type, String statement, List<String> options,
+                         Integer points, boolean hasFigure, List<String> warnings, List<Part> parts,
+                         String enChapter, String enChapterReason) {
+        this(page, section, type, statement, options, points, hasFigure, warnings, parts, enChapter, enChapterReason,
+                null, List.of());
+    }
 
     /** A reading without a chapter proposal (what the page reader returns). */
     public ExtractedItem(int page, String section, QuizItemType type, String statement, List<String> options,
@@ -37,7 +48,7 @@ public record ExtractedItem(int page, String section, QuizItemType type, String 
     /** The same reading with a chapter proposed for it and for each requirement. */
     ExtractedItem withChapter(String chapter, String reason, List<Part> proposedParts) {
         return new ExtractedItem(page, section, type, statement, options, points, hasFigure, warnings, proposedParts,
-                chapter, reason);
+                chapter, reason, figurePage, figureBox);
     }
 
     /** One requirement: "Arată că $x=25$." worth 2 points (null when none are printed), and its proposed chapter. */

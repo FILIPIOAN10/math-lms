@@ -74,7 +74,7 @@ class GeminiPageExtractorTest {
                 .andExpect(jsonPath("$.contents[0].parts[2].text").value("Pagina 2"))
                 .andExpect(jsonPath("$.contents[0].parts[3].inlineData.mimeType").value("image/png"))
                 .andExpect(jsonPath("$.generationConfig.responseMimeType").value("application/json"))
-                .andExpect(jsonPath("$.generationConfig.responseJsonSchema.properties.items.items.required.length()").value(9))
+                .andExpect(jsonPath("$.generationConfig.responseJsonSchema.properties.items.items.required.length()").value(11))
                 .andExpect(jsonPath("$.generationConfig.maxOutputTokens").value(GeminiPageExtractor.MAX_OUTPUT_TOKENS))
                 .andRespond(withSuccess(answer("""
                         {"items": [

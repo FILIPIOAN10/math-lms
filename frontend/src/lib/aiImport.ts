@@ -1,4 +1,5 @@
-import type { EnChapterSummary, ExtractedItem, ItemInput, QuizItemType } from '@/lib/api'
+import type { PhotoBox } from '@/components/PhotoCrop'
+import type { EnChapterSummary, ExtractedItem, FigureInput, ItemInput, QuizItemType } from '@/lib/api'
 
 /** Points a question gets when none are printed next to it (EN: a grilă is 5 p, a full solution usually 10 p). */
 export const DEFAULT_POINTS: Record<QuizItemType, number> = { SINGLE_CHOICE: 5, OPEN: 10 }
@@ -26,6 +27,14 @@ export interface DraftItem {
   enChapter: string
   /** Why the AI proposed it; null when it did not. */
   enChapterReason: string | null
+  /** The drawing cut out of a page photo, to become the question's picture; null = none (added by hand, if at all). */
+  figure: DraftFigure | null
+}
+
+/** A drawing's place: page `page` (1-based), `box` = [ymin, xmin, ymax, xmax] on a 0-1000 scale (as the AI gives it). */
+export interface DraftFigure {
+  page: number
+  box: number[]
 }
 
 export interface DraftPart {
@@ -60,7 +69,40 @@ export function toDrafts(items: ExtractedItem[]): DraftItem[] {
       : [],
     enChapter: item.enChapter ?? '',
     enChapterReason: item.enChapterReason ?? null,
+    figure: item.figurePage && item.figureBox?.length === 4 ? { page: item.figurePage, box: [...item.figureBox] } : null,
   }))
+}
+
+/** [ymin, xmin, ymax, xmax] on 0-1000 -> the fractions of the photo the picture is drawn from. */
+export function boxToPhoto(box: number[]): PhotoBox {
+  const [ymin, xmin, ymax, xmax] = box
+  return { x: xmin / 1000, y: ymin / 1000, w: (xmax - xmin) / 1000, h: (ymax - ymin) / 1000 }
+}
+
+const onPage = (value: number) => Math.min(1000, Math.max(0, Math.round(value * 1000)))
+
+/** Fractions of the photo -> [ymin, xmin, ymax, xmax] on 0-1000, kept on the page. */
+export function photoToBox(box: PhotoBox): number[] {
+  return [onPage(box.y), onPage(box.x), onPage(box.y + box.h), onPage(box.x + box.w)]
+}
+
+/** Smaller than this (1.5 % of the photo, either way) is a slip of the finger, not a drawing. */
+const MIN_FIGURE = 0.015
+
+/** The rectangle between where a drag started and ended (either direction), as fractions; null for a mere click. */
+export function boxFromDrag(start: { x: number; y: number }, end: { x: number; y: number }): PhotoBox | null {
+  const clamp = (v: number) => Math.min(1, Math.max(0, v))
+  const x = clamp(Math.min(start.x, end.x))
+  const y = clamp(Math.min(start.y, end.y))
+  const w = clamp(Math.max(start.x, end.x)) - x
+  const h = clamp(Math.max(start.y, end.y)) - y
+  return w < MIN_FIGURE || h < MIN_FIGURE ? null : { x, y, w, h }
+}
+
+/** The drawings to cut out, for the kept questions only, each numbered by its place among them (as toItemInputs). */
+export function toFigureInputs(drafts: DraftItem[]): FigureInput[] {
+  return drafts.filter((d) => d.include).flatMap((d, index) =>
+    d.figure ? [{ index, page: d.figure.page, box: [...d.figure.box] }] : [])
 }
 
 /** What still stops the quiz from being made, one line per question ("Subiectul 2: marchează răspunsul corect."). */

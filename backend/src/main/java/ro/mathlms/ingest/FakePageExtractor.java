@@ -9,7 +9,7 @@ import java.util.List;
 
 /**
  * A stand-in provider for dev and tests: no network, no key, no cost. Every page "contains" the same two questions -
- * a grilă under SUBIECTUL I and an open question with a figure under SUBIECTUL al II-lea - so the whole flow (upload,
+ * a grilă under SUBIECTUL I and an open question with a figure (and its box) under SUBIECTUL al II-lea - so the whole flow (upload,
  * worker, review, quiz) can be clicked through and asserted on. {@code app.ai.fake-delay-ms} makes it feel slow.
  */
 @Component
@@ -46,7 +46,8 @@ public class FakePageExtractor implements PageExtractor {
                     5, false, List.of()));
             items.add(new ExtractedItem(page, "SUBIECTUL al II-lea", QuizItemType.OPEN,
                     "În figura alăturată, triunghiul $ABC$ are $AB = " + (page + 5) + "$ cm. Calculează perimetrul triunghiului.",
-                    List.of(), 10, true, List.of()));
+                    List.of(), 10, true, List.of(), List.of(), null, null,
+                    page, List.of(200, 300, 500, 500))); // the drawing: a box on its page, cut when the quiz is made
         }
         return new ExtractionResult(items, "fake-1", 0, 0);
     }

@@ -29,7 +29,9 @@ import {
   type QuizItemType,
   type SchoolClass,
 } from '@/lib/api'
-import { draftPoints, draftProblems, toDrafts, toItemInputs, type DraftItem } from '@/lib/aiImport'
+import { boxToPhoto, draftPoints, draftProblems, photoToBox, toDrafts, toFigureInputs, toItemInputs, type DraftItem } from '@/lib/aiImport'
+import { FigureCropEditor } from '@/components/FigureCropEditor'
+import { PhotoCrop } from '@/components/PhotoCrop'
 import { errorMessage } from '@/lib/errors'
 import { formatDate, optionLetter, roCount } from '@/lib/format'
 import { shrinkImage } from '@/lib/image'
@@ -309,7 +311,7 @@ function ImportView({ id, classes, chapters, enChapters }: {
         <Card>
           <CardContent className="space-y-2 pt-4" role="status">
             <p className="font-medium">{ai.pageCount === 1 ? 'Se citește pagina' : `Se citesc ${roCount(ai.pageCount, 'pagină', 'pagini')}`}...</p>
-            <p className="text-sm text-muted-foreground">De obicei durează între 10 și 40 de secunde. Poți lăsa pagina deschisă.</p>
+            <p className="text-sm text-muted-foreground">De obicei durează 1–2 minute (un test întreg de 4–5 pagini, spre 2 minute). Poți lăsa pagina deschisă.</p>
           </CardContent>
         </Card>
       )}
@@ -361,6 +363,7 @@ function Review({ ai, classes, chapters, enChapters, onDiscard }: {
     try {
       const quizId = await createQuizFromAiImport(ai.id, {
         title: title.trim(), schoolClassId: classId, chapterId, items: toItemInputs(drafts, enChapters),
+        figures: toFigureInputs(drafts),
       })
       navigate(`/admin/quizzes/${quizId}`)
     } catch (e) {
@@ -413,7 +416,8 @@ function Review({ ai, classes, chapters, enChapters, onDiscard }: {
       <ol className="space-y-3">
         {drafts.map((d) => (
           <li key={d.key}>
-            <DraftCard draft={d} enChapters={enChapters} onChange={(change) => update(d.key, change)} />
+            <DraftCard draft={d} enChapters={enChapters} onChange={(change) => update(d.key, change)}
+                       pageUrl={ai.pagesAvailable ? (page) => aiImportPageUrl(ai.id, page) : null} />
           </li>
         ))}
       </ol>
@@ -440,11 +444,14 @@ function ProposalReason({ reason, shown }: { reason: string | null; shown: boole
   return <p className="text-xs text-muted-foreground">Propus de AI: {reason}</p>
 }
 
-function DraftCard({ draft: d, enChapters, onChange }: {
+function DraftCard({ draft: d, enChapters, onChange, pageUrl }: {
   draft: DraftItem
   enChapters: EnChapterSummary[]
   onChange: (change: Partial<DraftItem>) => void
+  /** The page photos, while they are kept (null once gone: then there is nothing to cut from). */
+  pageUrl: ((page: number) => string) | null
 }) {
+  const [editingFigure, setEditingFigure] = useState(false)
   // What the AI proposed, to keep showing its reason only while the teacher has not picked something else.
   const [proposed] = useState(() => ({ item: d.enChapter, parts: d.parts.map((p) => p.enChapter) }))
   const id = `ai-item-${d.key}`
@@ -563,10 +570,35 @@ function DraftCard({ draft: d, enChapters, onChange }: {
               <Label htmlFor={`${id}-solution`}>Barem / rezolvare (opțional)</Label>
               <Textarea id={`${id}-solution`} rows={2} value={d.solution} onChange={(e) => onChange({ solution: e.target.value })} />
             </div>
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={d.imageRequired} onChange={(e) => onChange({ imageRequired: e.target.checked })} />
-              Are desen (îl adaugi ca imagine după ce creezi testul)
-            </label>
+            {d.figure && pageUrl ? (
+              <div className="space-y-2" data-testid="ai-figure">
+                <p className="text-sm font-medium">Desenul (decupat automat din pagina {d.figure.page})</p>
+                {editingFigure ? (
+                  <FigureCropEditor src={pageUrl(d.figure.page)} box={boxToPhoto(d.figure.box)}
+                                    alt={`Pagina ${d.figure.page} din manual`}
+                                    onDone={(box) => { onChange({ figure: { page: d.figure!.page, box: photoToBox(box) } }); setEditingFigure(false) }}
+                                    onCancel={() => setEditingFigure(false)} />
+                ) : (
+                  <>
+                    <PhotoCrop src={pageUrl(d.figure.page)} box={boxToPhoto(d.figure.box)} alt={`Desenul întrebării ${d.key + 1}`}
+                               className="max-h-72" />
+                    <div className="flex flex-wrap gap-2">
+                      <Button type="button" variant="outline" size="xs" onClick={() => setEditingFigure(true)}>
+                        Ajustează decupajul
+                      </Button>
+                      <Button type="button" variant="ghost" size="xs" onClick={() => onChange({ figure: null })}>
+                        Scoate desenul
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </div>
+            ) : (
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={d.imageRequired} onChange={(e) => onChange({ imageRequired: e.target.checked })} />
+                Are desen (îl adaugi ca imagine după ce creezi testul)
+              </label>
+            )}
           </>
         )}
       </CardContent>

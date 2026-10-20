@@ -1,8 +1,11 @@
 package ro.mathlms.ingest;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import ro.mathlms.quiz.ItemRequest;
 
@@ -30,13 +33,32 @@ public final class AiImportDtos {
 
     /**
      * The reviewed questions, as the quiz builder takes them (positions are assigned in order). For a grilă the teacher
-     * has marked the one correct option; the barem goes in {@code solution}.
+     * has marked the one correct option; the barem goes in {@code solution}. {@code figures}: the drawings to cut out
+     * of the page photos for some of those questions (as the AI found them, or as the teacher adjusted them); null or
+     * empty = none.
      */
     public record CreateQuizFromImportRequest(
             @NotBlank @Size(max = 200) String title,
             Long schoolClassId,
             Long chapterId,
-            @NotEmpty @Size(max = ExtractedItems.MAX_ITEMS) List<@Valid ItemRequest> items
+            @NotEmpty @Size(max = ExtractedItems.MAX_ITEMS) List<@Valid ItemRequest> items,
+            @Size(max = ExtractedItems.MAX_ITEMS) List<@Valid FigureCrop> figures
+    ) {
+
+        /** Without figures: the request as it was before they were cut automatically. */
+        public CreateQuizFromImportRequest(String title, Long schoolClassId, Long chapterId, List<ItemRequest> items) {
+            this(title, schoolClassId, chapterId, items, null);
+        }
+    }
+
+    /**
+     * The picture of {@code items[index]}: the {@code box} ({@code [ymin, xmin, ymax, xmax]}, 0-1000) of page
+     * {@code page} (1-based).
+     */
+    public record FigureCrop(
+            @NotNull @Min(0) Integer index,
+            @NotNull @Min(1) Integer page,
+            @NotNull @Size(min = 4, max = 4) List<@NotNull @Min(0) @Max(1000) Integer> box
     ) {
     }
 

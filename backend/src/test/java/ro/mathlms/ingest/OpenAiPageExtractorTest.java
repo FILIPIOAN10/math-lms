@@ -65,7 +65,7 @@ class OpenAiPageExtractorTest {
                 .andExpect(jsonPath("$.input[0].content[3].image_url").value(startsWith("data:image/png;base64,")))
                 .andExpect(jsonPath("$.text.format.type").value("json_schema"))
                 .andExpect(jsonPath("$.text.format.strict").value(true))
-                .andExpect(jsonPath("$.text.format.schema.properties.items.items.required.length()").value(9))
+                .andExpect(jsonPath("$.text.format.schema.properties.items.items.required.length()").value(11))
                 .andRespond(withSuccess(answer("""
                         {"items": [
                           {"page": 1, "section": "SUBIECTUL I", "type": "SINGLE_CHOICE", "statement": "Cât face $2+3$?",

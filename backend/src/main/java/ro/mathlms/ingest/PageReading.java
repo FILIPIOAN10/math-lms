@@ -45,6 +45,10 @@ final class PageReading {
             - An exercise may continue on the next page (e.g. sub-point b) at the top of the following photo): it is still \
             ONE item, on the page where it starts.
             - "hasFigure": true when the exercise needs a drawing, graph or table that is shown only as a picture.
+            - "figurePage" and "figureBox": when "hasFigure" is true, the N of the "Pagina N" image that shows that \
+            drawing and its tight bounding box on that image, "figureBox" = [ymin, xmin, ymax, xmax] normalized to \
+            0-1000. Box the drawing (or the table) only - not the statement text, not the answer choices, not the \
+            squared writing area. Otherwise "figurePage" is null and "figureBox" is [].
             - "page": the N of the "Pagina N" label of the image the exercise is on.
             - "warnings": short notes in Romanian for anything you could not read with certainty (e.g. "Un cuvânt \
             ilizibil în enunț."); [] when everything is clear.
@@ -83,11 +87,15 @@ final class PageReading {
         partProps.putObject("statement").put("type", "string");
         partProps.putObject("points").putArray("type").add("integer").add("null");
         part.putArray("required").add("statement").add("points");
+        props.putObject("figurePage").putArray("type").add("integer").add("null");
+        ObjectNode figureBox = props.putObject("figureBox");
+        figureBox.put("type", "array");
+        figureBox.putObject("items").put("type", "integer");
         ObjectNode parts = props.putObject("parts");
         parts.put("type", "array");
         parts.set("items", part);
         item.putArray("required").add("page").add("section").add("type").add("statement").add("options")
-                .add("points").add("hasFigure").add("warnings").add("parts");
+                .add("points").add("hasFigure").add("warnings").add("parts").add("figurePage").add("figureBox");
 
         ObjectNode root = objectMapper.createObjectNode();
         root.put("type", "object");

@@ -116,6 +116,44 @@ describe('AdminAiImportPage', () => {
     await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/admin/quizzes/9'))
   })
 
+  it('puts the drawing the AI cut out under its question; the teacher keeps it or takes it out', async () => {
+    const user = userEvent.setup()
+    api.createQuizFromAiImport.mockResolvedValue(9)
+    const items = done().items!
+    items[1] = { ...items[1], figurePage: 1, figureBox: [200, 300, 500, 500],
+      warnings: ['Am decupat desenul din poză: verifică decupajul (îl poți ajusta sau scoate).'] }
+    api.getAiImport.mockResolvedValue(done({ items }))
+    renderAt('/admin/quizzes/ai-import/5')
+
+    const [grila, open] = await screen.findAllByTestId('ai-draft')
+    expect(within(open).getByRole('img', { name: 'Desenul întrebării 2' })).toBeInTheDocument()
+    expect(within(open).getByRole('button', { name: 'Ajustează decupajul' })).toBeInTheDocument()
+    await user.click(within(grila).getByLabelText('Varianta b) e corectă'))
+    await user.click(screen.getByRole('button', { name: 'Creează testul (2 întrebări)' }))
+
+    expect(api.createQuizFromAiImport).toHaveBeenCalledWith(5, expect.objectContaining({
+      figures: [{ index: 1, page: 1, box: [200, 300, 500, 500] }],
+    }))
+  })
+
+  it('a drawing taken out is not sent, and the question is left for a picture added by hand', async () => {
+    const user = userEvent.setup()
+    api.createQuizFromAiImport.mockResolvedValue(9)
+    const items = done().items!
+    items[1] = { ...items[1], figurePage: 1, figureBox: [200, 300, 500, 500] }
+    api.getAiImport.mockResolvedValue(done({ items }))
+    renderAt('/admin/quizzes/ai-import/5')
+
+    const [grila, open] = await screen.findAllByTestId('ai-draft')
+    await user.click(within(open).getByRole('button', { name: 'Scoate desenul' }))
+    expect(within(open).queryByRole('img', { name: 'Desenul întrebării 2' })).not.toBeInTheDocument()
+    expect(within(open).getByLabelText(/Are desen/)).toBeChecked()
+    await user.click(within(grila).getByLabelText('Varianta b) e corectă'))
+    await user.click(screen.getByRole('button', { name: 'Creează testul (2 întrebări)' }))
+
+    expect(api.createQuizFromAiImport).toHaveBeenCalledWith(5, expect.objectContaining({ figures: [] }))
+  })
+
   it('offers to try a failed read again', async () => {
     const user = userEvent.setup()
     api.getAiImport.mockResolvedValue(done({ status: 'FAILED', error: 'Poza e prea neclară.', items: null }))

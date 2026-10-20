@@ -25,12 +25,16 @@ import ro.mathlms.content.SchoolClassRepository;
 import ro.mathlms.ingest.AiImportDtos.AiImportDto;
 import ro.mathlms.ingest.AiImportDtos.AiImportSettingsDto;
 import ro.mathlms.ingest.AiImportDtos.CreateQuizFromImportRequest;
+import ro.mathlms.ingest.AiImportDtos.FigureCrop;
 import ro.mathlms.ingest.PageExtractor.ExtractionResult;
 import ro.mathlms.ingest.PageExtractor.PageImage;
 import ro.mathlms.quiz.InvalidQuizException;
+import ro.mathlms.quiz.QuestionImageService;
 import ro.mathlms.quiz.ItemRequest;
 import ro.mathlms.quiz.Quiz;
 import ro.mathlms.quiz.QuizAdminService;
+import ro.mathlms.quiz.QuizItem;
+import ro.mathlms.quiz.QuizItemRepository;
 import ro.mathlms.quiz.QuizNotFoundException;
 import ro.mathlms.storage.FileService;
 import ro.mathlms.user.User;
@@ -94,14 +98,19 @@ public class AiImportService {
     private final Clock clock;
     private final TransactionTemplate tx;
     private final ChapterSuggestionService suggestions;
+    private final QuizItemRepository itemRepository;
+    private final QuestionImageService questionImages;
 
     public AiImportService(AiImportRepository repository, UserRepository userRepository,
                            SchoolClassRepository schoolClassRepository, ChapterRepository chapterRepository,
                            QuizAdminService quizAdminService, FileService fileService, AuditLog auditLog,
                            List<PageExtractor> extractors, AiImportProperties properties, ObjectMapper objectMapper,
                            Clock clock, PlatformTransactionManager transactionManager,
-                           ChapterSuggestionService suggestions) {
+                           ChapterSuggestionService suggestions, QuizItemRepository itemRepository,
+                           QuestionImageService questionImages) {
         this.suggestions = suggestions;
+        this.itemRepository = itemRepository;
+        this.questionImages = questionImages;
         this.repository = repository;
         this.userRepository = userRepository;
         this.schoolClassRepository = schoolClassRepository;
@@ -236,7 +245,8 @@ public class AiImportService {
 
     /**
      * The reviewed questions become a DRAFT quiz, all or nothing (the quiz builder's own rules apply: a grilă needs
-     * exactly one correct option). The page files are then deleted - the quiz is what is kept.
+     * exactly one correct option). Each requested figure is cut out of its page photo and becomes its question's
+     * picture. The page files are then deleted - the quiz (with the cut figures) is what is kept.
      */
     @Transactional
     public Long createQuiz(String email, Long id, CreateQuizFromImportRequest request) {
@@ -248,6 +258,9 @@ public class AiImportService {
         if (ai.getStatus() != AiImportStatus.DONE) {
             throw new AiImportConflictException("Pozele nu au fost citite încă.");
         }
+        List<StoredPage> pages = pages(ai);
+        List<FigureCrop> figures = request.figures() == null ? List.of() : request.figures();
+        checkFigures(figures, request.items().size(), pages.size());
         Quiz quiz = quizAdminService.createQuiz(request.title(), null, request.schoolClassId(), null, false,
                 request.chapterId());
         List<ItemRequest> items = new ArrayList<>();
@@ -258,7 +271,7 @@ public class AiImportService {
                     item.imageRequired(), item.parts(), item.enChapterId()));
         }
         quizAdminService.addItems(quiz.getId(), items);
-        List<StoredPage> pages = pages(ai);
+        attachFigures(quiz.getId(), figures, pages);
         ai.linkQuiz(quiz.getId());
         ai.forgetPages();
         repository.save(ai);
@@ -267,6 +280,85 @@ public class AiImportService {
                 .details(RoCount.of(request.items().size(), "întrebare", "întrebări") + " din "
                         + RoCount.of(ai.getPageCount(), "pagină", "pagini")));
         return quiz.getId();
+    }
+
+    /** Every figure points at a kept question and a sent page, with a box that is a rectangle - or nothing is made. */
+    private static void checkFigures(List<FigureCrop> figures, int itemCount, int pageCount) {
+        for (FigureCrop figure : figures) {
+            List<Integer> box = figure.box();
+            boolean rectangle = box.get(0) < box.get(2) && box.get(1) < box.get(3);
+            if (figure.index() >= itemCount || figure.page() > pageCount || !rectangle) {
+                throw new InvalidQuizException("Decupajul desenului de la întrebarea " + (figure.index() + 1)
+                        + " nu mai corespunde pozelor. Ajustează-l sau scoate-l.");
+            }
+        }
+    }
+
+    /**
+     * Cuts each figure out of its page and puts it under its question, as if the teacher had uploaded it. A page that
+     * cannot be read leaves that question as before - flagged "has a drawing", for the teacher to add by hand - rather
+     * than failing the whole quiz over one picture.
+     */
+    private void attachFigures(Long quizId, List<FigureCrop> figures, List<StoredPage> pages) {
+        if (figures.isEmpty()) {
+            return;
+        }
+        List<QuizItem> created = itemRepository.findByQuizIdOrderByPosition(quizId);
+        for (FigureCrop figure : figures) {
+            QuizItem item = created.get(figure.index());
+            try {
+                byte[] page = fileService.loadImage(properties.pagesDir(), pages.get(figure.page() - 1).key())
+                        .getContentAsByteArray();
+                questionImages.attach(item.getId(), new CutFigure(FigureCropper.crop(page, figure.box())));
+            } catch (IOException e) {
+                log.warn("Quiz {}: the figure of question {} could not be cut from page {} - left for the teacher",
+                        quizId, figure.index() + 1, figure.page(), e);
+            }
+        }
+    }
+
+    /** A cut figure, handed to the question-picture service as an upload of its own. */
+    private record CutFigure(byte[] bytes) implements MultipartFile {
+
+        @Override
+        public String getName() {
+            return "file";
+        }
+
+        @Override
+        public String getOriginalFilename() {
+            return "figura.jpg";
+        }
+
+        @Override
+        public String getContentType() {
+            return "image/jpeg";
+        }
+
+        @Override
+        public boolean isEmpty() {
+            return bytes.length == 0;
+        }
+
+        @Override
+        public long getSize() {
+            return bytes.length;
+        }
+
+        @Override
+        public byte[] getBytes() {
+            return bytes.clone();
+        }
+
+        @Override
+        public java.io.InputStream getInputStream() {
+            return new java.io.ByteArrayInputStream(bytes);
+        }
+
+        @Override
+        public void transferTo(java.io.File dest) throws IOException {
+            java.nio.file.Files.write(dest.toPath(), bytes);
+        }
     }
 
     // --- worker ---
