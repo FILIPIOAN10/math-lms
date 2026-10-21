@@ -99,6 +99,34 @@ export function boxFromDrag(start: { x: number; y: number }, end: { x: number; y
   return w < MIN_FIGURE || h < MIN_FIGURE ? null : { x, y, w, h }
 }
 
+/** A grip on the box's edge, by compass point: `n` moves the top side, `se` the bottom-right corner, and so on. */
+export type BoxHandle = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw'
+
+/**
+ * The box with the sides of `handle` moved to `point`, the other sides staying where they were. A side stops just
+ * before the opposite one (the box never flips or gets thinner than a drawing) and at the photo's edge.
+ */
+export function resizeBox(box: PhotoBox, handle: BoxHandle, point: { x: number; y: number }): PhotoBox {
+  let left = box.x
+  let top = box.y
+  let right = box.x + box.w
+  let bottom = box.y + box.h
+  if (handle.includes('w')) left = Math.min(Math.max(0, point.x), right - MIN_FIGURE)
+  if (handle.includes('e')) right = Math.max(Math.min(1, point.x), left + MIN_FIGURE)
+  if (handle.includes('n')) top = Math.min(Math.max(0, point.y), bottom - MIN_FIGURE)
+  if (handle.includes('s')) bottom = Math.max(Math.min(1, point.y), top + MIN_FIGURE)
+  return { x: left, y: top, w: right - left, h: bottom - top }
+}
+
+/** The box shifted by (dx, dy), same size, stopped at the photo's edges. */
+export function moveBox(box: PhotoBox, dx: number, dy: number): PhotoBox {
+  return {
+    ...box,
+    x: Math.min(1 - box.w, Math.max(0, box.x + dx)),
+    y: Math.min(1 - box.h, Math.max(0, box.y + dy)),
+  }
+}
+
 /** The drawings to cut out, for the kept questions only, each numbered by its place among them (as toItemInputs). */
 export function toFigureInputs(drafts: DraftItem[]): FigureInput[] {
   return drafts.filter((d) => d.include).flatMap((d, index) =>

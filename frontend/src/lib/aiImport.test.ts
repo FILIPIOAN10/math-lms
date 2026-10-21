@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import type { ExtractedItem } from '@/lib/api'
-import { boxFromDrag, boxToPhoto, draftProblems, photoToBox, toDrafts, toFigureInputs, toItemInputs } from '@/lib/aiImport'
+import {
+  boxFromDrag, boxToPhoto, draftProblems, moveBox, photoToBox, resizeBox, toDrafts, toFigureInputs, toItemInputs,
+} from '@/lib/aiImport'
 
 const read = (over: Partial<ExtractedItem> = {}): ExtractedItem => ({
   page: 1, section: 'SUBIECTUL I', type: 'SINGLE_CHOICE', statement: 'Cât face $2+3$?', options: ['4', '5', '6'],
@@ -133,6 +135,30 @@ describe('aiImport', () => {
   it('makes a box from a drag in any direction, and none from a click', () => {
     expect(boxFromDrag({ x: 0.6, y: 0.5 }, { x: 0.2, y: 0.1 })).toEqual({ x: 0.2, y: 0.1, w: expect.closeTo(0.4), h: expect.closeTo(0.4) })
     expect(boxFromDrag({ x: 0.5, y: 0.5 }, { x: 0.505, y: 0.6 })).toBeNull() // too thin to be a drawing
+  })
+
+  it('resizes a box by one grip, leaving the other sides where they were', () => {
+    const box = { x: 0.2, y: 0.2, w: 0.4, h: 0.4 }
+
+    expect(resizeBox(box, 'e', { x: 0.9, y: 0 })).toEqual({ x: 0.2, y: 0.2, w: expect.closeTo(0.7), h: expect.closeTo(0.4) })
+    expect(resizeBox(box, 'nw', { x: 0.1, y: 0.05 }))
+      .toEqual({ x: 0.1, y: 0.05, w: expect.closeTo(0.5), h: expect.closeTo(0.55) })
+  })
+
+  it('never flips a box or lets it leave the photo while resizing', () => {
+    const box = { x: 0.2, y: 0.2, w: 0.4, h: 0.4 }
+
+    const pulledPast = resizeBox(box, 'w', { x: 0.95, y: 0.3 }) // the left side dragged past the right one
+    expect(pulledPast.x + pulledPast.w).toBeCloseTo(0.6)
+    expect(pulledPast.w).toBeCloseTo(0.015)
+    expect(resizeBox(box, 'se', { x: 1.3, y: 1.2 })).toEqual({ x: 0.2, y: 0.2, w: expect.closeTo(0.8), h: expect.closeTo(0.8) })
+  })
+
+  it('moves a box without changing its size, stopping at the edges', () => {
+    const box = { x: 0.2, y: 0.2, w: 0.4, h: 0.4 }
+
+    expect(moveBox(box, 0.1, -0.05)).toEqual({ x: expect.closeTo(0.3), y: expect.closeTo(0.15), w: 0.4, h: 0.4 })
+    expect(moveBox(box, 0.9, -0.9)).toEqual({ x: expect.closeTo(0.6), y: 0, w: 0.4, h: 0.4 })
   })
 
   it('sends the figures of the kept questions only, numbered as they will be in the quiz', () => {
