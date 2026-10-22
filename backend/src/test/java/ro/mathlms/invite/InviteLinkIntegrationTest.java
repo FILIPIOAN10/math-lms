@@ -99,6 +99,38 @@ class InviteLinkIntegrationTest {
         return userRepository.save(student);
     }
 
+    // --- admin (teacher) link ---
+
+    @Test
+    void aTeacherWhoJoinsThroughTheAdminLinkIsAnActiveAdminOnceTheEmailIsConfirmed() throws Exception {
+        InviteLinkDto link = inviteLinkService.createAdminInvite(null);
+        assertThat(link.maxUses()).isEqualTo(1);
+
+        register(email("profa"), code(link)).andExpect(status().isCreated());
+        confirmEmail(email("profa")).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("ACTIVE"));
+
+        User teacher = account(email("profa"));
+        assertThat(teacher.getRole()).isEqualTo(Role.ADMIN);
+        assertThat(teacher.getStatus()).isEqualTo(AccountStatus.ACTIVE);
+        // one use: the next one to open the same link is turned away
+        register(email("al-doilea"), code(link)).andExpect(status().isGone());
+        assertThat(userRepository.findByEmail(email("al-doilea"))).isEmpty();
+    }
+
+    @Test
+    void aRevokedAdminLinkLeavesTheListAndTurnsNewcomersAway() throws Exception {
+        InviteLinkDto link = inviteLinkService.createAdminInvite(3);
+        assertThat(inviteLinkService.activeAdminInvites()).extracting(InviteLinkDto::id).contains(link.id());
+
+        inviteLinkService.revoke(link.id());
+
+        assertThat(inviteLinkService.activeAdminInvites()).extracting(InviteLinkDto::id).doesNotContain(link.id());
+        register(email("strain"), code(link))
+                .andExpect(status().isGone())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("oprit")));
+        assertThat(userRepository.findByEmail(email("strain"))).isEmpty();
+    }
+
     // --- class link ---
 
     @Test

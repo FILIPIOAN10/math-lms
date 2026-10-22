@@ -80,10 +80,13 @@ public class InviteLinkService {
 
     /** "Link pentru Clasa a 8-a" / "Link pentru părinte" (the student is in the row's student column). */
     private static String label(InviteLink link) {
-        return link.getKind() == InviteLinkKind.CLASS
-                ? "Link pentru " + link.getSchoolClass().getName() : "Link pentru părinte";
+        if (link.getKind() == InviteLinkKind.CLASS) {
+            return "Link pentru " + link.getSchoolClass().getName();
+        } else if (link.getKind() == InviteLinkKind.ADMIN) {
+            return "Link pentru profesor/admin";
+        }
+        return "Link pentru părinte";
     }
-
     /** The class's links that still work or have only filled up — what the teacher can copy or revoke. */
     @Transactional(readOnly = true)
     public List<InviteLinkDto> activeClassInvites(Long classId) {
@@ -170,6 +173,10 @@ public class InviteLinkService {
         user.approve(link.getKind().role());
         userRepository.save(user);
         switch (link.getKind()) {
+            case ADMIN -> {
+                auditLog.recordAs(user, AuditEvent.of(AuditAction.JOINED_BY_INVITE, link.getId(), label(link))
+                        .about(user).details("cont de profesor/admin activat prin link"));
+            }
             case CLASS -> {
                 SchoolClass schoolClass = link.getSchoolClass();
                 if (!enrollmentRepository.existsByStudentIdAndSchoolClassId(user.getId(), schoolClass.getId())) {
@@ -220,5 +227,21 @@ public class InviteLinkService {
                 link.getUses(), link.getMaxUses(), link.getExpiresAt(), link.getCreatedAt(),
                 link.getSchoolClass() == null ? null : link.getSchoolClass().getName(),
                 link.getStudent() == null ? null : link.getStudent().getFullName());
+    }
+    @Transactional
+    public InviteLinkDto createAdminInvite(Integer maxUses) {
+        int cap = maxUses == null ? 1 : maxUses;
+        Instant now = clock.instant();
+        InviteLink link = linkRepository.save(InviteLink.forAdmin(newCode(), cap, now));
+
+        auditLog.record(AuditEvent.of(AuditAction.INVITE_LINK_CREATED, link.getId(), label(link))
+                .details("cel mult " + cap + " administratori"));
+        return toDto(link);
+    }
+
+    @Transactional(readOnly = true)
+    public List<InviteLinkDto> activeAdminInvites() {
+        return linkRepository.findActiveByKind(InviteLinkKind.ADMIN, clock.instant())
+                .stream().map(this::toDto).toList();
     }
 }

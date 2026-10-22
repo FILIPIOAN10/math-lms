@@ -289,7 +289,7 @@ export async function createInvite(role: Role): Promise<Invite> {
  */
 export interface InviteLink {
   id: number
-  kind: 'CLASS' | 'PARENT'
+  kind: 'CLASS' | 'PARENT' | 'ADMIN'
   url: string
   uses: number
   maxUses: number
@@ -302,6 +302,16 @@ export interface InviteLink {
 /** The class's links that are neither revoked nor expired (full ones included), newest first. */
 export async function listClassInvites(classId: number): Promise<InviteLink[]> {
   const response = await apiFetch(`/admin/classes/${classId}/invites`)
+  return response.json()
+}
+
+export async function listAdminInvites(): Promise<InviteLink[]> {
+  const response = await apiFetch(`/admin/invites/admin`)
+  return response.json()
+}
+
+export async function createAdminInvite(maxUses?: number): Promise<InviteLink> {
+  const response = await postJson(`/admin/invites/admin`, maxUses === undefined ? {} : { maxUses })
   return response.json()
 }
 

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { CopyLinkField } from '@/components/CopyLinkField'
 import { InviteLinkCard } from '@/components/InviteLinkCard'
+import { AdminInviteCard } from '@/components/AdminInviteCard'
 import { PageHeader } from '@/components/PageHeader'
 import { PendingAccountsCard } from '@/components/PendingAccountsCard'
 import {
@@ -224,6 +225,9 @@ export function AdminStudentsPage() {
             )}
           </CardContent>
         </Card>
+        {/* AICI ADAUGI NOUA COMPONENTĂ */}
+        <AdminInviteCard />
+
         <InviteLinkCard />
       </div>
     </div>

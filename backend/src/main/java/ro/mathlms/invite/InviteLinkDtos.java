@@ -43,4 +43,10 @@ public final class InviteLinkDtos {
             boolean direct
     ) {
     }
+
+    /** Optional cap for a new admin link; null = 1. */
+    public record CreateAdminInviteRequest(
+            @Min(1) @Max(InviteLink.MAX_USES) Integer maxUses
+    ) {
+    }
 }

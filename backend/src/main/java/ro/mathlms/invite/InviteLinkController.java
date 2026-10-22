@@ -49,4 +49,16 @@ public class InviteLinkController {
         service.revoke(linkId);
         return ResponseEntity.noContent().build();
     }
+
+    @GetMapping("/api/admin/invites/admin")
+    public List<InviteLinkDto> adminInvites() {
+        return service.activeAdminInvites();
+    }
+
+    @PostMapping("/api/admin/invites/admin")
+    public ResponseEntity<InviteLinkDto> createAdminInvite(
+            @Valid @RequestBody(required = false) InviteLinkDtos.CreateAdminInviteRequest request) {
+        Integer maxUses = request == null ? null : request.maxUses();
+        return ResponseEntity.status(HttpStatus.CREATED).body(service.createAdminInvite(maxUses));
+    }
 }

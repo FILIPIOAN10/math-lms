@@ -7,7 +7,9 @@ public enum InviteLinkKind {
     /** Joins a class: the newcomer becomes a STUDENT enrolled in it. */
     CLASS(Role.STUDENT),
     /** Belongs to one student: the newcomer becomes a PARENT linked to that student. */
-    PARENT(Role.PARENT);
+    PARENT(Role.PARENT),
+    /** Admin invite: the newcomer becomes an ADMIN/TEACHER. */
+    ADMIN(Role.ADMIN);
 
     private final Role role;
 

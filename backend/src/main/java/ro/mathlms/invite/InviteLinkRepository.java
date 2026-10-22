@@ -31,4 +31,10 @@ public interface InviteLinkRepository extends JpaRepository<InviteLink, Long> {
     @Query("update InviteLink l set l.uses = l.uses + 1 where l.id = :id"
             + " and l.revokedAt is null and l.expiresAt > :now and l.uses < l.maxUses")
     int claimUse(@Param("id") Long id, @Param("now") Instant now);
+
+    /** The links of one kind that still let someone in: not revoked, not expired, not used up. Newest first. */
+    @Query("select l from InviteLink l where l.kind = :kind"
+            + " and l.revokedAt is null and l.expiresAt > :now and l.uses < l.maxUses"
+            + " order by l.createdAt desc, l.id desc")
+    List<InviteLink> findActiveByKind(@Param("kind") InviteLinkKind kind, @Param("now") Instant now);
 }

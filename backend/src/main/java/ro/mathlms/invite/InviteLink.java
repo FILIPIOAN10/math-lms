@@ -95,6 +95,16 @@ public class InviteLink {
         link.schoolClass = Objects.requireNonNull(schoolClass, "schoolClass");
         return link;
     }
+    public static InviteLink forAdmin(String code, int maxUses, Instant now) {
+        InviteLink link = new InviteLink();
+        link.code = code;
+        link.kind = InviteLinkKind.ADMIN;
+        link.maxUses = maxUses;
+        link.uses = 0;
+        link.createdAt = now;
+        link.expiresAt = now.plus(java.time.Duration.ofDays(7));
+        return link;
+    }
 
     /** A single-use link for the parent of {@code student}. */
     public static InviteLink forParentOf(String code, User student, Instant now) {
