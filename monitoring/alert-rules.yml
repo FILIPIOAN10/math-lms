@@ -74,3 +74,13 @@ groups:
           severity: warning
         annotations:
           summary: The outbox is not draining (SMTP down, or the dispatcher stopped)
+
+      # The expiry job runs every 30 s, so an overdue timed attempt should be handed in within a minute. One that stays
+      # means the job is stuck or starved (scheduler threads busy) and students' time-ups are not being graded.
+      - alert: TimedAttemptsNotAutoSubmitted
+        expr: quiz_attempts_overdue > 0
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: Timed tests past their deadline are not being auto-submitted (AttemptExpiryJob late or stuck)

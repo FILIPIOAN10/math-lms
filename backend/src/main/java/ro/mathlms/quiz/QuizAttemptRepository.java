@@ -51,6 +51,11 @@ public interface QuizAttemptRepository extends JpaRepository<QuizAttempt, Long> 
             + "and a.deadlineAt is not null and a.deadlineAt < :cutoff order by a.deadlineAt")
     List<Long> findOverdueIds(@Param("cutoff") Instant cutoff);
 
+    /** How many in-progress attempts are past {@code cutoff} — what the expiry job still has to hand in (a gauge). */
+    @Query("select count(a) from QuizAttempt a where a.status = ro.mathlms.quiz.QuizAttemptStatus.IN_PROGRESS "
+            + "and a.deadlineAt is not null and a.deadlineAt < :cutoff")
+    long countOverdue(@Param("cutoff") Instant cutoff);
+
     /**
      * The graded-TEST attempts of the given students at one quiz, started at or after {@code since}, with the student
      * loaded - the input of the homework progress (a practice or an attempt from before the assignment never counts).

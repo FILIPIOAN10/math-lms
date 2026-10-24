@@ -27,6 +27,15 @@ spring:
     enabled: true
     locations: classpath:db/migration
 
+  # Every @Scheduled job shares this pool. Spring's default is ONE thread, so an AI import tick (several provider
+  # reads of up to ~2 min each) held back the timed-test auto-submit, the outbox emails and the reminders. Each
+  # fixed-delay job uses at most one thread at a time; 4 leaves room for the rest while the AI worker is busy.
+  task:
+    scheduling:
+      pool:
+        size: 4
+      thread-name-prefix: "scheduling-"
+
   servlet:
     multipart:
       max-file-size: 8MB
