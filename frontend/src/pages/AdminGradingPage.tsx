@@ -19,6 +19,7 @@ import {
   getAttemptForGrading,
   gradeOpenItem,
   gradeOpenItemParts,
+  GRADED_PAGE,
   listAttemptsForGrading,
   type AdminAttemptDetail,
   type AdminAttemptSummary,
@@ -234,11 +235,16 @@ export function AdminGradingPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const linkedAttempt = Number(searchParams.get('attempt')) || null
 
+  /** Whether "Mai vechi" may bring more graded papers (the last page came back full). */
+  const [more, setMore] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
+
   async function reloadList(status: QuizAttemptStatus = filter): Promise<AdminAttemptSummary[]> {
     setLoading(true)
     try {
       const list = await listAttemptsForGrading(status)
       setAttempts(list)
+      setMore(status === 'GRADED' && list.length === GRADED_PAGE)
       return list
     } catch (e) {
       setError(errorMessage(e))
@@ -251,7 +257,11 @@ export function AdminGradingPage() {
   useEffect(() => {
     let cancelled = false
     listAttemptsForGrading(filter)
-      .then((list) => !cancelled && setAttempts(list))
+      .then((list) => {
+        if (cancelled) return
+        setAttempts(list)
+        setMore(filter === 'GRADED' && list.length === GRADED_PAGE)
+      })
       .catch((e) => !cancelled && setError(errorMessage(e)))
       .finally(() => !cancelled && setLoading(false))
     return () => {
@@ -263,6 +273,22 @@ export function AdminGradingPage() {
     if (linkedAttempt !== null) void open(linkedAttempt)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only when the address names another paper
   }, [linkedAttempt])
+
+  /** The next page of graded papers, below the last one shown. */
+  async function loadOlder() {
+    const last = attempts[attempts.length - 1]
+    if (!last) return
+    setLoadingMore(true)
+    try {
+      const page = await listAttemptsForGrading('GRADED', last.attemptId)
+      setAttempts((prev) => [...prev, ...page])
+      setMore(page.length === GRADED_PAGE)
+    } catch (e) {
+      setError(errorMessage(e))
+    } finally {
+      setLoadingMore(false)
+    }
+  }
 
   /** Back to the queue; also forgets a paper named in the address, so a refresh does not reopen it. */
   function closeDetail() {
@@ -451,6 +477,7 @@ export function AdminGradingPage() {
             <div className="flex items-center justify-between gap-2">
               <h2 className="font-medium">Lucrări</h2>
               <select
+                aria-label="Ce lucrări arăți"
                 className={selectClass}
                 value={filter}
                 onChange={(e) => {
@@ -509,6 +536,11 @@ export function AdminGradingPage() {
                 </Card>
               ))}
             </div>
+            {!loading && filter === 'GRADED' && more && (
+              <Button variant="outline" onClick={() => void loadOlder()} disabled={loadingMore} data-testid="graded-older">
+                {loadingMore ? 'Se încarcă...' : 'Mai vechi'}
+              </Button>
+            )}
           </>
         )}
       </div>

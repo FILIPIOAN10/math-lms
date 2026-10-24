@@ -65,6 +65,20 @@ describe('AdminGradingPage', () => {
     expect(await screen.findByText('8 / 11 p · nota 7,55')).toBeInTheDocument()
   })
 
+  it('shows graded papers a page at a time, older ones on "Mai vechi"', async () => {
+    const page = Array.from({ length: 50 }, (_, i) => row({ attemptId: 200 - i, status: 'GRADED', score: 5 }))
+    api.listAttemptsForGrading.mockImplementation((status: string, before?: number) =>
+      Promise.resolve(status === 'SUBMITTED' ? [] : before === undefined ? page : [row({ attemptId: 9, status: 'GRADED', score: 5 })]))
+    renderPage()
+
+    await userEvent.selectOptions(await screen.findByRole('combobox', { name: 'Ce lucrări arăți' }), 'GRADED')
+    await userEvent.click(await screen.findByTestId('graded-older'))
+
+    await waitFor(() => expect(api.listAttemptsForGrading).toHaveBeenCalledWith('GRADED', 151))
+    expect(await screen.findAllByTestId('attempt-row')).toHaveLength(51)
+    expect(screen.queryByTestId('graded-older')).not.toBeInTheDocument() // the last page was short
+  })
+
   it('saves a comment for the student together with the points, with no Save button', async () => {
     await openAttempt()
 

@@ -1412,8 +1412,17 @@ export interface AdminAttemptDetail {
   teacherComment: string | null
 }
 
-export async function listAttemptsForGrading(status: QuizAttemptStatus): Promise<AdminAttemptSummary[]> {
-  const response = await apiFetch(`/admin/quiz/attempts?status=${status}`)
+/** Papers graded per page: GRADED only grows, so it comes newest first, a page at a time (F7). */
+export const GRADED_PAGE = 50
+
+/**
+ * The grading list. SUBMITTED is the whole queue (oldest first); GRADED is one page, newest first — pass the last
+ * attemptId shown as `before` for the next one.
+ */
+export async function listAttemptsForGrading(status: QuizAttemptStatus, before?: number): Promise<AdminAttemptSummary[]> {
+  const query = new URLSearchParams({ status })
+  if (before !== undefined) query.set('before', String(before))
+  const response = await apiFetch(`/admin/quiz/attempts?${query}`)
   return response.json()
 }
 

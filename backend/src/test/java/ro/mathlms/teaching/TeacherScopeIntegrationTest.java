@@ -164,6 +164,30 @@ class TeacherScopeIntegrationTest {
     }
 
     @Test
+    void theGradedListIsPagedNewestFirstWithOnlyTheTeachersOwnPapers() throws Exception {
+        java.util.List<Long> ids = new java.util.ArrayList<>();
+        for (int i = 0; i < 3; i++) {
+            QuizAttempt graded = new QuizAttempt(quizB, active("notat" + i, Role.STUDENT));
+            graded.submit();
+            graded.markGraded(5);
+            ids.add(attemptRepository.save(graded).getId());
+        }
+
+        // Bogdan's papers, two per page, newest first; the next page starts below the last id seen
+        mockMvc.perform(get("/api/admin/quiz/attempts").param("status", "GRADED").param("limit", "2")
+                        .with(as(bogdan, "TEACHER")))
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].attemptId").value(ids.get(2).intValue()))
+                .andExpect(jsonPath("$[1].attemptId").value(ids.get(1).intValue()));
+        mockMvc.perform(get("/api/admin/quiz/attempts").param("status", "GRADED").param("limit", "2")
+                        .param("before", String.valueOf(ids.get(1))).with(as(bogdan, "TEACHER")))
+                .andExpect(jsonPath("$[0].attemptId").value(ids.get(0).intValue()));
+        // none of them is Ana's
+        mockMvc.perform(get("/api/admin/quiz/attempts").param("status", "GRADED").with(asAna()))
+                .andExpect(jsonPath("$[*].attemptId", not(hasItem(ids.get(2).intValue()))));
+    }
+
+    @Test
     void whatATeacherCreatesIsTheirsAndATestNeedsOneOfTheirClasses() throws Exception {
         mockMvc.perform(post("/api/admin/classes").with(asAna()).with(csrf())
                         .contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"Clasa noua " + stamp + "\"}"))

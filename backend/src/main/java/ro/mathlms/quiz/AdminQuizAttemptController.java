@@ -42,7 +42,14 @@ public class AdminQuizAttemptController {
     /** The grading queue. Defaults to SUBMITTED (waiting for the teacher); ?status=GRADED shows history. */
     @GetMapping
     public List<AdminAttemptSummaryDto> list(
-            @RequestParam(defaultValue = "SUBMITTED") QuizAttemptStatus status) {
+            @RequestParam(defaultValue = "SUBMITTED") QuizAttemptStatus status,
+            @RequestParam(required = false) Long before,
+            @RequestParam(required = false) Integer limit) {
+        if (status == QuizAttemptStatus.GRADED) {
+            // Only grows: paged newest first, the teacher's own tests filtered in the query (pages stay full).
+            return service.listGradedPage(scope.restricted() ? scope.currentUserId() : null, before,
+                    limit == null ? QuizAttemptService.GRADED_PAGE : limit);
+        }
         return scope.keepOwnedQuizzes(service.listForGrading(status), AdminAttemptSummaryDto::quizId);
     }
 

@@ -2,6 +2,8 @@ package ro.mathlms.quiz;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.core.io.Resource;
+import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -14,19 +16,20 @@ import ro.mathlms.audit.AuditText;
 import ro.mathlms.cache.AfterCommitCacheEvictor;
 import ro.mathlms.cache.CacheNames;
 import ro.mathlms.content.EnrollmentRepository;
+import ro.mathlms.content.RoCount;
 import ro.mathlms.quiz.AdminAttemptDtos.AdminAttemptDetailDto;
 import ro.mathlms.quiz.AdminAttemptDtos.AdminAttemptSummaryDto;
 import ro.mathlms.quiz.AdminAttemptDtos.AdminItemReviewDto;
 import ro.mathlms.quiz.StudentQuizDtos.AnswerFeedbackDto;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultDto;
-import ro.mathlms.quiz.StudentQuizDtos.HintDto;
-import ro.mathlms.quiz.StudentQuizDtos.RevealedHintsDto;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultViewDto;
+import ro.mathlms.quiz.StudentQuizDtos.HintDto;
 import ro.mathlms.quiz.StudentQuizDtos.ItemResultDto;
 import ro.mathlms.quiz.StudentQuizDtos.MyAttemptDto;
 import ro.mathlms.quiz.StudentQuizDtos.PhotosDto;
 import ro.mathlms.quiz.StudentQuizDtos.ProgressPointDto;
 import ro.mathlms.quiz.StudentQuizDtos.QuizPreviewDto;
+import ro.mathlms.quiz.StudentQuizDtos.RevealedHintsDto;
 import ro.mathlms.quiz.StudentQuizDtos.SavedAnswerDto;
 import ro.mathlms.quiz.StudentQuizDtos.StartedAttemptDto;
 import ro.mathlms.quiz.StudentQuizDtos.StudentItemDto;
@@ -34,13 +37,12 @@ import ro.mathlms.quiz.StudentQuizDtos.StudentQuizDto;
 import ro.mathlms.storage.FileService;
 import ro.mathlms.user.User;
 import ro.mathlms.user.UserRepository;
-import org.springframework.core.io.Resource;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -49,7 +51,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import ro.mathlms.content.RoCount;
 
 /**
  * The student side of quizzes: browse published quizzes, start (or resume) an attempt, record
@@ -844,6 +845,21 @@ public class QuizAttemptService {
         cacheEvictor.evict(CacheNames.PROGRESS, attempt.getStudent().getEmail());
         cacheEvictor.evict(CacheNames.QUIZ_STATS, attempt.getQuiz().getId());
         resultNotifier.resultGraded(attempt);
+    }
+
+    /** The most graded papers one page holds (the browser asks for the next one with "Mai vechi"). */
+    public static final int GRADED_PAGE = 50;
+
+    /** One page of graded papers, newest first; {@code teacherId} null = every test. See {@code findGradedPage}. */
+    @Transactional(readOnly = true)
+    public List<AdminAttemptSummaryDto> listGradedPage(Long teacherId, Long beforeId, int limit) {
+        int size = Math.clamp(limit, 1, 200);
+        List<QuizAttempt> attempts = attemptRepository.findGradedPage(teacherId, beforeId,
+                Limit.of(size));
+        Map<Long, Integer> maxScores = maxScores(attempts);
+        return attempts.stream()
+                .map(a -> AdminAttemptSummaryDto.from(a, maxScores.getOrDefault(a.getQuiz().getId(), 0)))
+                .toList();
     }
 
     /** The teacher's grading queue (Q10): attempts in one status, oldest submission first. */

@@ -169,13 +169,16 @@ class AdminQuizAttemptControllerTest {
 
     @Test
     @WithMockUser(roles = "ADMIN")
-    void listAcceptsAStatusFilter() throws Exception {
-        when(service.listForGrading(QuizAttemptStatus.GRADED)).thenReturn(List.of());
+    void theGradedListIsPagedNewestFirst() throws Exception {
+        when(service.listGradedPage(null, null, QuizAttemptService.GRADED_PAGE)).thenReturn(List.of());
+        when(service.listGradedPage(null, 40L, 10)).thenReturn(List.of());
 
-        mockMvc.perform(get("/api/admin/quiz/attempts").param("status", "GRADED"))
+        mockMvc.perform(get("/api/admin/quiz/attempts").param("status", "GRADED")).andExpect(status().isOk());
+        mockMvc.perform(get("/api/admin/quiz/attempts").param("status", "GRADED").param("before", "40").param("limit", "10"))
                 .andExpect(status().isOk());
 
-        verify(service).listForGrading(QuizAttemptStatus.GRADED);
+        verify(service).listGradedPage(null, null, QuizAttemptService.GRADED_PAGE); // an ADMIN: every test
+        verify(service).listGradedPage(null, 40L, 10);
     }
 
     @Test

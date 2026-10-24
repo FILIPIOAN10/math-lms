@@ -1,6 +1,7 @@
 package ro.mathlms.quiz;
 
 import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.Limit;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
@@ -80,6 +81,18 @@ public interface QuizAttemptRepository extends JpaRepository<QuizAttempt, Long> 
     @Query("select a from QuizAttempt a join fetch a.quiz join fetch a.student "
             + "where a.status = :status and a.mode = ro.mathlms.quiz.AttemptMode.TEST order by a.submittedAt asc")
     List<QuizAttempt> findByStatusForGrading(@Param("status") QuizAttemptStatus status);
+
+    /**
+     * One page of the graded papers, newest first (F7: this list only grows). Keyset on the id ({@code beforeId} = the
+     * last id of the page before, null for the first page), so a page never shifts while grades come in. A teacher's
+     * own tests only ({@code teacherId}), filtered here so every page is full; null = every test (an ADMIN).
+     */
+    @Query("select a from QuizAttempt a join fetch a.quiz q join fetch a.student "
+            + "where a.status = ro.mathlms.quiz.QuizAttemptStatus.GRADED and a.mode = ro.mathlms.quiz.AttemptMode.TEST "
+            + "and (:teacherId is null or q.teacherId = :teacherId) and (:beforeId is null or a.id < :beforeId) "
+            + "order by a.id desc")
+    List<QuizAttempt> findGradedPage(@Param("teacherId") Long teacherId, @Param("beforeId") Long beforeId,
+                                     Limit limit);
 
     /** GDPR erasure: the teacher's comment on a paper is free text about the student - it goes, the grade stays. */
     @Modifying(flushAutomatically = true, clearAutomatically = true)
