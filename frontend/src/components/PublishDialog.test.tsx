@@ -5,8 +5,8 @@ import { PublishDialog } from '@/components/PublishDialog'
 import { ApiError, type AssignmentSummary, type QuizSummary, type SchoolClass } from '@/lib/api'
 
 const classes: SchoolClass[] = [
-  { id: 1, name: 'Clasa a 8-a', description: null },
-  { id: 2, name: 'Clasa a 9-a', description: null },
+  { id: 1, name: 'Clasa a 8-a', description: null, teacherId: 1 },
+  { id: 2, name: 'Clasa a 9-a', description: null, teacherId: 1 },
 ]
 
 function renderDialog(over: {

@@ -4,14 +4,16 @@ import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
 import ro.mathlms.user.User;
 import ro.mathlms.user.UserRepository;
+import ro.mathlms.teaching.TeacherScope;
 
 /**
  * Who may READ which part of the content tree (class → book → chapter → exercise).
  *
  * <p>A STUDENT only reads content of the classes they are enrolled in, a PARENT only the classes one
- * of their linked children is enrolled in; ADMIN is not restricted. Every miss is
+ * of their linked children is enrolled in; a TEACHER only their own classes (through {@link TeacherScope}); ADMIN is
+ * not restricted. Every miss is
  * a {@link ContentNotFoundException} (404, same as a missing id): a guessed id must not confirm that
- * another class's book or exercise exists. Writes are admin-only and never go through this check.
+ * another class's book or exercise exists. Writes are staff-only and check {@link TeacherScope} directly.
  */
 @Component
 public class ContentAccess {
@@ -24,15 +26,17 @@ public class ContentAccess {
     private final BookRepository bookRepository;
     private final ChapterRepository chapterRepository;
     private final ExerciseRepository exerciseRepository;
+    private final TeacherScope teacherScope;
 
     public ContentAccess(UserRepository userRepository, EnrollmentRepository enrollmentRepository,
                          BookRepository bookRepository, ChapterRepository chapterRepository,
-                         ExerciseRepository exerciseRepository) {
+                         ExerciseRepository exerciseRepository, TeacherScope teacherScope) {
         this.userRepository = userRepository;
         this.enrollmentRepository = enrollmentRepository;
         this.bookRepository = bookRepository;
         this.chapterRepository = chapterRepository;
         this.exerciseRepository = exerciseRepository;
+        this.teacherScope = teacherScope;
     }
 
     public boolean isStudent(Authentication authentication) {
@@ -54,12 +58,14 @@ public class ContentAccess {
     }
 
     public void checkClass(Long classId, Authentication authentication) {
+        teacherScope.requireClass(classId); // a TEACHER reads only their own classes; a no-op for everyone else
         if (isRestricted(authentication)) {
             requireEnrolled(classId, authentication, "SchoolClass", classId);
         }
     }
 
     public void checkBook(Long bookId, Authentication authentication) {
+        teacherScope.requireBook(bookId);
         if (isRestricted(authentication)) {
             Long classId = bookRepository.findClassIdById(bookId)
                     .orElseThrow(() -> new ContentNotFoundException("Book", bookId));
@@ -68,6 +74,7 @@ public class ContentAccess {
     }
 
     public void checkChapter(Long chapterId, Authentication authentication) {
+        teacherScope.requireChapter(chapterId);
         if (isRestricted(authentication)) {
             Long classId = chapterRepository.findClassIdById(chapterId)
                     .orElseThrow(() -> new ContentNotFoundException("Chapter", chapterId));
@@ -76,6 +83,7 @@ public class ContentAccess {
     }
 
     public void checkExercise(Long exerciseId, Authentication authentication) {
+        teacherScope.requireExercise(exerciseId);
         if (isRestricted(authentication)) {
             Long classId = exerciseRepository.findClassIdById(exerciseId)
                     .orElseThrow(() -> new ContentNotFoundException("Exercise", exerciseId));

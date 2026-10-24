@@ -88,7 +88,7 @@ public class InviteLinkService {
         if (link.getKind() == InviteLinkKind.CLASS) {
             return "Link pentru " + link.getSchoolClass().getName();
         } else if (link.getKind() == InviteLinkKind.ADMIN) {
-            return "Link pentru profesor/admin";
+            return "Link pentru profesor";
         }
         return "Link pentru părinte";
     }
@@ -181,7 +181,7 @@ public class InviteLinkService {
             // An admin link never grants the role by itself: the account stays in the approval queue and every active
             // admin is told (through the outbox, so a mail outage cannot undo the email confirmation).
             auditLog.recordAs(user, AuditEvent.of(AuditAction.JOINED_BY_INVITE, link.getId(), label(link))
-                    .about(user).details("cont de profesor/admin creat prin link, așteaptă aprobarea"));
+                    .about(user).details("cont de profesor creat prin link, așteaptă aprobarea"));
             userRepository.findByRoleAndStatusAndErasedFalse(Role.ADMIN, AccountStatus.ACTIVE).forEach(admin ->
                     outboxEventPublisher.publish(OutboxEventTypes.ADMIN_INVITE_USED,
                             new AdminInviteUsedPayload(user.getId(), admin.getId())));

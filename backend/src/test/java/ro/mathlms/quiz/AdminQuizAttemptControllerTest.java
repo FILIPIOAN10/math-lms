@@ -44,10 +44,18 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Import(AdminQuizAttemptControllerTest.MethodSecurityConfig.class)
 class AdminQuizAttemptControllerTest {
 
-    /** Turn on @PreAuthorize for this slice test. */
+    /**
+     * Turn on @PreAuthorize for this slice test. The teacher scope restricts nobody here (the callers are ADMIN or
+     * STUDENT), so it needs no database; {@code TeacherScopeIntegrationTest} covers a real TEACHER.
+     */
     @TestConfiguration
     @EnableMethodSecurity
-    static class MethodSecurityConfig {}
+    static class MethodSecurityConfig {
+        @org.springframework.context.annotation.Bean
+        ro.mathlms.teaching.TeacherScope teacherScope() {
+            return new ro.mathlms.teaching.TeacherScope(null);
+        }
+    }
 
     @Autowired
     private MockMvc mockMvc;

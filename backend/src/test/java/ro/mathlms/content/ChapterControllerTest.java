@@ -12,12 +12,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import ro.mathlms.teaching.TeacherScope;
 
 class ChapterControllerTest {
 
     private final ChapterService service = mock(ChapterService.class);
     private final ContentAccess access = mock(ContentAccess.class);
-    private final ChapterController controller = new ChapterController(service, access);
+    private final ChapterController controller = new ChapterController(service, access, new TeacherScope(null));
     private final Authentication auth = new UsernamePasswordAuthenticationToken("ana@scoala.ro", null);
 
     private final Book book = new Book(new SchoolClass("Clasa a 9-a", null), "M1", null);

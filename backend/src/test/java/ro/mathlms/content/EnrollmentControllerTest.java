@@ -5,6 +5,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import ro.mathlms.user.Role;
 import ro.mathlms.user.User;
+import ro.mathlms.teaching.TeacherScope;
 
 import java.util.List;
 
@@ -16,7 +17,7 @@ import static org.mockito.Mockito.when;
 class EnrollmentControllerTest {
 
     private final EnrollmentService service = mock(EnrollmentService.class);
-    private final EnrollmentController controller = new EnrollmentController(service);
+    private final EnrollmentController controller = new EnrollmentController(service, new TeacherScope(null));
 
     private final SchoolClass ninth = new SchoolClass("Clasa a 9-a", null);
 

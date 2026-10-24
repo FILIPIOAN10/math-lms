@@ -49,9 +49,10 @@ export function AdminInviteCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-xl">Invitații pentru Profesori / Administratori</CardTitle>
+        <CardTitle className="text-xl">Invitații pentru profesori</CardTitle>
         <CardDescription>
-          Aceste linkuri invită un utilizator ca <strong>ADMIN</strong>.
+          Aceste linkuri invită un <strong>profesor</strong>: după aprobare vede și schimbă doar clasele și testele lui.
+          Rolul de administrator îl dai tu, la aprobare.
           Din motive de securitate, linkul are <strong>o singură utilizare</strong>, expiră în <strong>24 de ore</strong>, iar contul creat va necesita <strong>aprobare manuală</strong>.
         </CardDescription>
       </CardHeader>

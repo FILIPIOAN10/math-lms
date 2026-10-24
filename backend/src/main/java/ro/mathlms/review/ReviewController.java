@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 import ro.mathlms.review.ReviewDtos.ReviewResultDto;
 import ro.mathlms.review.ReviewDtos.ReviewTodayDto;
 import ro.mathlms.review.ReviewDtos.StudentReviewStatusDto;
+import ro.mathlms.teaching.TeacherScope;
 
 import java.util.List;
 
@@ -26,9 +27,11 @@ public class ReviewController {
     }
 
     private final ReviewService service;
+    private final TeacherScope scope;
 
-    public ReviewController(ReviewService service) {
+    public ReviewController(ReviewService service, TeacherScope scope) {
         this.service = service;
+        this.scope = scope;
     }
 
     @GetMapping("/api/quiz/review/today")
@@ -45,8 +48,9 @@ public class ReviewController {
     }
 
     @GetMapping("/api/admin/classes/{classId}/review")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
     public List<StudentReviewStatusDto> forClass(@PathVariable Long classId) {
+        scope.requireClass(classId);
         return service.forClass(classId);
     }
 }

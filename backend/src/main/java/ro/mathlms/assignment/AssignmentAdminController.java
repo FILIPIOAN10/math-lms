@@ -16,29 +16,35 @@ import ro.mathlms.assignment.AssignmentDtos.AssignmentSummaryDto;
 import ro.mathlms.assignment.AssignmentDtos.PublishAndAssignRequest;
 import ro.mathlms.assignment.AssignmentDtos.RescheduleRequest;
 import ro.mathlms.assignment.AssignmentDtos.StudentStatusDto;
+import ro.mathlms.teaching.TeacherScope;
 
 import java.util.List;
 
 /** The teacher's homework API, under {@code /api/admin/assignments} (ADMIN). */
 @RestController
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
 public class AssignmentAdminController {
 
     private final AssignmentService service;
     private final PublishAndAssignService publishAndAssignService;
+    private final TeacherScope scope;
 
-    public AssignmentAdminController(AssignmentService service, PublishAndAssignService publishAndAssignService) {
+    public AssignmentAdminController(AssignmentService service, PublishAndAssignService publishAndAssignService,
+                                     TeacherScope scope) {
         this.service = service;
         this.publishAndAssignService = publishAndAssignService;
+        this.scope = scope;
     }
 
     @GetMapping("/api/admin/assignments")
     public List<AssignmentSummaryDto> list() {
-        return service.list();
+        return scope.keepOwnedClasses(service.list(), AssignmentSummaryDto::schoolClassId);
     }
 
     @PostMapping("/api/admin/assignments")
     public ResponseEntity<AssignmentSummaryDto> create(@Valid @RequestBody AssignmentRequest request) {
+        scope.requireQuiz(request.quizId());
+        scope.requireClass(request.schoolClassId());
         Assignment created = service.create(request.quizId(), request.schoolClassId(), request.dueAt());
         return ResponseEntity.status(HttpStatus.CREATED).body(service.summaryOf(created.getId()));
     }
@@ -47,6 +53,8 @@ public class AssignmentAdminController {
     @PostMapping("/api/admin/quizzes/{quizId}/publish-and-assign")
     public ResponseEntity<AssignmentSummaryDto> publishAndAssign(@PathVariable Long quizId,
                                                                  @Valid @RequestBody PublishAndAssignRequest request) {
+        scope.requireQuiz(quizId);
+        scope.requireClass(request.schoolClassId());
         Assignment created = publishAndAssignService.publishAndAssign(quizId, request.schoolClassId(), request.dueAt());
         return ResponseEntity.status(HttpStatus.CREATED).body(service.summaryOf(created.getId()));
     }
@@ -54,18 +62,21 @@ public class AssignmentAdminController {
     /** Moves the deadline (the quiz and class of an assignment never change - delete and create instead). */
     @PutMapping("/api/admin/assignments/{id}")
     public AssignmentSummaryDto reschedule(@PathVariable Long id, @Valid @RequestBody RescheduleRequest request) {
+        scope.requireAssignment(id);
         service.reschedule(id, request.dueAt());
         return service.summaryOf(id);
     }
 
     @DeleteMapping("/api/admin/assignments/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
+        scope.requireAssignment(id);
         service.delete(id);
         return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/api/admin/assignments/{id}/status")
     public List<StudentStatusDto> status(@PathVariable Long id) {
+        scope.requireAssignment(id);
         return service.status(id);
     }
 }

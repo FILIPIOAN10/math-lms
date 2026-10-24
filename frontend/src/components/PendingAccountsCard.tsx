@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { approveUser, listPendingUsers, rejectUser, type PendingUser, type Role } from '@/lib/api'
 import { roleLabel } from '@/lib/roles'
 
-const ROLE_OPTIONS: Role[] = ['STUDENT', 'PARENT', 'ADMIN']
+const ROLE_OPTIONS: Role[] = ['STUDENT', 'PARENT', 'TEACHER', 'ADMIN']
 
 const selectClass =
   'h-8 rounded-lg border border-border bg-background px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50'

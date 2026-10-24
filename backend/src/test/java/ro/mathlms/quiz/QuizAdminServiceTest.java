@@ -11,6 +11,7 @@ import ro.mathlms.cache.CacheNames;
 import ro.mathlms.content.SchoolClass;
 import ro.mathlms.content.SchoolClassRepository;
 import ro.mathlms.quiz.QuizDtos.ItemDto;
+import ro.mathlms.teaching.TeacherScope;
 
 import java.util.List;
 import java.util.Optional;
@@ -39,7 +40,7 @@ class QuizAdminServiceTest {
             new QuizAdminService(quizRepository, itemRepository, optionRepository, hintRepository, schoolClassRepository,
                     chapterRepository, exerciseRepository, cacheEvictor, mock(QuestionImageService.class), auditLog,
                     mock(QuizItemPartRepository.class), NoEnChapterLinks.create(),
-                    unfinishedAttempts);
+                    unfinishedAttempts, new TeacherScope(null));
 
     private final Quiz quiz = new Quiz("Simulare EN", null);
     private final SchoolClass ninth = new SchoolClass("Clasa a 9-a", null);

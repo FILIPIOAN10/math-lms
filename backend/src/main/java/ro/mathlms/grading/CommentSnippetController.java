@@ -19,7 +19,7 @@ import java.util.List;
 
 /** The teacher's saved grading comments ("comentarii frecvente"). Each teacher sees only their own. */
 @RestController
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
 public class CommentSnippetController {
 
     private final CommentSnippetService service;

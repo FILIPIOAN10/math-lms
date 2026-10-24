@@ -6,6 +6,7 @@ import org.springframework.data.domain.Sort;
 import ro.mathlms.audit.AuditAction;
 import ro.mathlms.audit.AuditEvent;
 import ro.mathlms.audit.AuditLog;
+import ro.mathlms.teaching.TeacherScope;
 
 import java.util.List;
 import java.util.Optional;
@@ -23,7 +24,8 @@ class SchoolClassServiceTest {
 
     private final SchoolClassRepository repository = mock(SchoolClassRepository.class);
     private final AuditLog auditLog = mock(AuditLog.class);
-    private final SchoolClassService service = new SchoolClassService(repository, auditLog);
+    private final SchoolClassService service = new SchoolClassService(repository, auditLog, new TeacherScope(null),
+            mock(ro.mathlms.user.UserRepository.class));
 
     @Test
     void classesAreListedInNaturalOrderSoTenthGradeComesAfterNinth() {

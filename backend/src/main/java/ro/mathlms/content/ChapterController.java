@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import ro.mathlms.teaching.TeacherScope;
 
 /**
  * Chapters within a book. Reads nested under the book ({@code /api/books/{bookId}/chapters});
@@ -24,10 +25,12 @@ public class ChapterController {
 
     private final ChapterService service;
     private final ContentAccess access;
+    private final TeacherScope scope;
 
-    public ChapterController(ChapterService service, ContentAccess access) {
+    public ChapterController(ChapterService service, ContentAccess access, TeacherScope scope) {
         this.service = service;
         this.access = access;
+        this.scope = scope;
     }
 
     @GetMapping("/api/books/{bookId}/chapters")
@@ -43,22 +46,25 @@ public class ChapterController {
     }
 
     @PostMapping("/api/admin/books/{bookId}/chapters")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
     public ResponseEntity<ChapterDto> create(@PathVariable Long bookId,
                                              @Valid @RequestBody ChapterRequest request) {
+        scope.requireBook(bookId);
         Chapter created = service.create(bookId, request.title(), request.description());
         return ResponseEntity.status(HttpStatus.CREATED).body(ChapterDto.from(created));
     }
 
     @PutMapping("/api/admin/chapters/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
     public ChapterDto update(@PathVariable Long id, @Valid @RequestBody ChapterRequest request) {
+        scope.requireChapter(id);
         return ChapterDto.from(service.update(id, request.title(), request.description()));
     }
 
     @DeleteMapping("/api/admin/chapters/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
+        scope.requireChapter(id);
         service.delete(id);
         return ResponseEntity.noContent().build();
     }

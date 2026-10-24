@@ -1,13 +1,15 @@
 import { type ReactNode } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
+import { isStaff } from '@/lib/roles'
 
 /**
- * Gate for admin-only screens. Layers on top of {@link ProtectedRoute}'s checks:
- * unauthenticated -> /login, non-active -> /pending, and anyone who is not an ADMIN
- * is sent home rather than shown the page.
+ * Gate for the staff screens. Layers on top of {@link ProtectedRoute}'s checks:
+ * unauthenticated -> /login, non-active -> /pending, and anyone who is not staff (ADMIN or TEACHER) is sent home
+ * rather than shown the page. {@code adminOnly} keeps a TEACHER out too (journal, shared EN pages); the backend
+ * refuses those requests anyway, this only spares the teacher a page full of errors.
  */
-export function AdminRoute({ children }: { children: ReactNode }) {
+export function AdminRoute({ children, adminOnly = false }: { children: ReactNode; adminOnly?: boolean }) {
   const { user, loading } = useAuth()
 
   if (loading) {
@@ -26,7 +28,7 @@ export function AdminRoute({ children }: { children: ReactNode }) {
     return <Navigate to="/pending" replace />
   }
 
-  if (user.role !== 'ADMIN') {
+  if (adminOnly ? user.role !== 'ADMIN' : !isStaff(user.role)) {
     return <Navigate to="/" replace />
   }
 

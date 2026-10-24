@@ -23,16 +23,17 @@ const GRADING_PREVIEW = 5
 
 interface TeacherData {
   toGrade: AdminAttemptSummary[]
-  pending: number
+  /** null for a TEACHER: approving accounts is an admin's job. */
+  pending: number | null
   assignments: AssignmentSummary[]
 }
 
 /**
  * The teacher's start page answers "what waits for me?": three counts (papers to grade, accounts to approve, open
  * homework) that lead to where each is handled, the deadlines worth a look with how many handed in, and who waits
- * for a grade.
+ * for a grade. A TEACHER ({@code canApprove} false) gets the same page for their own classes, without the accounts.
  */
-export function TeacherHome() {
+export function TeacherHome({ canApprove = true }: { canApprove?: boolean }) {
   const [data, setData] = useState<TeacherData | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [firstRun, setFirstRun] = useState<FirstRunStep[] | null>(null)
@@ -40,10 +41,11 @@ export function TeacherHome() {
 
   useEffect(() => {
     let cancelled = false
-    Promise.all([listAttemptsForGrading('SUBMITTED'), listPendingUsers(), listAssignments()])
+    const pendingUsers = canApprove ? listPendingUsers().then((list) => list.length) : Promise.resolve(null)
+    Promise.all([listAttemptsForGrading('SUBMITTED'), pendingUsers, listAssignments()])
       .then(([toGrade, pending, assignments]) => {
         if (cancelled) return
-        setData({ toGrade, pending: pending.length, assignments })
+        setData({ toGrade, pending, assignments })
         // The first-run checklist (T7) is a help, not the page: if these lists fail it is simply not shown.
         Promise.all([listClasses(), listActiveUsers('STUDENT'), listQuizzes()])
           .then(([classes, students, quizzes]) => !cancelled && setFirstRun(firstRunSteps({
@@ -55,7 +57,7 @@ export function TeacherHome() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [canApprove])
 
   if (error) return <p className="text-sm text-destructive">{error}</p>
   if (!data) return <p className="text-muted-foreground">Se încarcă...</p>
@@ -66,9 +68,11 @@ export function TeacherHome() {
   return (
     <>
       {firstRun && <FirstRunChecklist steps={firstRun} />}
-      <div className="grid grid-cols-3 gap-3">
+      <div className={data.pending === null ? 'grid grid-cols-2 gap-3' : 'grid grid-cols-3 gap-3'}>
         <StatTile to="/admin/grading" value={data.toGrade.length} label="Lucrări de corectat" urgent testId="tile-grading" />
-        <StatTile to="/admin/students" value={data.pending} label="Conturi de aprobat" urgent testId="tile-pending" />
+        {data.pending !== null && (
+          <StatTile to="/admin/students" value={data.pending} label="Conturi de aprobat" urgent testId="tile-pending" />
+        )}
         <StatTile to="/admin/assignments" value={open} label="Teme deschise" testId="tile-assignments" />
       </div>
 

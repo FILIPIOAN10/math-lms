@@ -16,27 +16,32 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.Duration;
+import ro.mathlms.teaching.TeacherScope;
 
 /** The picture under a question's statement: the teacher sets it; every allowed viewer reads it. */
 @RestController
 public class QuestionImageController {
 
     private final QuestionImageService service;
+    private final TeacherScope scope;
 
-    public QuestionImageController(QuestionImageService service) {
+    public QuestionImageController(QuestionImageService service, TeacherScope scope) {
         this.service = service;
+        this.scope = scope;
     }
 
     @PutMapping("/api/admin/quiz-items/{itemId}/image")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
     public ResponseEntity<Void> attach(@PathVariable Long itemId, @RequestParam("file") MultipartFile file) {
+        scope.requireQuizItem(itemId);
         service.attach(itemId, file);
         return ResponseEntity.noContent().build();
     }
 
     @DeleteMapping("/api/admin/quiz-items/{itemId}/image")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
     public ResponseEntity<Void> remove(@PathVariable Long itemId) {
+        scope.requireQuizItem(itemId);
         service.remove(itemId);
         return ResponseEntity.noContent().build();
     }

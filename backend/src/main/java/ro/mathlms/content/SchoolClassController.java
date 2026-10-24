@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import ro.mathlms.teaching.TeacherScope;
 
 /**
  * School classes. Reads live under {@code /api/classes} (any active account); writes
@@ -26,12 +27,14 @@ public class SchoolClassController {
     private final SchoolClassService service;
     private final ContentAccess access;
     private final EnrollmentService enrollmentService;
+    private final TeacherScope scope;
 
     public SchoolClassController(SchoolClassService service, ContentAccess access,
-                                 EnrollmentService enrollmentService) {
+                                 EnrollmentService enrollmentService, TeacherScope scope) {
         this.service = service;
         this.access = access;
         this.enrollmentService = enrollmentService;
+        this.scope = scope;
     }
 
     /**
@@ -46,7 +49,7 @@ public class SchoolClassController {
         } else if (access.isParent(authentication)) {
             classes = enrollmentService.classesOfMyChildren(authentication.getName());
         } else {
-            classes = service.list();
+            classes = scope.keepOwnedClasses(service.list(), SchoolClass::getId); // a TEACHER: their own only
         }
         return classes.stream().map(SchoolClassDto::from).toList();
     }
@@ -58,21 +61,33 @@ public class SchoolClassController {
     }
 
     @PostMapping("/api/admin/classes")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
     public ResponseEntity<SchoolClassDto> create(@Valid @RequestBody SchoolClassRequest request) {
         SchoolClass created = service.create(request.name(), request.description());
         return ResponseEntity.status(HttpStatus.CREATED).body(SchoolClassDto.from(created));
     }
 
     @PutMapping("/api/admin/classes/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
     public SchoolClassDto update(@PathVariable Long id, @Valid @RequestBody SchoolClassRequest request) {
+        scope.requireClass(id);
         return SchoolClassDto.from(service.update(id, request.name(), request.description()));
     }
 
-    @DeleteMapping("/api/admin/classes/{id}")
+    /** ADMIN only: gives the class to another teacher (who then sees it, its students and its homework). */
+    @PutMapping("/api/admin/classes/{id}/teacher")
     @PreAuthorize("hasRole('ADMIN')")
+    public SchoolClassDto assignTeacher(@PathVariable Long id, @Valid @RequestBody AssignTeacherRequest request) {
+        return SchoolClassDto.from(service.assignTeacher(id, request.teacherId()));
+    }
+
+    public record AssignTeacherRequest(@jakarta.validation.constraints.NotNull Long teacherId) {
+    }
+
+    @DeleteMapping("/api/admin/classes/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
+        scope.requireClass(id);
         service.delete(id);
         return ResponseEntity.noContent().build();
     }

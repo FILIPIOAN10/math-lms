@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import ro.mathlms.teaching.TeacherScope;
 
 /**
  * Books within a class. Reads are nested under the class ({@code /api/classes/{classId}/books});
@@ -24,10 +25,12 @@ public class BookController {
 
     private final BookService service;
     private final ContentAccess access;
+    private final TeacherScope scope;
 
-    public BookController(BookService service, ContentAccess access) {
+    public BookController(BookService service, ContentAccess access, TeacherScope scope) {
         this.service = service;
         this.access = access;
+        this.scope = scope;
     }
 
     @GetMapping("/api/classes/{classId}/books")
@@ -43,22 +46,25 @@ public class BookController {
     }
 
     @PostMapping("/api/admin/classes/{classId}/books")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
     public ResponseEntity<BookDto> create(@PathVariable Long classId,
                                           @Valid @RequestBody BookRequest request) {
+        scope.requireClass(classId);
         Book created = service.create(classId, request.title(), request.description());
         return ResponseEntity.status(HttpStatus.CREATED).body(BookDto.from(created));
     }
 
     @PutMapping("/api/admin/books/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
     public BookDto update(@PathVariable Long id, @Valid @RequestBody BookRequest request) {
+        scope.requireBook(id);
         return BookDto.from(service.update(id, request.title(), request.description()));
     }
 
     @DeleteMapping("/api/admin/books/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
+        scope.requireBook(id);
         service.delete(id);
         return ResponseEntity.noContent().build();
     }

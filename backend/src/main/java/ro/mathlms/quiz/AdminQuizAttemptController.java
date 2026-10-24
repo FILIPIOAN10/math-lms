@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import ro.mathlms.quiz.AdminAttemptDtos.AdminAttemptDetailDto;
 import ro.mathlms.quiz.AdminAttemptDtos.AdminAttemptSummaryDto;
+import ro.mathlms.teaching.TeacherScope;
 
 import java.util.List;
 
@@ -27,24 +28,27 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/api/admin/quiz/attempts")
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
 public class AdminQuizAttemptController {
 
     private final QuizAttemptService service;
+    private final TeacherScope scope;
 
-    public AdminQuizAttemptController(QuizAttemptService service) {
+    public AdminQuizAttemptController(QuizAttemptService service, TeacherScope scope) {
         this.service = service;
+        this.scope = scope;
     }
 
     /** The grading queue. Defaults to SUBMITTED (waiting for the teacher); ?status=GRADED shows history. */
     @GetMapping
     public List<AdminAttemptSummaryDto> list(
             @RequestParam(defaultValue = "SUBMITTED") QuizAttemptStatus status) {
-        return service.listForGrading(status);
+        return scope.keepOwnedQuizzes(service.listForGrading(status), AdminAttemptSummaryDto::quizId);
     }
 
     @GetMapping("/{attemptId}")
     public AdminAttemptDetailDto detail(@PathVariable Long attemptId) {
+        scope.requireAttempt(attemptId);
         return service.getAttemptForGrading(attemptId);
     }
 
@@ -52,6 +56,7 @@ public class AdminQuizAttemptController {
     @GetMapping("/{attemptId}/responses/{itemId}/photos/{photoId}")
     public ResponseEntity<Resource> getPhoto(@PathVariable Long attemptId, @PathVariable Long itemId,
                                              @PathVariable Long photoId) {
+        scope.requireAttempt(attemptId);
         Resource file = service.getOpenPhotoResource(attemptId, itemId, photoId);
         MediaType mediaType = MediaTypeFactory.getMediaType(file)
                 .orElse(MediaType.APPLICATION_OCTET_STREAM);
@@ -64,6 +69,7 @@ public class AdminQuizAttemptController {
     @PutMapping("/{attemptId}/responses/{itemId}/grade")
     public ResponseEntity<Void> gradeItem(@PathVariable Long attemptId, @PathVariable Long itemId,
                                           @Valid @RequestBody GradeRequestDto request) {
+        scope.requireAttempt(attemptId);
         if (request.parts() != null && !request.parts().isEmpty()) {
             java.util.Map<Long, Integer> parts = new java.util.HashMap<>();
             request.parts().forEach(p -> parts.put(p.partId(), p.points()));
@@ -81,12 +87,14 @@ public class AdminQuizAttemptController {
     @PutMapping("/{attemptId}/comment")
     public ResponseEntity<Void> comment(@PathVariable Long attemptId,
                                         @Valid @RequestBody AttemptCommentRequest request) {
+        scope.requireAttempt(attemptId);
         service.commentOnAttempt(attemptId, request.comment());
         return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/{attemptId}/mark-graded")
     public ResponseEntity<Void> finalizeGrading(@PathVariable Long attemptId) {
+        scope.requireAttempt(attemptId);
         service.finalizeGrading(attemptId);
         return ResponseEntity.noContent().build();
     }

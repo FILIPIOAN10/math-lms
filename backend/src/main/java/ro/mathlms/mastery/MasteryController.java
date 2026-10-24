@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
 import ro.mathlms.mastery.MasteryDtos.ChapterMasteryDto;
 import ro.mathlms.mastery.MasteryDtos.ClassMasteryDto;
+import ro.mathlms.teaching.TeacherScope;
 
 import java.util.List;
 
@@ -15,9 +16,11 @@ import java.util.List;
 public class MasteryController {
 
     private final MasteryService service;
+    private final TeacherScope scope;
 
-    public MasteryController(MasteryService service) {
+    public MasteryController(MasteryService service, TeacherScope scope) {
         this.service = service;
+        this.scope = scope;
     }
 
     @GetMapping("/api/quiz/mastery")
@@ -27,8 +30,9 @@ public class MasteryController {
     }
 
     @GetMapping("/api/admin/classes/{classId}/mastery")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
     public ClassMasteryDto forClass(@PathVariable Long classId) {
+        scope.requireClass(classId);
         return service.forClass(classId);
     }
 }

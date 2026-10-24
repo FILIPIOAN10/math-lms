@@ -1,6 +1,11 @@
 import { type Role } from '@/lib/api'
 
-const LABELS: Record<Role, string> = { ADMIN: 'Profesor', STUDENT: 'Elev', PARENT: 'Părinte' }
+const LABELS: Record<Role, string> = { ADMIN: 'Administrator', TEACHER: 'Profesor', STUDENT: 'Elev', PARENT: 'Părinte' }
+
+/** Staff: who works in the /admin pages. An ADMIN sees every class; a TEACHER only their own. */
+export function isStaff(role: Role | null | undefined): boolean {
+  return role === 'ADMIN' || role === 'TEACHER'
+}
 
 /** The role as people say it ("Profesor"), never the enum ("ADMIN"). */
 export function roleLabel(role: Role | null): string {
@@ -46,6 +51,14 @@ const NAV: Record<Role, NavItem[]> = {
     { to: '/admin/quizzes', label: 'Teste', also: ['/admin/assignments'], testId: 'admin-tests' },
     { to: '/admin/grading', label: 'Corectură', count: 'grading' },
     { to: '/admin/students', label: 'Elevi', count: 'pending', also: ['/admin/pending', '/admin/links'] },
+  ],
+  // The same pages limited to the teacher's own classes; approving accounts stays with the admins (no count).
+  TEACHER: [
+    { to: '/', label: 'Acasă' },
+    { to: '/admin/content', label: 'Clase', also: ['/admin/classes'] },
+    { to: '/admin/quizzes', label: 'Teste', also: ['/admin/assignments'], testId: 'admin-tests' },
+    { to: '/admin/grading', label: 'Corectură', count: 'grading' },
+    { to: '/admin/students', label: 'Elevi' },
   ],
 }
 

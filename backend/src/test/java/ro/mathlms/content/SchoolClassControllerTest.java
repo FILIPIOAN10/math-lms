@@ -13,13 +13,15 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import ro.mathlms.teaching.TeacherScope;
 
 class SchoolClassControllerTest {
 
     private final SchoolClassService service = mock(SchoolClassService.class);
     private final ContentAccess access = mock(ContentAccess.class);
     private final EnrollmentService enrollmentService = mock(EnrollmentService.class);
-    private final SchoolClassController controller = new SchoolClassController(service, access, enrollmentService);
+    private final SchoolClassController controller = new SchoolClassController(service, access, enrollmentService,
+            new TeacherScope(null));
     private final Authentication auth = new UsernamePasswordAuthenticationToken("ana@scoala.ro", null);
 
     @Test

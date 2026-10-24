@@ -7,6 +7,7 @@ import { InviteLinkCard } from '@/components/InviteLinkCard'
 import { AdminInviteCard } from '@/components/AdminInviteCard'
 import { PageHeader } from '@/components/PageHeader'
 import { PendingAccountsCard } from '@/components/PendingAccountsCard'
+import { useAuth } from '@/context/AuthContext'
 import {
   createParentInvite,
   linkParent,
@@ -20,9 +21,13 @@ import { formatDate } from '@/lib/format'
 /**
  * T6 "Elevi și părinți": everything about people in one place — accounts waiting for approval (only while someone
  * waits), every student with their parent (invite or link one; the name opens the student's page), and the general
- * invite link. New students join through "Invită elevi" on a class, so they need nothing here.
+ * invite link. New students join through "Invită elevi" on a class, so they need nothing here. A TEACHER sees only the
+ * students of their own classes and can invite their parents; approving accounts, linking existing parents and the
+ * invite links for other roles stay with the admins.
  */
 export function AdminStudentsPage() {
+  const { user } = useAuth()
+  const isAdmin = user?.role === 'ADMIN'
   const [students, setStudents] = useState<AdminUserSummary[]>([])
   const [parents, setParents] = useState<AdminUserSummary[]>([])
   const [loading, setLoading] = useState(true)
@@ -35,7 +40,7 @@ export function AdminStudentsPage() {
   const [parentLinks, setParentLinks] = useState<Record<number, InviteLink>>({})
 
   function loadPeople() {
-    return Promise.all([listActiveUsers('STUDENT'), listActiveUsers('PARENT')])
+    return Promise.all([listActiveUsers('STUDENT'), isAdmin ? listActiveUsers('PARENT') : Promise.resolve([])])
       .then(([studentList, parentList]) => {
         setStudents(studentList)
         setParents(parentList)
@@ -46,7 +51,8 @@ export function AdminStudentsPage() {
 
   useEffect(() => {
     void loadPeople()
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loads once per role
+  }, [isAdmin])
 
   function setBusy(id: number, busy: boolean) {
     setBusyIds((prev) => {
@@ -106,7 +112,7 @@ export function AdminStudentsPage() {
           title="Elevi și părinți"
           description="Elevii noi intră cu „Invită elevi” de pe rândul clasei (în Clase). Aici vezi fiecare elev, îi inviți sau îi legi părintele și aprobi conturile venite pe altă cale."
         />
-        <PendingAccountsCard onApproved={() => void loadPeople()} />
+        {isAdmin && <PendingAccountsCard onApproved={() => void loadPeople()} />}
         <Card>
           <CardHeader>
             <CardTitle className="text-xl">Elevii{loading ? '' : ` (${students.length})`}</CardTitle>
@@ -128,7 +134,7 @@ export function AdminStudentsPage() {
               </p>
             )}
 
-            {!loading && !error && students.length > 0 && parents.length === 0 && (
+            {isAdmin && !loading && !error && students.length > 0 && parents.length === 0 && (
               <p className="text-sm text-muted-foreground">
                 Niciun părinte nu are încă un cont. Folosește <strong>Invită părintele</strong> pe rândul elevului.
               </p>
@@ -144,7 +150,7 @@ export function AdminStudentsPage() {
                       <th className="py-2 pr-4 font-medium">Elev</th>
                       <th className="py-2 pr-4 font-medium">Email</th>
                       <th className="py-2 pr-4 font-medium">Părinte curent</th>
-                      <th className="py-2 font-medium">Leagă de</th>
+                      <th className="py-2 font-medium">{isAdmin ? 'Leagă de' : 'Părinte'}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -164,31 +170,35 @@ export function AdminStudentsPage() {
                           </td>
                           <td className="py-3">
                             <div className="flex flex-wrap gap-2">
-                              <select
-                                className="h-8 rounded-lg border border-border bg-background px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50"
-                                value={choice}
-                                disabled={busy || parents.length === 0}
-                                onChange={(e) =>
-                                  setSelectedParent((prev) => ({
-                                    ...prev,
-                                    [s.id]: e.target.value === '' ? '' : Number(e.target.value),
-                                  }))
-                                }
-                              >
-                                <option value="">Alege un părinte…</option>
-                                {parents.map((p) => (
-                                  <option key={p.id} value={p.id}>
-                                    {p.fullName} ({p.email})
-                                  </option>
-                                ))}
-                              </select>
-                              <Button
-                                size="sm"
-                                disabled={busy || choice === ''}
-                                onClick={() => handleLink(s.id)}
-                              >
-                                Leagă
-                              </Button>
+                              {isAdmin && (
+                                <>
+                                  <select
+                                    className="h-8 rounded-lg border border-border bg-background px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50"
+                                    value={choice}
+                                    disabled={busy || parents.length === 0}
+                                    onChange={(e) =>
+                                      setSelectedParent((prev) => ({
+                                        ...prev,
+                                        [s.id]: e.target.value === '' ? '' : Number(e.target.value),
+                                      }))
+                                    }
+                                  >
+                                    <option value="">Alege un părinte…</option>
+                                    {parents.map((p) => (
+                                      <option key={p.id} value={p.id}>
+                                        {p.fullName} ({p.email})
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <Button
+                                    size="sm"
+                                    disabled={busy || choice === ''}
+                                    onClick={() => handleLink(s.id)}
+                                  >
+                                    Leagă
+                                  </Button>
+                                </>
+                              )}
                               {s.parentId === null && (
                                 <Button
                                   size="sm"
@@ -225,10 +235,9 @@ export function AdminStudentsPage() {
             )}
           </CardContent>
         </Card>
-        {/* AICI ADAUGI NOUA COMPONENTĂ */}
-        <AdminInviteCard />
+        {isAdmin && <AdminInviteCard />}
 
-        <InviteLinkCard />
+        {isAdmin && <InviteLinkCard />}
       </div>
     </div>
   )

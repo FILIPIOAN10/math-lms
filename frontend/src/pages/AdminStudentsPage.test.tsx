@@ -3,7 +3,10 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AdminStudentsPage } from '@/pages/AdminStudentsPage'
-import { ApiError, type AdminUserSummary, type InviteLink } from '@/lib/api'
+import { ApiError, type AdminUserSummary, type InviteLink, type User } from '@/lib/api'
+
+const auth = vi.hoisted(() => ({ value: { user: null as User | null, loading: false, logout: vi.fn() } }))
+vi.mock('@/context/AuthContext', () => ({ useAuth: () => auth.value }))
 
 const api = vi.hoisted(() => ({
   listActiveUsers: vi.fn(),
@@ -35,9 +38,22 @@ function renderPage() {
 describe('AdminStudentsPage', () => {
   beforeEach(() => {
     Object.values(api).forEach((fn) => fn.mockReset())
+    auth.value.user = { email: 'prof@scoala.ro', fullName: 'Prof', role: 'ADMIN', status: 'ACTIVE' }
     api.listActiveUsers.mockImplementation((role: string) =>
       Promise.resolve(role === 'STUDENT' ? [student(1, 'Ana Pop'), student(2, 'Radu Nou', 'Maria Parinte')] : []))
     api.listPendingUsers.mockResolvedValue([])
+  })
+
+  it('shows a teacher their students and the parent invite, but nothing only admins do', async () => {
+    auth.value.user = { email: 'ana@scoala.ro', fullName: 'Prof Ana', role: 'TEACHER', status: 'ACTIVE' }
+    renderPage()
+
+    expect(await screen.findByRole('link', { name: 'Ana Pop' })).toBeInTheDocument()
+    expect(screen.getByTestId('parent-invite-1')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Leagă' })).not.toBeInTheDocument()
+    expect(screen.queryByTestId('pending-accounts')).not.toBeInTheDocument()
+    expect(api.listPendingUsers).not.toHaveBeenCalled()
+    expect(api.listActiveUsers).not.toHaveBeenCalledWith('PARENT')
   })
 
   it("links each student's name to their page", async () => {

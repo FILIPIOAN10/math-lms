@@ -63,6 +63,10 @@ public class Quiz {
     @Column(name = "practice_allowed", nullable = false)
     private boolean practiceAllowed;
 
+    /** The teacher who made the test (sees and changes it); null = only ADMINs see it. */
+    @Column(name = "teacher_id")
+    private Long teacherId;
+
     /** The chapter its questions practise unless one says otherwise (E6 mastery map); {@code null} = untagged. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "chapter_id")
@@ -71,6 +75,11 @@ public class Quiz {
     public Quiz(String title, String description) {
         this.title = requireNonBlank(title, "title");
         this.description = description;
+    }
+
+    /** Records who owns the test: its creator (or whoever copied it). */
+    public void ownedBy(Long teacherId) {
+        this.teacherId = teacherId;
     }
 
     public void update(String title, String description) {

@@ -13,6 +13,7 @@ import ro.mathlms.parent.ParentAccessException;
 import ro.mathlms.user.Role;
 import ro.mathlms.user.User;
 import ro.mathlms.user.UserRepository;
+import ro.mathlms.teaching.TeacherScope;
 
 import java.util.List;
 
@@ -25,10 +26,12 @@ public class EnMasteryController {
 
     private final EnMasteryService service;
     private final UserRepository userRepository;
+    private final TeacherScope scope;
 
-    public EnMasteryController(EnMasteryService service, UserRepository userRepository) {
+    public EnMasteryController(EnMasteryService service, UserRepository userRepository, TeacherScope scope) {
         this.service = service;
         this.userRepository = userRepository;
+        this.scope = scope;
     }
 
     @GetMapping("/api/quiz/en-mastery")
@@ -51,8 +54,9 @@ public class EnMasteryController {
     }
 
     @GetMapping("/api/admin/students/{studentId}/en-mastery")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
     public List<EnChapterMasteryDto> student(@PathVariable Long studentId) {
+        scope.requireStudent(studentId);
         User student = userRepository.findById(studentId)
                 .filter(u -> u.getRole() == Role.STUDENT)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
@@ -60,8 +64,9 @@ public class EnMasteryController {
     }
 
     @GetMapping("/api/admin/classes/{classId}/en-mastery")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
     public EnClassMasteryDto forClass(@PathVariable Long classId) {
+        scope.requireClass(classId);
         return service.forClass(classId);
     }
 }

@@ -285,9 +285,10 @@ function EraseSection({ account, confirm }: {
     <HomeSection title="Șterge contul">
       <Card className="ring-destructive/30">
         <CardContent className="space-y-3 py-4 text-sm">
-          {account.role === 'ADMIN' ? (
+          {account.role === 'ADMIN' || account.role === 'TEACHER' ? (
             <p className="text-muted-foreground">
-              Contul de profesor nu se poate șterge din aplicație: fără el nimeni nu mai poate corecta lucrări sau aproba conturi.
+              Contul de profesor nu se poate șterge din aplicație: clasele, temele și notele elevilor depind de el. Cere
+              unui administrator să-ți dea clasele altui profesor.
             </p>
           ) : (
             <>

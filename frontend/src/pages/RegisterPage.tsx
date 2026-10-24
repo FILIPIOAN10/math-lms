@@ -27,6 +27,7 @@ function registerErrorMessage(error: unknown): string {
 /** "Te alături clasei Clasa a 8-a" — what the newcomer is signing up for. */
 function inviteHeadline(preview: InvitePreview): string {
   if (preview.className) return `Te alături clasei ${preview.className}`
+  if (preview.role === 'TEACHER') return 'Cont de profesor'
   return preview.role === 'PARENT' ? 'Cont de părinte' : 'Cont de elev'
 }
 

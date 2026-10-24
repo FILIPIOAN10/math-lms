@@ -73,8 +73,19 @@ describe('AppShell', () => {
     auth.value.user = user({ role: 'ADMIN', fullName: 'Prof Admin' })
     renderShell()
     const banner = screen.getByRole('banner')
-    expect(within(banner).getByText('Profesor')).toBeInTheDocument()
+    expect(within(banner).getByText('Administrator')).toBeInTheDocument()
     expect(within(banner).queryByText('ADMIN')).not.toBeInTheDocument()
+  })
+
+  it('gives a teacher the staff links but never asks for the accounts to approve', async () => {
+    api.listAttemptsForGrading.mockResolvedValue([])
+    auth.value.user = user({ role: 'TEACHER', fullName: 'Prof Ana' })
+    renderShell()
+    const banner = screen.getByRole('banner')
+    expect(within(banner).getByText('Profesor')).toBeInTheDocument()
+    expect(within(banner).getByRole('link', { name: /Corectură/ })).toBeInTheDocument()
+    await waitFor(() => expect(api.listAttemptsForGrading).toHaveBeenCalled())
+    expect(api.listPendingUsers).not.toHaveBeenCalled()
   })
 
   it('shows the teacher how much work is waiting next to the links', async () => {

@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { ClassInviteDialog } from '@/components/ClassInviteDialog'
 import { ApiError, type InviteLink, type SchoolClass } from '@/lib/api'
 
-const clasa: SchoolClass = { id: 3, name: 'Clasa a 8-a', description: null }
+const clasa: SchoolClass = { id: 3, name: 'Clasa a 8-a', description: null, teacherId: 1 }
 
 const link = (id: number, over: Partial<InviteLink> = {}): InviteLink => ({
   id, kind: 'CLASS', url: `http://localhost:5173/register?token=cod${id}`, uses: 2, maxUses: 30,

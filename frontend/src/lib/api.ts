@@ -1,4 +1,4 @@
-export type Role = 'ADMIN' | 'STUDENT' | 'PARENT'
+export type Role = 'ADMIN' | 'TEACHER' | 'STUDENT' | 'PARENT'
 
 export type AccountStatus =
   | 'PENDING_VERIFICATION'
@@ -340,6 +340,8 @@ export interface SchoolClass {
   id: number
   name: string
   description: string | null
+  /** Who owns the class (a TEACHER sees only theirs); null = only admins see it. */
+  teacherId: number | null
 }
 
 export interface Book {
@@ -400,6 +402,12 @@ export async function createClass(name: string, description: string | null): Pro
 
 export async function updateClass(id: number, name: string, description: string | null): Promise<SchoolClass> {
   const response = await putJson(`/admin/classes/${id}`, { name, description })
+  return response.json()
+}
+
+/** ADMIN only: gives the class (with its students, homework and links) to another teacher. */
+export async function assignClassTeacher(id: number, teacherId: number): Promise<SchoolClass> {
+  const response = await putJson(`/admin/classes/${id}/teacher`, { teacherId })
   return response.json()
 }
 

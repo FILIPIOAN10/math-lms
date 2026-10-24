@@ -6,6 +6,7 @@ import org.springframework.http.ResponseEntity;
 import ro.mathlms.user.AccountStatus;
 import ro.mathlms.user.Role;
 import ro.mathlms.user.User;
+import ro.mathlms.teaching.TeacherScope;
 
 import java.util.List;
 
@@ -16,7 +17,7 @@ import static org.mockito.Mockito.when;
 class AdminUserControllerTest {
 
     private final AdminUserService adminUserService = mock(AdminUserService.class);
-    private final AdminUserController controller = new AdminUserController(adminUserService);
+    private final AdminUserController controller = new AdminUserController(adminUserService, new TeacherScope(null));
 
     @Test
     void pendingMapsServiceResultToDtos() {

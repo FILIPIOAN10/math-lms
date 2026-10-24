@@ -12,6 +12,7 @@ import ro.mathlms.assignment.AssignmentDtos.StudentAssignmentDto;
 import ro.mathlms.assignment.AssignmentProgress.State;
 import ro.mathlms.content.SchoolClass;
 import ro.mathlms.quiz.Quiz;
+import ro.mathlms.teaching.TeacherScope;
 
 import java.time.Instant;
 import java.util.List;
@@ -24,7 +25,8 @@ import static org.mockito.Mockito.when;
 class AssignmentControllersTest {
 
     private final AssignmentService service = mock(AssignmentService.class);
-    private final AssignmentAdminController admin = new AssignmentAdminController(service, mock(PublishAndAssignService.class));
+    private final AssignmentAdminController admin = new AssignmentAdminController(service, mock(PublishAndAssignService.class),
+            new TeacherScope(null));
     private final AssignmentStudentController student = new AssignmentStudentController(service);
     private final Instant due = Instant.parse("2026-10-12T15:00:00Z");
 

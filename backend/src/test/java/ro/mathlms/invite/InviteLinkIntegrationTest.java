@@ -367,7 +367,7 @@ class InviteLinkIntegrationTest {
 
         mockMvc.perform(get("/api/public/invites/preview").param("token", code(link)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.role").value("ADMIN"))
+                .andExpect(jsonPath("$.role").value("TEACHER")) // the link asks to be a teacher, never an admin
                 .andExpect(jsonPath("$.direct").value(false)); // the page must not promise instant access
     }
 

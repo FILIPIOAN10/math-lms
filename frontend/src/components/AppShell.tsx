@@ -26,10 +26,13 @@ function useNavCounts(role: Role | null, pathname: string): Counts {
 
   useEffect(() => {
     let cancelled = false
-    if (role === 'ADMIN') {
+    if (role === 'ADMIN' || role === 'TEACHER') {
       listAttemptsForGrading('SUBMITTED')
         .then((list) => !cancelled && setCounts((c) => ({ ...c, grading: list.length })))
         .catch(() => undefined)
+    }
+    if (role === 'ADMIN') {
+      // Approving accounts is an admin's job: a teacher has no such count.
       listPendingUsers()
         .then((list) => !cancelled && setCounts((c) => ({ ...c, pending: list.length })))
         .catch(() => undefined)

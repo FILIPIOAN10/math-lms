@@ -164,6 +164,7 @@ public class QuestionImageService {
         }
         return switch (viewer.getRole()) {
             case ADMIN -> true;
+            case TEACHER -> viewer.getId().equals(quiz.getTeacherId());
             case STUDENT -> attemptRepository.existsByStudentIdAndQuizId(viewer.getId(), quiz.getId())
                     || (quiz.getStatus() == QuizStatus.PUBLISHED && (quiz.getSchoolClass() == null
                         || enrollmentRepository.existsByStudentIdAndSchoolClassId(viewer.getId(), quiz.getSchoolClass().getId())));

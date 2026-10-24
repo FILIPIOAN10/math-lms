@@ -8,6 +8,7 @@ import { usePageTitle } from '@/lib/usePageTitle'
 const SUBTITLES = {
   STUDENT: 'Iată ce ai de făcut.',
   ADMIN: 'Iată ce te așteaptă.',
+  TEACHER: 'Iată ce te așteaptă.',
   PARENT: 'Iată cum le merge copiilor tăi.',
 } as const
 
@@ -29,7 +30,7 @@ export function DashboardPage() {
         </div>
         <InstallBanner />
         {user.role === 'STUDENT' && <StudentHome />}
-        {user.role === 'ADMIN' && <TeacherHome />}
+        {(user.role === 'ADMIN' || user.role === 'TEACHER') && <TeacherHome canApprove={user.role === 'ADMIN'} />}
         {user.role === 'PARENT' && <ParentHome />}
       </div>
     </div>

@@ -76,7 +76,8 @@ public class AdminUserService {
 
     private static String roleName(Role role) {
         return switch (role) {
-            case ADMIN -> "profesor";
+            case ADMIN -> "administrator";
+            case TEACHER -> "profesor";
             case STUDENT -> "elev";
             case PARENT -> "părinte";
         };

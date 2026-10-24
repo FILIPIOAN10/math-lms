@@ -21,18 +21,21 @@ import ro.mathlms.ingest.AiImportDtos.AiImportDto;
 import ro.mathlms.ingest.AiImportDtos.AiImportSettingsDto;
 import ro.mathlms.ingest.AiImportDtos.CreateQuizFromImportRequest;
 import ro.mathlms.ingest.AiImportDtos.CreatedQuizDto;
+import ro.mathlms.teaching.TeacherScope;
 
 import java.util.List;
 
 /** Faza 3 - a quiz from textbook photos. Teachers only; each sees only their own imports. */
 @RestController
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
 public class AiImportController {
 
     private final AiImportService service;
+    private final TeacherScope scope;
 
-    public AiImportController(AiImportService service) {
+    public AiImportController(AiImportService service, TeacherScope scope) {
         this.service = service;
+        this.scope = scope;
     }
 
     /** Always answers (the UI asks it to decide whether to show the button). */
@@ -47,6 +50,12 @@ public class AiImportController {
                                               @RequestParam(required = false) Long schoolClassId,
                                               @RequestParam(required = false) Long chapterId,
                                               Authentication auth) {
+        if (schoolClassId != null) {
+            scope.requireClass(schoolClassId);
+        }
+        if (chapterId != null) {
+            scope.requireChapter(chapterId);
+        }
         return ResponseEntity.status(HttpStatus.ACCEPTED)
                 .body(service.create(auth.getName(), files, schoolClassId, chapterId));
     }

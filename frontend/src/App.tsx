@@ -181,7 +181,7 @@ function App() {
             <Route
               path="/admin/journal"
               element={
-                <AdminRoute>
+                <AdminRoute adminOnly>
                   <AdminAuditPage />
                 </AdminRoute>
               }
@@ -261,7 +261,7 @@ function App() {
             <Route
               path="/admin/en-chapters"
               element={
-                <AdminRoute>
+                <AdminRoute adminOnly>
                   <AdminEnChaptersPage />
                 </AdminRoute>
               }
@@ -269,7 +269,7 @@ function App() {
             <Route
               path="/admin/en-chapters/legaturi"
               element={
-                <AdminRoute>
+                <AdminRoute adminOnly>
                   <AdminEnChapterSlotsPage />
                 </AdminRoute>
               }
@@ -277,7 +277,7 @@ function App() {
             <Route
               path="/admin/en-chapters/:id"
               element={
-                <AdminRoute>
+                <AdminRoute adminOnly>
                   <AdminEnChapterPage />
                 </AdminRoute>
               }

@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import ro.mathlms.teaching.TeacherScope;
 
 /**
  * Exercises within a chapter. Reads nested under the chapter
@@ -26,10 +27,12 @@ public class ExerciseController {
 
     private final ExerciseService service;
     private final ContentAccess access;
+    private final TeacherScope scope;
 
-    public ExerciseController(ExerciseService service, ContentAccess access) {
+    public ExerciseController(ExerciseService service, ContentAccess access, TeacherScope scope) {
         this.service = service;
         this.access = access;
+        this.scope = scope;
     }
 
     @GetMapping("/api/chapters/{chapterId}/exercises")
@@ -45,25 +48,28 @@ public class ExerciseController {
     }
 
     @PostMapping("/api/admin/chapters/{chapterId}/exercises")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
     public ResponseEntity<ExerciseDto> create(@PathVariable Long chapterId,
                                               @Valid @RequestBody ExerciseCreateRequest request) {
+        scope.requireChapter(chapterId);
         Exercise created = service.create(chapterId, request.statement(),
                 request.solution(), request.difficulty());
         return ResponseEntity.status(HttpStatus.CREATED).body(ExerciseDto.from(created));
     }
 
     @PutMapping("/api/admin/exercises/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
     public ExerciseDto update(@PathVariable Long id, @Valid @RequestBody ExerciseUpdateRequest request) {
+        scope.requireExercise(id);
         Exercise updated = service.update(id, request.statement(), request.solution(),
                 request.difficulty(), request.version());
         return ExerciseDto.from(updated);
     }
 
     @DeleteMapping("/api/admin/exercises/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
+        scope.requireExercise(id);
         service.delete(id);
         return ResponseEntity.noContent().build();
     }

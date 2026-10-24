@@ -15,12 +15,13 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import ro.mathlms.teaching.TeacherScope;
 
 class BookControllerTest {
 
     private final BookService service = mock(BookService.class);
     private final ContentAccess access = mock(ContentAccess.class);
-    private final BookController controller = new BookController(service, access);
+    private final BookController controller = new BookController(service, access, new TeacherScope(null));
     private final Authentication auth = new UsernamePasswordAuthenticationToken("ana@scoala.ro", null);
 
     private final SchoolClass ninth = new SchoolClass("Clasa a 9-a", null);

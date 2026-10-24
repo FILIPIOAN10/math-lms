@@ -7,6 +7,11 @@ import ro.mathlms.audit.AuditAction;
 import ro.mathlms.audit.AuditEvent;
 import ro.mathlms.audit.AuditLog;
 import ro.mathlms.audit.AuditText;
+import ro.mathlms.teaching.TeacherScope;
+import ro.mathlms.user.AccountStatus;
+import ro.mathlms.user.Role;
+import ro.mathlms.user.User;
+import ro.mathlms.user.UserRepository;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -18,10 +23,15 @@ public class SchoolClassService {
 
     private final SchoolClassRepository repository;
     private final AuditLog auditLog;
+    private final TeacherScope scope;
+    private final UserRepository userRepository;
 
-    public SchoolClassService(SchoolClassRepository repository, AuditLog auditLog) {
+    public SchoolClassService(SchoolClassRepository repository, AuditLog auditLog, TeacherScope scope,
+                              UserRepository userRepository) {
         this.repository = repository;
         this.auditLog = auditLog;
+        this.scope = scope;
+        this.userRepository = userRepository;
     }
 
     public List<SchoolClass> list() {
@@ -39,9 +49,28 @@ public class SchoolClassService {
         if (repository.existsByName(name)) {
             throw new DuplicateContentException("A class named '" + name + "' already exists");
         }
-        SchoolClass saved = repository.save(new SchoolClass(name, description));
+        SchoolClass schoolClass = new SchoolClass(name, description);
+        schoolClass.assignTeacher(scope.currentUserId()); // whoever creates the class owns it
+        SchoolClass saved = repository.save(schoolClass);
         auditLog.record(AuditEvent.of(AuditAction.CLASS_CREATED, saved.getId(), saved.getName()));
         return saved;
+    }
+
+    /**
+     * Hands a class (with its books, homework and invite links) to another teacher — an ADMIN's decision. The new owner
+     * must be an active TEACHER or ADMIN.
+     */
+    @Transactional
+    public SchoolClass assignTeacher(Long id, Long teacherId) {
+        SchoolClass schoolClass = get(id);
+        User teacher = userRepository.findById(teacherId)
+                .filter(u -> !u.isErased() && u.getStatus() == AccountStatus.ACTIVE)
+                .filter(u -> u.getRole() == Role.TEACHER || u.getRole() == Role.ADMIN)
+                .orElseThrow(() -> new ContentNotFoundException("Teacher", teacherId));
+        schoolClass.assignTeacher(teacher.getId());
+        auditLog.record(AuditEvent.of(AuditAction.CLASS_UPDATED, id, schoolClass.getName())
+                .about(teacher).details("clasa a fost dată profesorului " + teacher.getFullName()));
+        return repository.save(schoolClass);
     }
 
     @Transactional

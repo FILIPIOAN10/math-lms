@@ -90,7 +90,7 @@ public class GdprErasureService {
                 .orElseThrow(() -> new UserNotFoundException("No account for " + email));
 
         // The teacher runs the platform: erasing the (often only) ADMIN would leave nobody to grade or approve accounts.
-        if (user.getRole() == Role.ADMIN) {
+        if (user.getRole() == Role.ADMIN || user.getRole() == Role.TEACHER) {
             throw new ErasureNotAllowedException(
                     "Contul de profesor nu se poate șterge din aplicație: fără el nimeni nu mai poate corecta sau aproba conturi.");
         }

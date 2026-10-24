@@ -6,6 +6,7 @@ import org.springframework.http.ResponseEntity;
 import ro.mathlms.content.SchoolClass;
 import ro.mathlms.quiz.QuizDtos.ItemDto;
 import ro.mathlms.quiz.QuizDtos.QuizSummaryDto;
+import ro.mathlms.teaching.TeacherScope;
 
 import java.util.List;
 
@@ -17,7 +18,7 @@ import static org.mockito.Mockito.when;
 class QuizAdminControllerTest {
 
     private final QuizAdminService service = mock(QuizAdminService.class);
-    private final QuizAdminController controller = new QuizAdminController(service);
+    private final QuizAdminController controller = new QuizAdminController(service, new TeacherScope(null));
 
     @Test
     void listMapsToSummaries() {

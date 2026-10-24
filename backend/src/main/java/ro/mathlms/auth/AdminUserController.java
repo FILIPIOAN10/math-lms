@@ -2,6 +2,7 @@ package ro.mathlms.auth;
 
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -10,6 +11,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import ro.mathlms.teaching.TeacherScope;
 import ro.mathlms.user.Role;
 import ro.mathlms.user.User;
 
@@ -27,20 +29,28 @@ public class AdminUserController {
 
     private final AdminUserService adminUserService;
 
-    public AdminUserController(AdminUserService adminUserService) {
+    private final TeacherScope scope;
+
+    public AdminUserController(AdminUserService adminUserService, TeacherScope scope) {
         this.adminUserService = adminUserService;
+        this.scope = scope;
     }
 
     /**
      * Active accounts of a given role, for the linking screen: {@code ?role=STUDENT} for
-     * the rows to link, {@code ?role=PARENT} for the parent options.
+     * the rows to link, {@code ?role=PARENT} for the parent options. A TEACHER may only ask for
+     * students, and gets the ones enrolled in their own classes.
      */
     @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
     public ResponseEntity<List<AdminUserSummaryDto>> byRole(@RequestParam Role role) {
+        if (scope.restricted() && role != Role.STUDENT) {
+            throw new AccessDeniedException("A teacher lists only their own students");
+        }
         List<AdminUserSummaryDto> users = adminUserService.listActiveByRole(role).stream()
                 .map(AdminUserSummaryDto::from)
                 .toList();
-        return ResponseEntity.ok(users);
+        return ResponseEntity.ok(scope.keepOwnedStudents(users, AdminUserSummaryDto::id));
     }
 
     /** Accounts awaiting an admin decision, for the review screen. */

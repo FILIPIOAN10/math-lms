@@ -9,7 +9,9 @@ import { Dialog } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { useAuth } from '@/context/AuthContext'
 import {
+  assignClassTeacher,
   createBook,
   createChapter,
   createClass,
@@ -325,6 +327,10 @@ type Dialogs =
   | null
 
 export function AdminContentPage() {
+  const { user } = useAuth()
+  const isAdmin = user?.role === 'ADMIN'
+  // ADMIN only: who may own a class (teachers and admins), for the "Profesor" picker on each class row.
+  const [teachers, setTeachers] = useState<AdminUserSummary[]>([])
   const navigate = useNavigate()
   const { confirm, dialog: confirmDialog } = useConfirm()
   const [classes, setClasses] = useState<SchoolClass[]>([])
@@ -345,7 +351,24 @@ export function AdminContentPage() {
       .finally(() => setLoading(false))
   }, [])
 
+  useEffect(() => {
+    if (!isAdmin) return
+    Promise.all([listActiveUsers('TEACHER'), listActiveUsers('ADMIN')])
+      .then(([t, a]) => setTeachers([...t, ...a]))
+      .catch(() => undefined) // the picker is a help: without it the classes still work
+  }, [isAdmin])
+
   const reloadClasses = () => listClasses().then(setClasses)
+
+  async function changeTeacher(c: SchoolClass, teacherId: number) {
+    setError(null)
+    try {
+      await assignClassTeacher(c.id, teacherId)
+      await reloadClasses()
+    } catch (e) {
+      setError(errorMessage(e))
+    }
+  }
   const reloadBooks = () => (cls ? listBooks(cls.id).then(setBooks) : Promise.resolve())
   const reloadChapters = () => (book ? listChapters(book.id).then(setChapters) : Promise.resolve())
   const reloadExercises = () => (chapter ? listExercises(chapter.id).then(setExercises) : Promise.resolve())
@@ -417,7 +440,7 @@ export function AdminContentPage() {
           ] : undefined}
           actions={
             <>
-              {!cls && <Link to="/admin/en-chapters" className={buttonVariants({ variant: 'outline' })}>Capitole EN</Link>}
+              {!cls && isAdmin && <Link to="/admin/en-chapters" className={buttonVariants({ variant: 'outline' })}>Capitole EN</Link>}
               {!cls && <Button onClick={() => setDialog({ kind: 'class', item: null })}>Adaugă clasă</Button>}
               {cls && !book && <Button onClick={() => setDialog({ kind: 'book', item: null })}>Adaugă carte</Button>}
               {book && !chapter && <Button onClick={() => setDialog({ kind: 'chapter', item: null })}>Adaugă capitol</Button>}
@@ -509,6 +532,20 @@ export function AdminContentPage() {
                     <Link to={`/admin/classes/${c.id}/mastery`} className={buttonVariants({ size: 'xs', variant: 'secondary' })}>
                       Pe capitole
                     </Link>
+                    {isAdmin && teachers.length > 0 && (
+                      <select
+                        aria-label={`Profesorul clasei ${c.name}`}
+                        data-testid={`class-teacher-${c.id}`}
+                        className="h-6 rounded-md border border-border bg-background px-1 text-xs"
+                        value={c.teacherId ?? ''}
+                        onChange={(e) => e.target.value !== '' && void changeTeacher(c, Number(e.target.value))}
+                      >
+                        {c.teacherId === null && <option value="">Fără profesor</option>}
+                        {teachers.map((t) => (
+                          <option key={t.id} value={t.id}>{t.fullName}</option>
+                        ))}
+                      </select>
+                    )}
                   </>
                 ),
               }))}

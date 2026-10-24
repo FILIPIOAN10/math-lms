@@ -8,6 +8,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import ro.mathlms.user.Role;
 import ro.mathlms.user.User;
 import ro.mathlms.user.UserRepository;
+import ro.mathlms.teaching.TeacherScope;
 
 import java.util.List;
 import java.util.Optional;
@@ -27,7 +28,8 @@ class ContentAccessTest {
     private final ChapterRepository chapterRepository = mock(ChapterRepository.class);
     private final ExerciseRepository exerciseRepository = mock(ExerciseRepository.class);
     private final ContentAccess access = new ContentAccess(
-            userRepository, enrollmentRepository, bookRepository, chapterRepository, exerciseRepository);
+            userRepository, enrollmentRepository, bookRepository, chapterRepository, exerciseRepository,
+            new TeacherScope(null));
 
     private final User ana = withId(new User("ana@scoala.ro", "Ana", Role.STUDENT), 7L);
 

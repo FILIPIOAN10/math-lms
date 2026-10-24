@@ -104,7 +104,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/public/gdpr/erase/confirm").permitAll()
                         // The register page asks what an invite link is for before the visitor has an account.
                         .requestMatchers(HttpMethod.GET, "/api/public/invites/preview").permitAll()
-                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        // Staff area: each controller narrows it further (ADMIN-only, or TEACHER limited by TeacherScope).
+                        .requestMatchers("/api/admin/**").hasAnyRole("ADMIN", "TEACHER")
                         // Feature endpoints (content, quiz — Faza 2+) require an approved account.
                         // A PENDING account is authenticated (can read /api/auth/me) but not ACTIVE.
                         // Reads of the content hierarchy are for active accounts (students browse);

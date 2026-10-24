@@ -10,8 +10,8 @@ const quiz = (id: number, title: string, status: QuizSummary['status'] = 'PUBLIS
 })
 const quizzes = [quiz(10, 'Simulare EN'), quiz(11, 'Ciorna', 'DRAFT'), quiz(12, 'Teza')]
 const classes: SchoolClass[] = [
-  { id: 5, name: 'Clasa a 9-a', description: null },
-  { id: 6, name: 'Clasa a 10-a', description: null },
+  { id: 5, name: 'Clasa a 9-a', description: null, teacherId: 1 },
+  { id: 6, name: 'Clasa a 10-a', description: null, teacherId: 1 },
 ]
 const inDays = (n: number) => isoToLocalInput(new Date(Date.now() + n * 86_400_000).toISOString())
 

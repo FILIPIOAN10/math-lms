@@ -12,47 +12,56 @@ import ro.mathlms.mastery.MasteryDtos.ChapterMasteryDto;
 import ro.mathlms.quiz.StudentQuizDtos.MyAttemptDto;
 import ro.mathlms.quiz.StudentQuizDtos.ProgressPointDto;
 import ro.mathlms.review.ReviewDtos.ReviewStatusDto;
+import ro.mathlms.teaching.TeacherScope;
 
 import java.util.List;
 
 /** T5: the teacher's page for one student, under {@code /api/admin/students/{id}/...} (ADMIN). */
 @RestController
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
 public class AdminStudentController {
 
     private final AdminStudentService service;
+    private final TeacherScope scope;
 
-    public AdminStudentController(AdminStudentService service) {
+    public AdminStudentController(AdminStudentService service, TeacherScope scope) {
         this.service = service;
+        this.scope = scope;
     }
 
     @GetMapping("/api/admin/students/{studentId}")
     public StudentProfileDto profile(@PathVariable Long studentId) {
+        scope.requireStudent(studentId);
         return service.profile(studentId);
     }
 
     @GetMapping("/api/admin/students/{studentId}/attempts")
     public List<MyAttemptDto> attempts(@PathVariable Long studentId) {
+        scope.requireStudent(studentId);
         return service.attempts(studentId);
     }
 
     @GetMapping("/api/admin/students/{studentId}/assignments")
     public List<StudentAssignmentDto> assignments(@PathVariable Long studentId) {
+        scope.requireStudent(studentId);
         return service.assignments(studentId);
     }
 
     @GetMapping("/api/admin/students/{studentId}/progress")
     public List<ProgressPointDto> progress(@PathVariable Long studentId) {
+        scope.requireStudent(studentId);
         return service.progress(studentId);
     }
 
     @GetMapping("/api/admin/students/{studentId}/mastery")
     public List<ChapterMasteryDto> mastery(@PathVariable Long studentId) {
+        scope.requireStudent(studentId);
         return service.mastery(studentId);
     }
 
     @GetMapping("/api/admin/students/{studentId}/review")
     public ReviewStatusDto review(@PathVariable Long studentId) {
+        scope.requireStudent(studentId);
         return service.review(studentId);
     }
 

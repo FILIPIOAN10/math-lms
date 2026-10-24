@@ -17,6 +17,7 @@ import ro.mathlms.content.ExerciseRepository;
 import ro.mathlms.content.SchoolClassRepository;
 import ro.mathlms.quiz.QuizDtos.ItemDto;
 import ro.mathlms.quiz.QuizDtos.QuizDetailDto;
+import ro.mathlms.teaching.TeacherScope;
 
 import java.util.HashSet;
 import java.util.List;
@@ -44,15 +45,18 @@ public class QuizAdminService {
     private final QuizItemPartRepository partRepository;
     private final EnChapterLinks enChapterLinks;
     private final UnfinishedAttempts unfinishedAttempts;
+    private final TeacherScope scope;
 
     public QuizAdminService(QuizRepository quizRepository, QuizItemRepository itemRepository,
                             QuizOptionRepository optionRepository, QuizItemHintRepository hintRepository,
                             SchoolClassRepository schoolClassRepository, ChapterRepository chapterRepository,
                             ExerciseRepository exerciseRepository, AfterCommitCacheEvictor cacheEvictor,
                             QuestionImageService imageService, AuditLog auditLog, QuizItemPartRepository partRepository,
-                            EnChapterLinks enChapterLinks, UnfinishedAttempts unfinishedAttempts) {
+                            EnChapterLinks enChapterLinks, UnfinishedAttempts unfinishedAttempts,
+                            TeacherScope scope) {
         this.enChapterLinks = enChapterLinks;
         this.unfinishedAttempts = unfinishedAttempts;
+        this.scope = scope;
         this.partRepository = partRepository;
         this.imageService = imageService;
         this.auditLog = auditLog;
@@ -112,6 +116,7 @@ public class QuizAdminService {
         quiz.tagChapter(chapterFitting(chapterId, target));
         quiz.changeTimeLimit(timeLimitMinutes);
         quiz.allowPractice(practiceAllowed);
+        quiz.ownedBy(scope.currentUserId());
         Quiz saved = quizRepository.save(quiz);
         auditLog.record(AuditEvent.of(AuditAction.QUIZ_CREATED, saved.getId(), saved.getTitle())
                 .details(audience(saved)));
@@ -204,10 +209,18 @@ public class QuizAdminService {
         return chapter;
     }
 
+    /**
+     * The class a test is for. A TEACHER must pick one of their own classes: a test "for every student" would reach the
+     * students of every other teacher, so only an ADMIN may leave it empty.
+     */
     private SchoolClass findClass(Long schoolClassId) {
         if (schoolClassId == null) {
+            if (scope.restricted()) {
+                throw new InvalidQuizException("Alege clasa testului: un test pentru toți elevii îl poate face doar un administrator.");
+            }
             return null;
         }
+        scope.requireClass(schoolClassId);
         return schoolClassRepository.findById(schoolClassId)
                 .orElseThrow(() -> new QuizNotFoundException("SchoolClass", schoolClassId));
     }
@@ -244,6 +257,7 @@ public class QuizAdminService {
         copy.changeTimeLimit(source.getTimeLimitMinutes());
         copy.allowPractice(source.isPracticeAllowed());
         copy.tagChapter(source.getChapter());
+        copy.ownedBy(scope.currentUserId()); // the copy belongs to whoever made it
         Quiz saved = quizRepository.save(copy);
         for (QuizItem item : itemRepository.findByQuizIdOrderByPosition(id)) {
             QuizItem fresh = new QuizItem(saved, item.getPosition(), item.getType(),
@@ -297,6 +311,7 @@ public class QuizAdminService {
         // Loaded (not the lazy proxy) so the summary returned after the transaction can still read its name.
         quiz.assignToClass(findClass(chapter.getBook().getSchoolClass().getId()));
         quiz.tagChapter(chapter);
+        quiz.ownedBy(scope.currentUserId());
         Quiz saved = quizRepository.save(quiz);
         int position = 0; // 0-based, like the builder and the text import
         for (Exercise exercise : exercises) {

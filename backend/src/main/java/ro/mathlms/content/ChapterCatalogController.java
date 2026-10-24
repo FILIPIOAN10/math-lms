@@ -7,13 +7,14 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Comparator;
 import java.util.List;
+import ro.mathlms.teaching.TeacherScope;
 
 /**
  * Every chapter in one flat list, ordered class → book → chapter (natural order, "a 9-a" before "a 10-a"): what the
  * teacher picks from when tagging a quiz or a question for the mastery map (E6).
  */
 @RestController
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
 public class ChapterCatalogController {
 
     /** One choice: the chapter plus where it lives, so the select can group and label it. */
@@ -33,14 +34,17 @@ public class ChapterCatalogController {
             .thenComparing(ChapterOptionDto::title, NaturalOrder.BY_NAME);
 
     private final ChapterRepository chapterRepository;
+    private final TeacherScope scope;
 
-    public ChapterCatalogController(ChapterRepository chapterRepository) {
+    public ChapterCatalogController(ChapterRepository chapterRepository, TeacherScope scope) {
         this.chapterRepository = chapterRepository;
+        this.scope = scope;
     }
 
     @GetMapping("/api/admin/chapters")
     @Transactional(readOnly = true)
     public List<ChapterOptionDto> chapters() {
-        return chapterRepository.findAllFetched().stream().map(ChapterOptionDto::from).sorted(ORDER).toList();
+        List<ChapterOptionDto> all = chapterRepository.findAllFetched().stream().map(ChapterOptionDto::from).toList();
+        return scope.keepOwnedClasses(all, ChapterOptionDto::schoolClassId).stream().sorted(ORDER).toList();
     }
 }

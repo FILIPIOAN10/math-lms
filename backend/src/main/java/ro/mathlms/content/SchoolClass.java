@@ -32,9 +32,18 @@ public class SchoolClass {
     @Column(length = 500)
     private String description;
 
+    /** The teacher who owns the class (sees and changes it); null = only ADMINs see it until it is given to someone. */
+    @Column(name = "teacher_id")
+    private Long teacherId;
+
     public SchoolClass(String name, String description) {
         this.name = requireNonBlank(name, "name");
         this.description = description;
+    }
+
+    /** Hands the class to another teacher (an ADMIN's decision); null leaves it to the ADMINs. */
+    public void assignTeacher(Long teacherId) {
+        this.teacherId = teacherId;
     }
 
     /** Updates the editable fields (name stays unique across classes). */
