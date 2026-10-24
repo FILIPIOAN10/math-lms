@@ -1,6 +1,7 @@
 package ro.mathlms.user;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -35,4 +36,12 @@ public interface UserRepository extends JpaRepository<User,Long> {
 
     /** Găsește utilizatorii după rol și status care NU au contul șters (erased = false). */
     List<User> findByRoleAndStatusAndErasedFalse(Role role, AccountStatus status);
+
+    /**
+     * Unlinks every student of this parent (GDPR erasure of the parent): the children must not stay tied to a tombstone,
+     * which would also block linking them to a new parent. Returns how many were unlinked.
+     */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("update User u set u.parent = null where u.parent.id = :parentId")
+    int unlinkChildrenOf(@Param("parentId") Long parentId);
 }

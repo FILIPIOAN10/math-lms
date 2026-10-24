@@ -14,6 +14,7 @@ import ro.mathlms.auth.UserNotFoundException;
 import ro.mathlms.auth.VerificationTokenService;
 import ro.mathlms.content.EnrollmentRepository;
 import ro.mathlms.quiz.ItemResponseRepository;
+import ro.mathlms.invite.InviteLinkRepository;
 import ro.mathlms.quiz.ResponsePhotoRepository;
 import ro.mathlms.quiz.QuizAttemptRepository;
 import ro.mathlms.storage.FileService;
@@ -25,6 +26,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Clock;
 import java.util.HexFormat;
 import java.util.List;
 
@@ -54,13 +56,16 @@ public class GdprErasureService {
     private final FileService fileService;
     private final RefreshTokenService refreshTokenService;
     private final String quizPhotosDir;
+    private final InviteLinkRepository inviteLinkRepository;
+    private final Clock clock;
 
     public GdprErasureService(UserRepository userRepository, PasswordEncoder passwordEncoder,
                               VerificationTokenService tokenService, EmailService emailService,
                               EnrollmentRepository enrollmentRepository, ItemResponseRepository responseRepository,
                               ResponsePhotoRepository photoRepository,
                               QuizAttemptRepository attemptRepository, FileService fileService, RefreshTokenService refreshTokenService,
-                              @Value("${app.storage.quiz-photos-dir}") String quizPhotosDir) {
+                              @Value("${app.storage.quiz-photos-dir}") String quizPhotosDir,
+                              InviteLinkRepository inviteLinkRepository, Clock clock) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.tokenService = tokenService;
@@ -72,6 +77,8 @@ public class GdprErasureService {
         this.fileService = fileService;
         this.refreshTokenService = refreshTokenService;
         this.quizPhotosDir = quizPhotosDir;
+        this.inviteLinkRepository = inviteLinkRepository;
+        this.clock = clock;
     }
 
     /**
@@ -126,6 +133,10 @@ public class GdprErasureService {
 
         // Drop the person's own state; quiz attempts/grades stay, now anonymised via the tombstone.
         enrollmentRepository.deleteByStudentId(userId);
+        // A parent's children are unlinked (not left on a tombstone, which would also block a new parent link), and a
+        // student's unused parent links stop working (nobody may become the parent of an erased account).
+        userRepository.unlinkChildrenOf(userId);
+        inviteLinkRepository.findOpenForStudent(userId, clock.instant()).forEach(link -> link.revoke(clock.instant()));
 
         // Revoke every login session before the email changes (sessions are keyed by email).
         refreshTokenService.revokeAll(email);

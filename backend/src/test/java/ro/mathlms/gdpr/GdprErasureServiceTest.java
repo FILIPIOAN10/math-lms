@@ -15,6 +15,9 @@ import ro.mathlms.content.Enrollment;
 import ro.mathlms.content.EnrollmentRepository;
 import ro.mathlms.content.SchoolClass;
 import ro.mathlms.content.SchoolClassRepository;
+import ro.mathlms.invite.InviteLinkDtos.InviteLinkDto;
+import ro.mathlms.invite.InviteLinkRepository;
+import ro.mathlms.invite.InviteLinkService;
 import ro.mathlms.quiz.ItemResponse;
 import ro.mathlms.quiz.ItemResponseRepository;
 import ro.mathlms.quiz.ResponsePhotoRepository;
@@ -48,6 +51,8 @@ class GdprErasureServiceTest {
     @Autowired private ResponsePhotoRepository photoRepository;
     @Autowired private PasswordEncoder passwordEncoder;
     @Autowired private VerificationTokenService tokenService;
+    @Autowired private InviteLinkService inviteLinkService;
+    @Autowired private InviteLinkRepository inviteLinkRepository;
     @MockitoBean private EmailService emailService;
 
     private record Seed(Long userId, Long attemptId, Long responseId) {}
@@ -103,6 +108,38 @@ class GdprErasureServiceTest {
         ItemResponse kept = responseRepository.findById(seed.responseId()).orElseThrow();
         assertThat(kept.getTeacherComment()).isNull();
         assertThat(kept.getAwardedPoints()).isEqualTo(25);
+    }
+
+    private User active(String email, Role role) {
+        User user = User.registerLocal(email, "Nume " + role, "HASH", role);
+        user.verifyEmail();
+        user.approve(role);
+        return userRepository.save(user);
+    }
+
+    @Test
+    void erasingAParentUnlinksTheChildrenSoTheyCanGetANewParent() {
+        User parent = active("parinte-sters@scoala.ro", Role.PARENT);
+        User child = active("copil-ramas@scoala.ro", Role.STUDENT);
+        child.linkParent(parent);
+        userRepository.save(child);
+
+        service.confirmErasure(tokenService.generate("parinte-sters@scoala.ro", TokenPurpose.ERASE_ACCOUNT));
+
+        assertThat(userRepository.findById(child.getId()).orElseThrow().getParent()).isNull();
+        assertThat(userRepository.findByParentIdOrderByFullName(parent.getId())).isEmpty();
+        // the teacher can hand the child's new parent a link again (refused while the tombstone was linked)
+        assertThat(inviteLinkService.createParentInvite(child.getId()).kind()).isNotNull();
+    }
+
+    @Test
+    void erasingAStudentRevokesTheirUnusedParentLinks() {
+        User student = active("elev-cu-link@scoala.ro", Role.STUDENT);
+        InviteLinkDto link = inviteLinkService.createParentInvite(student.getId());
+
+        service.confirmErasure(tokenService.generate("elev-cu-link@scoala.ro", TokenPurpose.ERASE_ACCOUNT));
+
+        assertThat(inviteLinkRepository.findById(link.id()).orElseThrow().getRevokedAt()).isNotNull();
     }
 
     @Test
