@@ -15,18 +15,20 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+import ro.mathlms.idempotency.IdempotencyService;
 import ro.mathlms.quiz.QuizDtos.QuizSummaryDto;
 import ro.mathlms.quiz.StudentQuizDtos.AnswerFeedbackDto;
-import ro.mathlms.quiz.StudentQuizDtos.PhotosDto;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultDto;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultViewDto;
 import ro.mathlms.quiz.StudentQuizDtos.HintDto;
+import ro.mathlms.quiz.StudentQuizDtos.MyAttemptDto;
+import ro.mathlms.quiz.StudentQuizDtos.PhotosDto;
 import ro.mathlms.quiz.StudentQuizDtos.ProgressPointDto;
 import ro.mathlms.quiz.StudentQuizDtos.QuizPreviewDto;
-import ro.mathlms.quiz.StudentQuizDtos.MyAttemptDto;
 import ro.mathlms.quiz.StudentQuizDtos.StartedAttemptDto;
 
 import java.util.List;
@@ -42,9 +44,15 @@ import java.util.Optional;
 public class QuizAttemptController {
 
     private final QuizAttemptService service;
+    private final IdempotencyService idempotency;
 
-    public QuizAttemptController(QuizAttemptService service) {
+    public QuizAttemptController(QuizAttemptService service, IdempotencyService idempotency) {
         this.service = service;
+        this.idempotency = idempotency;
+    }
+
+    /** What an Idempotency-Key on a submit stands for: this attempt, handed in by this account. */
+    record SubmitRequest(Long attemptId, String student) {
     }
 
     @GetMapping("/api/quiz/quizzes")
@@ -121,9 +129,17 @@ public class QuizAttemptController {
         return service.revealHint(attemptId, itemId, number, auth.getName());
     }
 
+    /**
+     * Hands the attempt in. With an {@code Idempotency-Key} (the browser sends one per hand-in and reuses it on a
+     * retry), a repeat after a dropped connection replays the first result instead of answering "already handed in";
+     * the same key from another account is refused (422), never replayed.
+     */
     @PostMapping("/api/quiz/attempts/{attemptId}/submit")
-    public AttemptResultDto submit(@PathVariable Long attemptId, Authentication auth) {
-        return service.submit(attemptId, auth.getName());
+    public AttemptResultDto submit(@PathVariable Long attemptId,
+                                   @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+                                   Authentication auth) {
+        return idempotency.runIdempotent(idempotencyKey, "submit-attempt", new SubmitRequest(attemptId, auth.getName()),
+                AttemptResultDto.class, () -> ResponseEntity.ok(service.submit(attemptId, auth.getName()))).getBody();
     }
 
     @GetMapping("/api/quiz/attempts/{attemptId}/result")

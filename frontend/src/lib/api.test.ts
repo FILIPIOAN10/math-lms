@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
-  ApiError, createQuiz, deleteQuizPhoto, listClasses, login, revealQuizHint, saveQuizAnswer, startQuizAttempt, uploadQuizPhoto,
+  ApiError, createQuiz, deleteQuizPhoto, listClasses, login, revealQuizHint, saveQuizAnswer, startQuizAttempt,
+  submitQuizAttempt, uploadQuizPhoto,
 } from '@/lib/api'
 
 function json(body: unknown, status = 200): Response {
@@ -23,6 +24,21 @@ describe('API client', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals()
+  })
+
+  it('sends one Idempotency-Key per hand-in and the same one again on a retry', async () => {
+    sessionStorage.clear()
+    fetchMock.mockResolvedValueOnce(new Response('', { status: 502 })).mockResolvedValueOnce(json({ attemptId: 50 }))
+
+    await expect(submitQuizAttempt(50)).rejects.toBeInstanceOf(ApiError)
+    await submitQuizAttempt(50)
+
+    const keys = fetchMock.mock.calls.map(([, init]) => new Headers(init?.headers).get('Idempotency-Key'))
+    expect(keys[0]).toBeTruthy()
+    expect(keys[1]).toBe(keys[0])
+    fetchMock.mockResolvedValueOnce(json({ attemptId: 51 }))
+    await submitQuizAttempt(51)
+    expect(new Headers(fetchMock.mock.calls[2][1]?.headers).get('Idempotency-Key')).not.toBe(keys[0])
   })
 
   it('returns the parsed body and sends the session cookies', async () => {

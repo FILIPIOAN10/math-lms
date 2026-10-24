@@ -31,7 +31,8 @@ import static org.mockito.Mockito.when;
 class QuizAttemptControllerTest {
 
     private final QuizAttemptService service = mock(QuizAttemptService.class);
-    private final QuizAttemptController controller = new QuizAttemptController(service);
+    private final QuizAttemptController controller = new QuizAttemptController(service,
+            new ro.mathlms.idempotency.IdempotencyService(org.mockito.Mockito.mock(ro.mathlms.idempotency.IdempotencyKeyRepository.class)));
     private final Authentication auth =
             new UsernamePasswordAuthenticationToken("elev@scoala.ro", null);
 
@@ -167,7 +168,7 @@ class QuizAttemptControllerTest {
                 new AttemptResultDto(50L, QuizAttemptStatus.GRADED, 5, 5, 5);
         when(service.submit(50L, "elev@scoala.ro")).thenReturn(dto);
 
-        assertThat(controller.submit(50L, auth)).isEqualTo(dto);
+        assertThat(controller.submit(50L, null, auth)).isEqualTo(dto);
     }
 
     @Test

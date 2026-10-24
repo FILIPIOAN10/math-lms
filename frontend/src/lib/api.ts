@@ -1323,8 +1323,29 @@ export async function revealQuizHint(attemptId: number, itemId: number, number: 
   return response.json()
 }
 
+/**
+ * One Idempotency-Key per hand-in of an attempt, kept for the tab's life: a retry (after a lost answer, even after a
+ * reload) sends the same key, and the server replays the first result instead of "already handed in".
+ */
+export function submitKey(attemptId: number): string {
+  const name = `mathlms:submit-key:${attemptId}`
+  try {
+    const stored = sessionStorage.getItem(name)
+    if (stored) return stored
+    const fresh = crypto.randomUUID()
+    sessionStorage.setItem(name, fresh)
+    return fresh
+  } catch {
+    return crypto.randomUUID() // no storage: still safe within this one call
+  }
+}
+
 export async function submitQuizAttempt(attemptId: number): Promise<SubmitResultDto> {
-  const response = await postJson(`/quiz/attempts/${attemptId}/submit`, {})
+  const response = await apiFetch(`/quiz/attempts/${attemptId}/submit`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Idempotency-Key': submitKey(attemptId) },
+    body: '{}',
+  })
   return response.json()
 }
 
