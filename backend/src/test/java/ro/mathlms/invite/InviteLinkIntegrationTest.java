@@ -2,6 +2,7 @@ package ro.mathlms.invite;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -20,15 +21,25 @@ import ro.mathlms.content.EnrollmentRepository;
 import ro.mathlms.content.SchoolClass;
 import ro.mathlms.content.SchoolClassRepository;
 import ro.mathlms.invite.InviteLinkDtos.InviteLinkDto;
+import ro.mathlms.outbox.OutboxEventPublisher;
+import ro.mathlms.outbox.OutboxEventTypes;
+import ro.mathlms.outbox.OutboxPayloadCodec;
 import ro.mathlms.user.AccountStatus;
 import ro.mathlms.user.Role;
 import ro.mathlms.user.User;
 import ro.mathlms.user.UserRepository;
 
+import java.time.Duration;
 import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -38,7 +49,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /**
  * T1 end to end on real Postgres, through the real auth endpoints: a newcomer who joins through a class or parent link
  * is active, enrolled / linked as soon as the email is confirmed — no approval, enrolment or linking by the teacher —
- * while the cap, expiry and revocation keep a forwarded link from letting strangers in.
+ * while the cap, expiry and revocation keep a forwarded link from letting strangers in. An admin link is the exception:
+ * single-use, 24 hours, and its account always waits for an existing admin's approval (every active admin is emailed).
  */
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
@@ -46,6 +58,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class InviteLinkIntegrationTest {
 
     @MockitoBean private EmailService emailService;
+    /** Captures the alert events; the tests then hand them to the real handler (no dispatcher timing involved). */
+    @MockitoBean private OutboxEventPublisher outboxEventPublisher;
 
     @Autowired private MockMvc mockMvc;
     @Autowired private InviteLinkService inviteLinkService;
@@ -55,6 +69,8 @@ class InviteLinkIntegrationTest {
     @Autowired private SchoolClassRepository schoolClassRepository;
     @Autowired private EnrollmentRepository enrollmentRepository;
     @Autowired private UserRepository userRepository;
+    @Autowired private AdminInviteUsedEmailHandler adminInviteUsedEmailHandler;
+    @Autowired private OutboxPayloadCodec codec;
 
     private String stamp;
     private SchoolClass schoolClass;
@@ -99,27 +115,80 @@ class InviteLinkIntegrationTest {
         return userRepository.save(student);
     }
 
+    private User activeAdmin(String who) {
+        User admin = User.registerLocal(email(who), "Profesor Existent", "HASH", Role.ADMIN);
+        admin.verifyEmail();
+        admin.approve(Role.ADMIN);
+        return userRepository.save(admin);
+    }
+
+    /** The alert payloads published so far for {@code newcomer}, one per admin. */
+    private java.util.List<AdminInviteUsedPayload> alertsFor(User newcomer) {
+        ArgumentCaptor<Object> payloads = ArgumentCaptor.forClass(Object.class);
+        verify(outboxEventPublisher, atLeastOnce()).publish(eq(OutboxEventTypes.ADMIN_INVITE_USED), payloads.capture());
+        return payloads.getAllValues().stream().map(AdminInviteUsedPayload.class::cast)
+                .filter(p -> p.newUserId().equals(newcomer.getId())).toList();
+    }
+
     // --- admin (teacher) link ---
 
     @Test
-    void aTeacherWhoJoinsThroughTheAdminLinkIsAnActiveAdminOnceTheEmailIsConfirmed() throws Exception {
-        InviteLinkDto link = inviteLinkService.createAdminInvite(null);
+    void aTeacherWhoJoinsThroughTheAdminLinkWaitsForApprovalAndEveryActiveAdminIsEmailed() throws Exception {
+        User existing = activeAdmin("director");
+        InviteLinkDto link = inviteLinkService.createAdminInvite();
         assertThat(link.maxUses()).isEqualTo(1);
+        assertThat(Duration.between(link.createdAt(), link.expiresAt())).isEqualTo(InviteLink.ADMIN_TTL);
 
         register(email("profa"), code(link)).andExpect(status().isCreated());
-        confirmEmail(email("profa")).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("ACTIVE"));
+        confirmEmail(email("profa")).andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("PENDING_APPROVAL"));
 
         User teacher = account(email("profa"));
-        assertThat(teacher.getRole()).isEqualTo(Role.ADMIN);
-        assertThat(teacher.getStatus()).isEqualTo(AccountStatus.ACTIVE);
+        assertThat(teacher.getStatus()).isEqualTo(AccountStatus.PENDING_APPROVAL);
+        assertThat(teacher.getRole()).isNull(); // the role comes only with an admin's approval
+        // one event per active admin, ids only; the real handler turns ours into an email
+        AdminInviteUsedPayload ours = alertsFor(teacher).stream()
+                .filter(p -> p.adminId().equals(existing.getId())).findFirst().orElseThrow();
+        adminInviteUsedEmailHandler.handle(codec.serialize(ours));
+        verify(emailService).sendAdminAlertNewPendingAdmin(existing.getEmail(), teacher.getFullName(), teacher.getEmail());
         // one use: the next one to open the same link is turned away
         register(email("al-doilea"), code(link)).andExpect(status().isGone());
         assertThat(userRepository.findByEmail(email("al-doilea"))).isEmpty();
     }
 
     @Test
+    void theAdminAlertIsSkippedOnceTheNewcomerWasDecidedOn() throws Exception {
+        User existing = activeAdmin("director");
+        InviteLinkDto link = inviteLinkService.createAdminInvite();
+        register(email("profa"), code(link)).andExpect(status().isCreated());
+        confirmEmail(email("profa")).andExpect(status().isOk());
+        User teacher = account(email("profa"));
+        teacher.approve(Role.ADMIN); // approved before the outbox got to the email
+        userRepository.save(teacher);
+
+        AdminInviteUsedPayload ours = alertsFor(teacher).stream()
+                .filter(p -> p.adminId().equals(existing.getId())).findFirst().orElseThrow();
+        adminInviteUsedEmailHandler.handle(codec.serialize(ours));
+
+        verify(emailService, never()).sendAdminAlertNewPendingAdmin(anyString(), any(), any());
+    }
+
+    @Test
+    void anExpiredAdminLinkTurnsNewcomersAway() throws Exception {
+        InviteLinkDto link = inviteLinkService.createAdminInvite();
+        InviteLink stored = linkRepository.findById(link.id()).orElseThrow();
+        ReflectionTestUtils.setField(stored, "expiresAt", Instant.now().minusSeconds(60));
+        linkRepository.save(stored);
+
+        register(email("intarziat"), code(link))
+                .andExpect(status().isGone())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("expirat")));
+        assertThat(userRepository.findByEmail(email("intarziat"))).isEmpty();
+    }
+
+    @Test
     void aRevokedAdminLinkLeavesTheListAndTurnsNewcomersAway() throws Exception {
-        InviteLinkDto link = inviteLinkService.createAdminInvite(3);
+        InviteLinkDto link = inviteLinkService.createAdminInvite();
         assertThat(inviteLinkService.activeAdminInvites()).extracting(InviteLinkDto::id).contains(link.id());
 
         inviteLinkService.revoke(link.id());
@@ -290,6 +359,16 @@ class InviteLinkIntegrationTest {
 
         mockMvc.perform(get("/api/public/invites/preview").param("token", "0".repeat(24))) // well-formed, but no such link
                 .andExpect(status().isGone());
+    }
+
+    @Test
+    void aPreviewForAnAdminLinkShowsItIsNotDirect() throws Exception {
+        InviteLinkDto link = inviteLinkService.createAdminInvite();
+
+        mockMvc.perform(get("/api/public/invites/preview").param("token", code(link)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.role").value("ADMIN"))
+                .andExpect(jsonPath("$.direct").value(false)); // the page must not promise instant access
     }
 
     @Test

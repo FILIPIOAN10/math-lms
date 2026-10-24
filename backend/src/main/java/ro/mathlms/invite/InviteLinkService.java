@@ -12,6 +12,8 @@ import ro.mathlms.content.SchoolClass;
 import ro.mathlms.content.SchoolClassRepository;
 import ro.mathlms.invite.InviteLinkDtos.InviteLinkDto;
 import ro.mathlms.invite.InviteLinkDtos.InvitePreviewDto;
+import ro.mathlms.outbox.OutboxEventPublisher;
+import ro.mathlms.outbox.OutboxEventTypes;
 import ro.mathlms.user.AccountStatus;
 import ro.mathlms.user.Role;
 import ro.mathlms.user.User;
@@ -45,11 +47,13 @@ public class InviteLinkService {
     private final Clock clock;
     private final String frontendBaseUrl;
     private final SecureRandom random = new SecureRandom();
+    private final OutboxEventPublisher outboxEventPublisher;
 
     public InviteLinkService(InviteLinkRepository linkRepository, SchoolClassRepository schoolClassRepository,
                              UserRepository userRepository, EnrollmentRepository enrollmentRepository,
                              AuditLog auditLog, Clock clock,
-                             @Value("${app.frontend.base-url}") String frontendBaseUrl) {
+                             @Value("${app.frontend.base-url}") String frontendBaseUrl,
+                             OutboxEventPublisher outboxEventPublisher) {
         this.auditLog = auditLog;
         this.linkRepository = linkRepository;
         this.schoolClassRepository = schoolClassRepository;
@@ -57,6 +61,7 @@ public class InviteLinkService {
         this.enrollmentRepository = enrollmentRepository;
         this.clock = clock;
         this.frontendBaseUrl = frontendBaseUrl;
+        this.outboxEventPublisher = outboxEventPublisher;
     }
 
     /** True for a stored link code, false for anything else (notably a signed role invite). */
@@ -134,8 +139,9 @@ public class InviteLinkService {
     @Transactional(readOnly = true)
     public InvitePreviewDto preview(String code) {
         InviteLink link = usable(code);
+        boolean direct = link.getKind() != InviteLinkKind.ADMIN; // an admin link's account waits for approval
         return new InvitePreviewDto(link.getKind().role(),
-                link.getKind() == InviteLinkKind.CLASS ? link.getSchoolClass().getName() : null, true);
+                link.getKind() == InviteLinkKind.CLASS ? link.getSchoolClass().getName() : null, direct);
     }
 
     /**
@@ -159,7 +165,8 @@ public class InviteLinkService {
      * did — false for every other account (no link, already decided, or its link was deleted with its class), which
      * then simply waits in the approval queue as before — as does a parent whose student erased their account
      * meanwhile. A parent is only linked if the student still has no parent (someone else may have been linked in the
-     * meantime); the parent account is activated either way.
+     * meantime); the parent account is activated either way. An ADMIN link activates nothing: the account stays in
+     * the approval queue and every active admin is emailed (false).
      */
     @Transactional
     public boolean completeOnboarding(User user) {
@@ -170,13 +177,19 @@ public class InviteLinkService {
         if (link == null || (link.getKind() == InviteLinkKind.PARENT && link.getStudent().isErased())) {
             return false; // nothing left to join (class deleted, or the child erased their account): the teacher decides
         }
+        if (link.getKind() == InviteLinkKind.ADMIN) {
+            // An admin link never grants the role by itself: the account stays in the approval queue and every active
+            // admin is told (through the outbox, so a mail outage cannot undo the email confirmation).
+            auditLog.recordAs(user, AuditEvent.of(AuditAction.JOINED_BY_INVITE, link.getId(), label(link))
+                    .about(user).details("cont de profesor/admin creat prin link, așteaptă aprobarea"));
+            userRepository.findByRoleAndStatusAndErasedFalse(Role.ADMIN, AccountStatus.ACTIVE).forEach(admin ->
+                    outboxEventPublisher.publish(OutboxEventTypes.ADMIN_INVITE_USED,
+                            new AdminInviteUsedPayload(user.getId(), admin.getId())));
+            return false;
+        }
         user.approve(link.getKind().role());
         userRepository.save(user);
         switch (link.getKind()) {
-            case ADMIN -> {
-                auditLog.recordAs(user, AuditEvent.of(AuditAction.JOINED_BY_INVITE, link.getId(), label(link))
-                        .about(user).details("cont de profesor/admin activat prin link"));
-            }
             case CLASS -> {
                 SchoolClass schoolClass = link.getSchoolClass();
                 if (!enrollmentRepository.existsByStudentIdAndSchoolClassId(user.getId(), schoolClass.getId())) {
@@ -228,17 +241,17 @@ public class InviteLinkService {
                 link.getSchoolClass() == null ? null : link.getSchoolClass().getName(),
                 link.getStudent() == null ? null : link.getStudent().getFullName());
     }
-    @Transactional
-    public InviteLinkDto createAdminInvite(Integer maxUses) {
-        int cap = maxUses == null ? 1 : maxUses;
-        Instant now = clock.instant();
-        InviteLink link = linkRepository.save(InviteLink.forAdmin(newCode(), cap, now));
 
+    /** A new single-use teacher/admin link, valid for 24 hours; whoever uses it still waits for approval. */
+    @Transactional
+    public InviteLinkDto createAdminInvite() {
+        InviteLink link = linkRepository.save(InviteLink.forAdmin(newCode(), clock.instant()));
         auditLog.record(AuditEvent.of(AuditAction.INVITE_LINK_CREATED, link.getId(), label(link))
-                .details("cel mult " + cap + " administratori"));
+                .details("o singură utilizare, valabil 24 de ore"));
         return toDto(link);
     }
 
+    /** The admin links that still work or have only been used up — what the teacher can copy or revoke. */
     @Transactional(readOnly = true)
     public List<InviteLinkDto> activeAdminInvites() {
         return linkRepository.findActiveByKind(InviteLinkKind.ADMIN, clock.instant())

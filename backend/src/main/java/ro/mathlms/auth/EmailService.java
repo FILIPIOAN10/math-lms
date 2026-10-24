@@ -105,6 +105,17 @@ public class EmailService {
                         + frontendBaseUrl + "/parent/children/" + studentId);
     }
 
+    /** To every active admin: someone used an admin invite link and waits for approval (never activated by the link). */
+    public void sendAdminAlertNewPendingAdmin(String adminEmail, String newUserName, String newUserEmail) {
+        send(adminEmail, "Cont nou de profesor/admin de aprobat în MathLMS",
+                "Bună!\n\n"
+                        + newUserName + " (" + newUserEmail + ") s-a înregistrat printr-un link de invitație pentru "
+                        + "profesor/admin.\n"
+                        + "Contul NU a fost activat automat: așteaptă aprobarea ta.\n\n"
+                        + "Aprobă-l sau respinge-l aici (dacă nu știi cine e, respinge-l și revocă linkul):\n"
+                        + frontendBaseUrl + "/admin/students");
+    }
+
     private static String percent(int score, int maxScore) {
         return maxScore == 0 ? "" : " (" + Math.round(score * 100f / maxScore) + "%)";
     }

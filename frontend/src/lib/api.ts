@@ -310,8 +310,9 @@ export async function listAdminInvites(): Promise<InviteLink[]> {
   return response.json()
 }
 
-export async function createAdminInvite(maxUses?: number): Promise<InviteLink> {
-  const response = await postJson(`/admin/invites/admin`, maxUses === undefined ? {} : { maxUses })
+/** Always single-use, valid for 24 hours; the account it creates waits for an admin's approval. */
+export async function createAdminInvite(): Promise<InviteLink> {
+  const response = await postJson(`/admin/invites/admin`, {})
   return response.json()
 }
 

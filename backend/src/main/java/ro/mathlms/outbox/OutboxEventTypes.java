@@ -6,6 +6,8 @@ public final class OutboxEventTypes {
     /** "The result of your / your child's test is ready" email — one event per recipient. */
     public static final String RESULT_READY_EMAIL = "RESULT_READY_EMAIL";
     public static final String ASSIGNMENT_REMINDER_EMAIL = "ASSIGNMENT_REMINDER_EMAIL";
+    /** "Someone used an admin invite link and waits for your approval" email — one event per active admin. */
+    public static final String ADMIN_INVITE_USED = "ADMIN_INVITE_USED";
 
     private OutboxEventTypes() {
     }

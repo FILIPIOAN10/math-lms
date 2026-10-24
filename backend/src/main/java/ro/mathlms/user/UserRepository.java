@@ -32,4 +32,7 @@ public interface UserRepository extends JpaRepository<User,Long> {
             + " where u.status = :status and u.role = :role order by u.fullName")
     List<User> findByStatusAndRoleFetchParent(@Param("status") AccountStatus status,
                                               @Param("role") Role role);
+
+    /** Găsește utilizatorii după rol și status care NU au contul șters (erased = false). */
+    List<User> findByRoleAndStatusAndErasedFalse(Role role, AccountStatus status);
 }

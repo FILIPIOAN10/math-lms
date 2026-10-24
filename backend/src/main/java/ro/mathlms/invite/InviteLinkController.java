@@ -55,10 +55,9 @@ public class InviteLinkController {
         return service.activeAdminInvites();
     }
 
+    /** No body: an admin link is always single-use, valid for 24 hours, and its account waits for approval. */
     @PostMapping("/api/admin/invites/admin")
-    public ResponseEntity<InviteLinkDto> createAdminInvite(
-            @Valid @RequestBody(required = false) InviteLinkDtos.CreateAdminInviteRequest request) {
-        Integer maxUses = request == null ? null : request.maxUses();
-        return ResponseEntity.status(HttpStatus.CREATED).body(service.createAdminInvite(maxUses));
+    public ResponseEntity<InviteLinkDto> createAdminInvite() {
+        return ResponseEntity.status(HttpStatus.CREATED).body(service.createAdminInvite());
     }
 }

@@ -36,6 +36,8 @@ public class InviteLink {
 
     /** How long a link stays usable. */
     public static final Duration TTL = Duration.ofDays(7);
+    /** An admin link grants the most, so it lives the shortest. */
+    public static final Duration ADMIN_TTL = Duration.ofHours(24);
     /** What a class link allows unless the teacher picks another number. */
     public static final int DEFAULT_CLASS_USES = 30;
     /** The most uses one link may allow (also a CHECK in the database). */
@@ -95,14 +97,14 @@ public class InviteLink {
         link.schoolClass = Objects.requireNonNull(schoolClass, "schoolClass");
         return link;
     }
-    public static InviteLink forAdmin(String code, int maxUses, Instant now) {
-        InviteLink link = new InviteLink();
-        link.code = code;
-        link.kind = InviteLinkKind.ADMIN;
-        link.maxUses = maxUses;
-        link.uses = 0;
-        link.createdAt = now;
-        link.expiresAt = now.plus(java.time.Duration.ofDays(7));
+
+    /**
+     * A single-use link for a new teacher/admin, usable for {@link #ADMIN_TTL} only. The account it creates still
+     * waits for an existing admin's approval: the link is a way in to the queue, never to the role.
+     */
+    public static InviteLink forAdmin(String code, Instant now) {
+        InviteLink link = new InviteLink(code, InviteLinkKind.ADMIN, 1, now);
+        link.expiresAt = now.plus(ADMIN_TTL);
         return link;
     }
 

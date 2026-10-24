@@ -3,13 +3,11 @@ import { CopyLinkField } from '@/components/CopyLinkField'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
-import { Input } from '@/components/ui/input'
 import { listAdminInvites, createAdminInvite, revokeInviteLink, type InviteLink } from '@/lib/api'
 import { formatDate } from '@/lib/format'
 
 export function AdminInviteCard() {
   const [links, setLinks] = useState<InviteLink[]>([])
-  const [maxUses, setMaxUses] = useState<number | ''>(1)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -30,8 +28,7 @@ export function AdminInviteCard() {
     setError(null)
     setLoading(true)
     try {
-      const uses = typeof maxUses === 'number' && maxUses > 0 ? maxUses : 1
-      await createAdminInvite(uses)
+      await createAdminInvite()
       await fetchLinks()
     } catch {
       setError('Nu am putut genera linkul. Reîncearcă.')
@@ -54,26 +51,13 @@ export function AdminInviteCard() {
       <CardHeader>
         <CardTitle className="text-xl">Invitații pentru Profesori / Administratori</CardTitle>
         <CardDescription>
-          Aceste linkuri oferă direct rolul de <strong>ADMIN</strong> la înregistrare.
-          Setează un număr maxim de utilizări. Linkul expiră automat în 7 zile.
+          Aceste linkuri invită un utilizator ca <strong>ADMIN</strong>.
+          Din motive de securitate, linkul are <strong>o singură utilizare</strong>, expiră în <strong>24 de ore</strong>, iar contul creat va necesita <strong>aprobare manuală</strong>.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="flex flex-wrap items-end gap-4">
-          <div className="space-y-1">
-            <Label htmlFor="admin-max-uses">Număr utilizări</Label>
-            <Input
-              id="admin-max-uses"
-              type="number"
-              min={1}
-              max={200}
-              className="w-32 h-9"
-              value={maxUses}
-              disabled={loading}
-              onChange={(e) => setMaxUses(e.target.value ? Number(e.target.value) : '')}
-            />
-          </div>
-          <Button disabled={loading || !maxUses} onClick={handleGenerate}>
+          <Button disabled={loading} onClick={handleGenerate}>
             {loading ? 'Se generează…' : 'Generează link sigur'}
           </Button>
         </div>
