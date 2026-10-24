@@ -92,6 +92,10 @@ services:
       GEMINI_LOCATION: ${GEMINI_LOCATION:-global}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.8-flash}
       GEMINI_CREDENTIALS_FILE: ${GEMINI_CREDENTIALS_FILE:-/app/secrets/gcp-vertex.json}
+      # F11 - files in a private S3 bucket instead of the uploads volume (docs/DEPLOY.md section 9). local = the volume.
+      FILE_STORAGE_PROVIDER: ${FILE_STORAGE_PROVIDER:-local}
+      S3_BUCKET: ${S3_BUCKET:-}
+      S3_REGION: ${S3_REGION:-eu-central-1}
     volumes:
       # Student solution photos: lose this volume and the photos are gone (see backup, step 6.7).
       - uploads:/app/uploads

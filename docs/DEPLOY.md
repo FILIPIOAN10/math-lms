@@ -166,3 +166,39 @@ ssh -i ~/.ssh/math-lms-aws.pem ubuntu@SERVER "sudo mkdir -p /opt/math-lms/secret
 - **Erorile** apar profesorului în română, pe ecranul importului (cheie lipsă / respinsă, rol lipsă, model inexistent în regiune, credit
   epuizat); detaliile tehnice sunt în logul backend-ului (`Gemini answered …`).
 - **Cheia nu e în backup** (`deploy/backup.sh` salvează baza și pozele): dacă se pierde, creezi alta din Google Cloud și o ștergi pe cea veche.
+
+## 9. Fișierele în S3 (F11) — poze elevi, imagini subiecte, capitole EN, pagini import AI
+
+Implicit fișierele stau în volumul `uploads` de pe disc. Cu `FILE_STORAGE_PROVIDER=s3` stau într-un **bucket S3 privat**
+(cheia = `uploads/<folder>/<nume>`, aceleași nume ca pe disc; baza nu se schimbă). Nimic nu e public: aplicația citește fișierul și
+îl servește ea, după ce verifică cine îl cere.
+
+**O singură dată, în AWS** (aceeași regiune ca EC2, ex. `eu-central-1`):
+1. S3 → Create bucket `math-lms-files-<ceva unic>`: **Block all public access** bifat, **Bucket Versioning** pornit (un fișier șters din
+   greșeală se recuperează), criptare implicită SSE-S3.
+2. IAM → Roles → rolul instanței EC2 (dacă nu are: Create role → EC2) → politică inline:
+
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       { "Effect": "Allow", "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
+         "Resource": "arn:aws:s3:::math-lms-files-NUME/uploads/*" },
+       { "Effect": "Allow", "Action": "s3:ListBucket", "Resource": "arn:aws:s3:::math-lms-files-NUME" }
+     ]
+   }
+   ```
+   EC2 → instanța → Actions → Security → Modify IAM role → rolul de mai sus.
+3. **Containerul trebuie să ajungă la credențialele instanței**: EC2 → instanța → Actions → Instance settings → Modify instance
+   metadata options → *Metadata response hop limit* = **2** (cu 1, un container Docker nu le primește și S3 răspunde „Access Denied”).
+   Din CLI: `aws ec2 modify-instance-metadata-options --instance-id i-… --http-put-response-hop-limit 2 --http-tokens required`.
+
+**Pe server:**
+```bash
+sudo apt-get install -y awscli          # o singură dată
+cd /opt/math-lms && S3_BUCKET=math-lms-files-NUME ./deploy/s3-migrate-uploads.sh
+```
+Scriptul copiază tot volumul în bucket și se oprește cu eroare dacă în bucket sunt mai puține obiecte decât fișiere. Apoi în `.env.prod`:
+`FILE_STORAGE_PROVIDER=s3`, `S3_BUCKET=math-lms-files-NUME`, `S3_REGION=eu-central-1`, și `docker compose … up -d backend`.
+**Verifică** o poză de elev și o imagine de subiect în aplicație; abia după câteva zile poți goli volumul `uploads`.
+Înapoi pe disc: `FILE_STORAGE_PROVIDER=local` (fișierele noi din S3 se copiază înapoi cu `aws s3 sync s3://…/uploads ./uploads`).
