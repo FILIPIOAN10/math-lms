@@ -133,6 +133,22 @@ public class InviteLinkService {
                 .about(link.getStudent()).details("folosit de " + link.getUses() + " din " + link.getMaxUses()));
     }
 
+    /** A new single-use link for a teacher, valid for 24 hours; whoever uses it still waits for an admin's approval. */
+    @Transactional
+    public InviteLinkDto createAdminInvite() {
+        InviteLink link = linkRepository.save(InviteLink.forAdmin(newCode(), clock.instant()));
+        auditLog.record(AuditEvent.of(AuditAction.INVITE_LINK_CREATED, link.getId(), label(link))
+                .details("o singură utilizare, valabil 24 de ore"));
+        return toDto(link);
+    }
+
+    /** The teacher links that still let someone in (not revoked, expired or used) — what an admin can copy or revoke. */
+    @Transactional(readOnly = true)
+    public List<InviteLinkDto> activeAdminInvites() {
+        return linkRepository.findActiveByKind(InviteLinkKind.ADMIN, clock.instant())
+                .stream().map(this::toDto).toList();
+    }
+
     // --- newcomer side ---
 
     /** What the register page shows for a usable link; 410 with the reason otherwise. Takes nothing. */
@@ -240,21 +256,5 @@ public class InviteLinkService {
                 link.getUses(), link.getMaxUses(), link.getExpiresAt(), link.getCreatedAt(),
                 link.getSchoolClass() == null ? null : link.getSchoolClass().getName(),
                 link.getStudent() == null ? null : link.getStudent().getFullName());
-    }
-
-    /** A new single-use teacher/admin link, valid for 24 hours; whoever uses it still waits for approval. */
-    @Transactional
-    public InviteLinkDto createAdminInvite() {
-        InviteLink link = linkRepository.save(InviteLink.forAdmin(newCode(), clock.instant()));
-        auditLog.record(AuditEvent.of(AuditAction.INVITE_LINK_CREATED, link.getId(), label(link))
-                .details("o singură utilizare, valabil 24 de ore"));
-        return toDto(link);
-    }
-
-    /** The admin links that still work or have only been used up — what the teacher can copy or revoke. */
-    @Transactional(readOnly = true)
-    public List<InviteLinkDto> activeAdminInvites() {
-        return linkRepository.findActiveByKind(InviteLinkKind.ADMIN, clock.instant())
-                .stream().map(this::toDto).toList();
     }
 }

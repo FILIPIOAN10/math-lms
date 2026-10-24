@@ -1,12 +1,16 @@
 import { useState, useEffect } from 'react'
 import { CopyLinkField } from '@/components/CopyLinkField'
+import { useConfirm } from '@/components/useConfirm'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { listAdminInvites, createAdminInvite, revokeInviteLink, type InviteLink } from '@/lib/api'
+import { errorMessage } from '@/lib/errors'
 import { formatDate } from '@/lib/format'
 
+/** ADMIN only: single-use teacher links (24 h, approval still needed), with copy and a confirmed revoke. */
 export function AdminInviteCard() {
+  const { confirm, dialog } = useConfirm()
   const [links, setLinks] = useState<InviteLink[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -15,8 +19,8 @@ export function AdminInviteCard() {
     try {
       const data = await listAdminInvites()
       setLinks(data)
-    } catch {
-      setError('Eroare la încărcarea linkurilor de admin.')
+    } catch (e) {
+      setError(errorMessage(e))
     }
   }
 
@@ -30,24 +34,33 @@ export function AdminInviteCard() {
     try {
       await createAdminInvite()
       await fetchLinks()
-    } catch {
-      setError('Nu am putut genera linkul. Reîncearcă.')
+    } catch (e) {
+      setError(errorMessage(e))
     } finally {
       setLoading(false)
     }
   }
 
-  async function handleRevoke(id: number) {
+  async function handleRevoke(link: InviteLink) {
+    const yes = await confirm({
+      title: 'Revoci linkul?',
+      body: `Era valabil până la ${formatDate(link.expiresAt)}. După revocare nimeni nu se mai poate înregistra prin el.`,
+      confirmLabel: 'Revocă',
+      destructive: true,
+    })
+    if (!yes) return
+    setError(null)
     try {
-      await revokeInviteLink(id)
+      await revokeInviteLink(link.id)
       await fetchLinks()
-    } catch {
-      setError('Nu am putut șterge linkul.')
+    } catch (e) {
+      setError(errorMessage(e))
     }
   }
 
   return (
     <Card>
+      {dialog}
       <CardHeader>
         <CardTitle className="text-xl">Invitații pentru profesori</CardTitle>
         <CardDescription>
@@ -76,7 +89,7 @@ export function AdminInviteCard() {
               <div key={link.id} className="space-y-2 p-3 bg-muted/50 rounded-lg">
                 <CopyLinkField
                   id={`admin-invite-${link.id}`}
-                  label=""
+                  label={`Link pentru profesor (expiră ${formatDate(link.expiresAt)})`}
                   url={link.url}
                 />
                 <div className="flex items-center justify-between text-sm text-muted-foreground">
@@ -87,7 +100,7 @@ export function AdminInviteCard() {
                   <Button
                     variant="destructive"
                     size="sm"
-                    onClick={() => void handleRevoke(link.id)}
+                    onClick={() => void handleRevoke(link)}
                   >
                     Revocă
                   </Button>
