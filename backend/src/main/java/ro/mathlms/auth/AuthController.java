@@ -32,6 +32,8 @@ public class AuthController {
     private final JwtCookieFactory jwtCookieFactory;
     private final PasswordResetService passwordResetService;
     private final RefreshTokenService refreshTokenService;
+    private final TwoFactorService twoFactor;
+    private final MfaChallenges mfaChallenges;
 
     public AuthController(UserRepository userRepository,
                           RegistrationService registrationService,
@@ -40,7 +42,9 @@ public class AuthController {
                           LoginService loginService,
                           JwtCookieFactory jwtCookieFactory,
                           PasswordResetService passwordResetService,
-                          RefreshTokenService refreshTokenService) {
+                          RefreshTokenService refreshTokenService,
+                          TwoFactorService twoFactor,
+                          MfaChallenges mfaChallenges) {
         this.userRepository = userRepository;
         this.registrationService = registrationService;
         this.emailService = emailService;
@@ -49,6 +53,12 @@ public class AuthController {
         this.jwtCookieFactory = jwtCookieFactory;
         this.passwordResetService = passwordResetService;
         this.refreshTokenService = refreshTokenService;
+        this.twoFactor = twoFactor;
+        this.mfaChallenges = mfaChallenges;
+    }
+
+    /** The second step of a sign-in: an authenticator code (or a recovery code). */
+    public record TwoFactorCodeRequest(@jakarta.validation.constraints.NotBlank String code) {
     }
 
     @GetMapping("/me")
@@ -57,7 +67,7 @@ public class AuthController {
             return ResponseEntity.status(401).build();
         }
         return userRepository.findByEmail(authentication.getName())
-                .map(UserDto::from)
+                .map(user -> UserDto.from(user, twoFactor.mustEnrol(user)))
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.status(401).build());
     }
@@ -80,8 +90,37 @@ public class AuthController {
     public ResponseEntity<UserDto> login(@Valid @RequestBody LoginRequest request,
                                          HttpServletResponse response) {
         User user = loginService.authenticate(request.email(), request.password());
+        if (user.isTwoFactorEnabled()) {
+            // F8: the password was right, but no session yet - 202 = "now the code from the app".
+            response.addHeader(HttpHeaders.SET_COOKIE, mfaChallenges.start(user).toString());
+            return ResponseEntity.accepted().build();
+        }
         issueSession(user, response);
-        return ResponseEntity.ok(UserDto.from(user));
+        return ResponseEntity.ok(UserDto.from(user, twoFactor.mustEnrol(user)));
+    }
+
+    /**
+     * F8: finishes a sign-in that is waiting for its second step (after the password or Google). 401 when there is
+     * none (expired, too many tries: sign in again); 400 for a wrong code.
+     */
+    @PostMapping("/2fa/verify")
+    public ResponseEntity<?> verifyTwoFactor(@Valid @RequestBody TwoFactorCodeRequest request,
+                                             HttpServletRequest httpRequest, HttpServletResponse response) {
+        User user = mfaChallenges.pending(httpRequest)
+                .flatMap(userRepository::findByEmail)
+                .filter(u -> !u.isErased())
+                .orElse(null);
+        if (user == null) {
+            response.addHeader(HttpHeaders.SET_COOKIE, mfaChallenges.finish(httpRequest).toString());
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body("Conectarea a expirat sau ai greșit codul de prea multe ori. Conectează-te din nou.");
+        }
+        if (!twoFactor.verifySignIn(user, request.code())) {
+            return ResponseEntity.badRequest().body("Codul nu se potrivește.");
+        }
+        response.addHeader(HttpHeaders.SET_COOKIE, mfaChallenges.finish(httpRequest).toString());
+        issueSession(user, response);
+        return ResponseEntity.ok(UserDto.from(user, twoFactor.mustEnrol(user)));
     }
 
     /**

@@ -108,6 +108,10 @@ app:
     cookie-secure: ${COOKIE_SECURE:true}
     # Lifetime of a Redis-backed refresh-token session (rotated on every /api/auth/refresh).
     refresh-expiration-days: ${REFRESH_EXPIRATION_DAYS:7}
+    # F8: an ADMIN must set up two-step sign-in (authenticator app) before the staff pages open. false only for local
+    # dev and automated tests (TWO_FACTOR_REQUIRED_FOR_ADMIN=false); never in production.
+    two-factor:
+      required-for-admin: ${TWO_FACTOR_REQUIRED_FOR_ADMIN:true}
   # Base URL of the frontend; verification / reset email links point here.
   frontend:
     base-url: ${FRONTEND_BASE_URL:http://localhost:5173}

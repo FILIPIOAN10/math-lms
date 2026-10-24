@@ -29,6 +29,8 @@ public class RateLimitConfig {
         return List.of(
                 // Brute force / enumeration targets: tight, per IP.
                 new RateLimitRule("login", "POST", "/api/auth/login", 5, minute, RateLimitKeyType.IP),
+                // 6-digit codes: on top of the 5 attempts per sign-in, a cap per IP.
+                new RateLimitRule("two-factor", "POST", "/api/auth/2fa/verify", 10, minute, RateLimitKeyType.IP),
                 new RateLimitRule("forgot-password", "POST", "/api/auth/forgot-password", 3, Duration.ofMinutes(15), RateLimitKeyType.IP),
                 new RateLimitRule("reset-password", "POST", "/api/auth/reset-password", 5, Duration.ofMinutes(15), RateLimitKeyType.IP),
                 new RateLimitRule("register", "POST", "/api/auth/register", 5, Duration.ofHours(1), RateLimitKeyType.IP),

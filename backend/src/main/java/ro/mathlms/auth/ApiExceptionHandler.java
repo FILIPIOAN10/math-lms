@@ -49,6 +49,11 @@ public class ApiExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ex.getMessage());
     }
 
+    @ExceptionHandler(TwoFactorException.class)
+    public ResponseEntity<String> handleTwoFactor(TwoFactorException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ex.getMessage());
+    }
+
     @ExceptionHandler(ErasureNotAllowedException.class)
     public ResponseEntity<String> handleErasureNotAllowed(ErasureNotAllowedException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());

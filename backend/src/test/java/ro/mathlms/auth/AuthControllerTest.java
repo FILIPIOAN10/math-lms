@@ -40,7 +40,8 @@ class AuthControllerTest {
     private final RefreshTokenService refreshTokenService = mock(RefreshTokenService.class);
     private final AuthController controller = new AuthController(
             userRepository, registrationService, emailService, verificationTokenService,
-            loginService, jwtCookieFactory, passwordResetService, refreshTokenService);
+            loginService, jwtCookieFactory, passwordResetService, refreshTokenService,
+            mock(TwoFactorService.class), mock(MfaChallenges.class));
 
     @BeforeEach
     void logoutCookieFromTheFactory() {

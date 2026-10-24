@@ -75,6 +75,8 @@ services:
       NOTIFY_ASSIGNMENT_REMINDER_PARENTS: ${NOTIFY_ASSIGNMENT_REMINDER_PARENTS:-true}
       METRICS_TOKEN: ${METRICS_TOKEN:-}
       RATE_LIMIT_ENABLED: ${RATE_LIMIT_ENABLED:-true}
+      # F8: admins must use an authenticator app. Only the throwaway E2E stack turns it off.
+      TWO_FACTOR_REQUIRED_FOR_ADMIN: ${TWO_FACTOR_REQUIRED_FOR_ADMIN:-true}
       RATE_LIMIT_TRUST_XFF: "true"          # nginx (the only way in) sets X-Forwarded-For
       # Trust nginx's X-Forwarded-Proto/Host (Tomcat only believes private-network proxies). Without it the app thinks it
       # runs on plain http and sends Google redirect_uri=http://..., which Google rejects for a public domain.

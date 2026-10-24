@@ -99,7 +99,9 @@ public class SecurityConfig {
                                 "/api/auth/forgot-password", "/api/auth/reset-password",
                                 // refresh runs on the refresh cookie (access token may be expired);
                                 // logout only clears cookies + revokes the presented refresh token.
-                                "/api/auth/refresh", "/api/auth/logout").permitAll()
+                                "/api/auth/refresh", "/api/auth/logout",
+                                // the second step of a sign-in: no session yet, the MFA cookie is the credential
+                                "/api/auth/2fa/verify").permitAll()
                         // GDPR erasure is confirmed via an emailed single-purpose token, no session.
                         .requestMatchers("/api/public/gdpr/erase/confirm").permitAll()
                         // The emailed export link: the single-use token is the credential (opened from the mailbox).

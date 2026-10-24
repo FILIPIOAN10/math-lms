@@ -20,12 +20,14 @@ public class JwtCookieSuccessHandler extends SimpleUrlAuthenticationSuccessHandl
     private final RefreshTokenService refreshTokenService;
     /** Where the browser goes after Google sign-in: the app itself (FRONTEND_BASE_URL), never a dev address. */
     private final String frontendBaseUrl;
+    private final MfaChallenges mfaChallenges;
 
     public JwtCookieSuccessHandler(JwtCookieFactory jwtCookieFactory, RefreshTokenService refreshTokenService,
-                                   @Value("${app.frontend.base-url}") String frontendBaseUrl) {
+                                   @Value("${app.frontend.base-url}") String frontendBaseUrl, MfaChallenges mfaChallenges) {
         this.jwtCookieFactory = jwtCookieFactory;
         this.refreshTokenService = refreshTokenService;
         this.frontendBaseUrl = frontendBaseUrl;
+        this.mfaChallenges = mfaChallenges;
     }
 
     @Override
@@ -33,6 +35,13 @@ public class JwtCookieSuccessHandler extends SimpleUrlAuthenticationSuccessHandl
                                         Authentication authentication) throws IOException, jakarta.servlet.ServletException {
         AppOidcUser principal = (AppOidcUser) authentication.getPrincipal();
         User user = principal.getUser();
+
+        if (user.isTwoFactorEnabled()) {
+            // F8: Google proved the email; the authenticator code still has to - no session until it does.
+            response.addHeader(HttpHeaders.SET_COOKIE, mfaChallenges.start(user).toString());
+            getRedirectStrategy().sendRedirect(request, response, frontendBaseUrl + "/login?step=2fa");
+            return;
+        }
 
         response.addHeader(HttpHeaders.SET_COOKIE, jwtCookieFactory.create(user).toString());
         String refreshToken = refreshTokenService.createSession(user.getEmail());

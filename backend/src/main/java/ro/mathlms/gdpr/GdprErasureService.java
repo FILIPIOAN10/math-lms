@@ -12,6 +12,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import ro.mathlms.auth.EmailService;
 import ro.mathlms.auth.RefreshTokenService;
 import ro.mathlms.auth.TokenPurpose;
+import ro.mathlms.auth.TotpRecoveryCodeRepository;
 import ro.mathlms.auth.UserNotFoundException;
 import ro.mathlms.auth.VerificationTokenService;
 import ro.mathlms.content.EnrollmentRepository;
@@ -66,6 +67,7 @@ public class GdprErasureService {
     private final SchoolClassRepository schoolClassRepository;
     private final QuizRepository quizRepository;
     private final GdprExportRepository exportRepository;
+    private final TotpRecoveryCodeRepository recoveryCodeRepository;
 
     public GdprErasureService(UserRepository userRepository, PasswordEncoder passwordEncoder,
                               VerificationTokenService tokenService, EmailService emailService,
@@ -75,7 +77,7 @@ public class GdprErasureService {
                               @Value("${app.storage.quiz-photos-dir}") String quizPhotosDir,
                               InviteLinkRepository inviteLinkRepository, Clock clock,
                               SchoolClassRepository schoolClassRepository, QuizRepository quizRepository,
-                              GdprExportRepository exportRepository) {
+                              GdprExportRepository exportRepository, TotpRecoveryCodeRepository recoveryCodeRepository) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.tokenService = tokenService;
@@ -92,6 +94,7 @@ public class GdprErasureService {
         this.schoolClassRepository = schoolClassRepository;
         this.quizRepository = quizRepository;
         this.exportRepository = exportRepository;
+        this.recoveryCodeRepository = recoveryCodeRepository;
     }
 
     /**
@@ -139,6 +142,7 @@ public class GdprErasureService {
         // Drop the person's own state; quiz attempts/grades stay, now anonymised via the tombstone.
         enrollmentRepository.deleteByStudentId(userId);
         exportRepository.deleteByUserId(userId); // the archives are a copy of everything about them
+        recoveryCodeRepository.deleteByUserId(userId); // a credential like the password (User.erase drops the secret)
         // A parent's children are unlinked (not left on a tombstone, which would also block a new parent link), and a
         // student's unused parent links stop working (nobody may become the parent of an erased account).
         userRepository.unlinkChildrenOf(userId);

@@ -72,6 +72,17 @@ public class User {
     @Column(name = "erased_at")
     private Instant erasedAt;
 
+    /** F8: the authenticator-app secret, encrypted (TotpSecretCipher); null = two-step sign-in is off. */
+    @Column(name = "totp_secret")
+    private String totpSecret;
+
+    @Column(name = "totp_enabled_at")
+    private Instant totpEnabledAt;
+
+    /** The 30-second step of the last code accepted: that code (and older ones) can never be used again. */
+    @Column(name = "totp_last_step")
+    private Long totpLastStep;
+
     /**
      * The stored class/parent invite link this account registered through (T1), or null. When the account becomes
      * active it is enrolled / linked from there, with no admin step.
@@ -204,11 +215,34 @@ public class User {
      * deterministic pseudonym and every credential/link is dropped, so retained (anonymised) quiz
      * attempts keep a valid foreign key while the person can no longer be identified or authenticate.
      */
+    /** Turns two-step sign-in on with an (encrypted) secret whose first code, of {@code step}, was just accepted. */
+    public void enableTwoFactor(String encryptedSecret, long step, Instant now) {
+        this.totpSecret = requireNonBlank(encryptedSecret, "encryptedSecret");
+        this.totpLastStep = step;
+        this.totpEnabledAt = Objects.requireNonNull(now, "now");
+    }
+
+    public void disableTwoFactor() {
+        this.totpSecret = null;
+        this.totpLastStep = null;
+        this.totpEnabledAt = null;
+    }
+
+    /** Records the step of a code just accepted, so it cannot be replayed. */
+    public void useTotpStep(long step) {
+        this.totpLastStep = step;
+    }
+
+    public boolean isTwoFactorEnabled() {
+        return totpSecret != null;
+    }
+
     public void erase(String pseudonymEmail, String pseudonymName) {
         this.email = requireNonBlank(pseudonymEmail, "pseudonymEmail");
         this.fullName = requireNonBlank(pseudonymName, "pseudonymName");
         this.password = null;
         this.googleId = null;
+        disableTwoFactor();
         this.requestedRole = null;
         this.parent = null;
         this.emailVerified = false;

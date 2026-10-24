@@ -30,7 +30,8 @@ class JwtCookieSuccessHandlerTest {
         when(refreshTokens.createSession("ana@scoala.ro")).thenReturn("refresh");
         when(refreshTokens.refreshCookie(any())).thenReturn(ResponseCookie.from("MATHLMS_REFRESH", "refresh").build());
         JwtCookieSuccessHandler handler =
-                new JwtCookieSuccessHandler(cookieFactory, refreshTokens, "https://mate.exemplu.ro");
+                new JwtCookieSuccessHandler(cookieFactory, refreshTokens, "https://mate.exemplu.ro",
+                        org.mockito.Mockito.mock(MfaChallenges.class));
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         handler.onAuthenticationSuccess(new MockHttpServletRequest(), response,
@@ -39,5 +40,24 @@ class JwtCookieSuccessHandlerTest {
         assertThat(response.getRedirectedUrl()).isEqualTo("https://mate.exemplu.ro");
         assertThat(response.getCookie(JwtCookieSuccessHandler.COOKIE_NAME)).isNotNull();
         assertThat(response.getHeader("Set-Cookie")).isNotNull();
+    }
+
+    @Test
+    void aGoogleSignInWithTwoStepOnStopsAtTheCodeWithNoSession() throws Exception {
+        User user = new User("prof@scoala.ro", "Prof", Role.ADMIN);
+        user.enableTwoFactor("criptat", 1L, java.time.Instant.EPOCH);
+        MfaChallenges challenges = mock(MfaChallenges.class);
+        when(challenges.start(user)).thenReturn(ResponseCookie.from(MfaChallenges.COOKIE, "id").build());
+        JwtCookieSuccessHandler handler =
+                new JwtCookieSuccessHandler(cookieFactory, refreshTokens, "https://mate.exemplu.ro", challenges);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        handler.onAuthenticationSuccess(new MockHttpServletRequest(), response,
+                new TestingAuthenticationToken(new AppOidcUser(mock(OidcUser.class), user), null));
+
+        assertThat(response.getRedirectedUrl()).isEqualTo("https://mate.exemplu.ro/login?step=2fa");
+        assertThat(response.getCookie(JwtCookieSuccessHandler.COOKIE_NAME)).isNull();
+        assertThat(response.getCookie(MfaChallenges.COOKIE)).isNotNull();
+        org.mockito.Mockito.verify(refreshTokens, org.mockito.Mockito.never()).createSession(any());
     }
 }

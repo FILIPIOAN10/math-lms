@@ -13,9 +13,18 @@ public record UserDto(
         String email,
         String fullName,
         Role role,
-        AccountStatus status
+        AccountStatus status,
+        /** F8: two-step sign-in is on for this account. */
+        boolean twoFactorEnabled,
+        /** F8: an ADMIN who must set it up before the staff pages open. */
+        boolean twoFactorSetupRequired
 ) {
     public static UserDto from(User user) {
-        return new UserDto(user.getEmail(), user.getFullName(), user.getRole(), user.getStatus());
+        return from(user, false);
+    }
+
+    public static UserDto from(User user, boolean twoFactorSetupRequired) {
+        return new UserDto(user.getEmail(), user.getFullName(), user.getRole(), user.getStatus(),
+                user.isTwoFactorEnabled(), twoFactorSetupRequired);
     }
 }

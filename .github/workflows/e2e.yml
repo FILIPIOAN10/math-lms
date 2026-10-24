@@ -32,6 +32,7 @@ jobs:
           GOOGLE_CLIENT_SECRET=dummy
           ADMIN_EMAILS=admin@mathlms.local
           RATE_LIMIT_ENABLED=false
+          TWO_FACTOR_REQUIRED_FOR_ADMIN=false
           EOF
 
       - name: Start the stack
