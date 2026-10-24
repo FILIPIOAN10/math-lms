@@ -1,0 +1,50 @@
+# Monthly proof that the newest production backup can actually be restored (docs/DEPLOY.md section 4): downloads the
+# latest encrypted pair from S3, decrypts it with the age private key, restores it into a throwaway Postgres and checks
+# the result. Never touches the live server. A red run = the backups are broken or stopped - fix before you need them.
+name: Restore test
+
+on:
+  schedule:
+    - cron: "0 5 1 * *"   # 1st of every month, 05:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write          # OIDC: AWS credentials for this run only, no stored keys
+
+jobs:
+  restore-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the secrets are configured
+        env:
+          ROLE: ${{ secrets.AWS_RESTORE_TEST_ROLE_ARN }}
+          BUCKET: ${{ secrets.BACKUP_S3_BUCKET }}
+          IDENTITY: ${{ secrets.BACKUP_AGE_IDENTITY }}
+        run: |
+          missing=""
+          [ -n "$ROLE" ] || missing="$missing AWS_RESTORE_TEST_ROLE_ARN"
+          [ -n "$BUCKET" ] || missing="$missing BACKUP_S3_BUCKET"
+          [ -n "$IDENTITY" ] || missing="$missing BACKUP_AGE_IDENTITY"
+          [ -z "$missing" ] || { echo "::error::missing secrets:$missing (docs/DEPLOY.md section 4)"; exit 1; }
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_RESTORE_TEST_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION || 'eu-central-1' }}
+
+      - name: Install age
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq age
+
+      - name: Restore the newest backup into a throwaway database
+        env:
+          BACKUP_S3_BUCKET: ${{ secrets.BACKUP_S3_BUCKET }}
+          BACKUP_AGE_IDENTITY: ${{ secrets.BACKUP_AGE_IDENTITY }}
+        run: |
+          umask 077
+          printf '%s\n' "$BACKUP_AGE_IDENTITY" > "$RUNNER_TEMP/backup-key.txt"
+          AGE_IDENTITY="$RUNNER_TEMP/backup-key.txt" ./deploy/restore-test.sh
+          rm -f "$RUNNER_TEMP/backup-key.txt"

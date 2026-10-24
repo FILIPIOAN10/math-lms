@@ -70,21 +70,40 @@ nu redenumi/șterge în același release).
 care păstrează JSON-ul API-ului identic cu cel de dinainte. Nu există migrări noi, iar formatul din Redis e același (sesiunile sunt
 string-uri, cache-ul are același JSON), deci un rollback la imaginea v0.3.0 rămâne sigur.
 
-## 4. Backup și restaurare (Pasul 6.7)
+## 4. Backup și restaurare (Pasul 6.7; criptat și în afara serverului din 2026-10-25)
 
 Ce nu se poate reconstrui: **baza de date** (conturi, note) și **pozele elevilor** (volumul `uploads`; sunt date ale unor minori).
+De aceea backup-ul **nu se scrie niciodată necriptat** și **nu stă doar pe server**: `deploy/backup.sh` refuză să ruleze fără
+`BACKUP_AGE_RECIPIENT` și `BACKUP_S3_BUCKET`.
+
+**O singură dată:**
+1. Pe calculatorul tău (nu pe server): `age-keygen -o math-lms-backup.txt`. Fișierul e **cheia privată** — o pui în managerul de parole
+   și în secretul GitHub `BACKUP_AGE_IDENTITY`; nu ajunge niciodată pe server. Linia `# public key: age1…` merge în `.env.prod` ca
+   `BACKUP_AGE_RECIPIENT`. Fără cheia privată backup-urile nu se mai pot citi — păstreaz-o în două locuri.
+2. AWS → S3 → bucket nou `math-lms-backups-<ceva unic>` (separat de cel cu fișiere): Block all public access, Versioning pornit,
+   Management → Lifecycle rule: șterge versiunile curente după **90 de zile** și pe cele vechi după 30. În `.env.prod`:
+   `BACKUP_S3_BUCKET=math-lms-backups-…`. Rolul EC2 (§9) primește în plus `s3:PutObject`/`s3:GetObject` pe `…/backups/*`.
+3. `sudo ./deploy/server-setup.sh` instalează `age` și `awscli` și cron-ul zilnic.
 
 ```bash
-./deploy/backup.sh /var/backups/math-lms        # pg_dump + arhivă poze, verifică ambele fișiere, șterge ce e mai vechi de 14 zile
+./deploy/backup.sh /var/backups/math-lms   # dump + poze: verificate pe drum, criptate înainte de disc, urcate în S3, 7 zile local
 ```
 Cron zilnic: `15 3 * * *  cd /opt/math-lms && ./deploy/backup.sh /var/backups/math-lms >> /var/log/math-lms-backup.log 2>&1`.
-**Copiază backup-urile și în afara serverului** (alt calculator / stocare obiect): un backup pe același disc dispare odată cu discul.
+Serverul nu poate decripta ce scrie (n-are cheia privată), deci un server sau un bucket furat nu dezvăluie nimic. Backup-urile vechi,
+necriptate (`.dump`, `.tar.gz`) nu se șterg automat: logul te avertizează zilnic până le ștergi tu.
 
+**Testul de restaurare, lunar și automat** (`.github/workflows/restore-test.yml`, pe 1 ale lunii; și manual din Actions → Run workflow):
+ia cel mai nou backup din S3, îl decriptează, îl restaurează într-un Postgres de unică folosință și verifică: conturi > 0, schema la zi,
+arhiva de poze lizibilă, backup-ul mai nou de 2 zile. Nu atinge serverul. Secrete GitHub: `BACKUP_AGE_IDENTITY` (conținutul cheii
+private), `BACKUP_S3_BUCKET`, `AWS_RESTORE_TEST_ROLE_ARN` (un rol IAM cu `s3:GetObject`/`s3:ListBucket` doar pe bucket-ul de backup,
+asumabil prin OIDC de repo-ul ăsta). Manual, de pe calculatorul tău:
+`AGE_IDENTITY=math-lms-backup.txt BACKUP_S3_BUCKET=… ./deploy/restore-test.sh`.
+
+**Restaurarea pe server** (înlocuiește baza și pozele curente, cere confirmare, oprește aplicația cât durează): copiezi cheia privată
+pe server doar pentru restaurare și o ștergi după.
 ```bash
-./deploy/restore.sh backups/db-AAAALLZZ-HHMMSS.dump backups/uploads-AAAALLZZ-HHMMSS.tar.gz
+AGE_IDENTITY=~/math-lms-backup.txt ./deploy/restore.sh backups/db-AAAALLZZ-HHMMSS.dump.age backups/uploads-AAAALLZZ-HHMMSS.tar.gz.age
 ```
-Restaurarea **înlocuiește** baza și pozele curente (cere confirmare), oprește aplicația cât durează și o repornește. **Testeaz-o cel puțin o dată**
-înainte de a ai nevoie de ea: ciclul backup → ștergere → restore a fost verificat pe stack-ul de test (vezi `docs/TESTING.md`, secțiunea 12h).
 
 ## 5. Monitorizare
 

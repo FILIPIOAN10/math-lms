@@ -12,7 +12,7 @@
 #   DEPLOY_USER    the account GitHub Actions deploys as (created if missing, added to the docker group, owns DEPLOY_PATH)
 #   DEPLOY_PUBKEY  the PUBLIC half of the SSH key you store as the DEPLOY_SSH_KEY secret (the private half never touches this server)
 #   GHCR_USER / GHCR_TOKEN   a read:packages token so the server can pull the private images from ghcr.io
-#   BACKUP_REMOTE  user@host:/path -> a second cron job copies the backups OFF this server with rsync (you set up that SSH key)
+#   (backups: put BACKUP_AGE_RECIPIENT + BACKUP_S3_BUCKET in .env.prod - deploy/backup.sh refuses to run without them)
 #   DEPLOY_PATH (default /opt/math-lms) · BACKUP_DIR (default /var/backups/math-lms)
 # Flag --start pulls the images and starts the stack (+ monitoring), then waits for it to answer.
 #
@@ -141,17 +141,13 @@ chown "$RUN_USER:$RUN_USER" "$BACKUP_DIR" /var/log/math-lms-backup.log
 {
   echo "# Managed by deploy/server-setup.sh"
   echo "15 3 * * * $RUN_USER cd $DEPLOY_PATH && ./deploy/backup.sh $BACKUP_DIR >> /var/log/math-lms-backup.log 2>&1"
-  if [ -n "${BACKUP_REMOTE:-}" ]; then
-    echo "45 3 * * * $RUN_USER rsync -a -e 'ssh -o BatchMode=yes' $BACKUP_DIR/ $BACKUP_REMOTE/ >> /var/log/math-lms-backup.log 2>&1"
-  fi
 } > /etc/cron.d/math-lms-backup
 chmod 644 /etc/cron.d/math-lms-backup
-if [ -n "${BACKUP_REMOTE:-}" ]; then
-  command -v rsync >/dev/null || { apt-get update -qq && apt-get install -y -qq rsync; }
-  echo "note: off-server copy goes to $BACKUP_REMOTE - give $RUN_USER an SSH key that can log in there (BatchMode: no password prompts)"
-else
-  echo "note: BACKUP_REMOTE not set - backups stay on THIS disk until you copy them elsewhere"
-fi
+# Backups are encrypted (age) and copied to S3 (aws): both commands must exist, and both settings must be in .env.prod.
+command -v age >/dev/null && command -v aws >/dev/null || { apt-get update -qq && apt-get install -y -qq age awscli; }
+for key in BACKUP_AGE_RECIPIENT BACKUP_S3_BUCKET; do
+  grep -q "^$key=." "$DEPLOY_PATH/.env.prod" 2>/dev/null     || echo "WARNING: $key is not set in $DEPLOY_PATH/.env.prod - the nightly backup will REFUSE to run (docs/DEPLOY.md section 4)"
+done
 
 # ---------------------------------------------------------------------------------------------- 8. start
 if $START; then
