@@ -285,34 +285,31 @@ function EraseSection({ account, confirm }: {
     <HomeSection title="Șterge contul">
       <Card className="ring-destructive/30">
         <CardContent className="space-y-3 py-4 text-sm">
-          {account.role === 'ADMIN' || account.role === 'TEACHER' ? (
-            <p className="text-muted-foreground">
-              Contul de profesor nu se poate șterge din aplicație: clasele, temele și notele elevilor depind de el. Cere
-              unui administrator să-ți dea clasele altui profesor.
+          <p className="text-muted-foreground">
+            Datele tale personale se șterg: numele, emailul, parola, înscrierile, pozele și comentariile profesorului.
+            Notele rămân în statisticile clasei, dar fără numele tău. Nu se poate anula.
+          </p>
+          {(account.role === 'ADMIN' || account.role === 'TEACHER') && (
+            <p className="text-muted-foreground" data-testid="staff-erase-note">
+              Ca profesor: clasele și testele tale trebuie date întâi altui profesor (o face un administrator), iar
+              ultimul administrator nu poate pleca.
             </p>
-          ) : (
-            <>
-              <p className="text-muted-foreground">
-                Datele tale personale se șterg: numele, emailul, parola, înscrierile, pozele și comentariile profesorului.
-                Notele rămân în statisticile clasei, dar fără numele tău. Nu se poate anula.
-              </p>
-              {account.hasPassword && (
-                <div className="max-w-xs">
-                  <Field label="Parola (pentru confirmare)" type="password" autoComplete="current-password" value={password}
-                         onChange={(e) => setPassword(e.target.value)} disabled={busy} />
-                </div>
-              )}
-              {error && <p role="alert" className="text-destructive">{error}</p>}
-              {sent && (
-                <p role="status" className={okText}>
-                  ✓ Ți-am trimis un email la {account.email}. Deschide linkul din el ca să confirmi ștergerea.
-                </p>
-              )}
-              <Button variant="destructive" onClick={request} disabled={busy || (account.hasPassword && password === '')}>
-                Șterge contul
-              </Button>
-            </>
           )}
+          {account.hasPassword && (
+            <div className="max-w-xs">
+              <Field label="Parola (pentru confirmare)" type="password" autoComplete="current-password" value={password}
+                     onChange={(e) => setPassword(e.target.value)} disabled={busy} />
+            </div>
+          )}
+          {error && <p role="alert" className="text-destructive">{error}</p>}
+          {sent && (
+            <p role="status" className={okText}>
+              ✓ Ți-am trimis un email la {account.email}. Deschide linkul din el ca să confirmi ștergerea.
+            </p>
+          )}
+          <Button variant="destructive" onClick={request} disabled={busy || (account.hasPassword && password === '')}>
+            Șterge contul
+          </Button>
         </CardContent>
       </Card>
     </HomeSection>

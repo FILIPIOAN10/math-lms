@@ -197,13 +197,18 @@ describe('AccountPage', () => {
       await waitFor(() => expect(api.requestAccountErasure).toHaveBeenCalledWith(null))
     })
 
-    it('explains why a teacher account cannot be deleted here', async () => {
-      api.getAccount.mockResolvedValue(account({ role: 'ADMIN', fullName: 'Prof Admin' }))
+    it("lets a teacher try, and shows the server's reason when they still own classes", async () => {
+      api.getAccount.mockResolvedValue(account({ role: 'TEACHER', fullName: 'Prof Ana', hasPassword: false }))
+      api.requestAccountErasure.mockRejectedValue(
+        new ApiError(409, 'Mai ai clase sau teste: cere unui administrator să le dea altui profesor, apoi poți șterge contul.'))
       renderPage()
       const box = await section('Șterge contul')
 
-      expect(within(box).queryByRole('button', { name: 'Șterge contul' })).not.toBeInTheDocument()
-      expect(box).toHaveTextContent('Contul de profesor nu se poate șterge')
+      expect(within(box).getByTestId('staff-erase-note')).toBeInTheDocument()
+      await userEvent.click(within(box).getByRole('button', { name: 'Șterge contul' }))
+      await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Trimite emailul' }))
+
+      expect(await within(box).findByRole('alert')).toHaveTextContent('Mai ai clase sau teste')
     })
   })
 })

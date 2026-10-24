@@ -7,17 +7,22 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import ro.mathlms.auth.EmailService;
 import ro.mathlms.auth.RefreshTokenService;
 import ro.mathlms.auth.TokenPurpose;
 import ro.mathlms.auth.UserNotFoundException;
 import ro.mathlms.auth.VerificationTokenService;
 import ro.mathlms.content.EnrollmentRepository;
-import ro.mathlms.quiz.ItemResponseRepository;
+import ro.mathlms.content.SchoolClassRepository;
 import ro.mathlms.invite.InviteLinkRepository;
-import ro.mathlms.quiz.ResponsePhotoRepository;
+import ro.mathlms.quiz.ItemResponseRepository;
 import ro.mathlms.quiz.QuizAttemptRepository;
+import ro.mathlms.quiz.QuizRepository;
+import ro.mathlms.quiz.ResponsePhotoRepository;
 import ro.mathlms.storage.FileService;
+import ro.mathlms.user.AccountStatus;
 import ro.mathlms.user.Role;
 import ro.mathlms.user.User;
 import ro.mathlms.user.UserRepository;
@@ -58,6 +63,8 @@ public class GdprErasureService {
     private final String quizPhotosDir;
     private final InviteLinkRepository inviteLinkRepository;
     private final Clock clock;
+    private final SchoolClassRepository schoolClassRepository;
+    private final QuizRepository quizRepository;
 
     public GdprErasureService(UserRepository userRepository, PasswordEncoder passwordEncoder,
                               VerificationTokenService tokenService, EmailService emailService,
@@ -65,7 +72,8 @@ public class GdprErasureService {
                               ResponsePhotoRepository photoRepository,
                               QuizAttemptRepository attemptRepository, FileService fileService, RefreshTokenService refreshTokenService,
                               @Value("${app.storage.quiz-photos-dir}") String quizPhotosDir,
-                              InviteLinkRepository inviteLinkRepository, Clock clock) {
+                              InviteLinkRepository inviteLinkRepository, Clock clock,
+                              SchoolClassRepository schoolClassRepository, QuizRepository quizRepository) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.tokenService = tokenService;
@@ -79,6 +87,8 @@ public class GdprErasureService {
         this.quizPhotosDir = quizPhotosDir;
         this.inviteLinkRepository = inviteLinkRepository;
         this.clock = clock;
+        this.schoolClassRepository = schoolClassRepository;
+        this.quizRepository = quizRepository;
     }
 
     /**
@@ -89,11 +99,7 @@ public class GdprErasureService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UserNotFoundException("No account for " + email));
 
-        // The teacher runs the platform: erasing the (often only) ADMIN would leave nobody to grade or approve accounts.
-        if (user.getRole() == Role.ADMIN || user.getRole() == Role.TEACHER) {
-            throw new ErasureNotAllowedException(
-                    "Contul de profesor nu se poate șterge din aplicație: fără el nimeni nu mai poate corecta sau aproba conturi.");
-        }
+        checkStaffMayLeave(user);
 
         if (user.getPassword() != null) {
             if (rawPassword == null || !passwordEncoder.matches(rawPassword, user.getPassword())) {
@@ -116,16 +122,12 @@ public class GdprErasureService {
         if (user == null || user.isErased()) {
             return;
         }
+        checkStaffMayLeave(user); // again: a class may have been handed to them since the request
         Long userId = user.getId();
 
-        // Delete the uploaded photos (files first, then detach them from the retained responses).
-        for (String key : photoRepository.findImageKeysByStudentId(userId)) {
-            try {
-                fileService.deleteImage(quizPhotosDir, key);
-            } catch (IOException ignored) {
-                // A file already gone must not block the erasure.
-            }
-        }
+        // Detach the uploaded photos from the retained responses now; the files go only once that is committed, so a
+        // rollback never leaves rows pointing at deleted files.
+        deleteFilesAfterCommit(photoRepository.findImageKeysByStudentId(userId));
         photoRepository.deleteByStudentId(userId);
         // The teacher's comments are free text about the person and may name them; points and grades stay.
         responseRepository.clearTeacherCommentsByStudentId(userId);
@@ -150,6 +152,48 @@ public class GdprErasureService {
 
         // Audit names nobody: only the id and the deterministic pseudonym.
         log.info("GDPR erasure completed for userId={} pseudonym={}", userId, pseudonymEmail);
+    }
+
+    /**
+     * Staff may erase their account too, but never leave the school without anyone to run it or orphan a class: the
+     * last active ADMIN cannot leave, and a teacher (or admin) who still owns classes or tests hands them to another
+     * teacher first (an ADMIN does that on the Clase page).
+     */
+    private void checkStaffMayLeave(User user) {
+        if (user.getRole() == Role.ADMIN
+                && userRepository.findByRoleAndStatusAndErasedFalse(Role.ADMIN, AccountStatus.ACTIVE).size() <= 1) {
+            throw new ErasureNotAllowedException("Ești singurul administrator: numește întâi alt administrator, "
+                    + "altfel nimeni nu mai poate aproba conturi.");
+        }
+        if ((user.getRole() == Role.ADMIN || user.getRole() == Role.TEACHER)
+                && (schoolClassRepository.existsByTeacherId(user.getId()) || quizRepository.existsByTeacherId(user.getId()))) {
+            throw new ErasureNotAllowedException("Mai ai clase sau teste: cere unui administrator să le dea altui profesor, "
+                    + "apoi poți șterge contul.");
+        }
+    }
+
+    /** Deletes the files once the transaction commits; nothing happens on a rollback. A file already gone is fine. */
+    private void deleteFilesAfterCommit(List<String> keys) {
+        if (keys.isEmpty()) {
+            return;
+        }
+        Runnable delete = () -> keys.forEach(key -> {
+            try {
+                fileService.deleteImage(quizPhotosDir, key);
+            } catch (IOException e) {
+                log.warn("Erased photo {} could not be deleted: {}", key, e.toString());
+            }
+        });
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            delete.run();
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                delete.run();
+            }
+        });
     }
 
     /** Deterministic, non-reversible handle so retained rows still cluster without revealing who. */

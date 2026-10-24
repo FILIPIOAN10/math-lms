@@ -173,15 +173,23 @@ class GdprErasureServiceTest {
     }
 
     @Test
-    void aTeacherAccountCannotEraseItself() {
-        // The teacher runs the platform: erasing the (often only) ADMIN would lock everyone out of grading and approvals.
-        User teacher = new User("prof@scoala.ro", "Prof Pop", Role.ADMIN);
+    void aTeacherWhoStillOwnsAClassCannotEraseThemselvesUntilItIsHandedOver() {
+        User teacher = active("prof-cu-clasa@scoala.ro", Role.TEACHER);
         teacher.setPassword(passwordEncoder.encode("parola123"));
         userRepository.save(teacher);
+        SchoolClass owned = new SchoolClass("Clasa profului " + teacher.getId(), null);
+        owned.assignTeacher(teacher.getId());
+        owned = schoolClassRepository.save(owned);
 
-        assertThatThrownBy(() -> service.requestErasure("prof@scoala.ro", "parola123"))
+        assertThatThrownBy(() -> service.requestErasure("prof-cu-clasa@scoala.ro", "parola123"))
                 .isInstanceOf(ErasureNotAllowedException.class);
         org.mockito.Mockito.verify(emailService, org.mockito.Mockito.never())
-                .sendErasureConfirmationEmail(org.mockito.ArgumentMatchers.eq("prof@scoala.ro"), org.mockito.ArgumentMatchers.anyString());
+                .sendErasureConfirmationEmail(org.mockito.ArgumentMatchers.eq("prof-cu-clasa@scoala.ro"), org.mockito.ArgumentMatchers.anyString());
+
+        owned.assignTeacher(null); // an admin gave the class to someone else
+        schoolClassRepository.save(owned);
+        service.requestErasure("prof-cu-clasa@scoala.ro", "parola123");
+        verify(emailService).sendErasureConfirmationEmail(org.mockito.ArgumentMatchers.eq("prof-cu-clasa@scoala.ro"),
+                org.mockito.ArgumentMatchers.anyString());
     }
 }

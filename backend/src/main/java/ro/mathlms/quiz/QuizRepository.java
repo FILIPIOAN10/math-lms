@@ -15,6 +15,9 @@ import java.util.Optional;
  */
 public interface QuizRepository extends JpaRepository<Quiz, Long> {
 
+    /** Whether this account still owns a test (it must hand it over before erasing itself). */
+    boolean existsByTeacherId(Long teacherId);
+
     @Override
     @EntityGraph(attributePaths = "schoolClass")
     List<Quiz> findAll();

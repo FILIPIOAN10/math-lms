@@ -12,6 +12,9 @@ public interface SchoolClassRepository extends JpaRepository<SchoolClass, Long> 
 
     boolean existsByName(String name);
 
+    /** Whether this account still owns a class (it must hand it over before erasing itself). */
+    boolean existsByTeacherId(Long teacherId);
+
     @Query("select count(b) from Book b where b.schoolClass.id = :classId")
     long countBooks(@Param("classId") Long classId);
 
