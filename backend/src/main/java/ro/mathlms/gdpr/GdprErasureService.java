@@ -65,6 +65,7 @@ public class GdprErasureService {
     private final Clock clock;
     private final SchoolClassRepository schoolClassRepository;
     private final QuizRepository quizRepository;
+    private final GdprExportRepository exportRepository;
 
     public GdprErasureService(UserRepository userRepository, PasswordEncoder passwordEncoder,
                               VerificationTokenService tokenService, EmailService emailService,
@@ -73,7 +74,8 @@ public class GdprErasureService {
                               QuizAttemptRepository attemptRepository, FileService fileService, RefreshTokenService refreshTokenService,
                               @Value("${app.storage.quiz-photos-dir}") String quizPhotosDir,
                               InviteLinkRepository inviteLinkRepository, Clock clock,
-                              SchoolClassRepository schoolClassRepository, QuizRepository quizRepository) {
+                              SchoolClassRepository schoolClassRepository, QuizRepository quizRepository,
+                              GdprExportRepository exportRepository) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.tokenService = tokenService;
@@ -89,6 +91,7 @@ public class GdprErasureService {
         this.clock = clock;
         this.schoolClassRepository = schoolClassRepository;
         this.quizRepository = quizRepository;
+        this.exportRepository = exportRepository;
     }
 
     /**
@@ -135,6 +138,7 @@ public class GdprErasureService {
 
         // Drop the person's own state; quiz attempts/grades stay, now anonymised via the tombstone.
         enrollmentRepository.deleteByStudentId(userId);
+        exportRepository.deleteByUserId(userId); // the archives are a copy of everything about them
         // A parent's children are unlinked (not left on a tombstone, which would also block a new parent link), and a
         // student's unused parent links stop working (nobody may become the parent of an erased account).
         userRepository.unlinkChildrenOf(userId);

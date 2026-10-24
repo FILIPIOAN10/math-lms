@@ -29,6 +29,8 @@ public class VerificationTokenService {
     private static final Duration VERIFY_EMAIL_TTL = Duration.ofHours(24);
     private static final Duration PASSWORD_RESET_TTL = Duration.ofHours(1);
     private static final Duration ERASE_ACCOUNT_TTL = Duration.ofMinutes(30);
+    /** As long as the archive itself is kept (GdprExport.TTL). */
+    private static final Duration GDPR_EXPORT_TTL = Duration.ofDays(7);
     private static final String PURPOSE_CLAIM = "purpose";
     private static final String JTI_PREFIX = "onetime:";
 
@@ -100,6 +102,7 @@ public class VerificationTokenService {
             case VERIFY_EMAIL -> VERIFY_EMAIL_TTL;
             case PASSWORD_RESET -> PASSWORD_RESET_TTL;
             case ERASE_ACCOUNT -> ERASE_ACCOUNT_TTL;
+            case GDPR_EXPORT -> GDPR_EXPORT_TTL;
             default -> throw new IllegalArgumentException("Unknown token purpose: " + purpose);
         };
     }

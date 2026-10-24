@@ -1,10 +1,7 @@
 package ro.mathlms.gdpr;
 
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
@@ -18,22 +15,22 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class GdprController {
 
-    private final GdprExportService exportService;
+    private final GdprExportRequests exportRequests;
     private final GdprErasureService erasureService;
 
-    public GdprController(GdprExportService exportService, GdprErasureService erasureService) {
-        this.exportService = exportService;
+    public GdprController(GdprExportRequests exportRequests, GdprErasureService erasureService) {
+        this.exportRequests = exportRequests;
         this.erasureService = erasureService;
     }
 
-    @GetMapping("/api/users/gdpr/export")
-    public ResponseEntity<byte[]> export(Authentication auth) {
-        byte[] archive = exportService.exportZip(auth.getName());
-        return ResponseEntity.ok()
-                .contentType(MediaType.valueOf("application/zip"))
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"my-data-export.zip\"")
-                .header(HttpHeaders.CACHE_CONTROL, "no-store")
-                .body(archive);
+    /** What asking for the archive did (the page says it); the link itself only ever goes by email. */
+    public record ExportRequestedDto(GdprExportRequests.Outcome outcome) {
+    }
+
+    /** 202: queued (or already being built, or a fresh link emailed for the archive already built). */
+    @PostMapping("/api/users/gdpr/export")
+    public ResponseEntity<ExportRequestedDto> export(Authentication auth) {
+        return ResponseEntity.accepted().body(new ExportRequestedDto(exportRequests.request(auth.getName())));
     }
 
     /** Step 1 of erasure: verify the requester and email a confirmation link. Nothing is deleted yet. */

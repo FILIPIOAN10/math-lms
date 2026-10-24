@@ -14,7 +14,7 @@ const api = vi.hoisted(() => ({
   listSessions: vi.fn(),
   revokeSession: vi.fn(),
   logoutAll: vi.fn(),
-  downloadMyData: vi.fn(),
+  requestMyData: vi.fn(),
   requestAccountErasure: vi.fn(),
 }))
 vi.mock('@/lib/api', async (original) => ({ ...(await original<typeof import('@/lib/api')>()), ...api }))
@@ -141,20 +141,25 @@ describe('AccountPage', () => {
   })
 
   describe('your data', () => {
-    it('downloads the archive as a file', async () => {
-      api.downloadMyData.mockResolvedValue(new Blob(['zip'], { type: 'application/zip' }))
-      const createObjectURL = vi.fn(() => 'blob:x')
-      const revokeObjectURL = vi.fn()
-      Object.assign(URL, { createObjectURL, revokeObjectURL })
-      const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined)
+    it('asks for the archive and says the link comes by email', async () => {
+      api.requestMyData.mockResolvedValue('QUEUED')
       renderPage()
       const box = await section('Datele tale')
 
-      await userEvent.click(within(box).getByRole('button', { name: 'Descarcă datele mele' }))
+      await userEvent.click(within(box).getByRole('button', { name: 'Cere datele mele' }))
 
-      await waitFor(() => expect(click).toHaveBeenCalled())
-      expect(createObjectURL).toHaveBeenCalled()
-      click.mockRestore()
+      expect(await within(box).findByRole('status')).toHaveTextContent('primești pe email un link')
+      expect(api.requestMyData).toHaveBeenCalledTimes(1)
+    })
+
+    it('says so when the archive is already being built', async () => {
+      api.requestMyData.mockResolvedValue('ALREADY_BUILDING')
+      renderPage()
+      const box = await section('Datele tale')
+
+      await userEvent.click(within(box).getByRole('button', { name: 'Cere datele mele' }))
+
+      expect(await within(box).findByRole('status')).toHaveTextContent('se pregătește deja')
     })
   })
 

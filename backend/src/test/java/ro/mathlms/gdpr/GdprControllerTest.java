@@ -1,7 +1,6 @@
 package ro.mathlms.gdpr;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -14,24 +13,20 @@ import static org.mockito.Mockito.when;
 
 class GdprControllerTest {
 
-    private final GdprExportService exportService = mock(GdprExportService.class);
+    private final GdprExportRequests exportRequests = mock(GdprExportRequests.class);
     private final GdprErasureService erasureService = mock(GdprErasureService.class);
-    private final GdprController controller = new GdprController(exportService, erasureService);
+    private final GdprController controller = new GdprController(exportRequests, erasureService);
     private final Authentication auth =
             new UsernamePasswordAuthenticationToken("elev@scoala.ro", null);
 
     @Test
-    void exportReturnsZipForThePrincipalWithNoStore() {
-        when(exportService.exportZip("elev@scoala.ro")).thenReturn("ZIP".getBytes());
+    void exportIsQueuedForThePrincipalAndNeverReturnedInTheResponse() {
+        when(exportRequests.request("elev@scoala.ro")).thenReturn(GdprExportRequests.Outcome.QUEUED);
 
-        ResponseEntity<byte[]> response = controller.export(auth);
+        ResponseEntity<GdprController.ExportRequestedDto> response = controller.export(auth);
 
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(response.getHeaders().getFirst(HttpHeaders.CACHE_CONTROL)).isEqualTo("no-store");
-        assertThat(response.getHeaders().getContentType().toString()).isEqualTo("application/zip");
-        assertThat(response.getHeaders().getFirst(HttpHeaders.CONTENT_DISPOSITION))
-                .contains("attachment").contains("my-data-export.zip");
-        assertThat(response.getBody()).isEqualTo("ZIP".getBytes());
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);
+        assertThat(response.getBody().outcome()).isEqualTo(GdprExportRequests.Outcome.QUEUED);
     }
 
     @Test

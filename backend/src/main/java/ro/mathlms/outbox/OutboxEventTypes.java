@@ -8,6 +8,8 @@ public final class OutboxEventTypes {
     public static final String ASSIGNMENT_REMINDER_EMAIL = "ASSIGNMENT_REMINDER_EMAIL";
     /** "Someone used an admin invite link and waits for your approval" email — one event per active admin. */
     public static final String ADMIN_INVITE_USED = "ADMIN_INVITE_USED";
+    /** Build one GDPR export archive and email its download link. */
+    public static final String GDPR_EXPORT_BUILD = "GDPR_EXPORT_BUILD";
 
     private OutboxEventTypes() {
     }

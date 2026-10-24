@@ -211,10 +211,16 @@ export async function logoutAll(): Promise<void> {
   await postJson('/auth/logout-all', {})
 }
 
-/** GDPR Art. 15: the whole account as a ZIP (profile, classes, attempts, answers, photos). */
-export async function downloadMyData(): Promise<Blob> {
-  const response = await apiFetch('/users/gdpr/export')
-  return response.blob()
+/** What asking for the archive did: queued, still being built, or a fresh link emailed for the one already built. */
+export type ExportOutcome = 'QUEUED' | 'ALREADY_BUILDING' | 'LINK_RESENT'
+
+/**
+ * GDPR Art. 15: asks for the whole account as a ZIP (profile, classes, attempts, answers, photos). It is built in the
+ * background and the download link goes by email (single use, 7 days) — never in this response.
+ */
+export async function requestMyData(): Promise<ExportOutcome> {
+  const response = await postJson('/users/gdpr/export', {})
+  return ((await response.json()) as { outcome: ExportOutcome }).outcome
 }
 
 /**

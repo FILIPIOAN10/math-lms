@@ -493,9 +493,11 @@ Din bara de sus: click pe numele tău („Contul meu” pe telefon).
 - cont doar-Google: fără formular, doar **Setează o parolă** → `/forgot-password`
 - **Dispozitive conectate**: fiecare sesiune (browser, IP, ultima folosire), „Acest dispozitiv” marcat; **Deconectează** pe altele;
   **Deconectează-te de peste tot** (cu confirmare) → te scoate și de aici
-- **Datele tale** → **Descarcă datele mele** → `datele-mele-mathlms.zip` (profil, clase, încercări cu răspunsuri, note, comentariile
-  profesorului, pozele) — `GET /api/users/gdpr/export`
-- **Șterge contul** (elev/părinte): parola (lipsește la doar-Google) → confirmare → „Ți-am trimis un email” (cere **SMTP real** și o adresă
+- **Datele tale** → **Cere datele mele** → „Pregătim arhiva…” (`POST /api/users/gdpr/export`, 202). Arhiva se face în fundal (outbox)
+  și vine pe email un link (o singură folosire, 7 zile) → `datele-mele-mathlms.zip` (profil, clase, încercări cu răspunsuri, note,
+  comentariile profesorului, pozele). A doua cerere cât se pregătește → „se pregătește deja”; după ce e gata → link nou pe email.
+  Linkul a doua oară → 410 „Linkul a expirat sau a fost deja folosit”. Limită: 5 cereri / oră
+- **Șterge contul** (oricine; un profesor/administrator doar dacă nu mai are clase sau teste și nu e ultimul administrator): parola (lipsește la doar-Google) → confirmare → „Ți-am trimis un email” (cere **SMTP real** și o adresă
   pe care o citești); parolă greșită → „Parola nu e corectă.”. Limită: 3 cereri / oră
 - linkul din email duce la **`/erase-account?token=…`**: deschiderea NU șterge nimic (scannerele de email deschid linkuri), abia
   **Șterge definitiv contul** o face → „Contul a fost șters” + delogare. Token expirat/folosit → „Linkul a expirat…”; fără token → „Link invalid”

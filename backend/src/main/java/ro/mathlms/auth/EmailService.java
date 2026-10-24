@@ -105,6 +105,17 @@ public class EmailService {
                         + frontendBaseUrl + "/parent/children/" + studentId);
     }
 
+    /** The GDPR archive is ready: a single-use link, valid as long as the archive is kept. */
+    public void sendGdprExportReadyEmail(String email, String token, long validDays) {
+        String link = frontendBaseUrl + "/api/public/gdpr/export/download?token=" + token;
+        send(email, "Datele tale din MathLMS sunt gata",
+                "Bună!\n\n"
+                        + "Arhiva cu datele tale (profil, clase, teste, note, comentarii, poze) e gata. Descarc-o de aici:\n"
+                        + link + "\n\n"
+                        + "Linkul merge o singură dată și expiră în " + validDays + " zile. Dacă ai nevoie de el din nou,\n"
+                        + "cere-l din „Contul meu” → „Datele tale”. Dacă nu tu ai cerut arhiva, schimbă-ți parola.");
+    }
+
     /** To every active admin: someone used an admin invite link and waits for approval (never activated by the link). */
     public void sendAdminAlertNewPendingAdmin(String adminEmail, String newUserName, String newUserEmail) {
         send(adminEmail, "Cont nou de profesor/admin de aprobat în MathLMS",

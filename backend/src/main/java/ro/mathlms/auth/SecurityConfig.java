@@ -102,6 +102,8 @@ public class SecurityConfig {
                                 "/api/auth/refresh", "/api/auth/logout").permitAll()
                         // GDPR erasure is confirmed via an emailed single-purpose token, no session.
                         .requestMatchers("/api/public/gdpr/erase/confirm").permitAll()
+                        // The emailed export link: the single-use token is the credential (opened from the mailbox).
+                        .requestMatchers(HttpMethod.GET, "/api/public/gdpr/export/download").permitAll()
                         // The register page asks what an invite link is for before the visitor has an account.
                         .requestMatchers(HttpMethod.GET, "/api/public/invites/preview").permitAll()
                         // Staff area: each controller narrows it further (ADMIN-only, or TEACHER limited by TeacherScope).

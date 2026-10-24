@@ -54,7 +54,7 @@ class GdprErasureRulesTest {
     private final GdprErasureService service = new GdprErasureService(users, encoder, tokens, mock(EmailService.class),
             mock(EnrollmentRepository.class), mock(ItemResponseRepository.class), photos,
             mock(QuizAttemptRepository.class), files, mock(RefreshTokenService.class), "quiz-photos",
-            links, Clock.systemUTC(), classes, quizzes);
+            links, Clock.systemUTC(), classes, quizzes, mock(GdprExportRepository.class));
 
     @AfterEach
     void clearSynchronization() {

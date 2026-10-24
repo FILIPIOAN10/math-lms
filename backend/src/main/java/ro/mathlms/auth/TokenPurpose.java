@@ -5,5 +5,7 @@ public enum TokenPurpose {
     VERIFY_EMAIL,
     PASSWORD_RESET,
     INVITE,
-    ERASE_ACCOUNT
+    ERASE_ACCOUNT,
+    /** The emailed download link of a GDPR export archive. */
+    GDPR_EXPORT
 }

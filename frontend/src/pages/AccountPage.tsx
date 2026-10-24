@@ -11,14 +11,15 @@ import { useAuth } from '@/context/AuthContext'
 import {
   ApiError,
   changePassword,
-  downloadMyData,
   getAccount,
   listSessions,
   logoutAll,
   requestAccountErasure,
+  requestMyData,
   revokeSession,
   type Account,
   type DeviceSession,
+  type ExportOutcome,
 } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
 import { formatDate } from '@/lib/format'
@@ -208,21 +209,23 @@ function SessionsSection({ sessions, reload, onLogoutAll }: {
 
 // ---------- Data export ----------
 
-function DataSection() {
+const EXPORT_SAID: Record<ExportOutcome, string> = {
+  QUEUED: 'Pregătim arhiva. Când e gata, primești pe email un link de descărcare (merge o singură dată, 7 zile).',
+  ALREADY_BUILDING: 'Arhiva se pregătește deja. Primești linkul pe email imediat ce e gata.',
+  LINK_RESENT: 'Arhiva e gata: ți-am trimis pe email un link nou de descărcare.',
+}
+
+function DataSection({ email }: { email: string }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [said, setSaid] = useState<string | null>(null)
 
-  async function download() {
+  async function ask() {
     setBusy(true)
     setError(null)
+    setSaid(null)
     try {
-      const blob = await downloadMyData()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = 'datele-mele-mathlms.zip'
-      a.click()
-      setTimeout(() => URL.revokeObjectURL(url), 1000)
+      setSaid(`${EXPORT_SAID[await requestMyData()]} (${email})`)
     } catch (e) {
       setError(errorMessage(e))
     } finally {
@@ -236,11 +239,12 @@ function DataSection() {
         <CardContent className="space-y-3 py-4 text-sm">
           <p className="text-muted-foreground">
             O arhivă ZIP cu tot ce știe aplicația despre tine: profilul, clasele, testele date cu răspunsurile și notele,
-            comentariile profesorului și pozele încărcate.
+            comentariile profesorului și pozele încărcate. O pregătim în fundal și îți trimitem linkul pe email.
           </p>
           {error && <p role="alert" className="text-destructive">{error}</p>}
-          <Button variant="outline" onClick={download} disabled={busy}>
-            {busy ? 'Se pregătește...' : 'Descarcă datele mele'}
+          {said && <p role="status" className={okText}>✓ {said}</p>}
+          <Button variant="outline" onClick={ask} disabled={busy}>
+            {busy ? 'Se trimite...' : 'Cere datele mele'}
           </Button>
         </CardContent>
       </Card>
@@ -376,7 +380,7 @@ export function AccountPage() {
             <PasswordSection account={account} onChanged={() => void reloadSessions()} />
             <SessionsSection sessions={sessions} reload={reloadSessions} onLogoutAll={() => void signOutEverywhere()} />
             <InstallAppSection />
-            <DataSection />
+            <DataSection email={account.email} />
             <EraseSection account={account} confirm={confirm} />
           </>
         )}
