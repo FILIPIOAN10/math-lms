@@ -202,7 +202,8 @@ export function AppShell() {
   const { user, logout } = useAuth()
   const { pathname } = useLocation()
   const signedIn = user !== null && user.status === 'ACTIVE' && user.role !== null
-  const counts = useNavCounts(signedIn ? user.role : null, pathname)
+  // F8: before two-step sign-in is set up every staff count would be a 403, so none are asked for.
+  const counts = useNavCounts(signedIn && !user.twoFactorSetupRequired ? user.role : null, pathname)
 
   if (!signedIn || !user.role) {
     return <Outlet />

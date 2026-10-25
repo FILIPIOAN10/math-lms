@@ -142,6 +142,14 @@ describe('AppShell', () => {
     expect(await within(nav()).findByRole('link', { name: 'Testele mele, 1 notă nouă' })).toBeInTheDocument()
   })
 
+  it('F8: does not ask for the staff counts before two-step sign-in is set up (they would all be 403)', async () => {
+    auth.value.user = user({ role: 'ADMIN', twoFactorSetupRequired: true })
+    renderShell()
+    expect(within(nav()).getByRole('link', { name: 'Corectură' })).toBeInTheDocument()
+    expect(api.listAttemptsForGrading).not.toHaveBeenCalled()
+    expect(api.listPendingUsers).not.toHaveBeenCalled()
+  })
+
   it('does not ask a student for the teacher counts', () => {
     auth.value.user = user({})
     renderShell()

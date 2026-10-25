@@ -1,6 +1,7 @@
 import { ParentHome } from '@/components/home/ParentHome'
 import { StudentHome } from '@/components/home/StudentHome'
 import { TeacherHome } from '@/components/home/TeacherHome'
+import { TwoFactorRequired } from '@/components/TwoFactorRequired'
 import { useAuth } from '@/context/AuthContext'
 import { InstallBanner } from '@/components/InstallApp'
 import { usePageTitle } from '@/lib/usePageTitle'
@@ -30,7 +31,9 @@ export function DashboardPage() {
         </div>
         <InstallBanner />
         {user.role === 'STUDENT' && <StudentHome />}
-        {(user.role === 'ADMIN' || user.role === 'TEACHER') && <TeacherHome canApprove={user.role === 'ADMIN'} />}
+        {/* F8: Acasă is not behind the staff gate, so it shows the same card instead of the server's 403s. */}
+        {(user.role === 'ADMIN' || user.role === 'TEACHER') &&
+          (user.twoFactorSetupRequired ? <TwoFactorRequired /> : <TeacherHome canApprove={user.role === 'ADMIN'} />)}
         {user.role === 'PARENT' && <ParentHome />}
       </div>
     </div>

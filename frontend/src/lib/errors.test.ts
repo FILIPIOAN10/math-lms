@@ -17,6 +17,13 @@ describe('errorMessage', () => {
     expect(errorMessage(new ApiError(404, 'Nu există elevul 4.'))).toBe('Nu există elevul 4.')
   })
 
+  it('F8: explains the two-step sign-in gate instead of showing its code', () => {
+    const message = errorMessage(new ApiError(403, 'TWO_FACTOR_SETUP_REQUIRED'))
+    expect(message).not.toContain('TWO_FACTOR')
+    expect(message).toMatch(/autentificarea în doi pași/)
+    expect(message).toMatch(/Contul meu/)
+  })
+
   it('hides JSON and anything unexpected behind a generic line', () => {
     expect(errorMessage(new ApiError(413, '{"status":413}'))).toBe('Operația a eșuat. Reîncearcă.')
     expect(errorMessage(new TypeError('Failed to fetch'))).toBe('Operația a eșuat. Reîncearcă.')

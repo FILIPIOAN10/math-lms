@@ -302,6 +302,18 @@ describe('DashboardPage — teacher', () => {
     expect(row).not.toHaveTextContent('Lips')
   })
 
+  it('F8: sends an admin who must set up two-step sign-in to Contul meu, without asking for the teacher data', () => {
+    auth.value = { user: user({ role: 'ADMIN', fullName: 'Prof Admin', twoFactorSetupRequired: true }), loading: false }
+    renderHome()
+
+    expect(screen.getByTestId('welcome')).toHaveTextContent('Bine ai venit, Prof Admin')
+    expect(screen.getByTestId('two-factor-required')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Mergi la Contul meu' })).toHaveAttribute('href', '/account')
+    expect(screen.queryByText(/TWO_FACTOR/)).not.toBeInTheDocument()
+    expect(api.listAttemptsForGrading).not.toHaveBeenCalled()
+    expect(api.listAssignments).not.toHaveBeenCalled()
+  })
+
   it('suggests giving homework when no deadline is coming up', async () => {
     api.listAssignments.mockResolvedValue([])
     api.listAttemptsForGrading.mockResolvedValue([])
