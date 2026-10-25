@@ -145,15 +145,28 @@ export function AdminAssignmentsPage() {
   const [now, setNow] = useState(() => Date.now()) // refreshed whenever the list is (re)loaded
   const [notice, setNotice] = useState<string | null>(null) // "✓ Tema … a fost dată …" after a change
   const preselectedQuiz = quizzes.find((q) => q.id === preselectedQuizId)
+  const linkedId = Number(searchParams.get('open')) || null // a deadline on Acasă opens its hand-in list
 
   useEffect(() => {
     listAssignments()
-      .then(setAssignments)
+      .then((list) => {
+        setAssignments(list)
+        const linked = list.find((a) => a.id === linkedId)
+        if (!linked) return
+        getAssignmentStatus(linked.id)
+          .then((rows) => {
+            setStatus(rows)
+            setOpenId(linked.id)
+            // A long list would leave the opened homework below the fold.
+            requestAnimationFrame(() => document.getElementById(`assignment-${linked.id}`)?.scrollIntoView?.({ block: 'start' }))
+          })
+          .catch((e) => setError(errorMessage(e)))
+      })
       .catch((e) => setError(errorMessage(e)))
       .finally(() => setLoading(false))
     listQuizzes().then(setQuizzes).catch((e) => setError(errorMessage(e)))
     listClasses().then(setClasses).catch((e) => setError(errorMessage(e)))
-  }, [])
+  }, [linkedId])
 
   const reload = () =>
     listAssignments().then((list) => {
@@ -216,7 +229,7 @@ export function AdminAssignmentsPage() {
         )}
 
         {assignments.map((a) => (
-          <Card key={a.id}>
+          <Card key={a.id} id={`assignment-${a.id}`} className="scroll-mt-20">
             <CardContent data-testid="assignment-row" className="space-y-3 py-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="min-w-0">

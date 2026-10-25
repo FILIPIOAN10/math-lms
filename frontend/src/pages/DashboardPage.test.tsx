@@ -5,6 +5,7 @@ import { DashboardPage } from '@/pages/DashboardPage'
 import { ApiError } from '@/lib/api'
 import type {
   AdminAttemptSummary,
+  AssignmentStudentStatus,
   AssignmentSummary,
   MyAttemptDto,
   ProgressPointDto,
@@ -24,6 +25,7 @@ const api = vi.hoisted(() => ({
   listAttemptsForGrading: vi.fn(),
   listPendingUsers: vi.fn(),
   listAssignments: vi.fn(),
+  getAssignmentStatus: vi.fn(),
   listMyChildren: vi.fn(),
   listClasses: vi.fn(),
   listActiveUsers: vi.fn(),
@@ -247,6 +249,57 @@ describe('DashboardPage — teacher', () => {
     const queue = await screen.findByRole('region', { name: 'De corectat' })
     expect(within(queue).getByText('Ana')).toBeInTheDocument()
     expect(within(queue).getByText('Radu')).toBeInTheDocument()
+  })
+
+  it('opens each waiting paper straight from the home page', async () => {
+    renderHome()
+    const queue = await screen.findByRole('region', { name: 'De corectat' })
+    expect(within(queue).getByRole('link', { name: /Ana/ })).toHaveAttribute('href', '/admin/grading?attempt=1')
+    expect(within(queue).getByRole('link', { name: /Radu/ })).toHaveAttribute('href', '/admin/grading?attempt=2')
+  })
+
+  it('opens who handed in from each deadline', async () => {
+    renderHome()
+    const deadlines = await screen.findByRole('region', { name: 'Termene' })
+    expect(within(deadlines).getByRole('link', { name: /Fracții/ })).toHaveAttribute('href', '/admin/assignments?open=1')
+    expect(within(deadlines).getByRole('link', { name: /Ecuații/ })).toHaveAttribute('href', '/admin/assignments?open=2')
+  })
+
+  it('names who is still missing when only a few students are left', async () => {
+    const status = (studentId: number, fullName: string, state: AssignmentStudentStatus['state']): AssignmentStudentStatus => ({
+      studentId, fullName, state, submittedAt: null, late: false, score: null, attemptId: null,
+    })
+    api.listAssignments.mockResolvedValue([
+      summary(1, 'Fracții', 3, { enrolled: 6, done: 4, inProgress: 1, notStarted: 1 }),
+      summary(2, 'Ecuații', 5, { enrolled: 6, done: 5, inProgress: 0, notStarted: 1 }),
+    ])
+    api.getAssignmentStatus.mockImplementation(async (id: number) =>
+      id === 1
+        ? [status(1, 'Ana', 'GRADED'), status(2, 'Radu Marin', 'IN_PROGRESS'), status(3, 'Mihai Stan', 'NOT_STARTED')]
+        : [status(1, 'Ana', 'SUBMITTED'), status(4, 'Ioana', 'NOT_STARTED')],
+    )
+    renderHome()
+
+    const rows = await screen.findAllByTestId('deadline-row')
+    await waitFor(() => expect(rows[0]).toHaveTextContent('Lipsesc: Radu Marin, Mihai Stan'))
+    expect(rows[1]).toHaveTextContent('Lipsește: Ioana')
+  })
+
+  it('does not look up the names when many students are still missing', async () => {
+    renderHome() // 12 / 20 handed in on both deadlines
+    await screen.findAllByTestId('deadline-row')
+    await waitFor(() => expect(api.listQuizzes).toHaveBeenCalled())
+    expect(api.getAssignmentStatus).not.toHaveBeenCalled()
+  })
+
+  it('still shows the deadline when the names cannot be loaded', async () => {
+    api.listAssignments.mockResolvedValue([summary(1, 'Fracții', 3, { enrolled: 6, done: 5, inProgress: 1, notStarted: 0 })])
+    api.getAssignmentStatus.mockRejectedValue(new Error('down'))
+    renderHome()
+    const row = await screen.findByTestId('deadline-row')
+    await waitFor(() => expect(api.getAssignmentStatus).toHaveBeenCalled())
+    expect(row).toHaveTextContent('5 / 6 predate')
+    expect(row).not.toHaveTextContent('Lips')
   })
 
   it('suggests giving homework when no deadline is coming up', async () => {

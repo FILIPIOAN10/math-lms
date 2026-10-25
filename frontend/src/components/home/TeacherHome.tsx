@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { FirstRunChecklist } from '@/components/home/FirstRunChecklist'
 import { HomeEmpty, HomeSection, StatTile } from '@/components/home/HomeBits'
 import {
+  getAssignmentStatus,
   listActiveUsers,
   listAssignments,
   listAttemptsForGrading,
@@ -20,6 +21,8 @@ import { formatDate } from '@/lib/format'
 import { firstRunSteps, upcomingDeadlines, type FirstRunStep } from '@/lib/home'
 
 const GRADING_PREVIEW = 5
+/** With this few students left, a deadline names them ("Lipsește: Radu Marin") - the one thing the teacher acts on. */
+const MISSING_NAMES_MAX = 3
 
 interface TeacherData {
   toGrade: AdminAttemptSummary[]
@@ -32,12 +35,15 @@ interface TeacherData {
  * The teacher's start page answers "what waits for me?": three counts (papers to grade, accounts to approve, open
  * homework) that lead to where each is handled, the deadlines worth a look with how many handed in, and who waits
  * for a grade. A TEACHER ({@code canApprove} false) gets the same page for their own classes, without the accounts.
+ * Every row opens what it is about: a deadline its hand-in list, a waiting paper that paper.
  */
 export function TeacherHome({ canApprove = true }: { canApprove?: boolean }) {
   const [data, setData] = useState<TeacherData | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [firstRun, setFirstRun] = useState<FirstRunStep[] | null>(null)
   const [loadedAt] = useState(() => Date.now())
+  /** Assignment id -> who has not handed in yet, only for deadlines with a few students left. */
+  const [missing, setMissing] = useState<Record<number, string[]>>({})
 
   useEffect(() => {
     let cancelled = false
@@ -46,6 +52,20 @@ export function TeacherHome({ canApprove = true }: { canApprove?: boolean }) {
       .then(([toGrade, pending, assignments]) => {
         if (cancelled) return
         setData({ toGrade, pending, assignments })
+        // The names are a hint on top of the counts: a deadline whose list fails simply shows no names.
+        upcomingDeadlines(assignments, loadedAt)
+          .filter((a) => a.enrolled > a.done && a.enrolled - a.done <= MISSING_NAMES_MAX)
+          .forEach((a) =>
+            getAssignmentStatus(a.id)
+              .then((list) => {
+                if (cancelled) return
+                const names = list
+                  .filter((st) => st.state === 'NOT_STARTED' || st.state === 'IN_PROGRESS')
+                  .map((st) => st.fullName)
+                setMissing((m) => ({ ...m, [a.id]: names }))
+              })
+              .catch(() => undefined),
+          )
         // The first-run checklist (T7) is a help, not the page: if these lists fail it is simply not shown.
         Promise.all([listClasses(), listActiveUsers('STUDENT'), listQuizzes()])
           .then(([classes, students, quizzes]) => !cancelled && setFirstRun(firstRunSteps({
@@ -57,7 +77,7 @@ export function TeacherHome({ canApprove = true }: { canApprove?: boolean }) {
     return () => {
       cancelled = true
     }
-  }, [canApprove])
+  }, [canApprove, loadedAt])
 
   if (error) return <p className="text-sm text-destructive">{error}</p>
   if (!data) return <p className="text-muted-foreground">Se încarcă...</p>
@@ -98,31 +118,42 @@ export function TeacherHome({ canApprove = true }: { canApprove?: boolean }) {
           </HomeEmpty>
         ) : (
           deadlines.map((a) => (
-            <Card key={a.id} data-testid="deadline-row">
-              <CardContent className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-3">
-                <div className="min-w-0 space-y-1">
-                  <p data-testid="deadline-title" className="truncate font-medium">{a.quizTitle}</p>
-                  <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                    {a.overdue && (
-                      <span className="rounded-md bg-destructive/15 px-2 py-0.5 text-xs font-medium text-destructive">
-                        Termen depășit
+            <Link
+              key={a.id}
+              to={`/admin/assignments?open=${a.id}`}
+              className="block rounded-xl outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+            >
+              <Card data-testid="deadline-row" className="transition-colors hover:bg-background/60">
+                <CardContent className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-3">
+                  <div className="min-w-0 space-y-1">
+                    <p data-testid="deadline-title" className="truncate font-medium">{a.quizTitle}</p>
+                    <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                      {a.overdue && (
+                        <span className="rounded-md bg-destructive/15 px-2 py-0.5 text-xs font-medium text-destructive">
+                          Termen depășit
+                        </span>
+                      )}
+                      <span>{a.schoolClassName}</span>
+                      <span>
+                        {formatDate(a.dueAt)} ({dueCountdown(a.dueAt, loadedAt)})
                       </span>
+                    </p>
+                    {missing[a.id]?.length > 0 && (
+                      <p className="text-sm">
+                        {missing[a.id].length === 1 ? 'Lipsește' : 'Lipsesc'}: {missing[a.id].join(', ')}
+                      </p>
                     )}
-                    <span>{a.schoolClassName}</span>
-                    <span>
-                      {formatDate(a.dueAt)} ({dueCountdown(a.dueAt, loadedAt)})
-                    </span>
-                  </p>
-                </div>
-                {a.enrolled === 0 ? (
-                  <p className="text-sm text-muted-foreground">Niciun elev în clasă</p>
-                ) : (
-                  <p className="text-sm font-medium">
-                    {a.done} / {a.enrolled} predate
-                  </p>
-                )}
-              </CardContent>
-            </Card>
+                  </div>
+                  {a.enrolled === 0 ? (
+                    <p className="text-sm text-muted-foreground">Niciun elev în clasă</p>
+                  ) : (
+                    <p className="text-sm font-medium">
+                      {a.done} / {a.enrolled} predate
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            </Link>
           ))
         )}
       </HomeSection>
@@ -139,12 +170,16 @@ export function TeacherHome({ canApprove = true }: { canApprove?: boolean }) {
           <Card>
             <CardContent className="divide-y py-1">
               {data.toGrade.slice(0, GRADING_PREVIEW).map((a) => (
-                <div key={a.attemptId} className="flex flex-wrap items-center justify-between gap-x-3 py-2 text-sm">
-                  <span className="font-medium">{a.studentName}</span>
+                <Link
+                  key={a.attemptId}
+                  to={`/admin/grading?attempt=${a.attemptId}`}
+                  className="group -mx-2 flex flex-wrap items-center justify-between gap-x-3 rounded-md px-2 py-2 text-sm outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50"
+                >
+                  <span className="font-medium group-hover:underline">{a.studentName}</span>
                   <span className="text-muted-foreground">
                     {a.quizTitle} · {formatDate(a.submittedAt)}
                   </span>
-                </div>
+                </Link>
               ))}
               {data.toGrade.length > GRADING_PREVIEW && (
                 <p className="py-2 text-sm text-muted-foreground">
