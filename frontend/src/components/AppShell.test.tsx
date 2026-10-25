@@ -30,6 +30,8 @@ function renderShell(path = '/') {
           <Route path="/admin/grading" element={<p>pagina corectură</p>} />
           <Route path="/admin/assignments" element={<p>pagina teme</p>} />
           <Route path="/admin/students/:id" element={<p>pagina elev</p>} />
+          <Route path="/capitole" element={<p>pagina capitole</p>} />
+          <Route path="/content" element={<p>pagina conținut</p>} />
         </Route>
       </Routes>
     </MemoryRouter>,
@@ -38,6 +40,8 @@ function renderShell(path = '/') {
 
 const nav = () => screen.getByRole('navigation', { name: 'Navigare principală' })
 const navLabels = () => within(nav()).getAllByRole('link').map((l) => l.textContent)
+const tabBar = () => screen.getByRole('navigation', { name: 'Meniu principal' })
+const tabLabels = () => within(tabBar()).getAllByRole('link').map((l) => l.textContent)
 
 describe('AppShell', () => {
   beforeEach(() => {
@@ -156,5 +160,76 @@ describe('AppShell', () => {
     renderShell('/quizzes')
     await userEvent.click(screen.getByRole('button', { name: 'Ieșire' }))
     expect(auth.value.logout).toHaveBeenCalled()
+  })
+
+  describe('on a phone: the tab bar at the bottom', () => {
+    it("keeps the student's four main pages one tap away and the rest under \"Mai mult\"", async () => {
+      auth.value.user = user({})
+      renderShell()
+
+      expect(tabLabels()).toEqual(['Acasă', 'Teste', 'Recapitulare', 'Progres'])
+      const more = within(tabBar()).getByRole('button', { name: 'Mai mult' })
+      expect(more).toHaveAttribute('aria-expanded', 'false')
+      expect(within(tabBar()).queryByRole('link', { name: 'Capitole EN' })).not.toBeInTheDocument()
+
+      await userEvent.click(more)
+      expect(more).toHaveAttribute('aria-expanded', 'true')
+      const menu = screen.getByRole('list', { name: 'Mai mult' })
+      expect(within(menu).getAllByRole('link').map((l) => l.textContent)).toEqual(['Capitole EN', 'Conținut'])
+    })
+
+    it('closes "Mai mult" on Escape and after a page is picked from it', async () => {
+      auth.value.user = user({})
+      renderShell()
+      const more = within(tabBar()).getByRole('button', { name: 'Mai mult' })
+
+      await userEvent.click(more)
+      await userEvent.keyboard('{Escape}')
+      expect(more).toHaveAttribute('aria-expanded', 'false')
+      expect(screen.queryByRole('list', { name: 'Mai mult' })).not.toBeInTheDocument()
+
+      await userEvent.click(more)
+      await userEvent.click(within(screen.getByRole('list', { name: 'Mai mult' })).getByRole('link', { name: 'Conținut' }))
+      expect(screen.getByText('pagina conținut')).toBeInTheDocument()
+      expect(more).toHaveAttribute('aria-expanded', 'false')
+    })
+
+    it('marks the current page, and "Mai mult" when that page is inside it', async () => {
+      auth.value.user = user({})
+      renderShell('/capitole')
+
+      const more = within(tabBar()).getByRole('button', { name: 'Mai mult' })
+      expect(more).toHaveAttribute('data-current', 'true')
+      await userEvent.click(more)
+      const menu = screen.getByRole('list', { name: 'Mai mult' })
+      expect(within(menu).getByRole('link', { name: 'Capitole EN' })).toHaveAttribute('aria-current', 'page')
+    })
+
+    it('marks the tab of the page the student is on', () => {
+      auth.value.user = user({})
+      renderShell('/quizzes')
+      expect(within(tabBar()).getByRole('link', { name: 'Teste' })).toHaveAttribute('aria-current', 'page')
+      expect(within(tabBar()).getByRole('button', { name: 'Mai mult' })).not.toHaveAttribute('data-current')
+    })
+
+    it('fits all five teacher links, so there is no "Mai mult"', () => {
+      auth.value.user = user({ role: 'ADMIN' })
+      renderShell()
+      expect(tabLabels()).toEqual(['Acasă', 'Clase', 'Teste', 'Corectură', 'Elevi'])
+      expect(within(tabBar()).queryByRole('button', { name: 'Mai mult' })).not.toBeInTheDocument()
+    })
+
+    it('fits all four parent links', () => {
+      auth.value.user = user({ role: 'PARENT' })
+      renderShell()
+      expect(tabLabels()).toEqual(['Acasă', 'Copiii mei', 'Capitole EN', 'Conținut'])
+    })
+
+    it('carries the same counts as the desktop links', async () => {
+      auth.value.user = user({})
+      api.getMyAttempts.mockResolvedValue([{ newResult: true }, { newResult: true }])
+      renderShell()
+      expect(await within(tabBar()).findByRole('link', { name: 'Teste, 2 note noi' })).toBeInTheDocument()
+    })
   })
 })

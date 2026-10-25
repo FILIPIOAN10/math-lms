@@ -1,3 +1,4 @@
+import { BookOpen, ClipboardList, House, Library, PenLine, RotateCcw, School, TrendingUp, Users, type LucideIcon } from 'lucide-react'
 import { type Role } from '@/lib/api'
 
 const LABELS: Record<Role, string> = { ADMIN: 'Administrator', TEACHER: 'Profesor', STUDENT: 'Elev', PARENT: 'Părinte' }
@@ -21,6 +22,9 @@ export const NAV_COUNTS_CHANGED = 'mathlms:nav-counts-changed'
 export interface NavItem {
   to: string
   label: string
+  /** The word under the icon in the phone's tab bar, where "Testele mele" does not fit. */
+  short?: string
+  icon: LucideIcon
   count?: NavCount
   testId?: string
   /** Other addresses that belong to this link (it is shown as the current page there too). */
@@ -29,36 +33,36 @@ export interface NavItem {
 
 const NAV: Record<Role, NavItem[]> = {
   STUDENT: [
-    { to: '/', label: 'Acasă' },
-    { to: '/quizzes', label: 'Testele mele', count: 'newResults' },
-    { to: '/review', label: 'Recapitulare' },
-    { to: '/progress', label: 'Progresul meu', testId: 'my-progress' },
-    { to: '/capitole', label: 'Capitole EN', testId: 'en-chapters' },
-    { to: '/content', label: 'Conținut' },
+    { to: '/', label: 'Acasă', icon: House },
+    { to: '/quizzes', label: 'Testele mele', short: 'Teste', icon: ClipboardList, count: 'newResults' },
+    { to: '/review', label: 'Recapitulare', icon: RotateCcw },
+    { to: '/progress', label: 'Progresul meu', short: 'Progres', icon: TrendingUp, testId: 'my-progress' },
+    { to: '/capitole', label: 'Capitole EN', icon: BookOpen, testId: 'en-chapters' },
+    { to: '/content', label: 'Conținut', icon: Library },
   ],
   PARENT: [
-    { to: '/', label: 'Acasă' },
-    { to: '/parent', label: 'Copiii mei', testId: 'my-children' },
-    { to: '/capitole', label: 'Capitole EN', testId: 'en-chapters' },
-    { to: '/content', label: 'Conținut' },
+    { to: '/', label: 'Acasă', icon: House },
+    { to: '/parent', label: 'Copiii mei', icon: Users, testId: 'my-children' },
+    { to: '/capitole', label: 'Capitole EN', icon: BookOpen, testId: 'en-chapters' },
+    { to: '/content', label: 'Conținut', icon: Library },
   ],
   // Five links (T6): quizzes and homework are one "Teste" area with tabs; approving, inviting and linking people is
   // one "Elevi" page.
   ADMIN: [
-    { to: '/', label: 'Acasă' },
+    { to: '/', label: 'Acasă', icon: House },
     // The EN chapter pages are content too: the teacher reaches them from the Clase page and from Acasă.
-    { to: '/admin/content', label: 'Clase', also: ['/admin/classes', '/admin/en-chapters'] },
-    { to: '/admin/quizzes', label: 'Teste', also: ['/admin/assignments'], testId: 'admin-tests' },
-    { to: '/admin/grading', label: 'Corectură', count: 'grading' },
-    { to: '/admin/students', label: 'Elevi', count: 'pending', also: ['/admin/pending', '/admin/links'] },
+    { to: '/admin/content', label: 'Clase', icon: School, also: ['/admin/classes', '/admin/en-chapters'] },
+    { to: '/admin/quizzes', label: 'Teste', icon: ClipboardList, also: ['/admin/assignments'], testId: 'admin-tests' },
+    { to: '/admin/grading', label: 'Corectură', icon: PenLine, count: 'grading' },
+    { to: '/admin/students', label: 'Elevi', icon: Users, count: 'pending', also: ['/admin/pending', '/admin/links'] },
   ],
   // The same pages limited to the teacher's own classes; approving accounts stays with the admins (no count).
   TEACHER: [
-    { to: '/', label: 'Acasă' },
-    { to: '/admin/content', label: 'Clase', also: ['/admin/classes'] },
-    { to: '/admin/quizzes', label: 'Teste', also: ['/admin/assignments'], testId: 'admin-tests' },
-    { to: '/admin/grading', label: 'Corectură', count: 'grading' },
-    { to: '/admin/students', label: 'Elevi' },
+    { to: '/', label: 'Acasă', icon: House },
+    { to: '/admin/content', label: 'Clase', icon: School, also: ['/admin/classes'] },
+    { to: '/admin/quizzes', label: 'Teste', icon: ClipboardList, also: ['/admin/assignments'], testId: 'admin-tests' },
+    { to: '/admin/grading', label: 'Corectură', icon: PenLine, count: 'grading' },
+    { to: '/admin/students', label: 'Elevi', icon: Users },
   ],
 }
 
@@ -71,4 +75,17 @@ export function isNavActive(item: NavItem, pathname: string): boolean {
 /** The main navigation of one role, in the order it is shown. */
 export function navItems(role: Role): NavItem[] {
   return NAV[role]
+}
+
+/** How many tabs fit across a phone: with more links, the last tab becomes "Mai mult". */
+const TAB_BAR_SIZE = 5
+
+/**
+ * The phone's tab bar: every link when they all fit, otherwise the first four plus a "Mai mult" menu with the rest
+ * (the student's Capitole EN and Conținut - the pages opened least often).
+ */
+export function tabBarItems(role: Role): { main: NavItem[]; more: NavItem[] } {
+  const items = NAV[role]
+  if (items.length <= TAB_BAR_SIZE) return { main: items, more: [] }
+  return { main: items.slice(0, TAB_BAR_SIZE - 1), more: items.slice(TAB_BAR_SIZE - 1) }
 }
