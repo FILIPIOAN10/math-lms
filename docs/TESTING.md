@@ -493,6 +493,11 @@ Din bara de sus: click pe numele tău („Contul meu” pe telefon).
 - cont doar-Google: fără formular, doar **Setează o parolă** → `/forgot-password`
 - **Dispozitive conectate**: fiecare sesiune (browser, IP, ultima folosire), „Acest dispozitiv” marcat; **Deconectează** pe altele;
   **Deconectează-te de peste tot** (cu confirmare) → te scoate și de aici
+- **Autentificare în doi pași** (doar profesor/administrator): **Activează** → cod QR + cheia de scris manual → codul de 6 cifre din
+  aplicație → **10 coduri de recuperare** (arătate o singură dată). La conectare (parolă sau Google) urmează pasul „Codul din aplicație”;
+  același cod a doua oară → „nu se potrivește”; un cod de recuperare merge o singură dată; 5 coduri greșite → conectarea se reia.
+  **Administratorul e obligat**: până o activează, paginile de profesor arată „Activează autentificarea în doi pași” (serverul dă 403
+  `TWO_FACTOR_SETUP_REQUIRED`). Profesorul o poate opri cu un cod curent; administratorul nu. Dev/E2E: `TWO_FACTOR_REQUIRED_FOR_ADMIN=false`.
 - **Datele tale** → **Cere datele mele** → „Pregătim arhiva…” (`POST /api/users/gdpr/export`, 202). Arhiva se face în fundal (outbox)
   și vine pe email un link (o singură folosire, 7 zile) → `datele-mele-mathlms.zip` (profil, clase, încercări cu răspunsuri, note,
   comentariile profesorului, pozele). A doua cerere cât se pregătește → „se pregătește deja”; după ce e gata → link nou pe email.

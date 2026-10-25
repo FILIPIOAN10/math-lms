@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -52,7 +52,72 @@ function GoogleTab() {
   )
 }
 
-function PasswordTab() {
+/**
+ * F8: the second step, after the password (or after Google, which lands on /login?step=2fa). Takes the 6-digit code
+ * from the authenticator app, or one of the recovery codes. A 401 means the half-done sign-in is gone (5 minutes,
+ * or too many tries): back to the start.
+ */
+function TwoFactorStep({ onRestart }: { onRestart: () => void }) {
+  const { verifyTwoFactor } = useAuth()
+  const [code, setCode] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+
+  async function handleSubmit(event: FormEvent) {
+    event.preventDefault()
+    setError(null)
+    setSubmitting(true)
+    try {
+      await verifyTwoFactor(code.trim())
+      // On success the AuthProvider sets the user and the router redirects.
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        setError(err.body || 'Conectarea a expirat. Conectează-te din nou.')
+        setCode('')
+      } else if (err instanceof ApiError && err.status === 400) {
+        setError('Codul nu se potrivește. Încearcă codul nou din aplicație.')
+      } else {
+        setError(loginErrorMessage(err))
+      }
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <form className="flex flex-col gap-4" onSubmit={handleSubmit} noValidate data-testid="two-factor-step">
+      <p className="text-sm text-muted-foreground">
+        Deschide aplicația de autentificare (Google Authenticator, Microsoft Authenticator…) și scrie codul de 6 cifre
+        pentru Math LMS. Fără telefon? Folosește unul dintre codurile de recuperare.
+      </p>
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="two-factor-code">Codul din aplicație</Label>
+        <Input
+          id="two-factor-code"
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          autoFocus
+          required
+          value={code}
+          onChange={(e) => setCode(e.target.value)}
+        />
+      </div>
+      {error && (
+        <p role="alert" className="text-sm text-destructive">
+          {error}
+        </p>
+      )}
+      <Button type="submit" className="w-full" disabled={submitting || code.trim() === ''}>
+        {submitting ? 'Se verifică…' : 'Continuă'}
+      </Button>
+      <Button type="button" variant="ghost" className="w-full" onClick={onRestart}>
+        Înapoi la conectare
+      </Button>
+    </form>
+  )
+}
+
+function PasswordTab({ onNeedCode }: { onNeedCode: () => void }) {
   const { login } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -64,8 +129,9 @@ function PasswordTab() {
     setError(null)
     setSubmitting(true)
     try {
-      await login(email, password)
-      // On success the AuthProvider sets the user and the router redirects.
+      const user = await login(email, password)
+      // On success the AuthProvider sets the user and the router redirects; null = the authenticator code is next.
+      if (user === null) onNeedCode()
     } catch (err) {
       setError(loginErrorMessage(err))
     } finally {
@@ -121,26 +187,39 @@ function PasswordTab() {
 
 export function LoginPage() {
   usePageTitle('Autentificare')
+  const [searchParams, setSearchParams] = useSearchParams()
+  // Google sends a sign-in that still needs its code here with ?step=2fa; the password tab switches to it itself.
+  const [needCode, setNeedCode] = useState(searchParams.get('step') === '2fa')
+
+  function restart() {
+    setNeedCode(false)
+    setSearchParams({}, { replace: true })
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted p-4">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">Math LMS</CardTitle>
-          <CardDescription>Autentifică-te ca să continui</CardDescription>
+          <CardDescription>
+            {needCode ? 'Autentificare în doi pași' : 'Autentifică-te ca să continui'}
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="google">
-            <TabsList>
-              <TabsTrigger value="google">Google</TabsTrigger>
-              <TabsTrigger value="password">Email și parolă</TabsTrigger>
-            </TabsList>
-            <TabsContent value="google">
-              <GoogleTab />
-            </TabsContent>
-            <TabsContent value="password">
-              <PasswordTab />
-            </TabsContent>
-          </Tabs>
+          {needCode ? <TwoFactorStep onRestart={restart} /> : (
+            <Tabs defaultValue="google">
+              <TabsList>
+                <TabsTrigger value="google">Google</TabsTrigger>
+                <TabsTrigger value="password">Email și parolă</TabsTrigger>
+              </TabsList>
+              <TabsContent value="google">
+                <GoogleTab />
+              </TabsContent>
+              <TabsContent value="password">
+                <PasswordTab onNeedCode={() => setNeedCode(true)} />
+              </TabsContent>
+            </Tabs>
+          )}
         </CardContent>
       </Card>
     </div>

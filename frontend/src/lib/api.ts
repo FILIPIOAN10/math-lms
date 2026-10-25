@@ -11,6 +11,10 @@ export interface User {
   fullName: string
   role: Role | null
   status: AccountStatus
+  /** F8: two-step sign-in (authenticator app) is on for this account. */
+  twoFactorEnabled?: boolean
+  /** F8: an admin who must set it up before the staff pages open. */
+  twoFactorSetupRequired?: boolean
 }
 
 export class ApiError extends Error {
@@ -113,9 +117,48 @@ export async function getCurrentUser(): Promise<User> {
   return response.json()
 }
 
-export async function login(email: string, password: string): Promise<User> {
+/** The signed-in user, or null when the password was right but the authenticator code is still needed (202). */
+export async function login(email: string, password: string): Promise<User | null> {
   const response = await postJson('/auth/login', { email, password })
+  return response.status === 202 ? null : response.json()
+}
+
+/** F8: the second step of a sign-in — a 6-digit code from the app, or a recovery code. */
+export async function verifyTwoFactor(code: string): Promise<User> {
+  const response = await postJson('/auth/2fa/verify', { code })
   return response.json()
+}
+
+export interface TwoFactorStatus {
+  enabled: boolean
+  required: boolean
+  recoveryCodesLeft: number
+}
+
+export async function getTwoFactorStatus(): Promise<TwoFactorStatus> {
+  const response = await apiFetch('/me/2fa')
+  return response.json()
+}
+
+/** A new secret for the authenticator app; nothing changes until `enableTwoFactor` proves the app has it. */
+export async function startTwoFactorSetup(): Promise<{ secret: string; otpauthUri: string }> {
+  const response = await postJson('/me/2fa/setup', {})
+  return response.json()
+}
+
+/** Turns it on with the app's first code; the recovery codes, shown this once. */
+export async function enableTwoFactor(code: string): Promise<string[]> {
+  const response = await postJson('/me/2fa/enable', { code })
+  return ((await response.json()) as { recoveryCodes: string[] }).recoveryCodes
+}
+
+export async function regenerateRecoveryCodes(code: string): Promise<string[]> {
+  const response = await postJson('/me/2fa/recovery-codes', { code })
+  return ((await response.json()) as { recoveryCodes: string[] }).recoveryCodes
+}
+
+export async function disableTwoFactor(code: string): Promise<void> {
+  await postJson('/me/2fa/disable', { code })
 }
 
 export interface RegisterPayload {

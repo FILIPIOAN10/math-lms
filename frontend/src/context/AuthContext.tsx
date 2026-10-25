@@ -4,6 +4,7 @@ import {
   getCurrentUser,
   login as apiLogin,
   logout as apiLogout,
+  verifyTwoFactor as apiVerifyTwoFactor,
   type User,
 } from '@/lib/api'
 import { clearAllAnswerQueues } from '@/lib/answerQueue'
@@ -11,7 +12,11 @@ import { clearAllAnswerQueues } from '@/lib/answerQueue'
 interface AuthContextValue {
   user: User | null
   loading: boolean
-  login: (email: string, password: string) => Promise<User>
+  /** The user, or null when the authenticator code is still needed (then call `verifyTwoFactor`). */
+  login: (email: string, password: string) => Promise<User | null>
+  verifyTwoFactor: (code: string) => Promise<User>
+  /** Re-reads the signed-in user (e.g. after turning two-step sign-in on). */
+  refreshUser: () => Promise<void>
   logout: () => Promise<void>
 }
 
@@ -36,8 +41,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function login(email: string, password: string) {
     const loggedIn = await apiLogin(email, password)
+    if (loggedIn) setUser(loggedIn)
+    return loggedIn
+  }
+
+  async function verifyTwoFactor(code: string) {
+    const loggedIn = await apiVerifyTwoFactor(code)
     setUser(loggedIn)
     return loggedIn
+  }
+
+  async function refreshUser() {
+    setUser(await getCurrentUser())
   }
 
   async function logout() {
@@ -48,7 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, verifyTwoFactor, refreshUser, logout }}>
       {children}
     </AuthContext.Provider>
   )

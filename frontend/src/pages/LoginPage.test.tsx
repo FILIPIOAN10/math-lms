@@ -6,7 +6,8 @@ import { LoginPage } from '@/pages/LoginPage'
 import { ApiError } from '@/lib/api'
 
 const login = vi.hoisted(() => vi.fn())
-vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ user: null, loading: false, login }) }))
+const verifyTwoFactor = vi.hoisted(() => vi.fn())
+vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ user: null, loading: false, login, verifyTwoFactor }) }))
 
 async function submitWithPassword() {
   render(<MemoryRouter><LoginPage /></MemoryRouter>)
@@ -47,5 +48,42 @@ describe('LoginPage error messages', () => {
     login.mockRejectedValue(new ApiError(500, ''))
     await submitWithPassword()
     expect(await screen.findByText('A apărut o eroare. Încearcă din nou.')).toBeInTheDocument()
+  })
+})
+
+describe('LoginPage two-step sign-in', () => {
+  beforeEach(() => {
+    login.mockReset()
+    verifyTwoFactor.mockReset()
+  })
+
+  it('asks for the authenticator code after a right password, and sends it', async () => {
+    login.mockResolvedValue(null) // 202: the code is next
+    verifyTwoFactor.mockResolvedValue({ email: 'ana@scoala.ro', fullName: 'Ana', role: 'ADMIN', status: 'ACTIVE' })
+    await submitWithPassword()
+
+    await userEvent.type(await screen.findByLabelText('Codul din aplicație'), '123456')
+    await userEvent.click(screen.getByRole('button', { name: 'Continuă' }))
+
+    expect(verifyTwoFactor).toHaveBeenCalledWith('123456')
+  })
+
+  it('says a wrong code is wrong and keeps the step open', async () => {
+    login.mockResolvedValue(null)
+    verifyTwoFactor.mockRejectedValue(new ApiError(400, 'Codul nu se potrivește.'))
+    await submitWithPassword()
+
+    await userEvent.type(await screen.findByLabelText('Codul din aplicație'), '000000')
+    await userEvent.click(screen.getByRole('button', { name: 'Continuă' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Codul nu se potrivește')
+    expect(screen.getByTestId('two-factor-step')).toBeInTheDocument()
+  })
+
+  it('opens straight on the code step when Google sends the user back with ?step=2fa', () => {
+    render(<MemoryRouter initialEntries={['/login?step=2fa']}><LoginPage /></MemoryRouter>)
+
+    expect(screen.getByLabelText('Codul din aplicație')).toBeInTheDocument()
+    expect(screen.queryByRole('tab', { name: 'Google' })).not.toBeInTheDocument()
   })
 })

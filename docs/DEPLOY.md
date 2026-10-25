@@ -105,6 +105,13 @@ pe server doar pentru restaurare și o ștergi după.
 AGE_IDENTITY=~/math-lms-backup.txt ./deploy/restore.sh backups/db-AAAALLZZ-HHMMSS.dump.age backups/uploads-AAAALLZZ-HHMMSS.tar.gz.age
 ```
 
+### Autentificarea în doi pași (F8)
+`TWO_FACTOR_REQUIRED_FOR_ADMIN` e `true` implicit: la primul login după release, fiecare administrator își activează aplicația de
+autentificare din „Contul meu” (paginile de profesor se deschid după aceea) și își păstrează cele 10 coduri de recuperare. Secretele
+sunt criptate cu o cheie derivată din `JWT_SECRET`: dacă schimbi `JWT_SECRET`, toți își activează din nou aplicația. Admin blocat
+(telefon pierdut, fără coduri): pe server, `UPDATE users SET totp_secret = NULL, totp_last_step = NULL, totp_enabled_at = NULL WHERE email = '…';`
+apoi își activează din nou.
+
 ## 5. Monitorizare
 
 Profilul `monitoring` pornește Prometheus (`127.0.0.1:9090`), Alertmanager (`127.0.0.1:9093`) și Grafana (`127.0.0.1:3000`) — accesibile

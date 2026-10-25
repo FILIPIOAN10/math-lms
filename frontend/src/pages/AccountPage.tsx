@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { HomeSection } from '@/components/home/HomeBits'
 import { InstallAppSection } from '@/components/InstallApp'
 import { PageHeader } from '@/components/PageHeader'
+import { TwoFactorSection } from '@/components/TwoFactorSection'
 import { useConfirm } from '@/components/useConfirm'
 import { useAuth } from '@/context/AuthContext'
 import {
@@ -378,6 +379,7 @@ export function AccountPage() {
           <>
             <Profile account={account} />
             <PasswordSection account={account} onChanged={() => void reloadSessions()} />
+            {(account.role === 'ADMIN' || account.role === 'TEACHER') && <TwoFactorSection />}
             <SessionsSection sessions={sessions} reload={reloadSessions} onLogoutAll={() => void signOutEverywhere()} />
             <InstallAppSection />
             <DataSection email={account.email} />
