@@ -12,6 +12,7 @@ import {
   type EnChapterSummary,
 } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
+import { LoadingCards } from '@/components/LoadingCards'
 
 /** The EN paper: three subjects of six questions; Subiectul III's problems may link a) and b) apart. */
 const SUBJECTS: { roman: string; title: string; parts: boolean }[] = [
@@ -102,7 +103,7 @@ export function AdminEnChapterSlotsPage() {
         />
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
         {notice && <p role="status" className="text-sm text-emerald-700 dark:text-emerald-300">{notice}</p>}
-        {!saved && !error && <p className="text-muted-foreground">Se încarcă...</p>}
+        {!saved && !error && <LoadingCards />}
 
         {saved && SUBJECTS.map((subject) => (
           <HomeSection key={subject.roman} title={subject.title}>

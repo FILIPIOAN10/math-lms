@@ -7,6 +7,7 @@ import { getMyAttempts, listAttemptsForGrading, listPendingUsers, type Role } fr
 import { roCount } from '@/lib/format'
 import { isNavActive, NAV_COUNTS_CHANGED, navItems, roleLabel, tabBarItems, type NavCount, type NavItem } from '@/lib/roles'
 import { cn } from '@/lib/utils'
+import { LoadingCards } from '@/components/LoadingCards'
 
 type Counts = Record<NavCount, number | null>
 
@@ -261,7 +262,7 @@ export function AppShell() {
       {/* On a phone the bottom padding keeps the end of every page clear of the tab bar. */}
       <main className="pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pb-0">
         {/* The header stays put while the next page's code downloads. */}
-        <Suspense fallback={<p className="p-4 text-muted-foreground">Se încarcă...</p>}>
+        <Suspense fallback={<div className="mx-auto max-w-3xl p-4"><LoadingCards /></div>}>
           <Outlet />
         </Suspense>
       </main>

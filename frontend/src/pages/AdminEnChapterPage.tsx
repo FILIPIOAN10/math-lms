@@ -29,6 +29,7 @@ import { errorMessage } from '@/lib/errors'
 import { shrinkImage } from '@/lib/image'
 import { pdfPageCount, pdfPageImages } from '@/lib/pdfPages'
 import { cn } from '@/lib/utils'
+import { LoadingCards } from '@/components/LoadingCards'
 
 /** What the server accepts for one chapter (EnChapterService.MAX_PHOTOS). */
 const MAX_PHOTOS = 40
@@ -199,7 +200,7 @@ export function AdminEnChapterPage() {
           )}
         />
         {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
-        {!page && !error && <p className="text-muted-foreground">Se încarcă...</p>}
+        {!page && !error && <LoadingCards />}
 
         {page && (
           <>

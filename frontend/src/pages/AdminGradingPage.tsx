@@ -34,6 +34,7 @@ import { useAutosave, type SaveStatus } from '@/lib/useAutosave'
 import { gradedItem, hasParts, partsPayload } from '@/lib/grading'
 import { useCommentSnippets, type SnippetBank } from '@/lib/useCommentSnippets'
 import { cn } from '@/lib/utils'
+import { LoadingCards } from '@/components/LoadingCards'
 
 /** Same limit as the server (V20 columns). */
 const MAX_COMMENT = 2000
@@ -526,7 +527,7 @@ export function AdminGradingPage() {
                 <option value="GRADED">Notate</option>
               </select>
             </div>
-            {loading && <p className="text-muted-foreground">Se încarcă...</p>}
+            {loading && <LoadingCards />}
             {!loading && filter === 'SUBMITTED' && attempts.length > 0 && (
               <section aria-label="Pe întrebare" className="space-y-2">
                 <p className="text-sm text-muted-foreground">

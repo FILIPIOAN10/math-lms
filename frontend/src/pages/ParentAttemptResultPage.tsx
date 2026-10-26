@@ -4,6 +4,7 @@ import { AttemptResultView } from '@/components/AttemptResultView'
 import { getChildAttemptResult, type AttemptResultViewDto } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
 import { usePageTitle } from '@/lib/usePageTitle'
+import { LoadingCards } from '@/components/LoadingCards'
 
 /** A child's result as the parent sees it — same view as the student's, worded for the parent. */
 export function ParentAttemptResultPage() {
@@ -35,7 +36,7 @@ export function ParentAttemptResultPage() {
         </div>
 
         {error && <p className="text-sm text-destructive">{error}</p>}
-        {!result && !error && <p className="text-muted-foreground">Se încarcă...</p>}
+        {!result && !error && <LoadingCards />}
 
         {result && <AttemptResultView result={result} audience="parent" />}
       </div>

@@ -51,6 +51,7 @@ import { EnChapterSuggestionsDialog } from '@/components/EnChapterSuggestionsDia
 import { formatDate, optionLetter, roCount } from '@/lib/format'
 import { errorMessage } from '@/lib/errors'
 import { shrinkImage } from '@/lib/image'
+import { LoadingCards } from '@/components/LoadingCards'
 
 /** A requirement a), b)... while it is being edited (points as typed). */
 interface PartDraft {
@@ -892,7 +893,7 @@ export function AdminQuizzesPage() {
               </Link>
             </>
           ) : !quiz ? (
-            <p className="text-muted-foreground">Se încarcă...</p>
+            <LoadingCards />
           ) : (
             <div className="space-y-4">
               <PageHeader
@@ -1023,7 +1024,7 @@ export function AdminQuizzesPage() {
             <TestsTabs current="quizzes" />
             {notice && <PublishedNotice notice={notice} onClose={() => setNotice(null)} />}
             {error && <p className="text-sm text-destructive">{error}</p>}
-            {loading && <p className="text-muted-foreground">Se încarcă...</p>}
+            {loading && <LoadingCards />}
             {!loading && quizzes.length === 0 && <p className="text-muted-foreground">Niciun test. Adaugă primul.</p>}
             <div className="space-y-2">
               {quizzes.map((q) => (

@@ -19,6 +19,7 @@ import { formatMinutes } from '@/lib/format'
 import { scoreLine } from '@/lib/grades'
 import { todoAssignments } from '@/lib/home'
 import { PageHeader } from '@/components/PageHeader'
+import { LoadingCards } from '@/components/LoadingCards'
 
 function formatDate(iso: string | null): string {
   return iso ? new Date(iso).toLocaleString('ro-RO', { dateStyle: 'medium', timeStyle: 'short' }) : '—'
@@ -86,7 +87,7 @@ export function StudentQuizListPage() {
           </p>
         )}
         {error && <p className="text-sm text-destructive">{error}</p>}
-        {loading && <p className="text-muted-foreground">Se încarcă...</p>}
+        {loading && <LoadingCards />}
 
         {!loading && (
           <>

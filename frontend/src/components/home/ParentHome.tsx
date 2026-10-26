@@ -18,6 +18,7 @@ import { errorMessage } from '@/lib/errors'
 import { formatDate, roCount } from '@/lib/format'
 import { GradeFigure } from '@/components/GradeFigure'
 import { latestGrade, todoAssignments } from '@/lib/home'
+import { LoadingCards } from '@/components/LoadingCards'
 
 interface ChildOverview {
   child: ChildDto
@@ -67,7 +68,7 @@ export function ParentHome() {
   }, [])
 
   if (error) return <p className="text-sm text-destructive">{error}</p>
-  if (!overviews) return <p className="text-muted-foreground">Se încarcă...</p>
+  if (!overviews) return <LoadingCards />
 
   if (overviews.length === 0) {
     return (

@@ -26,6 +26,7 @@ import { formatDate } from '@/lib/format'
 import { PageHeader } from '@/components/PageHeader'
 import { useConfirm } from '@/components/useConfirm'
 import { TestsTabs } from '@/components/TestsTabs'
+import { LoadingCards } from '@/components/LoadingCards'
 
 const selectClass =
   'h-9 rounded-lg border border-border bg-background px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50'
@@ -223,7 +224,7 @@ export function AdminAssignmentsPage() {
           </p>
         )}
         {error && <p className="text-sm text-destructive">{error}</p>}
-        {loading && <p className="text-muted-foreground">Se încarcă...</p>}
+        {loading && <LoadingCards />}
         {!loading && assignments.length === 0 && (
           <p className="text-sm text-muted-foreground">Nicio temă încă. Apasă „Dă o temă”.</p>
         )}

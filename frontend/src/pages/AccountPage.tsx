@@ -26,6 +26,7 @@ import { errorMessage } from '@/lib/errors'
 import { formatDate } from '@/lib/format'
 import { roleLabel } from '@/lib/roles'
 import { chooseTheme, readThemeChoice, type ThemeChoice } from '@/lib/theme'
+import { LoadingCards } from '@/components/LoadingCards'
 
 const okText = 'text-sm text-emerald-700 dark:text-emerald-300'
 
@@ -415,7 +416,7 @@ export function AccountPage() {
         <PageHeader title="Contul meu" description="Datele contului, parola, dispozitivele conectate, aplicația pe telefon și datele tale." />
         {dialog}
         {error && <p className="text-sm text-destructive">{error}</p>}
-        {!account && !error && <p className="text-muted-foreground">Se încarcă...</p>}
+        {!account && !error && <LoadingCards />}
         {account && (
           <>
             <Profile account={account} />

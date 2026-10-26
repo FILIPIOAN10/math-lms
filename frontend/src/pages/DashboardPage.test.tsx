@@ -138,6 +138,14 @@ describe('DashboardPage — student', () => {
     expect(screen.getByTestId('awaiting-grading')).toHaveTextContent('1')
   })
 
+  it("shows card-shaped placeholders while the student's home loads", async () => {
+    api.getMyProgress.mockReturnValue(new Promise(() => {}))
+    renderHome()
+
+    expect(await screen.findByRole('status', { busy: true })).toBeInTheDocument()
+    expect(screen.getAllByTestId('skeleton-card').length).toBeGreaterThan(0)
+  })
+
   it('says quietly that nothing waits for the teacher, instead of a big 0', async () => {
     api.getMyProgress.mockResolvedValue([point({})])
     api.getMyAttempts.mockResolvedValue([])

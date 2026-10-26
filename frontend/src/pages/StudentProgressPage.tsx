@@ -7,6 +7,7 @@ import { PageHeader } from '@/components/PageHeader'
 import { HomeSection } from '@/components/home/HomeBits'
 import { MasteryList } from '@/components/MasteryList'
 import { EnMasteryList } from '@/components/EnMasteryList'
+import { LoadingCards } from '@/components/LoadingCards'
 
 /** The student's own progress: their level per chapter (tests and practice), and how every graded test went over time. */
 export function StudentProgressPage() {
@@ -56,7 +57,7 @@ export function StudentProgressPage() {
           </HomeSection>
         )}
         {error && <p className="text-sm text-destructive">{error}</p>}
-        {!points && !error && <p className="text-muted-foreground">Se încarcă...</p>}
+        {!points && !error && <LoadingCards />}
         {points && (
           <HomeSection title="Testele notate">
             <Card>

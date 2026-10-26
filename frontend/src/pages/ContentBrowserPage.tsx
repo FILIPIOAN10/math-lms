@@ -16,6 +16,7 @@ import {
   type SchoolClass,
 } from '@/lib/api'
 import { PageHeader } from '@/components/PageHeader'
+import { LoadingCards } from '@/components/LoadingCards'
 
 const DIFFICULTY_STYLE: Record<Difficulty, { label: string; className: string }> = {
   EASY: { label: 'Ușor', className: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' },
@@ -146,7 +147,7 @@ export function ContentBrowserPage() {
           ] : undefined}
         />
 
-        {loading && <p className="text-muted-foreground">Se încarcă...</p>}
+        {loading && <LoadingCards />}
         {!loading && error && <p className="text-sm text-destructive">{error}</p>}
 
         {/* Level: exercises (a chapter is open) */}

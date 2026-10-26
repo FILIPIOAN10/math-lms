@@ -30,6 +30,7 @@ import {
 import { errorMessage } from '@/lib/errors'
 import { formatDate } from '@/lib/format'
 import { scoreLine } from '@/lib/grades'
+import { LoadingCards } from '@/components/LoadingCards'
 
 /** Where the teacher reads (and, while it waits, grades) one paper: the grading screen opened on it. */
 const paperHref = (attemptId: number) => `/admin/grading?attempt=${attemptId}`
@@ -93,7 +94,7 @@ export function AdminStudentPage() {
         />
 
         {error && <p className="text-sm text-destructive">{error}</p>}
-        {!data && !error && <p className="text-muted-foreground">Se încarcă...</p>}
+        {!data && !error && <LoadingCards />}
 
         {data && (
           <>

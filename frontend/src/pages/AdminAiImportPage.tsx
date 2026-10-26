@@ -35,6 +35,7 @@ import { PhotoCrop } from '@/components/PhotoCrop'
 import { errorMessage } from '@/lib/errors'
 import { formatDate, optionLetter, roCount } from '@/lib/format'
 import { shrinkImage } from '@/lib/image'
+import { LoadingCards } from '@/components/LoadingCards'
 
 const selectClass =
   'h-9 rounded-lg border border-border bg-background px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50'
@@ -306,7 +307,7 @@ function ImportView({ id, classes, chapters, enChapters }: {
         { label: 'Din poze', to: '/admin/quizzes/ai-import' }, { label: 'Verificare' }]} />
       {confirmDialog}
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-      {ai === null && !error && <p className="text-muted-foreground">Se încarcă...</p>}
+      {ai === null && !error && <LoadingCards />}
       {ai !== null && waiting && (
         <Card>
           <CardContent className="space-y-2 pt-4" role="status">

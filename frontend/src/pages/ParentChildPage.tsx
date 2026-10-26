@@ -26,6 +26,7 @@ import { errorMessage } from '@/lib/errors'
 import { scoreLine } from '@/lib/grades'
 import { formatDate } from '@/lib/format'
 import { PageHeader } from '@/components/PageHeader'
+import { LoadingCards } from '@/components/LoadingCards'
 
 /**
  * One child, read-only: their homework (what is due, overdue, handed in), progress chart and attempts. A child that is
@@ -78,7 +79,7 @@ export function ParentChildPage() {
         />
 
         {error && <p className="text-sm text-destructive">{error}</p>}
-        {!attempts && !error && <p className="text-muted-foreground">Se încarcă...</p>}
+        {!attempts && !error && <LoadingCards />}
         {assignments && (
           <AssignmentsSection
             assignments={assignments}

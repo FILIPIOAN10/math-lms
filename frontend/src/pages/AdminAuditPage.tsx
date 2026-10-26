@@ -16,6 +16,7 @@ import {
 import { AUDIT_CATEGORIES, auditActionLabel, auditActor, auditSubject, linksToStudent } from '@/lib/audit'
 import { errorMessage } from '@/lib/errors'
 import { formatDate } from '@/lib/format'
+import { LoadingCards } from '@/components/LoadingCards'
 
 const selectClass =
   'h-9 rounded-lg border border-border bg-background px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50'
@@ -196,7 +197,7 @@ export function AdminAuditPage() {
         </Card>
 
         {error && <p className="text-sm text-destructive">{error}</p>}
-        {!entries && !error && <p className="text-muted-foreground">Se încarcă...</p>}
+        {!entries && !error && <LoadingCards />}
 
         {entries && entries.length === 0 && (
           <Card>

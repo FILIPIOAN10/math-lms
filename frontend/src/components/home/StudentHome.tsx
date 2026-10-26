@@ -20,6 +20,7 @@ import { scoreLine } from '@/lib/grades'
 import { GradeFigure } from '@/components/GradeFigure'
 import { NewResultBadge } from '@/components/NewResultBadge'
 import { latestGrade, todoAssignments } from '@/lib/home'
+import { LoadingCards } from '@/components/LoadingCards'
 
 interface StudentData {
   assignments: StudentAssignment[]
@@ -50,7 +51,7 @@ export function StudentHome() {
   }, [])
 
   if (error) return <p className="text-sm text-destructive">{error}</p>
-  if (!data) return <p className="text-muted-foreground">Se încarcă...</p>
+  if (!data) return <LoadingCards />
 
   const todo = todoAssignments(data.assignments)
   const homeworkQuizIds = new Set(todo.map((a) => a.quizId))

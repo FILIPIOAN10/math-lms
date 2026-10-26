@@ -6,6 +6,7 @@ import { MathContent } from '@/components/MathContent'
 import { PhotoPages } from '@/components/PhotoPages'
 import { QuestionImage } from '@/components/QuestionImage'
 import { ItemGradeForm } from '@/components/grading/ItemGradeForm'
+import { LoadingCards } from '@/components/LoadingCards'
 import {
   attemptPhotoUrl as attemptPhotoUrlDefault,
   finalizeGrading as finalizeGradingRequest,
@@ -96,7 +97,7 @@ export function GradeByItem({
   }, [attemptIds, getAttemptForGrading])
 
   if (error && !papers) return <p className="text-sm text-destructive">{error}</p>
-  if (!papers) return <p className="text-muted-foreground">Se încarcă lucrările...</p>
+  if (!papers) return <LoadingCards cards={1} />
 
   if (questions.length === 0) {
     return (

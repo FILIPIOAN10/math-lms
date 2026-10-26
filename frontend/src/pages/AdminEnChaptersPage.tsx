@@ -19,6 +19,7 @@ import {
 import { EN_AREAS, enPageContents, sectionPageStatus, treeRows } from '@/lib/enChapters'
 import { errorMessage } from '@/lib/errors'
 import { roCount } from '@/lib/format'
+import { LoadingCards } from '@/components/LoadingCards'
 
 /**
  * The teacher's list of EN chapters: add, rename, reorder within algebra or geometry, delete an empty one, and open a
@@ -104,7 +105,7 @@ export function AdminEnChaptersPage() {
           }
         />
         {error && <p className="text-sm text-destructive">{error}</p>}
-        {!chapters && !error && <p className="text-muted-foreground">Se încarcă...</p>}
+        {!chapters && !error && <LoadingCards />}
 
         {chapters &&
           EN_AREAS.map((area) => {

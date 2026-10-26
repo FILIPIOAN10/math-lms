@@ -43,6 +43,7 @@ import {
 import { PageHeader } from '@/components/PageHeader'
 import { useConfirm } from '@/components/useConfirm'
 import { errorMessage } from '@/lib/errors'
+import { LoadingCards } from '@/components/LoadingCards'
 
 const DIFFICULTIES: Difficulty[] = ['EASY', 'MEDIUM', 'HARD']
 const selectClass =
@@ -451,7 +452,7 @@ export function AdminContentPage() {
 
         {error && <p className="text-sm text-destructive">{error}</p>}
 
-        {loading && <p className="text-muted-foreground">Se încarcă...</p>}
+        {loading && <LoadingCards />}
 
         {/* Exercises level */}
         {!loading && chapter && exercises.length > 0 && (

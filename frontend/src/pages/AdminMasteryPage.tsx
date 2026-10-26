@@ -10,6 +10,7 @@ import { getClassEnMastery, getClassMastery, getClassReview, listClasses, type C
 import { roCount } from '@/lib/format'
 import { errorMessage } from '@/lib/errors'
 import { classAverage, MASTERY_LABELS, MASTERY_TONES, masteryLevel } from '@/lib/mastery'
+import { LoadingCards } from '@/components/LoadingCards'
 
 /** The class average of one chapter: the mean percent of the students who have data there. */
 function average(grid: ClassMastery, column: number) {
@@ -67,7 +68,7 @@ export function AdminMasteryPage() {
           breadcrumbs={[{ label: 'Clase', to: '/admin/content' }, { label: className ?? 'Clasă' }, { label: 'Pe capitole' }]}
         />
         {error && <p className="text-sm text-destructive">{error}</p>}
-        {!grid && !error && <p className="text-muted-foreground">Se încarcă...</p>}
+        {!grid && !error && <LoadingCards />}
 
         {grid && grid.chapters.length === 0 && (
           <p className="text-sm text-muted-foreground">Clasa nu are încă capitole. Adaugă cărți și capitole din Conținut.</p>

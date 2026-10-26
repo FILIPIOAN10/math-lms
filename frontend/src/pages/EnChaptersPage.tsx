@@ -6,6 +6,7 @@ import { HomeSection } from '@/components/home/HomeBits'
 import { listEnChapters, type EnChapterSummary } from '@/lib/api'
 import { EN_AREAS, enPageContents, hasEnContent, inArea, rootsOf } from '@/lib/enChapters'
 import { errorMessage } from '@/lib/errors'
+import { LoadingCards } from '@/components/LoadingCards'
 
 /**
  * The EN chapter pages, as students and parents browse them: algebra, then geometry. A chapter whose page the teacher
@@ -33,7 +34,7 @@ export function EnChaptersPage() {
           description="Materia și modele rezolvate pentru fiecare tip de exercițiu de la Evaluarea Națională."
         />
         {error && <p className="text-sm text-destructive">{error}</p>}
-        {!chapters && !error && <p className="text-muted-foreground">Se încarcă...</p>}
+        {!chapters && !error && <LoadingCards />}
         {chapters &&
           EN_AREAS.map((area) => {
             const list = inArea(rootsOf(chapters), area.value)

@@ -17,6 +17,7 @@ import {
 } from '@/lib/api'
 import { photoIndexOf } from '@/lib/enChapters'
 import { errorMessage } from '@/lib/errors'
+import { LoadingCards } from '@/components/LoadingCards'
 
 /** One worked example: try it first, then open the explained solution. */
 function ExampleCard({ chapterId, example, number }: { chapterId: number; example: EnExample; number: number }) {
@@ -151,7 +152,7 @@ export function EnChapterPage() {
           breadcrumbs={[{ label: 'Capitole EN', to: '/capitole' }, ...(page ? [{ label: page.code }] : [])]}
         />
         {error && <p className="text-sm text-destructive">{error}</p>}
-        {!page && !error && <p className="text-muted-foreground">Se încarcă...</p>}
+        {!page && !error && <LoadingCards />}
         {empty && <p className="text-muted-foreground">Profesorul n-a pus încă materia pentru acest capitol.</p>}
 
         {page?.notes && (

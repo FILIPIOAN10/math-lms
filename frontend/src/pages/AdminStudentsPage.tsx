@@ -17,6 +17,7 @@ import {
 } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
 import { formatDate } from '@/lib/format'
+import { LoadingCards } from '@/components/LoadingCards'
 
 /**
  * T6 "Elevi și părinți": everything about people in one place — accounts waiting for approval (only while someone
@@ -123,7 +124,7 @@ export function AdminStudentsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {loading && <p className="text-muted-foreground">Se încarcă...</p>}
+            {loading && <LoadingCards />}
 
             {!loading && error && <p className="text-sm text-destructive">{error}</p>}
 

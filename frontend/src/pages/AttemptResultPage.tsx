@@ -5,6 +5,7 @@ import { getAttemptResult, markResultSeen, type AttemptResultViewDto } from '@/l
 import { errorMessage } from '@/lib/errors'
 import { NAV_COUNTS_CHANGED } from '@/lib/roles'
 import { usePageTitle } from '@/lib/usePageTitle'
+import { LoadingCards } from '@/components/LoadingCards'
 
 /** The student's own result (Q8 backend): score, per-item right/wrong, and the barem after submit. */
 export function AttemptResultPage() {
@@ -42,7 +43,7 @@ export function AttemptResultPage() {
         </div>
 
         {error && <p className="text-sm text-destructive">{error}</p>}
-        {!result && !error && <p className="text-muted-foreground">Se încarcă...</p>}
+        {!result && !error && <LoadingCards />}
 
         {result && <AttemptResultView result={result} />}
       </div>

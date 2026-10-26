@@ -7,6 +7,7 @@ import { numberItems } from '@/lib/sections'
 import { getQuizStats, type QuizStatsDto } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
 import { PageHeader } from '@/components/PageHeader'
+import { LoadingCards } from '@/components/LoadingCards'
 
 /** A horizontal bar: `fraction` (0..1) of the track is filled. Plain divs on theme colors. */
 function Bar({ fraction }: { fraction: number }) {
@@ -53,7 +54,7 @@ export function AdminQuizStatsPage() {
         />
 
         {error && <p className="text-sm text-destructive">{error}</p>}
-        {!stats && !error && <p className="text-muted-foreground">Se încarcă...</p>}
+        {!stats && !error && <LoadingCards />}
 
         {stats && (
           <>

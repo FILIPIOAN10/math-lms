@@ -14,6 +14,7 @@ import {
   type TwoFactorStatus,
 } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
+import { LoadingCards } from '@/components/LoadingCards'
 
 const okText = 'text-sm text-emerald-700 dark:text-emerald-300'
 
@@ -124,7 +125,7 @@ export function TwoFactorSection() {
           {codes ? (
             <RecoveryCodes codes={codes} onDone={() => setCodes(null)} />
           ) : !status ? (
-            <p className="text-muted-foreground">Se încarcă...</p>
+            <LoadingCards />
           ) : status.enabled ? (
             <>
               <p className={okText}>✓ Activă. Coduri de recuperare rămase: {status.recoveryCodesLeft} din 10.</p>

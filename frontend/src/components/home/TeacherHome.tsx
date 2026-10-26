@@ -19,6 +19,7 @@ import { dueCountdown } from '@/lib/assignments'
 import { errorMessage } from '@/lib/errors'
 import { formatDate } from '@/lib/format'
 import { firstRunSteps, upcomingDeadlines, type FirstRunStep } from '@/lib/home'
+import { LoadingCards } from '@/components/LoadingCards'
 
 const GRADING_PREVIEW = 5
 /** With this few students left, a deadline names them ("Lipsește: Radu Marin") - the one thing the teacher acts on. */
@@ -80,7 +81,7 @@ export function TeacherHome({ canApprove = true }: { canApprove?: boolean }) {
   }, [canApprove, loadedAt])
 
   if (error) return <p className="text-sm text-destructive">{error}</p>
-  if (!data) return <p className="text-muted-foreground">Se încarcă...</p>
+  if (!data) return <LoadingCards />
 
   const open = data.assignments.filter((a) => !a.overdue).length
   const deadlines = upcomingDeadlines(data.assignments, loadedAt)

@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { listMyChildren, type ChildDto } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
 import { PageHeader } from '@/components/PageHeader'
+import { LoadingCards } from '@/components/LoadingCards'
 
 /** The parent's home: the students an admin linked to this account. */
 export function ParentChildrenPage() {
@@ -27,7 +28,7 @@ export function ParentChildrenPage() {
         <PageHeader title="Copiii mei" description="Testele și progresul fiecărui copil legat de contul tău." />
 
         {error && <p className="text-sm text-destructive">{error}</p>}
-        {!children && !error && <p className="text-muted-foreground">Se încarcă...</p>}
+        {!children && !error && <LoadingCards />}
 
         {children && children.length === 0 && (
           <p className="text-sm text-muted-foreground" data-testid="no-children">

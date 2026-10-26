@@ -9,6 +9,7 @@ import { answerReview, getReviewToday, type ReviewResult, type ReviewToday } fro
 import { errorMessage } from '@/lib/errors'
 import { roCount } from '@/lib/format'
 import { OptionLetter } from '@/components/OptionLetter'
+import { LoadingCards } from '@/components/LoadingCards'
 
 const BOXES = 5
 
@@ -102,7 +103,7 @@ export function ReviewPage() {
           description="Câte puțin în fiecare zi: întrebările greșite revin a doua zi, cele știute tot mai rar (după 3, 7, 14, 30 de zile)."
         />
         {loadError && <p className="text-sm text-destructive">{loadError}</p>}
-        {!today && !loadError && <p className="text-muted-foreground">Se încarcă...</p>}
+        {!today && !loadError && <LoadingCards />}
 
         {today && (
           <p data-testid="review-stats" className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
