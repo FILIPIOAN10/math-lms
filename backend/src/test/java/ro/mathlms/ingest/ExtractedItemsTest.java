@@ -92,6 +92,38 @@ class ExtractedItemsTest {
         assertThat(out.points()).isEqualTo(5);
     }
 
+    private static ExtractedItem on(int page, String section, String statement) {
+        return new ExtractedItem(page, section, QuizItemType.SINGLE_CHOICE, statement, List.of("a", "b"), 5, false, List.of());
+    }
+
+    @Test
+    void pagesSentOutOfOrderStillGiveSubiectulIThenIIThenIII() {
+        List<ExtractedItem> out = ExtractedItems.normalize(List.of(
+                // photo 1: the end of SUBIECTUL I (no heading on this page), then SUBIECTUL al II-lea
+                on(1, null, "I.5"), on(1, null, "I.6"),
+                on(1, "SUBIECTUL al II-lea. Încercuiește litera", "II.1"), on(1, null, "II.2"),
+                // photo 2: SUBIECTUL al III-lea
+                on(2, "SUBIECTUL al III-lea", "III.1"),
+                // photo 3: the start of the test
+                on(3, "SUBIECTUL I. Încercuiește litera", "I.1"), on(3, "SUBIECTUL I. Încercuiește litera", "I.2")), 3);
+
+        assertThat(out).extracting(ExtractedItem::statement)
+                .containsExactly("I.1", "I.2", "I.5", "I.6", "II.1", "II.2", "III.1");
+        // a question under no heading belongs to the one before it, so the numbering runs on (I.5, not 1)
+        assertThat(out.get(2).section()).isEqualTo("SUBIECTUL I. Încercuiește litera");
+        assertThat(out.get(5).section()).isEqualTo("SUBIECTUL al II-lea. Încercuiește litera");
+        assertThat(out.get(2).page()).isEqualTo(1); // the page each came from is kept (previews, figures)
+    }
+
+    @Test
+    void aTestWithoutSubiectulHeadingsKeepsTheReadingOrder() {
+        List<ExtractedItem> out = ExtractedItems.normalize(List.of(
+                on(2, "Exerciții de consolidare", "b"), on(1, null, "a")), 2);
+
+        assertThat(out).extracting(ExtractedItem::statement).containsExactly("b", "a");
+        assertThat(out.get(1).section()).isNull();
+    }
+
     @Test
     void enHeadingsReadAsPrinted() {
         assertThat(ExtractedItems.enHeading("SUBIECTUL II-lea\nÎncercuiește litera"))

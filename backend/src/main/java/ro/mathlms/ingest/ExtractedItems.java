@@ -100,7 +100,71 @@ final class ExtractedItems {
                     List.copyOf(options), points, item.hasFigure(), List.copyOf(warnings), List.copyOf(parts), null, null,
                     figurePage, figureBox));
         }
+        return inExamOrder(out);
+    }
+
+    private static final java.util.regex.Pattern SUBIECTUL =
+            java.util.regex.Pattern.compile("^subiectul\\s+(?:al\\s+)?([ivx]+)\\b",java.util.regex.Pattern.CASE_INSENSITIVE);
+
+    /**
+     * Photos sent out of order (Subiectul II's page first) still give SUBIECTUL I, then II, then III. Pages, not
+     * questions, are put in order - by the first SUBIECTUL heading on each (a page without one stays after the page
+     * before it) - so a question continuing a subject at the top of a page stays with that subject. A question under
+     * no heading takes the heading of the one before it, so the numbering runs on. A test without SUBIECTUL headings
+     * keeps the order it was read in.
+     */
+    static List<ExtractedItem> inExamOrder(List<ExtractedItem> items) {
+        java.util.Map<Integer, Integer> firstSubject = new java.util.HashMap<>();
+        for (ExtractedItem item : items) {
+            Integer subject = subjectNumber(item.section());
+            if (subject != null) {
+                firstSubject.putIfAbsent(item.page(), subject);
+            }
+        }
+        if (firstSubject.isEmpty()) {
+            return items;
+        }
+        java.util.Map<Integer, Integer> pageRank = new java.util.HashMap<>();
+        int previous = 0;
+        for (ExtractedItem item : items) {
+            if (!pageRank.containsKey(item.page())) {
+                previous = firstSubject.getOrDefault(item.page(), previous);
+                pageRank.put(item.page(), previous);
+            }
+        }
+        List<ExtractedItem> sorted = new ArrayList<>(items);
+        sorted.sort(java.util.Comparator.comparingInt(i -> pageRank.get(i.page()))); // stable: reading order within a page
+        List<ExtractedItem> out = new ArrayList<>();
+        String section = null;
+        for (ExtractedItem item : sorted) {
+            if (item.section() != null) {
+                section = item.section();
+            }
+            out.add(item.section() != null || section == null ? item : new ExtractedItem(item.page(), section, item.type(),
+                    item.statement(), item.options(), item.points(), item.hasFigure(), item.warnings(), item.parts(),
+                    item.enChapter(), item.enChapterReason(), item.figurePage(), item.figureBox()));
+        }
         return out;
+    }
+
+    /** "SUBIECTUL al II-lea..." -> 2; anything else -> null. */
+    static Integer subjectNumber(String section) {
+        if (section == null) {
+            return null;
+        }
+        java.util.regex.Matcher m = SUBIECTUL.matcher(section.strip());
+        if (!m.find()) {
+            return null;
+        }
+        return switch (m.group(1).toUpperCase(java.util.Locale.ROOT)) {
+            case "I" -> 1;
+            case "II" -> 2;
+            case "III" -> 3;
+            case "IV" -> 4;
+            case "V" -> 5;
+            case "VI" -> 6;
+            default -> null;
+        };
     }
 
     /**
