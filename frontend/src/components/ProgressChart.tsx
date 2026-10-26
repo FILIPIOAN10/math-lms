@@ -1,5 +1,12 @@
 import { type ProgressPointDto } from '@/lib/api'
 import { formatDate } from '@/lib/format'
+import { formatGrade, romanianGrade } from '@/lib/grades'
+
+/** "8,80", or "—" for a quiz worth no points. */
+const gradeOf = (p: ProgressPointDto) => {
+  const grade = romanianGrade(p.score, p.maxScore)
+  return grade === null ? '—' : formatGrade(grade)
+}
 
 const WIDTH = 640
 const HEIGHT = 260
@@ -42,9 +49,16 @@ export function ProgressChart({ points }: { points: ProgressPointDto[] }) {
         ))}
         <path d={path} fill="none" className="stroke-primary" strokeWidth={2.5} strokeLinejoin="round" />
         {points.map((p, i) => (
-          <circle key={p.attemptId} cx={x(i)} cy={y(p.percent)} r={5} className="fill-primary stroke-background" strokeWidth={2}>
-            <title>{`${p.quizTitle} — ${p.score}/${p.maxScore} (${p.percent}%) · ${formatDate(p.submittedAt)}`}</title>
-          </circle>
+          <g key={p.attemptId}>
+            <circle cx={x(i)} cy={y(p.percent)} r={5} className="fill-primary stroke-background" strokeWidth={2}>
+              <title>{`${p.quizTitle} — nota ${gradeOf(p)}, ${p.score}/${p.maxScore} (${p.percent}%) · ${formatDate(p.submittedAt)}`}</title>
+            </circle>
+            {/* The grade over each point (under it near the top edge), so the line reads in the 1–10 scale too. */}
+            <text data-testid="point-grade" x={x(i)} y={p.percent > 88 ? y(p.percent) + 18 : y(p.percent) - 10} textAnchor="middle"
+                  className="fill-foreground text-[11px] font-medium">
+              {gradeOf(p)}
+            </text>
+          </g>
         ))}
         <text x={x(0)} y={HEIGHT - 10} textAnchor={points.length === 1 ? 'middle' : 'start'}
               className="fill-muted-foreground text-[11px]">
@@ -71,7 +85,8 @@ export function ProgressChart({ points }: { points: ProgressPointDto[] }) {
               <td className="py-1">{p.quizTitle}</td>
               <td className="py-1 text-muted-foreground">{formatDate(p.submittedAt)}</td>
               <td className="py-1 text-right">
-                {p.score} / {p.maxScore} <span className="text-muted-foreground">({p.percent}%)</span>
+                <span className="font-semibold tabular-nums">{gradeOf(p)}</span>{' '}
+                <span className="text-muted-foreground">{p.score} / {p.maxScore} ({p.percent}%)</span>
               </td>
             </tr>
           ))}

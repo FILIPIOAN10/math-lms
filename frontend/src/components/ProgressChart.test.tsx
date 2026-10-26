@@ -41,6 +41,19 @@ describe('ProgressChart', () => {
     expect(rows[1]).toHaveTextContent('(87%)')
   })
 
+  it('writes the 1–10 grade on every point and leads each row with it (the column is "Nota")', () => {
+    const { container } = render(
+      <ProgressChart points={[
+        point({ attemptId: 1, quizTitle: 'Test 1', score: 5, maxScore: 10, percent: 50 }),
+        point({ attemptId: 2, quizTitle: 'Test 2', score: 13, maxScore: 15, percent: 87 }),
+      ]} />,
+    )
+
+    expect([...container.querySelectorAll('[data-testid="point-grade"]')].map((t) => t.textContent)).toEqual(['5,50', '8,80'])
+    expect(container.querySelectorAll('circle title')[1].textContent).toContain('nota 8,80')
+    expect(screen.getAllByTestId('progress-row')[1]).toHaveTextContent(/8,80\s*13 \/ 15 \(87%\)/)
+  })
+
   it('gives the chart an accessible summary with the average and the latest result', () => {
     render(<ProgressChart points={[point({ attemptId: 1, percent: 50 }), point({ attemptId: 2, percent: 90 })]} />)
 
