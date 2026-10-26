@@ -76,6 +76,23 @@ describe('AdminAiImportPage', () => {
     await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/admin/quizzes/ai-import/5'))
   })
 
+  it('takes a scanned PDF as it is, next to photos - the server turns its pages into images', async () => {
+    const user = userEvent.setup()
+    api.createAiImport.mockResolvedValue(done({ status: 'QUEUED', items: null }))
+    renderAt('/admin/quizzes/ai-import')
+    await screen.findByText(/Azi mai poți trimite/)
+
+    const pdf = new File(['%PDF-1.3'], 'testul1.pdf', { type: 'application/pdf' })
+    await user.upload(screen.getByTestId('ai-gallery'), pdf)
+
+    expect(screen.getByTestId('ai-gallery')).toHaveAttribute('accept', expect.stringContaining('application/pdf'))
+    expect(screen.getByText('testul1.pdf')).toBeInTheDocument() // a file tile, not a broken picture
+    await user.click(screen.getByLabelText(/doar pagini din manual/))
+    await user.click(screen.getByRole('button', { name: 'Citește 1 fișier' }))
+
+    expect(api.createAiImport).toHaveBeenCalledWith([pdf], null, null)
+  })
+
   it('says so where the server does not read photos', async () => {
     api.getAiImportSettings.mockResolvedValue({ enabled: false, maxPages: 0, dailyPageLimit: 0, pagesUsedToday: 0 })
     renderAt('/admin/quizzes/ai-import')

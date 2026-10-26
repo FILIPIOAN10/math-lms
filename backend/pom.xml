@@ -83,6 +83,12 @@
 			<artifactId>minio</artifactId>
 			<version>9.0.3</version>
 		</dependency>
+		<!-- "Test din poze" takes scanned PDFs: each page is rendered to an image before it is read. -->
+		<dependency>
+			<groupId>org.apache.pdfbox</groupId>
+			<artifactId>pdfbox</artifactId>
+			<version>3.0.8</version>
+		</dependency>
 		<!-- okhttp 5's "okhttp" jar is an empty stub for Gradle (Kotlin multiplatform); Maven needs the JVM jar named. -->
 		<dependency>
 			<groupId>com.squareup.okhttp3</groupId>

@@ -142,10 +142,11 @@ public class AiImportService {
     public AiImportDto create(String email, List<MultipartFile> files, Long schoolClassId, Long chapterId) {
         requireEnabled();
         User teacher = teacher(email);
-        List<MultipartFile> pages = files == null ? List.of() : files.stream().filter(f -> f != null && !f.isEmpty()).toList();
-        if (pages.isEmpty()) {
+        List<MultipartFile> uploads = files == null ? List.of() : files.stream().filter(f -> f != null && !f.isEmpty()).toList();
+        if (uploads.isEmpty()) {
             throw new InvalidQuizException("Alege cel puțin o poză cu o pagină din manual.");
         }
+        List<MultipartFile> pages = pagesOf(uploads);
         if (pages.size() > properties.maxPages()) {
             throw new InvalidQuizException("Poți trimite cel mult " + properties.maxPages() + " pagini odată.");
         }
@@ -184,6 +185,33 @@ public class AiImportService {
         AiImport saved = repository.save(new AiImport(teacher.getId(), schoolClassId, chapterId, stored.size(),
                 write(stored), clock.instant()));
         return dto(saved, false);
+    }
+
+    /**
+     * Photos as they are; a scanned PDF as its pages, each rendered to a JPEG here (so a PDF counts as its pages
+     * toward both limits). Its page count is checked before anything is rendered.
+     */
+    private List<MultipartFile> pagesOf(List<MultipartFile> uploads) {
+        List<MultipartFile> pages = new ArrayList<>();
+        for (MultipartFile upload : uploads) {
+            boolean pdf = "application/pdf".equals(upload.getContentType())
+                    || (upload.getOriginalFilename() != null && upload.getOriginalFilename().toLowerCase(java.util.Locale.ROOT).endsWith(".pdf"));
+            if (!pdf) {
+                pages.add(upload);
+                continue;
+            }
+            byte[] bytes;
+            try {
+                bytes = upload.getBytes();
+            } catch (IOException e) {
+                throw new UncheckedIOException("Nu am putut citi PDF-ul", e);
+            }
+            List<byte[]> rendered = PdfPages.render(bytes, properties.maxPages());
+            for (int i = 0; i < rendered.size(); i++) {
+                pages.add(new JpegUpload(rendered.get(i), "pagina-" + (i + 1) + ".jpg"));
+            }
+        }
+        return pages;
     }
 
     @Transactional(readOnly = true)
@@ -309,7 +337,7 @@ public class AiImportService {
             try {
                 byte[] page = fileService.loadImage(properties.pagesDir(), pages.get(figure.page() - 1).key())
                         .getContentAsByteArray();
-                questionImages.attach(item.getId(), new CutFigure(FigureCropper.crop(page, figure.box())));
+                questionImages.attach(item.getId(), new JpegUpload(FigureCropper.crop(page, figure.box()), "figura.jpg"));
             } catch (IOException e) {
                 log.warn("Quiz {}: the figure of question {} could not be cut from page {} - left for the teacher",
                         quizId, figure.index() + 1, figure.page(), e);
@@ -317,8 +345,8 @@ public class AiImportService {
         }
     }
 
-    /** A cut figure, handed to the question-picture service as an upload of its own. */
-    private record CutFigure(byte[] bytes) implements MultipartFile {
+    /** A JPEG made here (a cut figure, a rendered PDF page), handed on as an upload of its own. */
+    private record JpegUpload(byte[] bytes, String filename) implements MultipartFile {
 
         @Override
         public String getName() {
@@ -327,7 +355,7 @@ public class AiImportService {
 
         @Override
         public String getOriginalFilename() {
-            return "figura.jpg";
+            return filename;
         }
 
         @Override

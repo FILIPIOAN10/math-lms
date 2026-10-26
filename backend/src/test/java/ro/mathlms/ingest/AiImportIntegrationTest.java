@@ -244,6 +244,32 @@ class AiImportIntegrationTest {
     }
 
     @Test
+    void aScannedPdfIsReadPageByPageLikePhotos() throws Exception {
+        long id = uploadedId(mockMvc.perform(multipart("/api/admin/ai-imports")
+                .file(new MockMultipartFile("files", "testul1.pdf", "application/pdf", PdfPagesTest.scannedPdf(2)))
+                .with(as(teacher)).with(csrf())));
+
+        List<Path> files = pageFiles(id);
+        assertThat(files).hasSize(2).allMatch(Files::exists); // one stored image per PDF page
+        assertThat(importRepository.findById(id).orElseThrow().getPageCount()).isEqualTo(2);
+        mockMvc.perform(get("/api/admin/ai-imports/" + id + "/pages/2").with(as(teacher))).andExpect(status().isOk());
+
+        assertThat(service.processNext()).isTrue();
+        JsonNode done = json(mockMvc.perform(get("/api/admin/ai-imports/" + id).with(as(teacher))));
+        assertThat(done.get("status").asString()).isEqualTo("DONE");
+        assertThat(done.get("items").get(3).get("page").asInt()).isEqualTo(2);
+    }
+
+    @Test
+    void aPdfWithMorePagesThanOneImportTakesIsRefused() throws Exception {
+        mockMvc.perform(multipart("/api/admin/ai-imports")
+                        .file(new MockMultipartFile("files", "manual.pdf", "application/pdf",
+                                PdfPagesTest.scannedPdf(properties.maxPages() + 1)))
+                        .with(as(teacher)).with(csrf()))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void anotherTeacherSeesNothingOfIt() throws Exception {
         long id = uploadedId(upload(teacher, 1));
         mockMvc.perform(get("/api/admin/ai-imports/" + id).with(as(otherTeacher))).andExpect(status().isNotFound());

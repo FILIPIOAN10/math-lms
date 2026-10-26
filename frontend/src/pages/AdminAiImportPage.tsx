@@ -43,6 +43,9 @@ const selectClass =
 /** How often the page asks whether the pages have been read. */
 const POLL_MS = 2000
 
+/** A PDF (scanned pages): sent as it is, the server renders its pages. Some browsers leave its type empty. */
+const isPdf = (f: File) => f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf')
+
 const STATUS_LABEL: Record<AiImport['status'], string> = {
   QUEUED: 'În așteptare',
   RUNNING: 'Se citește',
@@ -104,8 +107,9 @@ function UploadView({ classes, chapters }: { classes: SchoolClass[]; chapters: C
     listAiImports().then(setRecent).catch(() => undefined)
   }, [])
 
-  const previews = useMemo(() => pages.map((p) => URL.createObjectURL(p)), [pages])
-  useEffect(() => () => previews.forEach((url) => URL.revokeObjectURL(url)), [previews])
+  const previews = useMemo(() => pages.map((p) => (isPdf(p) ? '' : URL.createObjectURL(p))), [pages])
+  useEffect(() => () => previews.forEach((url) => url && URL.revokeObjectURL(url)), [previews])
+  const hasPdf = pages.some(isPdf)
 
   const maxPages = settings?.maxPages ?? 5
   const leftToday = settings ? Math.max(0, settings.dailyPageLimit - settings.pagesUsedToday) : 0
@@ -113,7 +117,8 @@ function UploadView({ classes, chapters }: { classes: SchoolClass[]; chapters: C
 
   function add(files: FileList | File[] | null) {
     if (!files) return
-    const images = Array.from(files).filter((f) => f.type.startsWith('image/'))
+    // Photos, and scanned PDFs as they are: the server turns each PDF page into an image (and counts those pages).
+    const images = Array.from(files).filter((f) => f.type.startsWith('image/') || isPdf(f))
     setError(images.length + pages.length > maxPages ? `Poți trimite cel mult ${maxPages} pagini odată.` : null)
     setPages((current) => [...current, ...images].slice(0, maxPages))
   }
@@ -128,8 +133,8 @@ function UploadView({ classes, chapters }: { classes: SchoolClass[]; chapters: C
     setBusy(true)
     setError(null)
     try {
-      // Long edge 2000 px keeps small print readable at a few hundred KB a page.
-      const shrunk = await Promise.all(pages.map((p) => shrinkImage(p, 2000, 0.85)))
+      // Long edge 2000 px keeps small print readable at a few hundred KB a page (a PDF goes as it is).
+      const shrunk = await Promise.all(pages.map((p) => (isPdf(p) ? p : shrinkImage(p, 2000, 0.85))))
       const created = await createAiImport(shrunk, classId, chapterId)
       navigate(`/admin/quizzes/ai-import/${created.id}`)
     } catch (e) {
@@ -152,7 +157,7 @@ function UploadView({ classes, chapters }: { classes: SchoolClass[]; chapters: C
       <PageHeader
         title="Test din poze"
         breadcrumbs={crumbs('Din poze')}
-        description="Fotografiază 1–5 pagini din manual sau culegere. Le citim, verifici fiecare exercițiu, marchezi răspunsurile corecte și primești un test ciornă."
+        description="Fotografiază 1–5 pagini din manual sau culegere, sau încarcă un PDF scanat. Le citim, verifici fiecare exercițiu, marchezi răspunsurile corecte și primești un test ciornă."
       />
 
       <Card>
@@ -181,18 +186,25 @@ function UploadView({ classes, chapters }: { classes: SchoolClass[]; chapters: C
               <Button type="button" variant="outline" size="sm" onClick={() => camera.current?.click()}
                       disabled={pages.length >= maxPages}>Fă o poză</Button>
               <Button type="button" variant="outline" size="sm" onClick={() => gallery.current?.click()}
-                      disabled={pages.length >= maxPages}>Alege din galerie</Button>
+                      disabled={pages.length >= maxPages}>Alege poze sau PDF</Button>
               <span className="self-center text-xs text-muted-foreground">sau lipește (Ctrl+V) o captură</span>
             </div>
             <input ref={camera} type="file" accept="image/*" capture="environment" className="hidden"
                    data-testid="ai-camera" onChange={(e) => { add(e.target.files); e.target.value = '' }} />
-            <input ref={gallery} type="file" accept="image/*" multiple className="hidden"
+            <input ref={gallery} type="file" accept="image/*,application/pdf,.pdf" multiple className="hidden"
                    data-testid="ai-gallery" onChange={(e) => { add(e.target.files); e.target.value = '' }} />
             {pages.length > 0 && (
               <ul className="flex flex-wrap gap-3" aria-label="Paginile alese">
                 {pages.map((page, i) => (
-                  <li key={previews[i]} className="space-y-1">
-                    <img src={previews[i]} alt={`Pagina ${i + 1}`} className="h-32 rounded-lg border object-contain" />
+                  <li key={`${i}-${page.name}`} className="space-y-1">
+                    {isPdf(page) ? (
+                      <div className="flex h-32 w-24 flex-col items-center justify-center gap-1 rounded-lg border bg-muted p-2 text-center">
+                        <span aria-hidden="true" className="text-2xl">📄</span>
+                        <span className="line-clamp-3 text-xs break-all">{page.name}</span>
+                      </div>
+                    ) : (
+                      <img src={previews[i]} alt={`Pagina ${i + 1}`} className="h-32 rounded-lg border object-contain" />
+                    )}
                     <Button type="button" variant="ghost" size="xs" aria-label={`Scoate pagina ${i + 1}`}
                             onClick={() => setPages(pages.filter((p) => p !== page))}>Scoate</Button>
                   </li>
@@ -210,7 +222,9 @@ function UploadView({ classes, chapters }: { classes: SchoolClass[]; chapters: C
           <div className="flex flex-wrap items-center gap-3">
             <Button type="button" onClick={() => void send()}
                     disabled={busy || pages.length === 0 || !onlyTextbook || pages.length > leftToday}>
-              {busy ? 'Se trimite...' : `Citește ${roCount(pages.length, 'pagină', 'pagini')}`}
+              {busy ? 'Se trimite...' : hasPdf
+                ? `Citește ${roCount(pages.length, 'fișier', 'fișiere')}`
+                : `Citește ${roCount(pages.length, 'pagină', 'pagini')}`}
             </Button>
             {settings && (
               <span className="text-xs text-muted-foreground">
