@@ -957,13 +957,15 @@ export function AdminQuizzesPage() {
                               </span>
                             )}
                           </p>
-                          <div className="flex shrink-0 gap-2">
+                          {/* Deleting sits behind ⋯ (with its own confirmation), not as a red button on every card. */}
+                          <div className="flex shrink-0 items-center gap-2">
                             <Button size="xs" variant="outline" onClick={() => setItemDialog({ item })} aria-label={`Editează întrebarea ${label}`}>
                               Editează
                             </Button>
-                            <Button size="xs" variant="destructive" onClick={() => removeItem(item, label)} aria-label={`Șterge întrebarea ${label}`}>
-                              Șterge
-                            </Button>
+                            <RowMenu
+                              label={`Mai multe acțiuni pentru întrebarea ${label}`}
+                              items={[{ label: 'Șterge întrebarea', destructive: true, onClick: () => void removeItem(item, label) }]}
+                            />
                           </div>
                         </div>
                         <MathContent className="text-sm">{item.statement}</MathContent>

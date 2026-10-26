@@ -482,23 +482,28 @@ export function AdminGradingPage() {
             </ConfirmDialog>
 
             {detail.status === 'SUBMITTED' && (
-              <div className="flex flex-wrap items-center justify-end gap-3">
+              <div className="space-y-2">
                 {!allOpenGraded && (
-                  <p className="text-sm text-muted-foreground">Notează toate întrebările cu rezolvare ca să poți finaliza.</p>
+                  <p data-testid="grade-finalize-why" className="text-right text-sm text-muted-foreground">
+                    Notează toate întrebările cu rezolvare ca să poți finaliza.
+                  </p>
                 )}
-                <Button
-                  variant={othersWaiting > 0 ? 'outline' : 'default'}
-                  onClick={() => void askToFinalize('list')}
-                  disabled={!allOpenGraded || finalizing}
-                  data-testid="grade-finalize"
-                >
-                  {finalizing ? 'Se finalizează...' : 'Finalizează nota'}
-                </Button>
-                {othersWaiting > 0 && (
-                  <Button onClick={() => void askToFinalize('next')} disabled={!allOpenGraded || finalizing} data-testid="grade-finalize-next">
-                    Finalizează și treci la următoarea ({othersWaiting} {othersWaiting === 1 ? 'rămasă' : 'rămase'})
+                {/* One main button: with papers still waiting it is "finish and go on"; finishing alone is the quiet one. */}
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <Button
+                    variant={othersWaiting > 0 ? 'ghost' : 'default'}
+                    onClick={() => void askToFinalize('list')}
+                    disabled={!allOpenGraded || finalizing}
+                    data-testid="grade-finalize"
+                  >
+                    {finalizing ? 'Se finalizează...' : othersWaiting > 0 ? 'Doar finalizează' : 'Finalizează nota'}
                   </Button>
-                )}
+                  {othersWaiting > 0 && (
+                    <Button onClick={() => void askToFinalize('next')} disabled={!allOpenGraded || finalizing} data-testid="grade-finalize-next">
+                      Finalizează și treci la următoarea ({othersWaiting} {othersWaiting === 1 ? 'rămasă' : 'rămase'})
+                    </Button>
+                  )}
+                </div>
               </div>
             )}
           </div>

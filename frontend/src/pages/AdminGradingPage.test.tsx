@@ -219,6 +219,30 @@ describe('AdminGradingPage', () => {
     expect(api.getAttemptForGrading).toHaveBeenLastCalledWith(51)
   })
 
+  it('has one main finish button when more papers wait, the other a quiet "Doar finalizează"', async () => {
+    const d = detail()
+    d.items[0] = { ...d.items[0], awardedPoints: 3 }
+    api.listAttemptsForGrading.mockResolvedValue([row(), row({ attemptId: 51, studentName: 'Radu' })])
+    api.getAttemptForGrading.mockResolvedValue(d)
+    renderPage()
+    await userEvent.click((await screen.findAllByTestId('attempt-open'))[0])
+    await screen.findByText('Rezolvă')
+
+    const finish = screen.getByTestId('grade-finalize')
+    expect(finish).toHaveTextContent('Doar finalizează')
+    expect(finish.className).not.toMatch(/bg-primary/)
+    expect(screen.getByTestId('grade-finalize-next').className).toMatch(/bg-primary/)
+  })
+
+  it('makes a finish button that cannot be pressed yet look switched off, and says why above it', async () => {
+    await openAttempt()
+
+    const finish = screen.getByTestId('grade-finalize')
+    expect(finish).toBeDisabled()
+    expect(finish.className).toMatch(/disabled:bg-muted/)
+    expect(screen.getByTestId('grade-finalize-why')).toHaveTextContent('Notează toate întrebările cu rezolvare ca să poți finaliza.')
+  })
+
   it('offers no "next" button on the last paper waiting', async () => {
     const d = detail()
     d.items[0] = { ...d.items[0], awardedPoints: 3 }

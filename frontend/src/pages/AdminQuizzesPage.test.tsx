@@ -152,7 +152,9 @@ describe('AdminQuizzesPage', () => {
     renderAt('/admin/quizzes/7')
     await screen.findByText('Cât face 2+2?')
 
-    await userEvent.click(screen.getByRole('button', { name: 'Șterge întrebarea 1' }))
+    expect(screen.queryByRole('button', { name: 'Șterge întrebarea 1' })).not.toBeInTheDocument() // not next to Editează
+    await userEvent.click(screen.getByRole('button', { name: 'Mai multe acțiuni pentru întrebarea 1' }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Șterge întrebarea' }))
     await userEvent.click(within(await screen.findByRole('dialog', { name: 'Ștergi întrebarea 1?' })).getByRole('button', { name: 'Șterge' }))
 
     await waitFor(() => expect(api.deleteQuizItem).toHaveBeenCalledWith(70))
