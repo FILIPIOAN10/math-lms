@@ -25,6 +25,7 @@ import {
 import { errorMessage } from '@/lib/errors'
 import { formatDate } from '@/lib/format'
 import { roleLabel } from '@/lib/roles'
+import { chooseTheme, readThemeChoice, type ThemeChoice } from '@/lib/theme'
 
 const okText = 'text-sm text-emerald-700 dark:text-emerald-300'
 
@@ -44,6 +45,46 @@ function signInMethods(account: Account): string {
   if (account.hasPassword && account.googleLinked) return 'Email și parolă, Google'
   if (account.googleLinked) return 'Google'
   return 'Email și parolă'
+}
+
+const THEMES: { value: ThemeChoice; label: string; hint: string }[] = [
+  { value: 'light', label: 'Luminos', hint: 'fundal deschis' },
+  { value: 'dark', label: 'Întunecat', hint: 'mai odihnitor seara' },
+  { value: 'system', label: 'Ca sistemul', hint: 'urmează telefonul sau calculatorul' },
+]
+
+/** Light or dark, for this browser only (each phone or computer keeps its own). */
+function AppearanceSection() {
+  const [choice, setChoice] = useState<ThemeChoice>(readThemeChoice)
+  const name = useId()
+  return (
+    <HomeSection title="Aspect">
+      <Card>
+        <CardContent className="py-4">
+          <fieldset className="space-y-2 text-sm">
+            <legend className="mb-2 text-muted-foreground">Doar pe acest dispozitiv.</legend>
+            {THEMES.map((t) => (
+              <label key={t.value} className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 has-checked:border-primary sm:min-h-0">
+                <input
+                  type="radio"
+                  name={name}
+                  value={t.value}
+                  checked={choice === t.value}
+                  onChange={() => {
+                    setChoice(t.value)
+                    chooseTheme(t.value)
+                  }}
+                  aria-label={t.label}
+                />
+                <span className="font-medium">{t.label}</span>
+                <span className="text-muted-foreground">{t.hint}</span>
+              </label>
+            ))}
+          </fieldset>
+        </CardContent>
+      </Card>
+    </HomeSection>
+  )
 }
 
 function Profile({ account }: { account: Account }) {
@@ -378,6 +419,7 @@ export function AccountPage() {
         {account && (
           <>
             <Profile account={account} />
+            <AppearanceSection />
             <PasswordSection account={account} onChanged={() => void reloadSessions()} />
             {(account.role === 'ADMIN' || account.role === 'TEACHER') && <TwoFactorSection />}
             <SessionsSection sessions={sessions} reload={reloadSessions} onLogoutAll={() => void signOutEverywhere()} />

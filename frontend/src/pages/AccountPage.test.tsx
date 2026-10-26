@@ -37,6 +37,20 @@ function renderPage() {
 const section = (name: string) => screen.findByRole('region', { name })
 
 describe('AccountPage', () => {
+  it('switches the app to dark and back from "Aspect", remembering the choice', async () => {
+    renderPage()
+    const aspect = await section('Aspect')
+    expect(within(aspect).getByRole('radio', { name: 'Luminos' })).toBeChecked()
+
+    await userEvent.click(within(aspect).getByRole('radio', { name: 'Întunecat' }))
+    expect(document.documentElement).toHaveClass('dark')
+    expect(localStorage.getItem('mathlms-theme')).toBe('dark')
+
+    await userEvent.click(within(aspect).getByRole('radio', { name: 'Luminos' }))
+    expect(document.documentElement).not.toHaveClass('dark')
+    localStorage.clear()
+  })
+
   beforeEach(() => {
     Object.values(api).forEach((fn) => fn.mockReset())
     auth.logout.mockReset()
