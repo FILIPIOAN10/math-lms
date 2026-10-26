@@ -23,6 +23,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * Admin authoring of quizzes: quiz CRUD, publish, and item/option management. Quiz-level changes are always journalled;
@@ -488,6 +490,67 @@ public class QuizAdminService {
         }
         return ItemDto.from(item, options, hints, parts,
                 linksOf(itemRepository.findByQuizIdOrderByPosition(item.getQuiz().getId())));
+    }
+
+    /**
+     * Saves the barem the teacher kept from the AI's reading of the official barem, all questions in one transaction:
+     * the right option of a grilă, the barem of an open question and of its requirements. Once students took the test
+     * the right option can no longer change (their grile were marked against it) - the texts still can. Each changed
+     * question of a test students see is journalled like an edit. A question or requirement of another test is not
+     * found.
+     */
+    @Transactional
+    public void applyBarem(Long quizId, List<BaremApply.ItemBarem> entries) {
+        Quiz quiz = getQuiz(quizId);
+        boolean taken = quizRepository.countAttempts(quizId) > 0;
+        boolean journalled = seenByStudents(quiz);
+        List<QuizItem> ordered = itemRepository.findByQuizIdOrderByPosition(quizId);
+        Map<Long, QuizItem> items = ordered.stream().collect(Collectors.toMap(QuizItem::getId, Function.identity()));
+        for (BaremApply.ItemBarem entry : entries) {
+            QuizItem item = items.get(entry.itemId());
+            if (item == null) {
+                throw new QuizNotFoundException("QuizItem", entry.itemId());
+            }
+            ItemSnapshot before = journalled ? snapshot(item) : null;
+            List<QuizOption> options = optionRepository.findByItemIdOrderByPosition(item.getId());
+            if (entry.correctOptionId() != null) {
+                if (item.getType() != QuizItemType.SINGLE_CHOICE
+                        || options.stream().noneMatch(o -> o.getId().equals(entry.correctOptionId()))) {
+                    throw new InvalidQuizException("Varianta aleasă nu e a acestei întrebări.");
+                }
+                boolean changes = options.stream().anyMatch(o -> o.isCorrect() != o.getId().equals(entry.correctOptionId()));
+                if (changes && taken) {
+                    throw new QuizInUseException("Testul „" + quiz.getTitle() + "” a fost deja dat de elevi: varianta "
+                            + "corectă a întrebării " + QuestionNumbers.of(item, ordered)
+                            + " nu se mai poate schimba (grilele lor au fost corectate după ea). Baremul scris se poate "
+                            + "salva în continuare.");
+                }
+                options.forEach(o -> o.markCorrect(o.getId().equals(entry.correctOptionId())));
+                optionRepository.saveAll(options);
+            }
+            if (entry.barem() != null) {
+                String barem = entry.barem().isBlank() ? null : entry.barem().strip();
+                item.update(item.getPosition(), item.getStatement(), item.getPoints(), barem);
+                itemRepository.save(item);
+            }
+            List<QuizItemPart> parts = partRepository.findByItemIdOrderByPosition(item.getId());
+            for (BaremApply.PartBarem partBarem : entry.parts() == null ? List.<BaremApply.PartBarem>of() : entry.parts()) {
+                QuizItemPart part = parts.stream().filter(p -> p.getId().equals(partBarem.partId())).findFirst()
+                        .orElseThrow(() -> new QuizNotFoundException("QuizItemPart", partBarem.partId()));
+                if (partBarem.barem() != null) {
+                    part.update(part.getStatement(), partBarem.barem().isBlank() ? null : partBarem.barem().strip());
+                    partRepository.save(part);
+                }
+            }
+            if (journalled) {
+                String changes = before.changesTo(snapshot(item, options,
+                        hintRepository.findByItemIdOrderByPosition(item.getId()), parts));
+                if (changes != null) {
+                    recordQuestion(AuditAction.QUESTION_UPDATED, item, before.number(), changes + " (din barem)");
+                }
+            }
+        }
+        dropScoreCaches();
     }
 
     /**

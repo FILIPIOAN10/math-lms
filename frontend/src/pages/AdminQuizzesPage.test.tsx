@@ -16,6 +16,7 @@ const api = vi.hoisted(() => ({
   listChapterOptions: vi.fn(),
   createQuiz: vi.fn(),
   getAiImportSettings: vi.fn(),
+  getAiGradingSettings: vi.fn(),
 }))
 vi.mock('@/lib/api', async (original) => ({ ...(await original<typeof import('@/lib/api')>()), ...api }))
 
@@ -66,6 +67,18 @@ describe('AdminQuizzesPage', () => {
       { id: 3, title: 'Funcții', bookId: 2, bookTitle: 'Analiză', schoolClassId: 9, schoolClassName: 'Clasa a 9-a' },
     ])
     api.getAiImportSettings.mockResolvedValue({ enabled: false, maxPages: 0, dailyPageLimit: 0, pagesUsedToday: 0 })
+    api.getAiGradingSettings.mockResolvedValue({ enabled: false, baremMaxPages: 0, baremDailyPageLimit: 0, baremPagesUsedToday: 0 })
+  })
+
+  it('offers the barem from photos on a test with questions, only where the server reads it', async () => {
+    renderAt('/admin/quizzes/7')
+    await screen.findByText('Cât face 2+2?')
+    expect(screen.queryByRole('button', { name: 'Barem din poze (AI)' })).not.toBeInTheDocument()
+
+    api.getAiGradingSettings.mockResolvedValue({ enabled: true, baremMaxPages: 5, baremDailyPageLimit: 20, baremPagesUsedToday: 0 })
+    renderAt('/admin/quizzes/7')
+    await userEvent.click(await screen.findByRole('button', { name: 'Barem din poze (AI)' }))
+    expect(await screen.findByRole('dialog', { name: 'Barem din poze (AI)' })).toBeInTheDocument()
   })
 
   it('offers a quiz from textbook photos only where the server reads them', async () => {
@@ -176,6 +189,7 @@ describe('AdminQuizzesPage — chapter tag', () => {
     api.createQuiz.mockResolvedValue({ ...summary(20, 'Nou'), status: 'DRAFT' })
     api.getQuiz.mockResolvedValue(detail({ id: 20, title: 'Nou', items: [] }))
     api.getAiImportSettings.mockResolvedValue({ enabled: false, maxPages: 0, dailyPageLimit: 0, pagesUsedToday: 0 })
+    api.getAiGradingSettings.mockResolvedValue({ enabled: false, baremMaxPages: 0, baremDailyPageLimit: 0, baremPagesUsedToday: 0 })
   })
 
   it("offers only the chosen class's chapters and sends the one picked", async () => {

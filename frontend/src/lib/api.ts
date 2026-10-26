@@ -955,6 +955,87 @@ export async function discardAiImport(id: number): Promise<void> {
   await del(`/admin/ai-imports/${id}`)
 }
 
+// --- Barem din poze + AI grade proposals (V44) ---
+
+export interface AiGradingSettings {
+  /** "Barem din poze" in the builder and the AI's proposals in grading are both on. */
+  enabled: boolean
+  baremMaxPages: number
+  baremDailyPageLimit: number
+  baremPagesUsedToday: number
+}
+
+export async function getAiGradingSettings(): Promise<AiGradingSettings> {
+  const response = await apiFetch('/admin/ai-grading/settings')
+  return response.json()
+}
+
+export interface BaremPartProposal {
+  partId: number
+  label: string
+  points: number
+  statement: string
+  currentBarem: string | null
+  proposedBarem: string | null
+}
+
+/** One question: what is saved now next to what the AI read from the barem. */
+export interface BaremItemProposal {
+  itemId: number
+  /** "I.1", "III.2" - as on screen. */
+  label: string
+  type: QuizItemType
+  statement: string
+  points: number
+  currentLetter: string | null
+  proposedLetter: string | null
+  proposedOptionId: number | null
+  currentBarem: string | null
+  proposedBarem: string | null
+  parts: BaremPartProposal[]
+  warnings: string[]
+}
+
+export interface BaremProposal {
+  items: BaremItemProposal[]
+  /** Numbers the barem has and the test does not. */
+  unmatched: string[]
+  /** Students took the test: a grilă's right answer can no longer change. */
+  taken: boolean
+}
+
+export interface BaremRead {
+  id: number
+  status: AiImportStatus
+  error: string | null
+  proposal: BaremProposal | null
+}
+
+/** Sends 1–5 photos of the test's official barem; answers at once (QUEUED), poll getBaremRead until DONE or FAILED. */
+export async function createBaremRead(quizId: number, photos: File[]): Promise<BaremRead> {
+  const formData = new FormData()
+  photos.forEach((photo) => formData.append('files', photo))
+  const response = await apiFetch(`/admin/quizzes/${quizId}/barem-reads`, { method: 'POST', body: formData })
+  return response.json()
+}
+
+export async function getBaremRead(quizId: number, id: number): Promise<BaremRead> {
+  const response = await apiFetch(`/admin/quizzes/${quizId}/barem-reads/${id}`)
+  return response.json()
+}
+
+/** What the teacher kept of one question: the right option, the barem, a requirement's barem. Absent = unchanged. */
+export interface BaremEntry {
+  itemId: number
+  correctOptionId?: number
+  barem?: string
+  parts?: { partId: number; barem: string }[]
+}
+
+export async function applyBarem(quizId: number, items: BaremEntry[]): Promise<void> {
+  await putJson(`/admin/quizzes/${quizId}/barem`, { items })
+}
+
 export interface QuizFromImportInput {
   title: string
   schoolClassId: number | null

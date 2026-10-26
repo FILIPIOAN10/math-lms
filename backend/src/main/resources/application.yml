@@ -184,6 +184,20 @@ app:
       project: ${GEMINI_PROJECT:}
       location: ${GEMINI_LOCATION:global}
       model: ${GEMINI_MODEL:gemini-3.8-flash}
+      # The strongest model, for what must be right rather than cheap: reading a test's barem and proposing grades
+      # (2026-10: gemini-4-argon, $2 in / $10 out per 1M tokens until 2026-11-30, then $4 / $20).
+      strong-model: ${GEMINI_STRONG_MODEL:gemini-4-argon}
+    # The barem read from photos + the AI's grade proposals on Subiectul III (user's decisions 2026-10-26: Google only,
+    # the AI proposes, the teacher confirms). OFF unless AI_GRADING_ENABLED=true. Sends the barem photos, and for a
+    # proposal the photos of one answer with its statement and barem - never a name or an account.
+    grading:
+      enabled: ${AI_GRADING_ENABLED:false}
+      # gemini, or fake (made-up barem and grades, no network) for dev.
+      provider: ${AI_GRADING_PROVIDER:gemini}
+      # Answers proposed per day for the whole app (Romanian midnight to midnight): bounds the bill.
+      daily-answer-limit: ${AI_GRADING_DAILY_LIMIT:300}
+      barem-max-pages: ${AI_BAREM_MAX_PAGES:5}
+      barem-daily-page-limit: ${AI_BAREM_DAILY_PAGES:20}
 
 # Rate limiting (Phase 6.1): per-endpoint fixed windows in Redis, rules in RateLimitConfig.
 rate:

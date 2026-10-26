@@ -50,6 +50,11 @@ public class QuizOption {
         this.correct = correct;
     }
 
+    /** Marks this choice right or wrong; the service keeps exactly one right per grilă and refuses it once taken. */
+    void markCorrect(boolean correct) {
+        this.correct = correct;
+    }
+
     /** Fixes a typo in the choice without touching which one is correct (safe on a quiz students already took). */
     public void changeText(String text) {
         this.text = requireNonBlank(text, "text");

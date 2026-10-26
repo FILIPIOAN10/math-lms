@@ -60,12 +60,12 @@ public class GeminiClient {
 
     /** Where the bearer token comes from: {@link GoogleAccessTokens}, or a fixed string in tests. */
     @FunctionalInterface
-    interface AccessToken {
+    public interface AccessToken {
         String get() throws ExtractionException;
     }
 
     /** The answer's visible text (thoughts left out) and what it cost; output tokens include the thinking. */
-    record Reply(String text, String model, Integer inputTokens, Integer outputTokens) {
+    public record Reply(String text, String model, Integer inputTokens, Integer outputTokens) {
     }
 
     private final RestClient restClient;
@@ -85,7 +85,7 @@ public class GeminiClient {
     }
 
     /** For tests: a client bound to a mock server, asking once (no retries). */
-    GeminiClient(RestClient restClient, AccessToken accessToken, String project, String location, String model) {
+    public GeminiClient(RestClient restClient, AccessToken accessToken, String project, String location, String model) {
         this(restClient, accessToken, project, location, model, List.of());
     }
 
@@ -108,7 +108,7 @@ public class GeminiClient {
     }
 
     /** {@code global} has its own host; a region is served from {@code <region>-aiplatform.googleapis.com}. */
-    static String baseUrl(String location) {
+    public static String baseUrl(String location) {
         return location == null || location.isBlank() || GLOBAL.equals(location.strip())
                 ? "https://aiplatform.googleapis.com"
                 : "https://" + location.strip() + "-aiplatform.googleapis.com";
@@ -119,14 +119,22 @@ public class GeminiClient {
     }
 
     /** Sends {@code body} (contents, systemInstruction, generationConfig) and returns Vertex's raw answer. */
-    JsonNode generate(ObjectNode body) throws ExtractionException {
+    public JsonNode generate(ObjectNode body) throws ExtractionException {
+        return generate(body, model);
+    }
+
+    /**
+     * The same, to another model of the same project and location: the barem reader and the grader ask the strongest
+     * one ({@code app.ai.gemini.strong-model}), the page reader keeps the cheaper default.
+     */
+    public JsonNode generate(ObjectNode body, String model) throws ExtractionException {
         if (project.isEmpty()) {
             throw new ExtractionException(NO_PROJECT);
         }
         String bearer = accessToken.get();
         JsonNode response;
         try {
-            response = postWithRetries(body, bearer);
+            response = postWithRetries(body, bearer, model);
         } catch (RestClientResponseException e) {
             // The body explains a 400/404 (bad image, unknown model); it never contains the token.
             log.warn("Gemini answered {}: {}", e.getStatusCode().value(), e.getResponseBodyAsString());
@@ -143,7 +151,7 @@ public class GeminiClient {
     }
 
     /** One call, asked again after each pause in {@link #backoff} while Google answers "busy". */
-    private JsonNode postWithRetries(ObjectNode body, String bearer) throws ExtractionException {
+    private JsonNode postWithRetries(ObjectNode body, String bearer, String model) throws ExtractionException {
         for (int attempt = 0; ; attempt++) {
             try {
                 return restClient.post()
@@ -181,7 +189,7 @@ public class GeminiClient {
     }
 
     /** The first candidate's visible text; a block, a cut-off or an empty answer is an {@link ExtractionException}. */
-    Reply reply(JsonNode response) throws ExtractionException {
+    public Reply reply(JsonNode response) throws ExtractionException {
         String blockReason = response.path("promptFeedback").path("blockReason").asString("");
         if (!blockReason.isEmpty()) {
             log.warn("Gemini blocked the request: {}", blockReason);

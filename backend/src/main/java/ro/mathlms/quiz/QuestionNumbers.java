@@ -12,7 +12,7 @@ import java.util.regex.Pattern;
  * again under each heading. The same rule as the frontend's {@code numberItems} ({@code lib/sections.ts}), so the
  * journal names a question the way the teacher sees it.
  */
-final class QuestionNumbers {
+public final class QuestionNumbers {
 
     private static final Pattern ROMAN = Pattern.compile("^subiectul\\s+(?:al\\s+)?([ivxlc]+)\\b",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
@@ -21,7 +21,7 @@ final class QuestionNumbers {
     }
 
     /** Item id → its on-screen number, for the items of one quiz in position order. */
-    static Map<Long, String> of(List<QuizItem> items) {
+    public static Map<Long, String> of(List<QuizItem> items) {
         Map<Long, String> numbers = new HashMap<>();
         boolean sectioned = items.stream().anyMatch(i -> i.getSection() != null);
         int group = 0;

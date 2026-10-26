@@ -25,6 +25,7 @@ import {
   deleteQuiz,
   deleteQuizItem,
   getAiImportSettings,
+  getAiGradingSettings,
   getQuiz,
   listChapterOptions,
   listClasses,
@@ -48,6 +49,7 @@ import {
 } from '@/lib/api'
 import { EnChapterSelect } from '@/components/EnChapterSelect'
 import { EnChapterSuggestionsDialog } from '@/components/EnChapterSuggestionsDialog'
+import { BaremDialog } from '@/components/BaremDialog'
 import { formatDate, optionLetter, roCount } from '@/lib/format'
 import { errorMessage } from '@/lib/errors'
 import { shrinkImage } from '@/lib/image'
@@ -777,6 +779,9 @@ export function AdminQuizzesPage() {
   const [notice, setNotice] = useState<{ text: string; homework: boolean } | null>(null)
   // Faza 3: the "Din poze (AI)" button only where the server has the reader switched on.
   const [aiImportOn, setAiImportOn] = useState(false)
+  // "Barem din poze (AI)": only where the server has the barem reader (and the AI grading) switched on.
+  const [aiGradingOn, setAiGradingOn] = useState(false)
+  const [readingBarem, setReadingBarem] = useState(false)
 
   useEffect(() => {
     listQuizzes()
@@ -794,6 +799,9 @@ export function AdminQuizzesPage() {
       .catch(() => undefined) // only the EN chapter choice is missing without it
     getAiImportSettings()
       .then((s) => setAiImportOn(s.enabled))
+      .catch(() => undefined) // the button just stays hidden
+    getAiGradingSettings()
+      .then((s) => setAiGradingOn(s.enabled))
       .catch(() => undefined) // the button just stays hidden
   }, [])
 
@@ -921,6 +929,9 @@ export function AdminQuizzesPage() {
                     <Button size="sm" variant="outline" onClick={() => setImporting(true)}>Importă din text</Button>
                     {aiImportOn && enChapters.length > 0 && quiz.items.length > 0 && (
                       <Button size="sm" variant="outline" onClick={() => setSuggesting(true)}>Sugerează capitolele (AI)</Button>
+                    )}
+                    {aiGradingOn && quiz.items.length > 0 && (
+                      <Button size="sm" variant="outline" onClick={() => setReadingBarem(true)}>Barem din poze (AI)</Button>
                     )}
                     <Button size="sm" onClick={() => setItemDialog({ item: null })}>Adaugă întrebare</Button>
                   </>
@@ -1145,6 +1156,15 @@ export function AdminQuizzesPage() {
             }
             await reloadQuiz(quiz.id)
           }}
+        />
+      )}
+
+      {readingBarem && quiz && (
+        <BaremDialog
+          quizId={quiz.id}
+          items={quiz.items}
+          onClose={() => setReadingBarem(false)}
+          onApplied={() => reloadQuiz(quiz.id)}
         />
       )}
 
