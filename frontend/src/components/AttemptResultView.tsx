@@ -30,6 +30,18 @@ function TeacherNote({ text, testId, title }: { text: string; testId: string; ti
  * S4, on the student's own graded test: which questions to go back to, that the wrong grile come back in the daily
  * review, and - when the teacher opened the quiz for practice - a practice of just those questions.
  */
+/** Where a question's card starts: the mistakes card links there, focus lands on its title. */
+const itemTitleId = (itemId: number) => `result-item-${itemId}`
+
+/** Scrolls to a question and puts focus on its title, so keyboard and screen-reader users land there too. */
+function goToQuestion(itemId: number) {
+  const title = document.getElementById(itemTitleId(itemId))
+  if (!title) return
+  const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+  title.scrollIntoView?.({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' })
+  title.focus({ preventScroll: true })
+}
+
 function PracticeMistakes({ result }: { result: AttemptResultViewDto }) {
   const mistakes = mistakesOf(result.items)
   if (mistakes.labels.length === 0) return null
@@ -40,7 +52,22 @@ function PracticeMistakes({ result }: { result: AttemptResultViewDto }) {
         <p className="font-medium">Exersează ce ai greșit</p>
         <p>
           {many ? 'Întrebările ' : 'Întrebarea '}
-          <span className="font-medium">{mistakes.labels.join(', ')}</span>
+          {mistakes.labels.map((label, i) => (
+            <Fragment key={mistakes.itemIds[i]}>
+              {i > 0 && ', '}
+              <a
+                href={`#${itemTitleId(mistakes.itemIds[i])}`}
+                aria-label={`Întrebarea ${label}`}
+                className="font-medium text-primary underline underline-offset-2"
+                onClick={(e) => {
+                  e.preventDefault()
+                  goToQuestion(mistakes.itemIds[i])
+                }}
+              >
+                {label}
+              </a>
+            </Fragment>
+          ))}
           {many ? ' nu au ieșit complet' : ' nu a ieșit complet'}: uită-te mai jos la răspunsul corect și la barem.
         </p>
         {mistakes.wrongChoices > 0 && (
@@ -61,6 +88,19 @@ function PracticeMistakes({ result }: { result: AttemptResultViewDto }) {
       </CardContent>
     </Card>
   )
+}
+
+/** The numbered items that pass `keep`, each section heading moved onto the first one kept under it. */
+function withHeadings<T extends { heading: unknown }>(numbered: T[], keep: (n: T) => boolean): T[] {
+  let pending: T['heading'] = null
+  const out: T[] = []
+  for (const n of numbered) {
+    if (n.heading) pending = n.heading
+    if (!keep(n)) continue
+    out.push({ ...n, heading: pending })
+    pending = null
+  }
+  return out
 }
 
 /** Who is reading: only the wording changes ("Răspunsul tău" vs "Răspunsul elevului"). */
@@ -93,7 +133,7 @@ function ItemResult({
     <Card>
       <CardContent className="space-y-3 py-4">
         <div className="flex items-center justify-between gap-2">
-          <p className="text-sm font-medium">{title}</p>
+          <p id={itemTitleId(item.itemId)} tabIndex={-1} className="scroll-mt-4 text-sm font-medium outline-none">{title}</p>
           <span className="text-sm text-muted-foreground">{points}</span>
         </div>
         <MathContent>{item.statement}</MathContent>
@@ -200,6 +240,12 @@ export function AttemptResultView({ result, audience = 'student' }: { result: At
   const choiceCorrect = choiceItems.filter((i) => i.correct).length
   const hintsUsed = result.items.reduce((sum, i) => sum + i.hintsUsed, 0)
   const hintsAvailable = result.items.reduce((sum, i) => sum + i.hintsAvailable, 0)
+  // "Doar greșelile": only the questions not fully right, when there are some right ones to hide. A section heading
+  // goes with the first question shown under it, so the filtered list still says SUBIECTUL I / II.
+  const [onlyMistakes, setOnlyMistakes] = useState(false)
+  const mistakeIds = new Set(result.status === 'GRADED' && !practice ? mistakesOf(result.items).itemIds : [])
+  const offerFilter = mistakeIds.size > 0 && mistakeIds.size < result.items.length
+  const shown = withHeadings(numberItems(result.items), (n) => !onlyMistakes || mistakeIds.has(n.item.itemId))
 
   return (
     <>
@@ -231,7 +277,20 @@ export function AttemptResultView({ result, audience = 'student' }: { result: At
 
       {audience === 'student' && !practice && result.status === 'GRADED' && <PracticeMistakes result={result} />}
 
-      {numberItems(result.items).map(({ item, label, local, heading }, index) => (
+      {offerFilter && (
+        <div className="flex justify-end">
+          <Button
+            size="sm"
+            variant={onlyMistakes ? 'default' : 'outline'}
+            aria-pressed={onlyMistakes}
+            onClick={() => setOnlyMistakes((v) => !v)}
+          >
+            Doar greșelile ({mistakeIds.size})
+          </Button>
+        </div>
+      )}
+
+      {shown.map(({ item, label, local, heading }, index) => (
         <Fragment key={item.position + '-' + index}>
           {heading && <SectionHeadingView heading={heading} />}
           <ItemResult

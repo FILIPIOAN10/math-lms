@@ -1,7 +1,7 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { AttemptResultView } from '@/components/AttemptResultView'
 import type { AttemptResultViewDto } from '@/lib/api'
 
@@ -189,6 +189,55 @@ describe('AttemptResultView', () => {
     expect(card).toHaveTextContent('1 grilă greșită revine în recapitularea zilnică, începând de mâine.')
     expect(screen.getByRole('link', { name: 'recapitularea zilnică' })).toHaveAttribute('href', '/review')
     expect(screen.getByTestId('practice-mistakes-link')).toHaveAttribute('href', '/quizzes/10/take?mode=practice&only=100,101')
+  })
+
+  it('makes each question number in the mistakes card a link to that question', async () => {
+    Element.prototype.scrollIntoView = vi.fn()
+    render(<AttemptResultView result={withMistakes} />, { wrapper: MemoryRouter })
+
+    const card = screen.getByTestId('practice-mistakes')
+    await userEvent.click(within(card).getByRole('link', { name: 'Întrebarea 2' }))
+
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalled()
+    expect(document.activeElement).toHaveTextContent('Întrebarea 2')
+  })
+
+  it('shows only the questions not fully right on "Doar greșelile", and all again on a second press', async () => {
+    const third = { ...graded.items[0], itemId: 102, position: 3, statement: 'Alege C' }
+    render(<AttemptResultView result={{ ...withMistakes, items: [...withMistakes.items, third] }} />, { wrapper: MemoryRouter })
+    const toggle = screen.getByRole('button', { name: 'Doar greșelile (2)' })
+    expect(toggle).toHaveAttribute('aria-pressed', 'false')
+
+    await userEvent.click(toggle)
+
+    expect(toggle).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByText('Alege B')).toBeInTheDocument()
+    expect(screen.getByText('Rezolvă')).toBeInTheDocument()
+    expect(screen.queryByText('Alege C')).not.toBeInTheDocument()
+
+    await userEvent.click(toggle)
+    expect(screen.getByText('Alege C')).toBeInTheDocument()
+  })
+
+  it('keeps the SUBIECTUL heading over the first mistake shown under it', async () => {
+    const items = [
+      { ...graded.items[0], section: 'SUBIECTUL I' },
+      { ...graded.items[0], itemId: 102, position: 2, statement: 'A doua grilă', correct: false, awardedPoints: 0, section: 'SUBIECTUL I' },
+      { ...graded.items[1], position: 3, section: 'SUBIECTUL al II-lea' },
+    ]
+    render(<AttemptResultView result={{ ...graded, items }} />, { wrapper: MemoryRouter })
+
+    await userEvent.click(screen.getByRole('button', { name: 'Doar greșelile (2)' }))
+
+    expect(screen.queryByText('Alege B')).not.toBeInTheDocument()
+    expect(screen.getByText('SUBIECTUL I')).toBeInTheDocument()
+    expect(screen.getByText('SUBIECTUL al II-lea')).toBeInTheDocument()
+    expect(screen.getByText('2.')).toBeInTheDocument() // keeps its number from the paper
+  })
+
+  it('offers no "Doar greșelile" when every question is a mistake (it would hide nothing)', () => {
+    render(<AttemptResultView result={withMistakes} />, { wrapper: MemoryRouter })
+    expect(screen.queryByRole('button', { name: /Doar greșelile/ })).not.toBeInTheDocument()
   })
 
   it('offers no practice link when the teacher did not open the quiz for practice', () => {
