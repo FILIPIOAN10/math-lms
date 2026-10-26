@@ -16,6 +16,9 @@ const api = vi.hoisted(() => ({
   createCommentSnippet: vi.fn(),
   deleteCommentSnippet: vi.fn(),
   markCommentSnippetUsed: vi.fn(),
+  getAiGradingSettings: vi.fn(),
+  getAiProposals: vi.fn(),
+  requestAiProposal: vi.fn(),
 }))
 vi.mock('@/lib/api', async (original) => ({ ...(await original<typeof import('@/lib/api')>()), ...api }))
 
@@ -57,6 +60,8 @@ describe('AdminGradingPage', () => {
     api.commentOnAttempt.mockResolvedValue(undefined)
     api.listCommentSnippets.mockResolvedValue([])
     api.markCommentSnippetUsed.mockResolvedValue(undefined)
+    api.getAiGradingSettings.mockResolvedValue({ enabled: false, baremMaxPages: 0, baremDailyPageLimit: 0, baremPagesUsedToday: 0 })
+    api.getAiProposals.mockResolvedValue([])
   })
 
   it('shows graded papers as "x / max p · nota"', async () => {
@@ -241,6 +246,113 @@ describe('AdminGradingPage', () => {
     expect(finish).toBeDisabled()
     expect(finish.className).toMatch(/disabled:bg-muted/)
     expect(screen.getByTestId('grade-finalize-why')).toHaveTextContent('Notează toate întrebările cu rezolvare ca să poți finaliza.')
+  })
+
+  describe('AI proposals', () => {
+    const enProblem = () => {
+      const d = detail()
+      d.items[0] = {
+        ...d.items[0], points: 5, photoIds: [41], photoUploaded: true,
+        parts: [
+          { id: 11, label: 'a', statement: 'Perimetrul.', points: 2, barem: '$P = 130$ ... 2p', awardedPoints: null },
+          { id: 12, label: 'b', statement: 'Aria.', points: 3, barem: '$A = 1000$ ... 3p', awardedPoints: null },
+        ],
+      }
+      return d
+    }
+    const done = {
+      itemId: 101, status: 'DONE' as const, points: 4, reason: 'Aproape complet.', confidence: 'MEDIUM' as const, error: null,
+      parts: [
+        { partId: 11, label: 'a', points: 2, reason: 'Corect.' },
+        { partId: 12, label: 'b', points: 2, reason: 'Lipsește concluzia.' },
+      ],
+    }
+
+    beforeEach(() => {
+      api.getAiGradingSettings.mockResolvedValue({ enabled: true, baremMaxPages: 5, baremDailyPageLimit: 20, baremPagesUsedToday: 0 })
+    })
+
+    it('shows what the AI proposes next to each requirement, without grading anything', async () => {
+      api.getAiProposals.mockResolvedValue([done])
+      await openAttempt(enProblem())
+
+      const panel = await screen.findByTestId('ai-proposal')
+      expect(panel).toHaveTextContent('Propunere AI: 4 / 5 p')
+      expect(panel).toHaveTextContent('încredere medie')
+      expect(screen.getByText('Lipsește concluzia.')).toBeInTheDocument()
+      expect(api.gradeOpenItemParts).not.toHaveBeenCalled()
+    })
+
+    it('saves the whole proposal with one click', async () => {
+      api.getAiProposals.mockResolvedValue([done])
+      await openAttempt(enProblem())
+
+      await userEvent.click(await screen.findByRole('button', { name: 'Acceptă propunerea AI' }))
+
+      await waitFor(() => expect(api.gradeOpenItemParts).toHaveBeenLastCalledWith(50, 101,
+        [{ partId: 11, points: 2 }, { partId: 12, points: 2 }], null))
+      expect(screen.getByTestId('part-total')).toHaveTextContent('Total: 4 / 5 p')
+    })
+
+    it('takes the proposed points of a requirement with Enter, and moves on', async () => {
+      api.getAiProposals.mockResolvedValue([done])
+      await openAttempt(enProblem())
+      await screen.findByTestId('ai-proposal')
+      const a = screen.getByRole('radiogroup', { name: 'Puncte cerința a)' })
+      await waitFor(() => expect(a.contains(document.activeElement)).toBe(true))
+
+      await userEvent.keyboard('{Enter}')
+      await waitFor(() => expect(screen.getByRole('radiogroup', { name: 'Puncte cerința b)' }).contains(document.activeElement)).toBe(true))
+      await userEvent.keyboard('3') // the teacher disagrees on b)
+
+      await waitFor(() => expect(api.gradeOpenItemParts).toHaveBeenLastCalledWith(50, 101,
+        [{ partId: 11, points: 2 }, { partId: 12, points: 3 }], null))
+    })
+
+    it('says the AI is still working, and shows the proposal once it is ready', async () => {
+      api.getAiProposals
+        .mockResolvedValueOnce([{ itemId: 101, status: 'RUNNING', points: null, parts: [], reason: null, confidence: null, error: null }])
+        .mockResolvedValue([done])
+      render(<MemoryRouter initialEntries={['/admin/grading']}><AdminGradingPage aiPollMs={0} /></MemoryRouter>)
+      api.getAttemptForGrading.mockResolvedValue(enProblem())
+      await userEvent.click(await screen.findByTestId('attempt-open'))
+
+      expect(await screen.findByText(/AI-ul citește rezolvarea/)).toBeInTheDocument()
+      expect(await screen.findByText('Propunere AI: 4 / 5 p')).toBeInTheDocument()
+      const calls = api.getAiProposals.mock.calls.length
+      await new Promise((r) => setTimeout(r, 50))
+      expect(api.getAiProposals.mock.calls.length).toBe(calls) // nothing left to wait for: no more asking
+    })
+
+    it('says why a proposal failed and asks again', async () => {
+      api.getAiProposals.mockResolvedValue([{ itemId: 101, status: 'FAILED', points: null, parts: [], reason: null,
+        confidence: null, error: 'Google nu răspunde acum.' }])
+      api.requestAiProposal.mockResolvedValue({ itemId: 101, status: 'QUEUED', points: null, parts: [], reason: null, confidence: null, error: null })
+      await openAttempt(enProblem())
+
+      expect(await screen.findByTestId('ai-proposal')).toHaveTextContent('Google nu răspunde acum.')
+      await userEvent.click(screen.getByRole('button', { name: 'Cere din nou' }))
+
+      expect(api.requestAiProposal).toHaveBeenCalledWith(50, 101)
+      expect(await screen.findByText(/AI-ul citește rezolvarea/)).toBeInTheDocument()
+    })
+
+    it('offers to ask the AI for a photographed answer with a barem that has no proposal yet', async () => {
+      api.requestAiProposal.mockResolvedValue({ itemId: 101, status: 'QUEUED', points: null, parts: [], reason: null, confidence: null, error: null })
+      await openAttempt(enProblem())
+
+      await userEvent.click(await screen.findByRole('button', { name: 'Cere propunere AI' }))
+
+      expect(api.requestAiProposal).toHaveBeenCalledWith(50, 101)
+    })
+
+    it('shows nothing about the AI while it is off', async () => {
+      api.getAiGradingSettings.mockResolvedValue({ enabled: false, baremMaxPages: 0, baremDailyPageLimit: 0, baremPagesUsedToday: 0 })
+      await openAttempt(enProblem())
+
+      expect(screen.queryByTestId('ai-proposal')).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Cere propunere AI' })).not.toBeInTheDocument()
+    })
   })
 
   it('offers no "next" button on the last paper waiting', async () => {

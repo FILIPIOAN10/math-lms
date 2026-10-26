@@ -16,12 +16,16 @@ import {
   attemptPhotoUrl,
   commentOnAttempt,
   finalizeGrading,
+  getAiGradingSettings,
+  getAiProposals,
   getAttemptForGrading,
   gradeOpenItem,
   gradeOpenItemParts,
   GRADED_PAGE,
   listAttemptsForGrading,
+  requestAiProposal,
   type AdminAttemptDetail,
+  type AiProposal,
   type AdminAttemptSummary,
   type AdminItemReview,
   type QuizAttemptStatus,
@@ -38,6 +42,8 @@ import { LoadingCards } from '@/components/LoadingCards'
 
 /** Same limit as the server (V20 columns). */
 const MAX_COMMENT = 2000
+/** How often the AI's proposals are asked for while some are still being made. */
+const AI_POLL_MS = 5000
 
 const selectClass =
   'h-8 rounded-lg border border-border bg-background px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50'
@@ -61,12 +67,18 @@ function OpenItemGrader({
   onGraded,
   registerFlush,
   onStatus,
+  aiOn,
+  aiProposal,
+  onRequestAiProposal,
 }: {
   attempt: AdminAttemptDetail
   item: AdminItemReview
   bank: SnippetBank
   /** The first answer still without points: the keyboard starts here. */
   autoFocus: boolean
+  aiOn: boolean
+  aiProposal: AiProposal | null
+  onRequestAiProposal: () => void
   /** The answer as graded once the server accepted it, to update the page without fetching the paper again. */
   onGraded: (item: AdminItemReview) => void
   registerFlush: (flush: (() => Promise<boolean>) | null) => void
@@ -102,6 +114,9 @@ function OpenItemGrader({
           autoFocus={autoFocus}
           registerFlush={registerFlush}
           onStatus={onStatus}
+          aiOn={aiOn}
+          aiProposal={aiProposal}
+          onRequestAiProposal={onRequestAiProposal}
           save={async (grade) => {
             const comment = grade.comment.trim() === '' ? null : grade.comment.trim()
             if (hasParts(item)) {
@@ -195,7 +210,7 @@ function groupByQuiz(attempts: AdminAttemptSummary[]): { quizId: number; quizTit
  * următoarea" (T4) so a stack of papers is graded without going back to the list — or one question across all the
  * papers of a quiz ("Corectează pe întrebare").
  */
-export function AdminGradingPage() {
+export function AdminGradingPage({ aiPollMs = AI_POLL_MS }: { aiPollMs?: number } = {}) {
   const [filter, setFilter] = useState<QuizAttemptStatus>('SUBMITTED')
   const [attempts, setAttempts] = useState<AdminAttemptSummary[]>([])
   const [detail, setDetail] = useState<AdminAttemptDetail | null>(null)
@@ -352,11 +367,57 @@ export function AdminGradingPage() {
   const allOpenGraded = detail?.items.every((i) => i.type !== 'OPEN' || i.awardedPoints !== null) ?? false
   const othersWaiting = detail ? attempts.filter((a) => a.status === 'SUBMITTED' && a.attemptId !== detail.attemptId).length : 0
   const pointsSoFar = detail?.items.reduce((sum, i) => sum + (i.awardedPoints ?? 0), 0) ?? 0
+  // The AI's proposals for the open paper (only when the server has them switched on), by question.
+  const [aiOn, setAiOn] = useState(false)
+  const [proposals, setProposals] = useState<Record<number, AiProposal>>({})
+  useEffect(() => {
+    getAiGradingSettings()
+      .then((s) => setAiOn(s.enabled))
+      .catch(() => undefined) // no proposals shown, grading works as before
+  }, [])
+  const paperId = detail?.attemptId ?? null
+  const pending = Object.values(proposals).some((p) => p.status === 'QUEUED' || p.status === 'RUNNING')
+  // Once per paper opened...
+  useEffect(() => {
+    if (!aiOn || paperId === null) return
+    let cancelled = false
+    getAiProposals(paperId)
+      .then((list) => !cancelled && setProposals(Object.fromEntries(list.map((p) => [p.itemId, p]))))
+      .catch(() => undefined) // no proposals shown, grading works as before
+    return () => {
+      cancelled = true
+    }
+  }, [aiOn, paperId])
+  // ...then again every aiPollMs while the AI is still working on some (each answer re-arms the timer).
+  useEffect(() => {
+    if (!aiOn || paperId === null || !pending) return
+    let cancelled = false
+    const timer = setTimeout(() => {
+      getAiProposals(paperId)
+        .then((list) => !cancelled && setProposals(Object.fromEntries(list.map((p) => [p.itemId, p]))))
+        .catch(() => undefined) // a missed poll is retried by the next one
+    }, aiPollMs)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [aiOn, paperId, pending, aiPollMs, proposals])
+  async function askAi(itemId: number) {
+    if (paperId === null) return
+    try {
+      const queued = await requestAiProposal(paperId, itemId)
+      setProposals((all) => ({ ...all, [itemId]: queued }))
+    } catch (e) {
+      setError(errorMessage(e))
+    }
+  }
+
   // Where the keyboard starts on a paper still to grade; fixed when the paper opens, not moved by each grade.
   const [firstUngraded, setFirstUngraded] = useState<number | null>(null)
   const [openedId, setOpenedId] = useState<number | null>(null)
   if (detail && detail.attemptId !== openedId) {
     setOpenedId(detail.attemptId)
+    setProposals({}) // the paper before's proposals are not this one's
     setFirstUngraded(
       detail.status === 'SUBMITTED' ? detail.items.find((i) => i.type === 'OPEN' && i.awardedPoints === null)?.itemId ?? null : null,
     )
@@ -383,6 +444,7 @@ export function AdminGradingPage() {
         {byItem ? (
           <GradeByItem
             bank={bank}
+            aiOn={aiOn}
             quizTitle={byItem.quizTitle}
             attemptIds={byItem.attemptIds}
             onExit={() => {
@@ -401,7 +463,8 @@ export function AdminGradingPage() {
                   {detail.status === 'SUBMITTED' && (
                     <p className="text-xs text-muted-foreground">
                       Din tastatură: <kbd className="rounded border px-1 font-mono">0–9</kbd> dă punctajul și trece la
-                      următorul, săgețile îl schimbă.
+                      următorul, săgețile îl schimbă{aiOn && <>, <kbd className="rounded border px-1 font-mono">Enter</kbd> ia
+                      propunerea AI</>}.
                     </p>
                   )}
                 </div>
@@ -455,6 +518,9 @@ export function AdminGradingPage() {
                       item={item}
                       bank={bank}
                       autoFocus={item.itemId === firstUngraded}
+                      aiOn={aiOn}
+                      aiProposal={proposals[item.itemId] ?? null}
+                      onRequestAiProposal={() => void askAi(item.itemId)}
                       onGraded={graded}
                       registerFlush={(f) => registerFlush(`item-${item.itemId}`, f)}
                       onStatus={(st) => reportStatus(`item-${item.itemId}`, st)}

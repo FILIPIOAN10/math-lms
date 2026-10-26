@@ -1,5 +1,6 @@
 package ro.mathlms.quiz;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.core.io.Resource;
@@ -75,6 +76,7 @@ public class QuizAttemptService {
     private final AuditLog auditLog;
     private final Clock clock;
     private final String quizPhotosDir;
+    private final List<SubmissionListener> submissionListeners;
 
     /**
      * How long after the deadline a request is still honoured - covers a browser that fires its last save or its
@@ -93,6 +95,23 @@ public class QuizAttemptService {
                               ResultNotifier resultNotifier, FileService fileService, AuditLog auditLog, Clock clock,
                               @Value("${app.storage.quiz-photos-dir}") String quizPhotosDir,
                               QuizItemPartRepository partRepository, EnChapterLinks enChapterLinks) {
+        this(quizRepository, itemRepository, optionRepository, hintRepository, attemptRepository, responseRepository,
+                userRepository, enrollmentRepository, cacheEvictor, resultNotifier, fileService, auditLog, clock,
+                quizPhotosDir, partRepository, enChapterLinks, List.of());
+    }
+
+    /** ...told on every hand-in ({@link SubmissionListener}: the AI grading's queue). */
+    @Autowired
+    public QuizAttemptService(QuizRepository quizRepository, QuizItemRepository itemRepository,
+                              QuizOptionRepository optionRepository, QuizItemHintRepository hintRepository,
+                              QuizAttemptRepository attemptRepository,
+                              ItemResponseRepository responseRepository, UserRepository userRepository,
+                              EnrollmentRepository enrollmentRepository, AfterCommitCacheEvictor cacheEvictor,
+                              ResultNotifier resultNotifier, FileService fileService, AuditLog auditLog, Clock clock,
+                              @Value("${app.storage.quiz-photos-dir}") String quizPhotosDir,
+                              QuizItemPartRepository partRepository, EnChapterLinks enChapterLinks,
+                              List<SubmissionListener> submissionListeners) {
+        this.submissionListeners = List.copyOf(submissionListeners);
         this.enChapterLinks = enChapterLinks;
         this.partRepository = partRepository;
         this.auditLog = auditLog;
@@ -450,6 +469,9 @@ public class QuizAttemptService {
             evictGradingCaches(attempt);
         }
         attemptRepository.save(attempt);
+        if (attempt.getMode() == AttemptMode.TEST) {
+            submissionListeners.forEach(listener -> listener.submitted(attempt, items, byItem));
+        }
         return new AttemptResultDto(attempt.getId(), attempt.getStatus(),
                 autoScore, autoMaxScore, attempt.getScore());
     }

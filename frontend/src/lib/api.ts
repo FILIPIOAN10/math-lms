@@ -1567,6 +1567,34 @@ export async function gradeOpenItem(attemptId: number, itemId: number, points: n
 }
 
 /** A problem with requirements a), b)...: points per requirement (null = not yet), one comment for the whole answer. */
+export type AiProposalStatus = 'QUEUED' | 'RUNNING' | 'DONE' | 'FAILED'
+export type AiConfidence = 'HIGH' | 'MEDIUM' | 'LOW'
+
+/**
+ * The AI's proposed points for one open answer (Subiectul III) - only a proposal: nothing is graded until the teacher
+ * saves points. While QUEUED/RUNNING only the status; DONE has the points, in total and per requirement; FAILED says why.
+ */
+export interface AiProposal {
+  itemId: number
+  status: AiProposalStatus
+  points: number | null
+  parts: { partId: number; label: string; points: number; reason: string | null }[]
+  reason: string | null
+  confidence: AiConfidence | null
+  error: string | null
+}
+
+export async function getAiProposals(attemptId: number): Promise<AiProposal[]> {
+  const response = await apiFetch(`/admin/quiz/attempts/${attemptId}/ai-proposals`)
+  return response.json()
+}
+
+/** Asks the AI (again) for one answer: a paper from before the feature, a barem added later, a failed proposal. */
+export async function requestAiProposal(attemptId: number, itemId: number): Promise<AiProposal> {
+  const response = await postJson(`/admin/quiz/attempts/${attemptId}/responses/${itemId}/ai-proposal`, {})
+  return response.json()
+}
+
 export async function gradeOpenItemParts(
   attemptId: number,
   itemId: number,

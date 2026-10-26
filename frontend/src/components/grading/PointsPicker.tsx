@@ -33,6 +33,7 @@ export function PointsPicker({
   autoFocus = false,
   label = 'Puncte acordate',
   testId = 'grade-points',
+  suggested = null,
 }: {
   max: number
   value: number | null
@@ -43,6 +44,8 @@ export function PointsPicker({
   label?: string
   /** The group's data-testid; each button is `${testId}-${n}`. */
   testId?: string
+  /** The AI's proposed points: outlined, and Enter takes them (when nothing is picked yet) and moves on. */
+  suggested?: number | null
 }) {
   const buttons = useRef<(HTMLButtonElement | null)[]>([])
   const [text, setText] = useState(value === null ? '' : String(value))
@@ -85,6 +88,16 @@ export function PointsPicker({
   const focusable = value ?? 0
 
   function onKeyDown(e: KeyboardEvent<HTMLButtonElement>, n: number) {
+    // Enter: what is picked, else the AI's proposal, else the focused button (as a click would) - and move on.
+    if (e.key === 'Enter') {
+      const pick = value ?? suggested ?? n
+      e.preventDefault()
+      if (pick > max) return
+      buttons.current[pick]?.focus()
+      onChange(pick, true)
+      focusNextPicker(e.currentTarget)
+      return
+    }
     if (/^[0-9]$/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey) {
       const digit = Number(e.key)
       if (digit > max) return
@@ -127,10 +140,14 @@ export function PointsPicker({
             autoFocus={autoFocus && n === focusable}
             onClick={() => onChange(n, true)}
             onKeyDown={(e) => onKeyDown(e, n)}
+            aria-description={suggested === n ? 'propus de AI' : undefined}
+            data-suggested={suggested === n ? '' : undefined}
             className={cn(
               'h-11 min-w-11 rounded-lg border sm:h-9 sm:min-w-9 px-2 text-sm font-medium tabular-nums outline-none transition-colors',
               'focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50',
               value === n ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background hover:bg-muted',
+              // The AI's proposal: a dashed outline the teacher can take with Enter.
+              suggested === n && 'outline-2 outline-offset-2 outline-dashed outline-sky-500',
             )}
           >
             {n}

@@ -814,6 +814,29 @@ recapitulare zilnică); la Subiectul III fiecare cerință a)/b) intră la capit
 | 7 | Creează un capitol nou, pune-l la I.1 și salvează; apoi **Capitole EN → Șterge** pe el | Refuzat: „… e legătura automată pentru I.1. Alege alt capitol pentru aceste locuri în „Legături automate”, apoi șterge-l.” |
 | 8 | Pune I.1 înapoi pe A1, apoi șterge capitolul | Șters; întrebările la care îl aleseseși revin la automat, iar jurnalul spune câte („1 întrebare sau cerință revine la legătura automată”) |
 
+### 32. Barem din poze + propuneri AI la Subiectul III (V44) — ca profesor, apoi ca elev
+
+Cere `AI_GRADING_ENABLED=true` în `backend/.env`. Cu `AI_GRADING_PROVIDER=fake` baremul și punctajele sunt inventate
+(fără rețea, fără cost): fiecare grilă primește „b”, fiecare cerință un barem în doi pași, iar propunerea dă punctajul
+maxim minus 1 la ultima cerință. Cu `gemini`, citește modelul `GEMINI_STRONG_MODEL` (implicit `gemini-4-argon`), cu
+același proiect și aceeași cheie JSON ca importul din poze.
+
+| # | Ce faci | Ce trebuie să vezi |
+|---|---|---|
+| 1 | Deschide un test EN cu întrebări (editorul) | Butonul **Barem din poze (AI)** lângă „Importă din text” |
+| 2 | Alege 1–2 poze cu baremul oficial → **Citește baremul** | „AI-ul citește baremul… poate dura un minut sau două”, apoi lista întrebărilor (I.1, II.3, III.2…) |
+| 3 | La o grilă | „Acum: a) → b)” cu varianta propusă aleasă în listă; o poți schimba |
+| 4 | La o problemă din Subiectul III | Câte o casetă cu baremul fiecărei cerințe a), b), editabilă; avertismentele AI-ului apar cu ⚠ |
+| 5 | Debifează o întrebare, apoi **Aplică baremul (n)** | Se salvează doar cele bifate; în editor grila are varianta nouă, cerințele au baremul |
+| 6 | Același lucru pe un test dat deja de elevi | Lista de variante e blocată („Testul a fost dat deja: varianta corectă nu se mai schimbă”); baremul scris se salvează |
+| 7 | Ca elev: dă testul, fă poze la o problemă din Subiectul III care are barem, predă | — |
+| 8 | Ca profesor: **Corectură → Corectează** lucrarea | Deasupra punctelor: „AI-ul citește rezolvarea…”, apoi **Propunere AI: x / y p · încredere …** cu motivul; sub fiecare cerință „AI: n p — motiv”; butonul propus are contur punctat |
+| 9 | Apasă **Enter** pe cerința a) | Se salvează punctajul propus și trece la b); o cifră pune alt punctaj |
+| 10 | **Acceptă propunerea AI** | Toate cerințele primesc punctajele propuse, „Salvat ✓”; lucrarea rămâne „În corectare” până la **Finalizează** |
+| 11 | O lucrare predată înainte de pornirea funcției | Butonul **Cere propunere AI** (doar la răspunsurile cu poze și barem) |
+| 12 | **Corectează pe întrebare** | Aceeași propunere, pe fiecare lucrare |
+| 13 | Cu `AI_GRADING_ENABLED=false` | Nici butonul de barem, nici propunerile nu apar; corectura merge ca înainte |
+
 ## E. Debugging — unde te uiți când pică ceva
 
 ```bash

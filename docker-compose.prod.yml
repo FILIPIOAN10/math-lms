@@ -94,6 +94,12 @@ services:
       GEMINI_LOCATION: ${GEMINI_LOCATION:-global}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.8-flash}
       GEMINI_CREDENTIALS_FILE: ${GEMINI_CREDENTIALS_FILE:-/app/secrets/gcp-vertex.json}
+      # The barem read from photos + AI grade proposals (V44): Gemini only, its strongest model; OFF unless enabled.
+      AI_GRADING_ENABLED: ${AI_GRADING_ENABLED:-false}
+      AI_GRADING_PROVIDER: ${AI_GRADING_PROVIDER:-gemini}
+      AI_GRADING_DAILY_LIMIT: ${AI_GRADING_DAILY_LIMIT:-300}
+      AI_BAREM_DAILY_PAGES: ${AI_BAREM_DAILY_PAGES:-20}
+      GEMINI_STRONG_MODEL: ${GEMINI_STRONG_MODEL:-gemini-4-argon}
       # F11 - files in a private S3 bucket instead of the uploads volume (docs/DEPLOY.md section 9). local = the volume.
       FILE_STORAGE_PROVIDER: ${FILE_STORAGE_PROVIDER:-local}
       S3_BUCKET: ${S3_BUCKET:-}

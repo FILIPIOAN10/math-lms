@@ -44,6 +44,30 @@ function setup(papers: AdminAttemptDetail[]) {
 }
 
 describe('GradeByItem', () => {
+  it("shows the AI's proposal for each paper's answer and takes it with Enter", async () => {
+    const getAiProposals = vi.fn((attemptId: number) => Promise.resolve([{
+      itemId: 2, status: 'DONE' as const, points: attemptId === 50 ? 3 : 5, parts: [], reason: `Motiv ${attemptId}.`,
+      confidence: 'HIGH' as const, error: null,
+    }]))
+    const gradeOpenItem = vi.fn(() => Promise.resolve())
+    render(
+      <GradeByItem
+        quizTitle="Simulare EN" attemptIds={[50, 51]} onExit={vi.fn()} aiOn getAiProposals={getAiProposals}
+        getAttemptForGrading={(id: number) => Promise.resolve(paper(id, id === 50 ? 'Ana' : 'Radu'))}
+        gradeOpenItem={gradeOpenItem} attemptPhotoUrl={(a, i, p) => `/photo/${a}/${i}/${p}`}
+      />,
+    )
+
+    expect(await screen.findByText('Propunere AI: 3 / 5 p')).toBeInTheDocument()
+    expect(screen.getByText('Motiv 50.')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByRole('radiogroup', { name: 'Puncte acordate' }).contains(document.activeElement)).toBe(true))
+    await userEvent.keyboard('{Enter}')
+
+    await waitFor(() => expect(gradeOpenItem).toHaveBeenCalledWith(50, 2, 3, null))
+    expect(getAiProposals).toHaveBeenCalledWith(50)
+  })
+
+
   it('names the open questions as the students saw them, with how many papers have points', async () => {
     setup([paper(50, 'Ana', [4, null]), paper(51, 'Radu')])
 

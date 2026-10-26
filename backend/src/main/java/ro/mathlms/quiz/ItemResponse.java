@@ -163,6 +163,11 @@ public class ItemResponse {
         return !photos.isEmpty();
     }
 
+    /** The stored files of the photos, in the order taken (what the AI grading reads). */
+    public List<String> photoKeys() {
+        return photos.stream().map(ResponsePhoto::getImageKey).toList();
+    }
+
     /** The photos' ids in the order taken - what the pages use to show and delete them. */
     public List<Long> photoIds() {
         return photos.stream().map(ResponsePhoto::getId).toList();

@@ -3,8 +3,9 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { CommentBank } from '@/components/grading/CommentBank'
 import { PointsPicker } from '@/components/grading/PointsPicker'
+import { AiProposalPanel } from '@/components/grading/AiProposalPanel'
 import { MathContent } from '@/components/MathContent'
-import type { AdminItemReview } from '@/lib/api'
+import type { AdminItemReview, AiProposal } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
 import { gradeReady, hasParts, initialGrade, sameGrade, totalOf, type GradeValue } from '@/lib/grading'
 import { useAutosave, type SaveStatus } from '@/lib/useAutosave'
@@ -23,6 +24,9 @@ const MAX_COMMENT = 2000
  *
  * `registerFlush` hands the page a way to send anything still pending (before finalising, before moving on);
  * `onStatus` tells it how this answer stands.
+ *
+ * With `aiOn`, the AI's proposal (`aiProposal`) shows above the points: each requirement's proposed points are outlined
+ * (Enter takes them), "Acceptă propunerea AI" takes them all; nothing is saved before the teacher does one of these.
  */
 export function ItemGradeForm({
   item,
@@ -32,6 +36,9 @@ export function ItemGradeForm({
   autoFocus = false,
   registerFlush,
   onStatus,
+  aiOn = false,
+  aiProposal = null,
+  onRequestAiProposal,
 }: {
   item: AdminItemReview
   save: (grade: GradeValue) => Promise<void>
@@ -40,6 +47,9 @@ export function ItemGradeForm({
   autoFocus?: boolean
   registerFlush?: (flush: (() => Promise<boolean>) | null) => void
   onStatus?: (status: SaveStatus) => void
+  aiOn?: boolean
+  aiProposal?: AiProposal | null
+  onRequestAiProposal?: () => void
 }) {
   const commentId = useId()
   const autosave = useAutosave<GradeValue>(initialGrade(item), save, {
@@ -65,12 +75,39 @@ export function ItemGradeForm({
     report.current?.(status)
   }, [status])
 
+  const done = aiOn && aiProposal?.status === 'DONE' ? aiProposal : null
+  const proposedFor = (partId: number) => done?.parts.find((p) => p.partId === partId) ?? null
+  const hasBarem = Boolean(item.barem?.trim()) || (item.parts ?? []).some((p) => Boolean(p.barem?.trim()))
+
+  /** "Acceptă propunerea AI": every requirement's proposed points (or the whole answer's), saved at once. */
+  function acceptProposal() {
+    if (!done) return
+    if (parted) {
+      const parts = { ...value.parts }
+      for (const p of done.parts) parts[p.partId] = p.points
+      setValue({ ...value, parts })
+    } else {
+      setValue({ ...value, points: done.points })
+    }
+    void flush()
+  }
+
   const statusLine = (
     <SaveLine status={status} error={autosave.error} awarded={item.awardedPoints} max={item.points} onRetry={() => void flush()} />
   )
 
   return (
     <div className="space-y-3">
+      {aiOn && (
+        <AiProposalPanel
+          proposal={aiProposal}
+          max={item.points}
+          canRequest={item.photoIds.length > 0 && hasBarem}
+          readOnly={readOnly}
+          onRequest={() => onRequestAiProposal?.()}
+          onAccept={acceptProposal}
+        />
+      )}
       {parted ? (
         <div className="space-y-3" data-testid="part-grades">
           {(item.parts ?? []).map((part, index) => (
@@ -93,11 +130,18 @@ export function ItemGradeForm({
                   autoFocus={autoFocus && index === 0}
                   label={`Puncte cerința ${part.label})`}
                   testId={`grade-part-${part.label}`}
+                  suggested={proposedFor(part.id)?.points ?? null}
                   onChange={(points, commit) => {
                     setValue({ ...value, parts: { ...value.parts, [part.id]: points } })
                     if (commit) void flush()
                   }}
                 />
+                {proposedFor(part.id) && (
+                  <p className="mt-1 text-xs text-sky-900 dark:text-sky-100">
+                    <span className="font-medium">AI: {proposedFor(part.id)!.points} p</span>
+                    {proposedFor(part.id)!.reason && <> — <MathContent inline>{proposedFor(part.id)!.reason!}</MathContent></>}
+                  </p>
+                )}
               </div>
             </div>
           ))}
@@ -121,6 +165,7 @@ export function ItemGradeForm({
             value={value.points}
             disabled={readOnly}
             autoFocus={autoFocus}
+            suggested={done?.points ?? null}
             onChange={(points, commit) => {
               setValue({ ...value, points })
               if (commit) void flush()

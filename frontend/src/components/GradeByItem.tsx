@@ -10,10 +10,13 @@ import { LoadingCards } from '@/components/LoadingCards'
 import {
   attemptPhotoUrl as attemptPhotoUrlDefault,
   finalizeGrading as finalizeGradingRequest,
+  getAiProposals as getAiProposalsRequest,
   getAttemptForGrading as getAttemptForGradingRequest,
   gradeOpenItem as gradeOpenItemRequest,
   gradeOpenItemParts as gradeOpenItemPartsRequest,
+  requestAiProposal as requestAiProposalRequest,
   type AdminAttemptDetail,
+  type AiProposal,
   type AdminItemReview,
 } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
@@ -36,6 +39,10 @@ interface Props {
   gradeOpenItemParts?: typeof gradeOpenItemPartsRequest
   finalizeGrading?: typeof finalizeGradingRequest
   attemptPhotoUrl?: typeof attemptPhotoUrlDefault
+  /** The AI's proposals are on: each answer shows its proposal (asked for once per paper). */
+  aiOn?: boolean
+  getAiProposals?: typeof getAiProposalsRequest
+  requestAiProposal?: typeof requestAiProposalRequest
 }
 
 /** Every paper fully scored (all open questions have points) can be finalised. */
@@ -56,6 +63,9 @@ export function GradeByItem({
   gradeOpenItemParts = gradeOpenItemPartsRequest,
   finalizeGrading = finalizeGradingRequest,
   attemptPhotoUrl = attemptPhotoUrlDefault,
+  aiOn = false,
+  getAiProposals = getAiProposalsRequest,
+  requestAiProposal = requestAiProposalRequest,
 }: Props) {
   const [papers, setPapers] = useState<AdminAttemptDetail[] | null>(null)
   // The quiz's open questions with the number students saw (their place in the quiz), fixed at load: papers leave
@@ -95,6 +105,22 @@ export function GradeByItem({
       cancelled = true
     }
   }, [attemptIds, getAttemptForGrading])
+
+  // The AI's proposals by paper, then by question - loaded when a paper is first shown.
+  const [proposals, setProposals] = useState<Record<number, Record<number, AiProposal>>>({})
+  const shownPaper = papers ? papers[Math.min(index, papers.length - 1)]?.attemptId ?? null : null
+  useEffect(() => {
+    if (!aiOn || shownPaper === null || proposals[shownPaper]) return
+    let cancelled = false
+    getAiProposals(shownPaper)
+      .then((list) => !cancelled && setProposals((all) => ({
+        ...all, [shownPaper]: Object.fromEntries(list.map((p) => [p.itemId, p])),
+      })))
+      .catch(() => undefined) // no proposal shown, grading works as before
+    return () => {
+      cancelled = true
+    }
+  }, [aiOn, shownPaper, proposals, getAiProposals])
 
   if (error && !papers) return <p className="text-sm text-destructive">{error}</p>
   if (!papers) return <LoadingCards cards={1} />
@@ -232,6 +258,15 @@ export function GradeByItem({
               }
               graded(paper.attemptId, gradedItem(answer, grade))
             }}
+            aiOn={aiOn}
+            aiProposal={proposals[paper.attemptId]?.[current.item.itemId] ?? null}
+            onRequestAiProposal={() => {
+              requestAiProposal(paper.attemptId, current.item.itemId)
+                .then((queued) => setProposals((all) => ({
+                  ...all, [paper.attemptId]: { ...all[paper.attemptId], [queued.itemId]: queued },
+                })))
+                .catch((e) => setError(errorMessage(e)))
+            }}
             onPrevious={index > 0 ? () => void goTo(index - 1) : undefined}
             onNext={index < papers.length - 1 ? () => void goTo(index + 1) : undefined}
           />
@@ -273,6 +308,9 @@ function AnswerGrader({
   registerFlush,
   onPrevious,
   onNext,
+  aiOn,
+  aiProposal,
+  onRequestAiProposal,
 }: {
   paper: AdminAttemptDetail
   answer: AdminItemReview
@@ -285,6 +323,9 @@ function AnswerGrader({
   registerFlush: (flush: (() => Promise<boolean>) | null) => void
   onPrevious?: () => void
   onNext?: () => void
+  aiOn: boolean
+  aiProposal: AiProposal | null
+  onRequestAiProposal: () => void
 }) {
   function submit(e: FormEvent) {
     e.preventDefault()
@@ -311,7 +352,8 @@ function AnswerGrader({
         )}
 
         <form onSubmit={submit} noValidate>
-          <ItemGradeForm item={answer} save={save} bank={bank} autoFocus registerFlush={registerFlush} />
+          <ItemGradeForm item={answer} save={save} bank={bank} autoFocus registerFlush={registerFlush}
+                         aiOn={aiOn} aiProposal={aiProposal} onRequestAiProposal={onRequestAiProposal} />
         </form>
 
         <div className={cn('flex justify-between gap-2', !onPrevious && 'justify-end')}>
