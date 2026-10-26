@@ -235,6 +235,27 @@ export function TakeQuizPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeUp])
 
+  // The question being read: the card crossing a band just above the middle of the screen. The bottom bar shows it
+  // apart from "answered", so a student always knows where they are; null until the first scroll means the first one.
+  const [currentItem, setCurrentItem] = useState<number | null>(null)
+  const navButtons = useRef(new Map<number, HTMLButtonElement>())
+  useEffect(() => {
+    if (!attempt || typeof IntersectionObserver === 'undefined') return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const seen = entries.filter((e) => e.isIntersecting).at(-1)
+        if (seen) setCurrentItem(Number((seen.target as HTMLElement).dataset.itemId))
+      },
+      { rootMargin: '-30% 0px -60% 0px' },
+    )
+    document.querySelectorAll('[data-item-id]').forEach((card) => observer.observe(card))
+    return () => observer.disconnect()
+  }, [attempt])
+  // A long test scrolls the bar sideways: keep the current question's button in it.
+  useEffect(() => {
+    if (currentItem !== null) navButtons.current.get(currentItem)?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' })
+  }, [currentItem])
+
   // Feature 2: grilă answers go through a queue kept in this browser, so a lost connection loses nothing.
   const sync = useAnswerSync({
     attemptId: attempt?.attemptId ?? null,
@@ -276,6 +297,7 @@ export function TakeQuizPage() {
   function goToItem(itemId: number) {
     const heading = document.getElementById(headingId(itemId))
     if (!heading) return
+    setCurrentItem(itemId)
     const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
     heading.scrollIntoView?.({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' })
     heading.focus({ preventScroll: true })
@@ -600,7 +622,7 @@ export function TakeQuizPage() {
         {numbered.map(({ item, label, local, heading }) => (
           <Fragment key={item.id}>
           {heading && <SectionHeadingView heading={heading} />}
-          <Card className="scroll-mt-14">
+          <Card className="scroll-mt-14" data-item-id={item.id}>
             <CardContent className="space-y-3 py-4">
               <h2 id={headingId(item.id)} tabIndex={-1} className="scroll-mt-14 text-sm font-medium outline-none">
                 {label.includes('.') ? `${local}.` : `Întrebarea ${label}`} · {item.points} p
@@ -797,19 +819,27 @@ export function TakeQuizPage() {
 
       <div className="fixed inset-x-0 bottom-0 border-t bg-background p-3">
         <div className="mx-auto max-w-3xl space-y-2">
-          <nav aria-label="Întrebări" className="flex gap-1.5 overflow-x-auto pb-1">
+          <nav aria-label="Întrebări" className="flex gap-1.5 overflow-x-auto p-1">
             {numbered.map(({ item, label }) => {
               const done = isAnswered(item)
               const unsentYet = sync.statusOf(item.id) !== undefined
+              const here = item.id === (currentItem ?? numbered[0]?.item.id)
               return (
                 <button
                   key={item.id}
+                  ref={(el) => {
+                    if (el) navButtons.current.set(item.id, el)
+                    else navButtons.current.delete(item.id)
+                  }}
                   type="button"
                   aria-label={`Întrebarea ${label}, ${done ? 'cu răspuns' : 'fără răspuns'}${unsentYet ? ', netrimis încă' : ''}`}
+                  aria-current={here ? 'step' : undefined}
                   onClick={() => goToItem(item.id)}
                   className={cn(
-                    'relative h-9 min-w-9 shrink-0 rounded-lg border px-1.5 text-sm font-medium transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+                    'relative h-11 min-w-11 shrink-0 rounded-lg border px-1.5 text-sm font-medium transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50 sm:h-9 sm:min-w-9',
                     done ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background hover:bg-muted',
+                    // Where the student is: a thick outline around the button, whether answered or not.
+                    here && 'ring-2 ring-foreground ring-offset-2 ring-offset-background',
                   )}
                 >
                   {label}
@@ -833,10 +863,11 @@ export function TakeQuizPage() {
                 disabled={submitting || leaving || timeUp || uploading}
                 title={uploading ? 'Așteaptă să se încarce poza' : undefined}
                 data-testid="quiz-leave"
+                className="h-11 sm:h-8"
               >
                 {leaving ? 'Se salvează...' : 'Salvează și ieși'}
               </Button>
-              <Button onClick={() => setConfirming(true)} disabled={submitting || leaving} data-testid="quiz-submit">
+              <Button onClick={() => setConfirming(true)} disabled={submitting || leaving} data-testid="quiz-submit" className="h-11 sm:h-8">
                 {submitting ? 'Se trimite...' : practice ? 'Termină practica' : 'Trimite lucrarea'}
               </Button>
             </div>

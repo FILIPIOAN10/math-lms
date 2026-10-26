@@ -1,7 +1,7 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TakeQuizPage } from '@/pages/TakeQuizPage'
 import {
   ApiError,
@@ -428,6 +428,89 @@ describe('TakeQuizPage', () => {
 
       expect(scroll).toHaveBeenCalled()
       expect(document.activeElement).toHaveTextContent('Întrebarea 3')
+    })
+
+    describe('the question on screen', () => {
+      /** Stands in for the browser's IntersectionObserver: the test says which card scrolled into the reading band. */
+      class FakeObserver {
+        static all: FakeObserver[] = []
+        observed: Element[] = []
+        readonly callback: IntersectionObserverCallback
+        constructor(callback: IntersectionObserverCallback) {
+          this.callback = callback
+          FakeObserver.all.push(this)
+        }
+        observe(el: Element) { this.observed.push(el) }
+        unobserve() {}
+        disconnect() { this.observed = [] }
+        takeRecords() { return [] }
+      }
+      function scrollTo(statement: string) {
+        const card = screen.getByText(statement).closest('[data-item-id]')!
+        const observer = FakeObserver.all.find((o) => o.observed.includes(card))!
+        act(() => observer.callback([{ target: card, isIntersecting: true } as unknown as IntersectionObserverEntry], observer as unknown as IntersectionObserver))
+      }
+      const current = (nav: HTMLElement) => within(nav).getAllByRole('button').filter((b) => b.getAttribute('aria-current') === 'step')
+
+      beforeEach(() => {
+        FakeObserver.all = []
+        vi.stubGlobal('IntersectionObserver', FakeObserver)
+        Element.prototype.scrollIntoView = vi.fn()
+      })
+      afterEach(() => vi.unstubAllGlobals())
+
+      it('marks the first question as the current one when the test starts, then follows the scroll', async () => {
+        api.startQuizAttempt.mockResolvedValue(startedThree())
+        renderPage('')
+        await userEvent.click(await screen.findByRole('button', { name: 'Începe testul' }))
+        await screen.findByText('Primul subiect')
+        const nav = screen.getByRole('navigation', { name: 'Întrebări' })
+
+        expect(current(nav).map((b) => b.textContent)).toEqual(['1'])
+
+        scrollTo('Al doilea subiect')
+
+        expect(current(nav).map((b) => b.textContent)).toEqual(['2'])
+        expect(current(nav)[0].className).toMatch(/ring-2/) // seen, not only announced
+      })
+
+      it('keeps "current" apart from "answered": an answered question that is not on screen is not current', async () => {
+        api.startQuizAttempt.mockResolvedValue(startedThree())
+        api.saveQuizAnswer.mockResolvedValue(null)
+        renderPage('')
+        await userEvent.click(await screen.findByRole('button', { name: 'Începe testul' }))
+        await screen.findByText('Primul subiect')
+        const nav = screen.getByRole('navigation', { name: 'Întrebări' })
+
+        await userEvent.click(screen.getByLabelText('a) A1'))
+        scrollTo('Al treilea subiect')
+
+        const answered = await within(nav).findByRole('button', { name: 'Întrebarea 1, cu răspuns' })
+        expect(answered).not.toHaveAttribute('aria-current')
+        expect(within(nav).getByRole('button', { name: 'Întrebarea 3, fără răspuns' })).toHaveAttribute('aria-current', 'step')
+      })
+
+      it('makes a question current as soon as it is picked in the bar', async () => {
+        api.startQuizAttempt.mockResolvedValue(startedThree())
+        renderPage('')
+        await userEvent.click(await screen.findByRole('button', { name: 'Începe testul' }))
+        await screen.findByText('Primul subiect')
+
+        await userEvent.click(screen.getByRole('button', { name: 'Întrebarea 3, fără răspuns' }))
+
+        expect(screen.getByRole('button', { name: 'Întrebarea 3, fără răspuns' })).toHaveAttribute('aria-current', 'step')
+      })
+
+      it('has 44 px buttons in the bar on a phone', async () => {
+        api.startQuizAttempt.mockResolvedValue(startedThree())
+        renderPage('')
+        await userEvent.click(await screen.findByRole('button', { name: 'Începe testul' }))
+        await screen.findByText('Primul subiect')
+
+        const nav = screen.getByRole('navigation', { name: 'Întrebări' })
+        for (const button of within(nav).getAllByRole('button')) expect(button.className).toMatch(/\bh-11\b.*\bsm:h-9\b/)
+        expect(screen.getByTestId('quiz-submit').className).toMatch(/\bh-11\b/)
+      })
     })
 
     it('lists the unanswered items before handing in, and can take the student to the first one', async () => {
