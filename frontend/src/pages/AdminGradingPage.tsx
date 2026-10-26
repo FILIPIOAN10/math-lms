@@ -33,6 +33,7 @@ import { PageHeader } from '@/components/PageHeader'
 import { useAutosave, type SaveStatus } from '@/lib/useAutosave'
 import { gradedItem, hasParts, partsPayload } from '@/lib/grading'
 import { useCommentSnippets, type SnippetBank } from '@/lib/useCommentSnippets'
+import { cn } from '@/lib/utils'
 
 /** Same limit as the server (V20 columns). */
 const MAX_COMMENT = 2000
@@ -44,12 +45,18 @@ function formatDate(iso: string | null): string {
   return iso ? new Date(iso).toLocaleString('ro-RO', { dateStyle: 'medium', timeStyle: 'short' }) : '—'
 }
 
-// ---------- One OPEN item: photo + barem + points ----------
+// ---------- One OPEN item: photo beside barem + points ----------
 
+/**
+ * The student's photo on the left, barem and points on the right, on a wide screen: the teacher reads the solution and
+ * scores it without scrolling between the two. The photo stays in view while the right column scrolls. On a phone
+ * they stack, photo first.
+ */
 function OpenItemGrader({
   attempt,
   item,
   bank,
+  autoFocus,
   onGraded,
   registerFlush,
   onStatus,
@@ -57,46 +64,54 @@ function OpenItemGrader({
   attempt: AdminAttemptDetail
   item: AdminItemReview
   bank: SnippetBank
+  /** The first answer still without points: the keyboard starts here. */
+  autoFocus: boolean
   /** The answer as graded once the server accepted it, to update the page without fetching the paper again. */
   onGraded: (item: AdminItemReview) => void
   registerFlush: (flush: (() => Promise<boolean>) | null) => void
   onStatus: (status: SaveStatus) => void
 }) {
+  const hasPhotos = item.photoIds.length > 0
   return (
-    <div className="space-y-3">
-      {item.photoIds.length > 0 ? (
-        <PhotoPages
-          stacked
-          urls={item.photoIds.map((photoId) => attemptPhotoUrl(attempt.attemptId, item.itemId, photoId))}
-          alt={(page) => `Rezolvarea trimisă de elev, pagina ${page} din ${item.photoIds.length}`}
+    <div data-testid="grade-split" className={cn('space-y-3', hasPhotos && 'lg:grid lg:grid-cols-2 lg:items-start lg:gap-6 lg:space-y-0')}>
+      <div className={cn(hasPhotos && 'lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto')}>
+        {hasPhotos ? (
+          <PhotoPages
+            stacked
+            urls={item.photoIds.map((photoId) => attemptPhotoUrl(attempt.attemptId, item.itemId, photoId))}
+            alt={(page) => `Rezolvarea trimisă de elev, pagina ${page} din ${item.photoIds.length}`}
+          />
+        ) : (
+          <p className="text-sm text-muted-foreground">Elevul nu a trimis nicio poză.</p>
+        )}
+      </div>
+
+      <div className="min-w-0 space-y-3">
+        {item.barem && (
+          <div className="rounded-lg bg-muted p-3 text-sm">
+            <p className="mb-1 font-medium">Barem</p>
+            <MathContent>{item.barem}</MathContent>
+          </div>
+        )}
+
+        <ItemGradeForm
+          item={item}
+          readOnly={attempt.status !== 'SUBMITTED'}
+          bank={bank}
+          autoFocus={autoFocus}
+          registerFlush={registerFlush}
+          onStatus={onStatus}
+          save={async (grade) => {
+            const comment = grade.comment.trim() === '' ? null : grade.comment.trim()
+            if (hasParts(item)) {
+              await gradeOpenItemParts(attempt.attemptId, item.itemId, partsPayload(item, grade), comment)
+            } else {
+              await gradeOpenItem(attempt.attemptId, item.itemId, grade.points!, comment)
+            }
+            onGraded(gradedItem(item, grade))
+          }}
         />
-      ) : (
-        <p className="text-sm text-muted-foreground">Elevul nu a trimis nicio poză.</p>
-      )}
-
-      {item.barem && (
-        <div className="rounded-lg bg-muted p-3 text-sm">
-          <p className="mb-1 font-medium">Barem</p>
-          <MathContent>{item.barem}</MathContent>
-        </div>
-      )}
-
-      <ItemGradeForm
-        item={item}
-        readOnly={attempt.status !== 'SUBMITTED'}
-        bank={bank}
-        registerFlush={registerFlush}
-        onStatus={onStatus}
-        save={async (grade) => {
-          const comment = grade.comment.trim() === '' ? null : grade.comment.trim()
-          if (hasParts(item)) {
-            await gradeOpenItemParts(attempt.attemptId, item.itemId, partsPayload(item, grade), comment)
-          } else {
-            await gradeOpenItem(attempt.attemptId, item.itemId, grade.points!, comment)
-          }
-          onGraded(gradedItem(item, grade))
-        }}
-      />
+      </div>
     </div>
   )
 }
@@ -336,10 +351,19 @@ export function AdminGradingPage() {
   const allOpenGraded = detail?.items.every((i) => i.type !== 'OPEN' || i.awardedPoints !== null) ?? false
   const othersWaiting = detail ? attempts.filter((a) => a.status === 'SUBMITTED' && a.attemptId !== detail.attemptId).length : 0
   const pointsSoFar = detail?.items.reduce((sum, i) => sum + (i.awardedPoints ?? 0), 0) ?? 0
+  // Where the keyboard starts on a paper still to grade; fixed when the paper opens, not moved by each grade.
+  const [firstUngraded, setFirstUngraded] = useState<number | null>(null)
+  const [openedId, setOpenedId] = useState<number | null>(null)
+  if (detail && detail.attemptId !== openedId) {
+    setOpenedId(detail.attemptId)
+    setFirstUngraded(
+      detail.status === 'SUBMITTED' ? detail.items.find((i) => i.type === 'OPEN' && i.awardedPoints === null)?.itemId ?? null : null,
+    )
+  }
 
   return (
     <div className="p-4">
-      <div className="mx-auto max-w-3xl space-y-4">
+      <div className={cn('mx-auto space-y-4', detail && !byItem ? 'max-w-6xl' : 'max-w-3xl')}>
         <PageHeader
           title={byItem ? `${byItem.quizTitle} — pe întrebare` : detail ? `${detail.studentName} — ${detail.quizTitle}` : 'Corectură'}
           description={byItem || detail ? undefined : 'Lucrările predate, cu întrebările care așteaptă nota ta.'}
@@ -373,6 +397,12 @@ export function AdminGradingPage() {
                 <div>
                   <p className="font-medium">{detail.studentName}</p>
                   <p className="text-sm text-muted-foreground">Trimis: {formatDate(detail.submittedAt)}</p>
+                  {detail.status === 'SUBMITTED' && (
+                    <p className="text-xs text-muted-foreground">
+                      Din tastatură: <kbd className="rounded border px-1 font-mono">0–9</kbd> dă punctajul și trece la
+                      următorul, săgețile îl schimbă.
+                    </p>
+                  )}
                 </div>
                 <div className="flex items-center gap-3">
                   <AttemptStatusBadge status={detail.status} />
@@ -423,6 +453,7 @@ export function AdminGradingPage() {
                       attempt={detail}
                       item={item}
                       bank={bank}
+                      autoFocus={item.itemId === firstUngraded}
                       onGraded={graded}
                       registerFlush={(f) => registerFlush(`item-${item.itemId}`, f)}
                       onStatus={(st) => reportStatus(`item-${item.itemId}`, st)}

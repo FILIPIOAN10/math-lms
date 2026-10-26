@@ -6,8 +6,23 @@ import { cn } from '@/lib/utils'
 export const MAX_BUTTONS = 10
 
 /**
+ * Focus the points of the next answer (or requirement) on the page, after the one holding `from`. Run after React has
+ * shown the points just picked: leaving a group sends its value, and it must be the new one.
+ */
+function focusNextPicker(from: Element) {
+  setTimeout(() => {
+    const all = [...document.querySelectorAll<HTMLElement>('[data-points-picker]')]
+    const next = all[all.findIndex((el) => el.contains(from)) + 1]
+    const target = next?.matches('input') ? next : next?.querySelector<HTMLElement>('[tabindex="0"]')
+    target?.focus()
+  }, 0)
+}
+
+/**
  * The points for one answer. For a question worth up to 10 p: a radio group of buttons 0…max (arrow keys move and pick,
- * like any radio group; saved when focus leaves the group), each tap is final. Above that: a number box, final on blur.
+ * like any radio group; saved when focus leaves the group), each tap is final; a digit key picks those points, saves
+ * them and moves on to the next points on the page, so a stack of answers is graded without the mouse. Above 10 p: a
+ * number box, final on blur.
  * `onChange(points, commit)`: `commit` says the teacher is done (a tap, or leaving the box) - time to save.
  */
 export function PointsPicker({
@@ -42,6 +57,7 @@ export function PointsPicker({
         <Input
           type="number"
           data-testid={testId}
+          data-points-picker=""
           min={0}
           max={max}
           value={text}
@@ -69,6 +85,15 @@ export function PointsPicker({
   const focusable = value ?? 0
 
   function onKeyDown(e: KeyboardEvent<HTMLButtonElement>, n: number) {
+    if (/^[0-9]$/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      const digit = Number(e.key)
+      if (digit > max) return
+      e.preventDefault()
+      buttons.current[digit]?.focus()
+      onChange(digit, true)
+      focusNextPicker(e.currentTarget)
+      return
+    }
     const step = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0
     const to = e.key === 'Home' ? 0 : e.key === 'End' ? max : step === 0 ? null : (n + step + max + 1) % (max + 1)
     if (to === null) return
@@ -83,6 +108,7 @@ export function PointsPicker({
         role="radiogroup"
         aria-label={label}
         data-testid={testId}
+        data-points-picker=""
         className="flex flex-wrap gap-1"
         onBlur={(e) => {
           if (!e.currentTarget.contains(e.relatedTarget as Node | null)) onChange(value, true)
@@ -102,7 +128,7 @@ export function PointsPicker({
             onClick={() => onChange(n, true)}
             onKeyDown={(e) => onKeyDown(e, n)}
             className={cn(
-              'h-9 min-w-9 rounded-lg border px-2 text-sm font-medium tabular-nums outline-none transition-colors',
+              'h-11 min-w-11 rounded-lg border sm:h-9 sm:min-w-9 px-2 text-sm font-medium tabular-nums outline-none transition-colors',
               'focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50',
               value === n ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background hover:bg-muted',
             )}

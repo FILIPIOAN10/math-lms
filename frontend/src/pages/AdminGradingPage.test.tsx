@@ -277,4 +277,52 @@ describe('AdminGradingPage', () => {
     expect(api.gradeOpenItemParts).toHaveBeenLastCalledWith(50, 101, [{ partId: 11, points: 2 }, { partId: 12, points: 1 }], null)
     expect(screen.getByTestId('grade-finalize')).toBeEnabled()
   })
+
+  it('grades a whole EN problem from the keyboard: the first points are ready, each digit moves on', async () => {
+    const d = detail()
+    d.items[0] = {
+      ...d.items[0], points: 5,
+      parts: [
+        { id: 11, label: 'a', statement: 'Arată că $x=25$.', points: 2, barem: null, awardedPoints: null },
+        { id: 12, label: 'b', statement: 'Calculează.', points: 3, barem: null, awardedPoints: null },
+      ],
+    }
+    await openAttempt(d)
+
+    const a = screen.getByRole('radiogroup', { name: 'Puncte cerința a)' })
+    await waitFor(() => expect(a.contains(document.activeElement)).toBe(true))
+    await userEvent.keyboard('2')
+    await waitFor(() => expect(screen.getByRole('radiogroup', { name: 'Puncte cerința b)' }).contains(document.activeElement)).toBe(true))
+    await userEvent.keyboard('1')
+
+    await waitFor(() => expect(api.gradeOpenItemParts).toHaveBeenLastCalledWith(50, 101,
+      [{ partId: 11, points: 2 }, { partId: 12, points: 1 }], null))
+    expect(screen.getByTestId('part-total')).toHaveTextContent('Total: 3 / 5 p')
+    expect(screen.getByText(/0–9/)).toBeInTheDocument() // the shortcut is written on the page
+  })
+
+  it('starts the keyboard on the first answer still without points', async () => {
+    const d = detail()
+    d.items = [
+      { ...d.items[0], itemId: 101, statement: 'Rezolvă', awardedPoints: 2 },
+      { ...d.items[0], itemId: 102, position: 2, statement: 'A doua', awardedPoints: null },
+    ]
+    await openAttempt(d)
+
+    const groups = screen.getAllByRole('radiogroup', { name: 'Puncte acordate' })
+    await waitFor(() => expect(groups[1].contains(document.activeElement)).toBe(true))
+  })
+
+  it('puts the photo beside the barem and the points, not above them', async () => {
+    await openAttempt(detail({
+      items: [{ ...detail().items[0], photoIds: [7], photoUploaded: true, barem: 'x = 3' }],
+    }))
+
+    const split = screen.getByTestId('grade-split')
+    const [photoColumn, gradeColumn] = Array.from(split.children)
+    expect(within(photoColumn as HTMLElement).getByTestId('photo-pages')).toBeInTheDocument()
+    expect(within(gradeColumn as HTMLElement).getByText('Barem')).toBeInTheDocument()
+    expect(within(gradeColumn as HTMLElement).getByRole('radiogroup', { name: 'Puncte acordate' })).toBeInTheDocument()
+    expect(split.className).toMatch(/lg:grid-cols-2/)
+  })
 })
