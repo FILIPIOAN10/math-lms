@@ -237,19 +237,33 @@ export function TakeQuizPage() {
 
   // The question being read: the card crossing a band just above the middle of the screen. The bottom bar shows it
   // apart from "answered", so a student always knows where they are; null until the first scroll means the first one.
+  // The last card(s) of a test can never scroll up into that band, so at the very bottom of the page the last one wins.
   const [currentItem, setCurrentItem] = useState<number | null>(null)
   const navButtons = useRef(new Map<number, HTMLButtonElement>())
   useEffect(() => {
-    if (!attempt || typeof IntersectionObserver === 'undefined') return
-    const observer = new IntersectionObserver(
+    if (!attempt) return
+    const lastCard = () => {
+      const page = document.documentElement
+      const atBottom = page.scrollHeight > window.innerHeight && window.innerHeight + window.scrollY >= page.scrollHeight - 4
+      return atBottom ? [...document.querySelectorAll<HTMLElement>('[data-item-id]')].at(-1) : undefined
+    }
+    const onScroll = () => {
+      const last = lastCard()
+      if (last) setCurrentItem(Number(last.dataset.itemId))
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    const observer = typeof IntersectionObserver === 'undefined' ? null : new IntersectionObserver(
       (entries) => {
-        const seen = entries.filter((e) => e.isIntersecting).at(-1)
-        if (seen) setCurrentItem(Number((seen.target as HTMLElement).dataset.itemId))
+        const seen = lastCard() ?? entries.filter((e) => e.isIntersecting).at(-1)?.target
+        if (seen) setCurrentItem(Number((seen as HTMLElement).dataset.itemId))
       },
       { rootMargin: '-30% 0px -60% 0px' },
     )
-    document.querySelectorAll('[data-item-id]').forEach((card) => observer.observe(card))
-    return () => observer.disconnect()
+    document.querySelectorAll('[data-item-id]').forEach((card) => observer?.observe(card))
+    return () => {
+      window.removeEventListener('scroll', onScroll)
+      observer?.disconnect()
+    }
   }, [attempt])
   // A long test scrolls the bar sideways: keep the current question's button in it.
   useEffect(() => {

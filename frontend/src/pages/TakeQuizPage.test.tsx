@@ -490,6 +490,29 @@ describe('TakeQuizPage', () => {
         expect(within(nav).getByRole('button', { name: 'Întrebarea 3, fără răspuns' })).toHaveAttribute('aria-current', 'step')
       })
 
+      it('makes the last question current at the very bottom of the page, where it can never reach the reading band', async () => {
+        api.startQuizAttempt.mockResolvedValue(startedThree())
+        renderPage('')
+        await userEvent.click(await screen.findByRole('button', { name: 'Începe testul' }))
+        await screen.findByText('Primul subiect')
+        const nav = screen.getByRole('navigation', { name: 'Întrebări' })
+        Object.defineProperty(document.documentElement, 'scrollHeight', { configurable: true, value: 2000 })
+        Object.defineProperty(window, 'scrollY', { configurable: true, value: 2000 - window.innerHeight })
+
+        try {
+          act(() => {
+            window.dispatchEvent(new Event('scroll'))
+          })
+          expect(current(nav).map((b) => b.textContent)).toEqual(['3'])
+
+          scrollTo('Al doilea subiect') // the band still sees 2 down there: the end of the page wins
+          expect(current(nav).map((b) => b.textContent)).toEqual(['3'])
+        } finally {
+          Object.defineProperty(window, 'scrollY', { configurable: true, value: 0 })
+          Reflect.deleteProperty(document.documentElement, 'scrollHeight')
+        }
+      })
+
       it('makes a question current as soon as it is picked in the bar', async () => {
         api.startQuizAttempt.mockResolvedValue(startedThree())
         renderPage('')
