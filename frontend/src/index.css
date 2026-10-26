@@ -128,4 +128,8 @@
   html {
     @apply font-sans;
     }
+  /* The grile and the builder's checkboxes in the theme's colour, not the browser's default blue. */
+  input[type='radio'], input[type='checkbox'] {
+    accent-color: var(--primary);
+  }
 }

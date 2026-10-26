@@ -1,19 +1,19 @@
-import { Fragment, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
 import { MasteryLegend } from '@/components/MasteryLegend'
 import { EnMasteryGrid } from '@/components/EnMasteryGrid'
+import { ClassAverageCell } from '@/components/ClassAverageCell'
 import { PageHeader } from '@/components/PageHeader'
 import { HomeSection } from '@/components/home/HomeBits'
 import { getClassEnMastery, getClassMastery, getClassReview, listClasses, type ClassMastery, type EnClassMastery, type StudentReviewStatus } from '@/lib/api'
 import { roCount } from '@/lib/format'
 import { errorMessage } from '@/lib/errors'
-import { MASTERY_LABELS, MASTERY_TONES, masteryLevel } from '@/lib/mastery'
+import { classAverage, MASTERY_LABELS, MASTERY_TONES, masteryLevel } from '@/lib/mastery'
 
 /** The class average of one chapter: the mean percent of the students who have data there. */
-function average(grid: ClassMastery, column: number): number | null {
-  const known = grid.students.map((s) => s.cells[column]?.percent).filter((p): p is number => p !== null && p !== undefined)
-  return known.length === 0 ? null : Math.round(known.reduce((a, b) => a + b, 0) / known.length)
+function average(grid: ClassMastery, column: number) {
+  return classAverage(grid.students.map((s) => s.cells[column]?.percent))
 }
 
 /**
@@ -129,16 +129,9 @@ export function AdminMasteryPage() {
                   <tfoot>
                     <tr className="border-t-2">
                       <th scope="row" className="sticky left-0 z-10 bg-card px-3 py-2 text-left font-medium">Media clasei</th>
-                      {grid.chapters.map((chapter, i) => {
-                        const avg = average(grid, i)
-                        return (
-                          <Fragment key={chapter.id}>
-                            <td className={`border-l px-3 py-2 text-center font-semibold tabular-nums ${MASTERY_TONES[masteryLevel(avg)]}`}>
-                              {avg === null ? '—' : `${avg}%`}
-                            </td>
-                          </Fragment>
-                        )
-                      })}
+                      {grid.chapters.map((chapter, i) => (
+                        <ClassAverageCell key={chapter.id} average={average(grid, i)} />
+                      ))}
                     </tr>
                   </tfoot>
                 </table>

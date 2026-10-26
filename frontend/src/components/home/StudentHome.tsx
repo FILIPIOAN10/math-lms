@@ -151,7 +151,8 @@ export function StudentHome() {
           </Link>
         }
       >
-        <div className="grid gap-3 sm:grid-cols-[2fr_1fr]">
+        {/* Nothing waiting is a quiet line under the grade, not a card with a big 0 next to it. */}
+        <div className={awaiting > 0 ? 'grid gap-3 sm:grid-cols-[2fr_1fr]' : 'space-y-2'}>
           <Card data-testid="latest-grade">
             <CardContent className="space-y-1 py-4">
               <p className="text-xs font-medium text-muted-foreground">Ultima notă</p>
@@ -175,15 +176,17 @@ export function StudentHome() {
               )}
             </CardContent>
           </Card>
-          <Card>
-            <CardContent className="space-y-1 py-4">
-              <p className="text-xs font-medium text-muted-foreground">În corectare</p>
-              <p data-testid="awaiting-grading" className="text-3xl font-semibold">{awaiting}</p>
-              <p className="text-sm text-muted-foreground">
-                {awaiting === 0 ? 'Nimic nu așteaptă profesorul.' : 'Le corectează profesorul.'}
-              </p>
-            </CardContent>
-          </Card>
+          {awaiting > 0 ? (
+            <Card>
+              <CardContent className="space-y-1 py-4">
+                <p className="text-xs font-medium text-muted-foreground">În corectare</p>
+                <p data-testid="awaiting-grading" className="text-3xl font-semibold">{awaiting}</p>
+                <p className="text-sm text-muted-foreground">Le corectează profesorul.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <p className="text-sm text-muted-foreground">Nimic nu așteaptă corectura.</p>
+          )}
         </div>
       </HomeSection>
     </>

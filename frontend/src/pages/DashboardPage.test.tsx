@@ -138,6 +138,16 @@ describe('DashboardPage — student', () => {
     expect(screen.getByTestId('awaiting-grading')).toHaveTextContent('1')
   })
 
+  it('says quietly that nothing waits for the teacher, instead of a big 0', async () => {
+    api.getMyProgress.mockResolvedValue([point({})])
+    api.getMyAttempts.mockResolvedValue([])
+    renderHome()
+
+    await screen.findByTestId('latest-grade')
+    expect(screen.queryByTestId('awaiting-grading')).not.toBeInTheDocument()
+    expect(screen.getByText('Nimic nu așteaptă corectura.')).toBeInTheDocument()
+  })
+
   it('S3: puts a grade not yet opened at the top, with its result one click away', async () => {
     api.getMyAttempts.mockResolvedValue([
       attempt({ attemptId: 30, quizTitle: 'Teză', score: 8, maxScore: 11, newResult: true }),

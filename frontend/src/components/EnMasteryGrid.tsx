@@ -3,20 +3,23 @@ import { Card, CardContent } from '@/components/ui/card'
 import { MasteryLegend } from '@/components/MasteryLegend'
 import { type EnClassMastery } from '@/lib/api'
 import { EN_AREAS } from '@/lib/enChapters'
-import { MASTERY_LABELS, MASTERY_TONES, masteryLevel } from '@/lib/mastery'
+import { classAverage, MASTERY_LABELS, MASTERY_TONES, masteryLevel } from '@/lib/mastery'
+import { ClassAverageCell } from '@/components/ClassAverageCell'
 
 /** The class average of one EN chapter: the mean percent of the students who have data there. */
-export function enAverage(grid: EnClassMastery, column: number): number | null {
-  const known = grid.students.map((s) => s.cells[column]?.percent).filter((p): p is number => p !== null && p !== undefined)
-  return known.length === 0 ? null : Math.round(known.reduce((a, b) => a + b, 0) / known.length)
+export function enAverage(grid: EnClassMastery, column: number) {
+  return classAverage(grid.students.map((s) => s.cells[column]?.percent))
 }
 
 /**
  * The teacher's grid of EN chapters for one class: students down, the EN chapters the class has met across (algebra,
  * then geometry; the code in the header, the title on hover), each cell coloured by level, the class average below.
+ * Students with no EN data at all are named on one line under the table instead of a row of dashes each.
  */
 export function EnMasteryGrid({ grid }: { grid: EnClassMastery }) {
-  if (grid.chapters.length === 0 || grid.students.length === 0) {
+  const withData = grid.students.filter((s) => s.cells.some((c) => c.percent !== null))
+  const withoutData = grid.students.filter((s) => !withData.includes(s))
+  if (grid.chapters.length === 0 || withData.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
         Nimic încă: harta apare după ce elevii clasei dau un test EN și e corectat.
@@ -50,7 +53,7 @@ export function EnMasteryGrid({ grid }: { grid: EnClassMastery }) {
               </tr>
             </thead>
             <tbody>
-              {grid.students.map((student) => (
+              {withData.map((student) => (
                 <tr key={student.studentId} className="border-t">
                   <th scope="row" className="sticky left-0 z-10 bg-card px-3 py-2 text-left font-medium whitespace-nowrap">
                     <Link to={`/admin/students/${student.studentId}`} className="hover:underline">{student.fullName}</Link>
@@ -74,20 +77,19 @@ export function EnMasteryGrid({ grid }: { grid: EnClassMastery }) {
             <tfoot>
               <tr className="border-t-2">
                 <th scope="row" className="sticky left-0 z-10 bg-card px-3 py-2 text-left font-medium">Media clasei</th>
-                {grid.chapters.map((chapter, i) => {
-                  const avg = enAverage(grid, i)
-                  return (
-                    <td key={chapter.id} data-testid={`en-average-${chapter.code}`}
-                        className={`border-l px-3 py-2 text-center font-semibold tabular-nums ${MASTERY_TONES[masteryLevel(avg)]}`}>
-                      {avg === null ? '—' : `${avg}%`}
-                    </td>
-                  )
-                })}
+                {grid.chapters.map((chapter, i) => (
+                  <ClassAverageCell key={chapter.id} average={enAverage(grid, i)} testId={`en-average-${chapter.code}`} />
+                ))}
               </tr>
             </tfoot>
           </table>
         </CardContent>
       </Card>
+      {withoutData.length > 0 && (
+        <p data-testid="en-no-data" className="text-sm text-muted-foreground">
+          Fără date EN încă: {withoutData.map((s) => s.fullName).join(', ')}.
+        </p>
+      )}
       <MasteryLegend />
     </div>
   )

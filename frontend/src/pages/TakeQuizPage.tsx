@@ -639,7 +639,7 @@ export function TakeQuizPage() {
           <Card className="scroll-mt-14" data-item-id={item.id}>
             <CardContent className="space-y-3 py-4">
               <h2 id={headingId(item.id)} tabIndex={-1} className="scroll-mt-14 text-sm font-medium outline-none">
-                {label.includes('.') ? `${local}.` : `Întrebarea ${label}`} · {item.points} p
+                {label.includes('.') ? `${local}. (${item.points} p)` : `Întrebarea ${label} · ${item.points} p`}
               </h2>
               <MathContent>{item.statement}</MathContent>
               <QuestionImage itemId={item.id} image={item.image} />

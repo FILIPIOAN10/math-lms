@@ -31,3 +31,13 @@ export const MASTERY_BARS: Record<MasteryLevel, string> = {
   low: 'bg-red-500',
   none: 'bg-transparent',
 }
+
+/** Below this many students with data, a "class average" is really one or two children: shown, but not coloured. */
+export const MIN_STUDENTS_FOR_AVERAGE = 3
+
+/** The mean of the percents that exist (rounded), and how many students it is from; null when nobody has data. */
+export function classAverage(percents: (number | null | undefined)[]): { percent: number; students: number } | null {
+  const known = percents.filter((p): p is number => p !== null && p !== undefined)
+  if (known.length === 0) return null
+  return { percent: Math.round(known.reduce((a, b) => a + b, 0) / known.length), students: known.length }
+}

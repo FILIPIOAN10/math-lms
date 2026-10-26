@@ -78,7 +78,20 @@ describe('AdminMasteryPage', () => {
     renderPage()
     const average = within(await screen.findByRole('table', { name: 'Nivel pe capitole' })).getByRole('row', { name: /Media clasei/ })
     const cells = within(average).getAllByRole('cell')
-    expect(cells.map((c) => c.textContent)).toEqual(['75%', '40%', '—'])
+    expect(cells.map((c) => c.textContent)).toEqual(['75%din 2 elevi', '40%din 1 elev', '—'])
+  })
+
+  it('does not colour an average of fewer than 3 students as if it were the whole class', async () => {
+    const three = { ...grid, students: [...grid.students, { ...grid.students[0], studentId: 6, fullName: 'Ioana' }] }
+    api.getClassMastery.mockResolvedValue(three)
+    renderPage()
+    const average = within(await screen.findByRole('table', { name: 'Nivel pe capitole' })).getByRole('row', { name: /Media clasei/ })
+    const [fractii, ecuatii] = within(average).getAllByRole('cell')
+    expect(fractii).toHaveTextContent('80%') // 90, 60, 90 - three students: a real class average, coloured
+    expect(fractii).not.toHaveTextContent('elevi')
+    expect(fractii.className).toMatch(/emerald/)
+    expect(ecuatii).toHaveTextContent('40%din 2 elevi')
+    expect(ecuatii.className).not.toMatch(/rose|red|destructive|amber|emerald/)
   })
 
   it('explains what to do when the class has no chapters', async () => {

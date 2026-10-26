@@ -394,8 +394,8 @@ describe('TakeQuizPage', () => {
         'SUBIECTUL I(7 puncte)Încercuiește litera corespunzătoare răspunsului corect.', // the section's points, as on the paper
         'SUBIECTUL al II-lea(4 puncte)',
       ])
-      expect(screen.getByRole('heading', { name: '1. · 2 p' })).toBeInTheDocument()
-      expect(screen.getByRole('heading', { name: '1. · 4 p' })).toBeInTheDocument() // first under SUBIECTUL al II-lea
+      expect(screen.getByRole('heading', { name: '1. (2 p)' })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: '1. (4 p)' })).toBeInTheDocument() // first under SUBIECTUL al II-lea
       const nav = screen.getByRole('navigation', { name: 'Întrebări' })
       expect(within(nav).getAllByRole('button').map((b) => b.textContent)).toEqual(['I.1', 'I.2', 'II.1'])
     })

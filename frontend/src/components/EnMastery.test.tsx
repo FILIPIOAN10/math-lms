@@ -60,4 +60,20 @@ describe('EnMasteryGrid', () => {
     expect(screen.getByTestId('en-average-G9')).toHaveTextContent('33%')
     expect(screen.getByRole('link', { name: 'Ana' })).toHaveAttribute('href', '/admin/students/7')
   })
+
+  it('lists the students with no EN data yet on one line instead of rows of dashes', () => {
+    const none = { chapterId: 1, percent: null, questions: 0 }
+    render(<EnMasteryGrid grid={{
+      chapters: grid.chapters,
+      students: [
+        ...grid.students,
+        { studentId: 9, fullName: 'Ioana', cells: [none, { ...none, chapterId: 20 }] },
+        { studentId: 10, fullName: 'Mihai', cells: [none, { ...none, chapterId: 20 }] },
+      ],
+    }} />, { wrapper: MemoryRouter })
+
+    expect(screen.queryByRole('row', { name: /Ioana/ })).not.toBeInTheDocument()
+    expect(screen.getByTestId('en-no-data')).toHaveTextContent('Fără date EN încă: Ioana, Mihai')
+    expect(screen.getByRole('row', { name: /Radu/ })).toBeInTheDocument() // one chapter with data is enough
+  })
 })
