@@ -35,15 +35,11 @@ describe('aiImport', () => {
     expect(open).toMatchObject({ points: 10, imageRequired: true, section: '', options: [] })
   })
 
-  it('will not make the quiz until every kept grilă has its answer marked', () => {
+  it('makes the quiz with grile still unanswered - the barem marks them later - but not with a grilă of one variant', () => {
     const drafts = toDrafts([read(), read({ type: 'OPEN', options: [] }), read({ options: ['7'] })])
 
-    expect(draftProblems(drafts)).toEqual([
-      'Întrebarea 1: marchează varianta corectă.',
-      'Întrebarea 3: o grilă are nevoie de cel puțin 2 variante.',
-    ])
+    expect(draftProblems(drafts)).toEqual(['Întrebarea 3: o grilă are nevoie de cel puțin 2 variante.'])
 
-    drafts[0].correct = 1
     drafts[2].include = false
     expect(draftProblems(drafts)).toEqual([])
   })
@@ -60,12 +56,13 @@ describe('aiImport', () => {
     ])
   })
 
-  it('a marked answer whose text was emptied is not an answer', () => {
+  it('a marked answer whose text was emptied is not an answer: the grilă goes in unanswered', () => {
     const [d] = toDrafts([read()])
     d.correct = 2
     d.options[2] = ' '
 
-    expect(draftProblems([d])).toEqual(['Întrebarea 1: marchează varianta corectă.'])
+    expect(draftProblems([d])).toEqual([])
+    expect(toItemInputs([d])[0].options!.every((o) => !o.correct)).toBe(true)
   })
 
   it('sends only the kept questions, in order, with empty variants dropped and the marked one correct', () => {

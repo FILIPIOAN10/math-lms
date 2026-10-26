@@ -376,8 +376,9 @@ function Review({ ai, classes, chapters, enChapters, onDiscard }: {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Am găsit {roCount(drafts.length, 'exercițiu', 'exerciții')}. Verifică textul cu poza alături, marchează
-        răspunsul corect la fiecare grilă și debifează ce nu vrei în test.
+        Am găsit {roCount(drafts.length, 'exercițiu', 'exerciții')}. Verifică textul cu poza alături și debifează ce nu
+        vrei în test. Răspunsul corect al grilelor îl poți bifa acum sau îl pune baremul după ce creezi testul („Barem din
+        poze” în pagina testului).
       </p>
       {ai.pagesAvailable && (
         <details className="rounded-lg border p-3" open>

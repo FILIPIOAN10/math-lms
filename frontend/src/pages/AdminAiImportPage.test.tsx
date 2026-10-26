@@ -91,16 +91,16 @@ describe('AdminAiImportPage', () => {
     expect(await screen.findAllByTestId('ai-draft', {}, { timeout: 4000 })).toHaveLength(2)
   })
 
-  it('makes the quiz only after the grilă answer is marked, with the kept questions', async () => {
+  it('makes the quiz with the kept questions; a grilă may wait for the barem', async () => {
     const user = userEvent.setup()
     api.createQuizFromAiImport.mockResolvedValue(9)
     renderAt('/admin/quizzes/ai-import/5')
 
     const [grila, open] = await screen.findAllByTestId('ai-draft')
     expect(within(open).getByText(/Are un desen/)).toBeInTheDocument()
-    expect(screen.getByTestId('ai-problems')).toHaveTextContent('Întrebarea 1: marchează varianta corectă.')
-    const create = screen.getByRole('button', { name: 'Creează testul (2 întrebări)' })
-    expect(create).toBeDisabled()
+    expect(screen.queryByTestId('ai-problems')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Creează testul (2 întrebări)' })).toBeEnabled()
+    expect(screen.getByText(/Barem din poze/)).toBeInTheDocument() // says where the answers come from otherwise
 
     await user.click(within(grila).getByLabelText('Varianta b) e corectă'))
     await user.click(within(open).getByLabelText('Îl includ'))

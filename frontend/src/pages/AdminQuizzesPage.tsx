@@ -396,8 +396,9 @@ export function ItemDialog({
         setError('Completează textul fiecărei variante.')
         return
       }
-      if (options.filter((o) => o.correct).length !== 1) {
-        setError('Bifează exact o variantă corectă.')
+      // None is fine (the barem marks it later; the test is not published before); two is not.
+      if (options.filter((o) => o.correct).length > 1) {
+        setError('Bifează o singură variantă corectă.')
         return
       }
     }
@@ -818,6 +819,12 @@ export function AdminQuizzesPage() {
     }
   }, [quizId])
   const quiz = loadedQuiz !== null && loadedQuiz.id === quizId ? loadedQuiz : null
+  // Grile still waiting for their right answer (read from photos, the barem not applied yet), by their number.
+  const unanswered = quiz
+    ? numberItems(quiz.items)
+      .filter(({ item }) => item.type === 'SINGLE_CHOICE' && !item.options.some((o) => o.correct))
+      .map(({ label }) => label)
+    : []
   const quizError = loadError !== null && loadError.id === quizId && quiz === null ? loadError.message : null
 
   const reloadList = () => listQuizzes().then(setQuizzes)
@@ -939,6 +946,18 @@ export function AdminQuizzesPage() {
               />
 
               {notice && <PublishedNotice notice={notice} onClose={() => setNotice(null)} />}
+              {unanswered.length > 0 && (
+                <div data-testid="unanswered-grile"
+                     className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+                  <p>
+                    {unanswered.length === 1 ? '1 grilă nu are' : `${unanswered.length} grile nu au`} încă răspunsul corect:{' '}
+                    {unanswered.join(', ')}. Testul nu se poate publica până atunci.
+                  </p>
+                  {aiGradingOn && (
+                    <Button size="sm" onClick={() => setReadingBarem(true)}>Barem din poze (AI)</Button>
+                  )}
+                </div>
+              )}
               {error && <p className="text-sm text-destructive">{error}</p>}
 
               {quiz.items.length === 0 ? (
@@ -1006,6 +1025,11 @@ export function AdminQuizzesPage() {
                               </li>
                             ))}
                           </ul>
+                        )}
+                        {item.type === 'SINGLE_CHOICE' && !item.options.some((o) => o.correct) && (
+                          <p data-testid="no-correct-answer" className="text-sm font-medium text-amber-700 dark:text-amber-300">
+                            ⚠ Fără răspuns corect: îl pune baremul sau îl bifezi în „Editează”.
+                          </p>
                         )}
                       </CardContent>
                     </Card>

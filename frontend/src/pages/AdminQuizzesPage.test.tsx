@@ -70,6 +70,20 @@ describe('AdminQuizzesPage', () => {
     api.getAiGradingSettings.mockResolvedValue({ enabled: false, baremMaxPages: 0, baremDailyPageLimit: 0, baremPagesUsedToday: 0 })
   })
 
+  it('says which grile still wait for their answer, and where it comes from', async () => {
+    api.getQuiz.mockResolvedValue(detail({ items: [
+      { ...detail().items[0], options: [{ id: 700, position: 0, text: '4', correct: false }, { id: 701, position: 1, text: '5', correct: false }] },
+    ] }))
+    api.getAiGradingSettings.mockResolvedValue({ enabled: true, baremMaxPages: 5, baremDailyPageLimit: 20, baremPagesUsedToday: 0 })
+    renderAt('/admin/quizzes/7')
+
+    const banner = await screen.findByTestId('unanswered-grile')
+    expect(banner).toHaveTextContent('1 grilă nu are încă răspunsul corect: 1.')
+    expect(banner).toHaveTextContent('nu se poate publica')
+    expect(within(banner).getByRole('button', { name: 'Barem din poze (AI)' })).toBeInTheDocument()
+    expect(screen.getByTestId('no-correct-answer')).toHaveTextContent('Fără răspuns corect')
+  })
+
   it('offers the barem from photos on a test with questions, only where the server reads it', async () => {
     renderAt('/admin/quizzes/7')
     await screen.findByText('Cât face 2+2?')

@@ -21,6 +21,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -132,7 +133,7 @@ class QuizAdminServiceTest {
     }
 
     @Test
-    void addSingleChoiceRejectsNotExactlyOneCorrect() {
+    void addSingleChoiceRejectsTwoCorrectButLetsTheBaremMarkALaterOne() {
         when(quizRepository.findById(1L)).thenReturn(Optional.of(quiz));
         when(itemRepository.save(any(QuizItem.class))).thenAnswer(i -> i.getArgument(0));
 
@@ -142,12 +143,13 @@ class QuizAdminServiceTest {
                 List.of(new OptionRequest(0, "A", true), new OptionRequest(1, "B", true)))))
                 .isInstanceOf(InvalidQuizException.class);
 
-        // Zero correct.
-        assertThatThrownBy(() -> service.addItem(1L, new ItemRequest(
-                QuizItemType.SINGLE_CHOICE, 1, "x", 5, null,
-                List.of(new OptionRequest(0, "A", false), new OptionRequest(1, "B", false)))))
-                .isInstanceOf(InvalidQuizException.class);
         verify(optionRepository, never()).save(any());
+
+        // Zero correct: a grilă read from photos waits for its barem (publishing is what needs the answer).
+        when(optionRepository.save(any(QuizOption.class))).thenAnswer(i -> i.getArgument(0));
+        service.addItem(1L, new ItemRequest(QuizItemType.SINGLE_CHOICE, 1, "x", 5, null,
+                List.of(new OptionRequest(0, "A", false), new OptionRequest(1, "B", false))));
+        verify(optionRepository, times(2)).save(any());
     }
 
     @Test

@@ -235,6 +235,7 @@ public class QuizAdminService {
             if (itemRepository.countByQuizId(id) == 0) {
                 throw new InvalidQuizException("Adaugă cel puțin o întrebare înainte să publici testul.");
             }
+            requireEveryGrilaAnswered(quiz);
             quiz.publish();
         } else {
             quiz.unpublish();
@@ -245,6 +246,22 @@ public class QuizAdminService {
                     id, quiz.getTitle()));
         }
         return saved;
+    }
+
+    /** Students would be marked against nothing: a grilă without its right answer keeps the test from being published. */
+    private void requireEveryGrilaAnswered(Quiz quiz) {
+        List<QuizItem> items = itemRepository.findByQuizIdOrderByPosition(quiz.getId());
+        Map<Long, String> numbers = QuestionNumbers.of(items);
+        List<String> unanswered = items.stream()
+                .filter(i -> i.getType() == QuizItemType.SINGLE_CHOICE)
+                .filter(i -> optionRepository.findByItemIdOrderByPosition(i.getId()).stream().noneMatch(QuizOption::isCorrect))
+                .map(i -> numbers.get(i.getId()))
+                .toList();
+        if (!unanswered.isEmpty()) {
+            throw new InvalidQuizException((unanswered.size() == 1 ? "Grila " + unanswered.get(0) + " nu are"
+                    : "Grilele " + String.join(", ", unanswered) + " nu au") + " răspunsul corect. Pune baremul "
+                    + "(„Barem din poze”) sau bifează varianta corectă, apoi publică.");
+        }
     }
 
     /**
@@ -800,8 +817,9 @@ public class QuizAdminService {
     }
 
     /**
-     * For a single-choice item, validates and persists its options (at least two, exactly one
-     * correct). For an open item, options are ignored and none are stored.
+     * For a single-choice item, validates and persists its options (at least two, at most one correct: a grilă read
+     * from photos may wait for its barem to say which - publishing needs it, see {@link #setPublished}). For an open
+     * item, options are ignored and none are stored.
      */
     private List<QuizOption> saveOptionsIfSingleChoice(QuizItem item, ItemRequest request) {
         if (item.getType() != QuizItemType.SINGLE_CHOICE) {
@@ -812,8 +830,8 @@ public class QuizAdminService {
             throw new InvalidQuizException("A single-choice item needs at least two options");
         }
         long correct = options.stream().filter(OptionRequest::correct).count();
-        if (correct != 1) {
-            throw new InvalidQuizException("A single-choice item must have exactly one correct option");
+        if (correct > 1) {
+            throw new InvalidQuizException("O grilă are un singur răspuns corect.");
         }
         return options.stream()
                 .map(o -> optionRepository.save(new QuizOption(item, o.position(), o.text(), o.correct())))

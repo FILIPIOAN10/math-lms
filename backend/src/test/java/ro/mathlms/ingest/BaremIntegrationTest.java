@@ -40,6 +40,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -184,6 +185,35 @@ class BaremIntegrationTest {
                 .andExpect(status().isNoContent());
         assertThat(itemRepository.findById(grila.getId()).orElseThrow().getSolution()).isEqualTo("Răspuns: a) ... 5p");
         assertThat(optionRepository.findByItemIdOrderByPosition(grila.getId()).get(0).isCorrect()).isTrue();
+    }
+
+    @Test
+    void aGrilaMayWaitForTheBaremButTheTestIsNotPublishedWithoutItsAnswer() throws Exception {
+        quizAdminService.addItem(quiz.getId(), new ItemRequest(QuizItemType.SINGLE_CHOICE, 2, "Încă una, fără răspuns", 5,
+                null, List.of(new OptionRequest(0, "1", false), new OptionRequest(1, "2", false)), null, null, "SUBIECTUL I"));
+        QuizItem unanswered = itemRepository.findByQuizIdOrderByPosition(quiz.getId()).stream()
+                .filter(i -> i.getStatement().equals("Încă una, fără răspuns")).findFirst().orElseThrow();
+
+        String refused = mockMvc.perform(post("/api/admin/quizzes/" + quiz.getId() + "/publish").with(as(teacher)).with(csrf()))
+                .andExpect(status().isBadRequest()).andReturn().getResponse().getContentAsString();
+        // after Subiectul III, a new SUBIECTUL I run numbers from 1 again
+        assertThat(refused).contains("Grila I.1 nu are răspunsul corect").contains("Barem din poze");
+
+        long secondOption = optionRepository.findByItemIdOrderByPosition(unanswered.getId()).get(1).getId();
+        mockMvc.perform(put("/api/admin/quizzes/" + quiz.getId() + "/barem").with(as(teacher)).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(
+                                Map.of("items", List.of(Map.of("itemId", unanswered.getId(), "correctOptionId", secondOption))))))
+                .andExpect(status().isNoContent());
+        mockMvc.perform(post("/api/admin/quizzes/" + quiz.getId() + "/publish").with(as(teacher)).with(csrf()))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void aGrilaHasAtMostOneRightAnswer() {
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> quizAdminService.addItem(quiz.getId(), new ItemRequest(
+                        QuizItemType.SINGLE_CHOICE, 3, "Două răspunsuri", 5, null,
+                        List.of(new OptionRequest(0, "1", true), new OptionRequest(1, "2", true)), null, null)))
+                .isInstanceOf(ro.mathlms.quiz.InvalidQuizException.class);
     }
 
     @Test

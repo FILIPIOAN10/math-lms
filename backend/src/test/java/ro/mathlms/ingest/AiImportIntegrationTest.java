@@ -227,15 +227,15 @@ class AiImportIntegrationTest {
     }
 
     @Test
-    void aGrilaWithoutItsCorrectAnswerMakesNoQuizAtAll() throws Exception {
+    void aGrilaWithTwoRightAnswersMakesNoQuizAtAll() throws Exception {
         long id = uploadedId(upload(teacher, 1));
         service.processNext();
         long quizzesBefore = quizRepository.count();
-        Map<String, Object> body = Map.of("title", "Fără răspuns", "items", List.of(
+        Map<String, Object> body = Map.of("title", "Două răspunsuri", "items", List.of(
                 Map.of("type", "OPEN", "statement", "Rezolvă", "points", 10),
                 Map.of("type", "SINGLE_CHOICE", "statement", "Alege", "points", 5, "options", List.of(
-                        Map.of("position", 0, "text", "1", "correct", false),
-                        Map.of("position", 1, "text", "2", "correct", false)))));
+                        Map.of("position", 0, "text", "1", "correct", true),
+                        Map.of("position", 1, "text", "2", "correct", true)))));
         mockMvc.perform(post("/api/admin/ai-imports/" + id + "/quiz").with(as(teacher)).with(csrf())
                         .contentType("application/json").content(objectMapper.writeValueAsString(body)))
                 .andExpect(status().isBadRequest());

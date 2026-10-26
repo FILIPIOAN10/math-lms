@@ -149,10 +149,9 @@ export function draftProblems(drafts: DraftItem[]): string[] {
     }
     if (d.type === 'SINGLE_CHOICE') {
       const filled = d.options.filter((o) => o.trim() !== '').length
+      // No answer marked is fine: "Barem din poze" marks it once the test exists (and publishing waits for it).
       if (filled < 2) {
         problems.push(`${label}: o grilă are nevoie de cel puțin 2 variante.`)
-      } else if (d.correct === null || (d.options[d.correct] ?? '').trim() === '') {
-        problems.push(`${label}: marchează varianta corectă.`)
       }
     }
   })
