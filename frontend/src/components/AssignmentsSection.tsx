@@ -64,8 +64,9 @@ export function AssignmentsSection({
         const grade = a.state === 'GRADED' && attempt?.score != null ? romanianGrade(attempt.score, attempt.maxScore) : null
         return (
           <Card key={a.assignmentId}>
-            <CardContent data-testid="assignment-card" className="flex items-center justify-between gap-3 py-3">
-              <div className="min-w-0 space-y-1">
+            {/* On a phone the grade and the button go under the title instead of squeezing it to "Procente — te…". */}
+            <CardContent data-testid="assignment-card" className="flex flex-wrap items-center justify-between gap-3 py-3">
+              <div className="min-w-0 flex-1 basis-56 space-y-1">
                 <p className="truncate font-medium">{a.quizTitle}</p>
                 <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                   <span className={`rounded-md px-2 py-0.5 text-xs font-medium ${TONES[badge.tone]}`}>{badge.text}</span>
