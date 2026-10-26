@@ -64,6 +64,10 @@ describe('ParentChildPage', () => {
       homework(2, 'Ecuații', { state: 'IN_PROGRESS' }),
       homework(3, 'Simulare EN', { state: 'GRADED', attemptId: 101 }),
     ])
+    api.getChildAttempts.mockResolvedValue([{
+      attemptId: 101, quizId: 3, quizTitle: 'Simulare EN', status: 'GRADED', startedAt: '2026-10-04T08:00:00Z',
+      submittedAt: '2026-10-04T09:00:00Z', score: 8, mode: 'TEST', maxScore: 11, newResult: false,
+    }])
     renderPage()
 
     const section = await screen.findByRole('region', { name: 'Teme' })
@@ -74,6 +78,7 @@ describe('ParentChildPage', () => {
     expect(within(section).queryByRole('link', { name: /Începe|Continuă/ })).not.toBeInTheDocument()
     expect(within(cards[2]).getByRole('link', { name: 'Vezi rezultatul' }))
       .toHaveAttribute('href', '/parent/children/4/attempts/101')
+    await waitFor(() => expect(within(cards[2]).getByTestId('assignment-grade')).toHaveTextContent('nota 7,55'))
     expect(api.getChildAssignments).toHaveBeenCalledWith(4)
   })
 

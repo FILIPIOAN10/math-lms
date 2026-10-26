@@ -46,12 +46,11 @@ describe('AttemptResultView', () => {
     expect(screen.getByText('Elevul a trimis 2 pagini cu rezolvarea.')).toBeInTheDocument()
   })
 
-  it('shows the big final score once the attempt is graded', () => {
+  it('shows the grade as the big number once the attempt is graded, the points under it', () => {
     render(<AttemptResultView result={graded} />, { wrapper: MemoryRouter })
 
-    expect(screen.getByTestId('result-score')).toHaveTextContent('13 / 15 puncte')
-    expect(screen.getByTestId('result-grade')).toHaveTextContent('Nota 8,80')
-    expect(screen.getByTestId('result-grade')).toHaveTextContent('87%')
+    expect(screen.getByTestId('result-score')).toHaveTextContent(/Nota\s*8,80\s*13 \/ 15 puncte · 87%/)
+    expect(screen.getByTestId('result-score-grade').className).toMatch(/text-4xl/)
   })
 
   it("shows the teacher's comment on the paper and on each answer", () => {

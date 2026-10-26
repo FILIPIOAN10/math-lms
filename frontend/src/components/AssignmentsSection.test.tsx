@@ -58,6 +58,30 @@ describe('AssignmentsSection', () => {
     expect(screen.getByRole('link', { name: 'Vezi rezultatul' })).toHaveAttribute('href', '/quizzes/attempts/9/result')
   })
 
+  it('shows the grade of a graded homework and when it was handed in, not the deadline countdown', () => {
+    render(
+      <MemoryRouter>
+        <AssignmentsSection
+          assignments={[{ ...base, state: 'GRADED', attemptId: 9 }]}
+          attempts={[{ attemptId: 9, score: 8, maxScore: 11, submittedAt: '2026-10-04T09:00:00Z' }]}
+          nowMs={NOW}
+        />
+      </MemoryRouter>,
+    )
+
+    const card = screen.getByTestId('assignment-card')
+    expect(within(card).getByTestId('assignment-grade')).toHaveTextContent('nota 7,55')
+    expect(within(card).getByText(/^pe 4 oct\. 2026/)).toBeInTheDocument() // next to the "Predată" badge
+    expect(card).not.toHaveTextContent('peste 3 zile')
+  })
+
+  it('drops the countdown once the homework is handed in, even without its attempt', () => {
+    renderSection([{ ...base, state: 'SUBMITTED', attemptId: 9 }])
+
+    expect(screen.getByTestId('assignment-card')).not.toHaveTextContent('peste 3 zile')
+    expect(screen.queryByTestId('assignment-grade')).not.toBeInTheDocument()
+  })
+
   it('shows the homework not yet done before the finished ones, as the server ordered it', () => {
     renderSection([base, { ...base, assignmentId: 2, quizTitle: 'Gata', state: 'GRADED', attemptId: 4 }])
 

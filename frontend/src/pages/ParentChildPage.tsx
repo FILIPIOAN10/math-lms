@@ -82,6 +82,7 @@ export function ParentChildPage() {
         {assignments && (
           <AssignmentsSection
             assignments={assignments}
+            attempts={attempts ?? []}
             childId={Number(childId)}
             title="Teme"
             emptyText="Nicio temă dată clasei copilului."

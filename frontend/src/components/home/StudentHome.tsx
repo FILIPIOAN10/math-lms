@@ -16,7 +16,8 @@ import {
 } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
 import { formatDate, roCount } from '@/lib/format'
-import { formatGrade, romanianGrade, scoreLine } from '@/lib/grades'
+import { scoreLine } from '@/lib/grades'
+import { GradeFigure } from '@/components/GradeFigure'
 import { NewResultBadge } from '@/components/NewResultBadge'
 import { latestGrade, todoAssignments } from '@/lib/home'
 
@@ -156,17 +157,10 @@ export function StudentHome() {
               <p className="text-xs font-medium text-muted-foreground">Ultima notă</p>
               {last ? (
                 <>
-                  <p className="text-3xl font-semibold">
-                    {last.score} <span className="text-base text-muted-foreground">/ {last.maxScore} puncte</span>
-                    {romanianGrade(last.score, last.maxScore) !== null && (
-                      <span className="ml-2 text-base font-medium text-muted-foreground">
-                        · nota {formatGrade(romanianGrade(last.score, last.maxScore)!)}
-                      </span>
-                    )}
-                  </p>
+                  <GradeFigure score={last.score} maxScore={last.maxScore} />
                   <p className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
                     <span className="min-w-0 truncate">
-                      {last.quizTitle} · {last.percent}% · {formatDate(last.submittedAt)}
+                      {last.quizTitle} · {formatDate(last.submittedAt)}
                     </span>
                     <Link
                       to={`/quizzes/attempts/${last.attemptId}/result`}

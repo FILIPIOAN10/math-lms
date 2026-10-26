@@ -4,7 +4,8 @@ import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { assignmentBadge, dueCountdown, type BadgeTone } from '@/lib/assignments'
 import { formatDate } from '@/lib/format'
-import { type StudentAssignment } from '@/lib/api'
+import { formatGrade, romanianGrade } from '@/lib/grades'
+import { type MyAttemptDto, type StudentAssignment } from '@/lib/api'
 
 const TONES: Record<BadgeTone, string> = {
   info: 'bg-sky-500/15 text-sky-700 dark:text-sky-300',
@@ -21,9 +22,13 @@ const TONES: Record<BadgeTone, string> = {
  * handed-in one links to the parent's page for the result. `resultHref` makes it read-only the same way for the
  * teacher's page of one student, with its own link to the result. `emptyText` shows a line instead of hiding an empty
  * list.
+ *
+ * A handed-in homework no longer counts down to its deadline: with the student's `attempts` at hand it says when it was
+ * handed in and, once graded, its grade - the first thing a parent looks for.
  */
 export function AssignmentsSection({
   assignments,
+  attempts = [],
   nowMs,
   title = 'Teme',
   childId,
@@ -31,6 +36,7 @@ export function AssignmentsSection({
   emptyText,
 }: {
   assignments: StudentAssignment[]
+  attempts?: Pick<MyAttemptDto, 'attemptId' | 'score' | 'maxScore' | 'submittedAt'>[]
   nowMs?: number
   title?: string
   childId?: number
@@ -54,6 +60,8 @@ export function AssignmentsSection({
       {assignments.map((a) => {
         const badge = assignmentBadge(a)
         const done = a.state === 'SUBMITTED' || a.state === 'GRADED'
+        const attempt = done ? attempts.find((t) => t.attemptId === a.attemptId) : undefined
+        const grade = a.state === 'GRADED' && attempt?.score != null ? romanianGrade(attempt.score, attempt.maxScore) : null
         return (
           <Card key={a.assignmentId}>
             <CardContent data-testid="assignment-card" className="flex items-center justify-between gap-3 py-3">
@@ -61,19 +69,31 @@ export function AssignmentsSection({
                 <p className="truncate font-medium">{a.quizTitle}</p>
                 <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                   <span className={`rounded-md px-2 py-0.5 text-xs font-medium ${TONES[badge.tone]}`}>{badge.text}</span>
+                  {attempt?.submittedAt && <span>pe {formatDate(attempt.submittedAt)}</span>}
                   <span>{a.schoolClassName}</span>
-                  <span>
-                    Termen: {formatDate(a.dueAt)} ({dueCountdown(a.dueAt, now)})
-                  </span>
+                  {!done ? (
+                    <span>
+                      Termen: {formatDate(a.dueAt)} ({dueCountdown(a.dueAt, now)})
+                    </span>
+                  ) : !attempt?.submittedAt && (
+                    <span>Termen: {formatDate(a.dueAt)}</span>
+                  )}
                 </p>
               </div>
               {done && a.attemptId !== null ? (
-                <Link
-                  to={linkToResult(a.attemptId)}
-                  className={buttonVariants({ size: 'sm', variant: 'outline' })}
-                >
-                  Vezi rezultatul
-                </Link>
+                <div className="flex shrink-0 items-center gap-3">
+                  {grade !== null && (
+                    <span data-testid="assignment-grade" className="text-sm text-muted-foreground">
+                      nota <span className="text-lg font-semibold text-foreground tabular-nums">{formatGrade(grade)}</span>
+                    </span>
+                  )}
+                  <Link
+                    to={linkToResult(a.attemptId)}
+                    className={buttonVariants({ size: 'sm', variant: 'outline' })}
+                  >
+                    Vezi rezultatul
+                  </Link>
+                </div>
               ) : readOnly ? null : (
                 <Link to={`/quizzes/${a.quizId}/take`} className={buttonVariants({ size: 'sm' })}>
                   {a.state === 'IN_PROGRESS' ? 'Continuă' : 'Începe'}

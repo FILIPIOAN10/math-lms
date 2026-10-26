@@ -132,8 +132,7 @@ describe('DashboardPage — student', () => {
     renderHome()
 
     const grade = await screen.findByTestId('latest-grade')
-    expect(grade).toHaveTextContent('8 / 11')
-    expect(grade).toHaveTextContent('nota 7,55')
+    expect(grade).toHaveTextContent(/Nota\s*7,55\s*8 \/ 11 puncte/) // the grade first, the points under it
     expect(grade).toHaveTextContent('Simulare EN')
     expect(within(grade).getByRole('link', { name: 'Vezi rezultatul' })).toHaveAttribute('href', '/quizzes/attempts/7/result')
     expect(screen.getByTestId('awaiting-grading')).toHaveTextContent('1')
@@ -389,8 +388,7 @@ describe('DashboardPage — parent', () => {
     const cards = await screen.findAllByTestId('child-card')
     expect(cards).toHaveLength(2)
     expect(cards[0]).toHaveTextContent('Ana Student')
-    expect(cards[0]).toHaveTextContent('8 / 11')
-    expect(cards[0]).toHaveTextContent('nota 7,55')
+    expect(cards[0]).toHaveTextContent(/Nota\s*7,55\s*8 \/ 11 puncte/)
     expect(cards[0]).toHaveTextContent('1 test în corectare')
     expect(within(cards[0]).getByRole('link', { name: 'Vezi detalii' })).toHaveAttribute('href', '/parent/children/4')
     expect(cards[1]).toHaveTextContent('Nicio notă încă')

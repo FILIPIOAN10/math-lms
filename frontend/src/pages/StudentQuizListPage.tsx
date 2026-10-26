@@ -90,7 +90,7 @@ export function StudentQuizListPage() {
 
         {!loading && (
           <>
-            <AssignmentsSection assignments={assignments} />
+            <AssignmentsSection assignments={assignments} attempts={attempts} />
 
             <section className="space-y-2">
               <h2 className="font-medium">Teste disponibile</h2>

@@ -136,6 +136,7 @@ export function AdminStudentPage() {
 
             <AssignmentsSection
               assignments={data.assignments}
+              attempts={data.attempts}
               resultHref={paperHref}
               title="Teme"
               emptyText="Nicio temă dată claselor elevului."

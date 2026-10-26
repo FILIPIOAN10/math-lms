@@ -12,7 +12,7 @@ import { SectionHeadingView } from '@/components/SectionHeadingView'
 import { numberItems } from '@/lib/sections'
 import { ownPhotoUrl, type AttemptResultViewDto, type ItemResultDto } from '@/lib/api'
 import { roCount } from '@/lib/format'
-import { formatGrade, romanianGrade } from '@/lib/grades'
+import { GradeFigure } from '@/components/GradeFigure'
 import { mistakesOf, practiceMistakesHref } from '@/lib/mistakes'
 import { revisionLinks } from '@/lib/enChapters'
 
@@ -200,7 +200,6 @@ export function AttemptResultView({ result, audience = 'student' }: { result: At
   const choiceCorrect = choiceItems.filter((i) => i.correct).length
   const hintsUsed = result.items.reduce((sum, i) => sum + i.hintsUsed, 0)
   const hintsAvailable = result.items.reduce((sum, i) => sum + i.hintsAvailable, 0)
-  const grade = result.finalScore !== null ? romanianGrade(result.finalScore, result.maxScore) : null
 
   return (
     <>
@@ -216,18 +215,8 @@ export function AttemptResultView({ result, audience = 'student' }: { result: At
               {choiceItems.length > 0 && ` Grile corecte: ${choiceCorrect} din ${choiceItems.length}.`}
               {hintsAvailable > 0 && ` Indicii folosite: ${hintsUsed} din ${hintsAvailable}.`}
             </p>
-          ) : result.status === 'GRADED' ? (
-            <>
-              <p data-testid="result-score" className="text-3xl font-semibold">
-                {result.finalScore} <span className="text-base text-muted-foreground">/ {result.maxScore} puncte</span>
-              </p>
-              {grade !== null && result.finalScore !== null && (
-                <p data-testid="result-grade" className="text-sm text-muted-foreground">
-                  Nota <span className="font-semibold text-foreground">{formatGrade(grade)}</span> ·{' '}
-                  {Math.round((100 * result.finalScore) / result.maxScore)}%
-                </p>
-              )}
-            </>
+          ) : result.status === 'GRADED' && result.finalScore !== null ? (
+            <GradeFigure score={result.finalScore} maxScore={result.maxScore} testId="result-score" />
           ) : (
             <p className="text-sm text-muted-foreground">
               Grilele sunt corectate ({pointsSoFar} puncte până acum). Întrebările cu rezolvare
