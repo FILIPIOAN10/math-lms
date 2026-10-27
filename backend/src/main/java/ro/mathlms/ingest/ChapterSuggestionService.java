@@ -75,38 +75,6 @@ public class ChapterSuggestionService {
         this.readOnly.setReadOnly(true);
     }
 
-    /**
-     * The imported questions with a chapter proposed for each (and each requirement). Best effort: without a suggester,
-     * or when it fails, the questions come back as they were - the import itself never fails because of this.
-     */
-    public List<ExtractedItem> annotate(List<ExtractedItem> items) {
-        Optional<ChapterSuggester> suggester = suggester();
-        if (suggester.isEmpty() || items.isEmpty()) {
-            return items;
-        }
-        try {
-            List<Choice> choices = choices(chapterRepository.findAllByOrderByPositionAscIdAsc());
-            List<Question> questions = items.stream().map(i -> new Question(i.section(), i.statement(), i.options(),
-                    i.parts().stream().map(ExtractedItem.Part::statement).toList())).toList();
-            List<Suggestion> suggestions = suggester.get().suggest(questions, choices);
-            List<ExtractedItem> out = new ArrayList<>();
-            for (int i = 0; i < items.size(); i++) {
-                ExtractedItem item = items.get(i);
-                Suggestion s = i < suggestions.size() ? suggestions.get(i) : Suggestion.none(item.parts().size());
-                List<ExtractedItem.Part> parts = new ArrayList<>();
-                for (int p = 0; p < item.parts().size(); p++) {
-                    PartSuggestion ps = p < s.parts().size() ? s.parts().get(p) : new PartSuggestion(null, null);
-                    parts.add(item.parts().get(p).withChapter(ps.code(), ps.reason()));
-                }
-                out.add(item.withChapter(s.code(), s.reason(), List.copyOf(parts)));
-            }
-            return out;
-        } catch (Exception e) {
-            log.warn("EN chapter proposals for an import failed - the questions go to review without them", e);
-            return items;
-        }
-    }
-
     /** Proposals for every question of an existing test; nothing is changed. */
     public QuizSuggestionsDto suggestForQuiz(Long quizId) {
         if (!properties.enabled()) {

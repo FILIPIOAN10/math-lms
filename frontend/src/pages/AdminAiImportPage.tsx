@@ -344,6 +344,15 @@ function ImportView({ id, classes, chapters, enChapters }: {
       {ai?.status === 'DONE' && ai.quizId !== null && (
         <p>Testul a fost creat. <Link className="underline" to={`/admin/quizzes/${ai.quizId}`}>Deschide-l</Link>.</p>
       )}
+      {ai?.status === 'DONE' && ai.quizId === null && ai.reusedFrom != null && (
+        <div data-testid="ai-reused"
+             className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-3 text-sm">
+          <p>Ai mai trimis exact aceste pagini: am refolosit citirea de atunci, fără cost AI.</p>
+          {ai.pagesAvailable && (
+            <Button size="sm" variant="outline" onClick={() => void retry()} disabled={busy}>Citește din nou cu AI</Button>
+          )}
+        </div>
+      )}
       {ai?.status === 'DONE' && ai.quizId === null && ai.items && (
         <Review ai={ai} classes={classes} chapters={chapters} enChapters={enChapters} onDiscard={() => void discard()} />
       )}

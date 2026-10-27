@@ -26,10 +26,15 @@ public interface AiImportRepository extends JpaRepository<AiImport, Long> {
 
     Optional<AiImport> findByIdAndTeacherId(Long id, Long teacherId);
 
+    /** The teacher's latest finished reading of exactly these pages, to reuse at no cost. */
+    Optional<AiImport> findFirstByTeacherIdAndPagesHashAndStatusOrderByIdDesc(Long teacherId, String pagesHash,
+                                                                            AiImportStatus status);
+
     List<AiImport> findTop20ByTeacherIdOrderByIdDesc(Long teacherId);
 
-    /** Pages one teacher uploaded since {@code since} (the daily limit). Retries are not new pages. */
-    @Query("select coalesce(sum(a.pageCount), 0) from AiImport a where a.teacherId = :teacherId and a.createdAt >= :since")
+    /** Pages one teacher had read since {@code since} (the daily limit). Retries are not new pages, reuses cost nothing. */
+    @Query("select coalesce(sum(a.pageCount), 0) from AiImport a where a.teacherId = :teacherId and a.createdAt >= :since "
+            + "and a.reusedFrom is null")
     long pagesSince(@Param("teacherId") Long teacherId, @Param("since") Instant since);
 
     /** Worked on for too long: the app restarted (or hung) mid-read. */

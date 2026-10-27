@@ -77,17 +77,16 @@ class EnChapterSuggestionIntegrationTest {
     }
 
     @Test
-    void anImportProposesAChapterForEveryQuestionAndTheTeachersPickGoesIntoTheQuiz() throws Exception {
+    void anImportAsksTheAiForNoChaptersButTheTeachersPickGoesIntoTheQuiz() throws Exception {
         long id = json(mockMvc.perform(multipart("/api/admin/ai-imports")
                         .file(new MockMultipartFile("files", "p1.png", "image/png", PNG)).with(teacher).with(csrf()))
                 .andExpect(status().isAccepted())).get("id").asLong();
         assertThat(importService.processNext()).isTrue();
 
         JsonNode items = json(mockMvc.perform(get("/api/admin/ai-imports/" + id).with(teacher))).get("items");
-        // The fake reads "Rezultatul calculului ..." and "triunghiul ABC ... perimetrul".
-        assertThat(items.get(0).get("enChapter").asString()).isEqualTo("A1");
-        assertThat(items.get(0).get("enChapterReason").asString()).isNotBlank();
-        assertThat(items.get(1).get("enChapter").asString()).isEqualTo("G3");
+        // No second AI call per import (tokens): chapters come from the links, or "Sugerează capitolele (AI)" later.
+        assertThat(items.get(0).get("enChapter").isNull()).isTrue();
+        assertThat(items.get(1).get("enChapter").isNull()).isTrue();
 
         Map<String, Object> grila = new LinkedHashMap<>();
         grila.put("type", "SINGLE_CHOICE");

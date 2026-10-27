@@ -76,6 +76,8 @@ class GeminiPageExtractorTest {
                 .andExpect(jsonPath("$.generationConfig.responseMimeType").value("application/json"))
                 .andExpect(jsonPath("$.generationConfig.responseJsonSchema.properties.items.items.required.length()").value(11))
                 .andExpect(jsonPath("$.generationConfig.maxOutputTokens").value(GeminiPageExtractor.MAX_OUTPUT_TOKENS))
+                // copying text needs no reasoning: thinking is billed as output
+                .andExpect(jsonPath("$.generationConfig.thinkingConfig.thinkingLevel").value("LOW"))
                 .andRespond(withSuccess(answer("""
                         {"items": [
                           {"page": 1, "section": "SUBIECTUL I", "type": "SINGLE_CHOICE", "statement": "Cât face $2+3$?",

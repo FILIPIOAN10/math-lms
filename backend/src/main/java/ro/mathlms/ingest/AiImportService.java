@@ -97,7 +97,6 @@ public class AiImportService {
     private final ObjectMapper objectMapper;
     private final Clock clock;
     private final TransactionTemplate tx;
-    private final ChapterSuggestionService suggestions;
     private final QuizItemRepository itemRepository;
     private final QuestionImageService questionImages;
 
@@ -106,9 +105,8 @@ public class AiImportService {
                            QuizAdminService quizAdminService, FileService fileService, AuditLog auditLog,
                            List<PageExtractor> extractors, AiImportProperties properties, ObjectMapper objectMapper,
                            Clock clock, PlatformTransactionManager transactionManager,
-                           ChapterSuggestionService suggestions, QuizItemRepository itemRepository,
+                           QuizItemRepository itemRepository,
                            QuestionImageService questionImages) {
-        this.suggestions = suggestions;
         this.itemRepository = itemRepository;
         this.questionImages = questionImages;
         this.repository = repository;
@@ -158,8 +156,12 @@ public class AiImportService {
                 throw new InvalidQuizException("O poză e prea mare (maxim 4 MB).");
             }
         }
+        // The same pages read before (re-importing a test, the same PDF again): reuse that reading, no AI call.
+        String pagesHash = fingerprint(pages);
+        Optional<AiImport> earlier = repository.findFirstByTeacherIdAndPagesHashAndStatusOrderByIdDesc(
+                teacher.getId(), pagesHash, AiImportStatus.DONE);
         long used = repository.pagesSince(teacher.getId(), startOfToday());
-        if (used + pages.size() > properties.dailyPageLimit()) {
+        if (earlier.isEmpty() && used + pages.size() > properties.dailyPageLimit()) {
             long left = Math.max(0, properties.dailyPageLimit() - used);
             String limit = RoCount.of(properties.dailyPageLimit(), "pagină", "pagini");
             throw new InvalidQuizException(left == 0
@@ -182,9 +184,28 @@ public class AiImportService {
                 throw new UncheckedIOException("Nu am putut salva poza", e);
             }
         }
-        AiImport saved = repository.save(new AiImport(teacher.getId(), schoolClassId, chapterId, stored.size(),
-                write(stored), clock.instant()));
-        return dto(saved, false);
+        AiImport fresh = new AiImport(teacher.getId(), schoolClassId, chapterId, stored.size(), write(stored), clock.instant());
+        fresh.fingerprint(pagesHash);
+        earlier.ifPresent(source -> fresh.reuse(source,
+                write(ExtractedItems.inExamOrder(parse(source.getItemsJson(), ITEMS))), clock.instant()));
+        return dto(repository.save(fresh), false);
+    }
+
+    /** SHA-256 of the pages' bytes, in order: the same photos (or the same PDF, rendered alike) give the same hash. */
+    private static String fingerprint(List<MultipartFile> pages) {
+        try {
+            java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
+            for (MultipartFile page : pages) {
+                byte[] bytes = page.getBytes();
+                digest.update(java.nio.ByteBuffer.allocate(Integer.BYTES).putInt(bytes.length).array()); // page boundaries count
+                digest.update(bytes);
+            }
+            return java.util.HexFormat.of().formatHex(digest.digest());
+        } catch (IOException e) {
+            throw new UncheckedIOException("Nu am putut citi pozele", e);
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     /**
@@ -247,8 +268,9 @@ public class AiImportService {
     public AiImportDto retry(String email, Long id) {
         requireEnabled();
         AiImport ai = own(email, id);
-        if (ai.getStatus() != AiImportStatus.FAILED) {
-            throw new AiImportConflictException("Doar o citire eșuată poate fi reluată.");
+        boolean reused = ai.getStatus() == AiImportStatus.DONE && ai.getReusedFrom() != null;
+        if (ai.getStatus() != AiImportStatus.FAILED && !reused) {
+            throw new AiImportConflictException("Doar o citire eșuată sau refolosită poate fi reluată.");
         }
         if (!ai.hasPages()) {
             throw new AiImportConflictException("Pozele nu mai sunt păstrate. Încarcă paginile din nou.");
@@ -449,7 +471,8 @@ public class AiImportService {
             if (items.isEmpty()) {
                 return Outcome.failed(NOTHING_FOUND);
             }
-            items = suggestions.annotate(items); // the EN chapter of each question, for the review (best effort)
+            // No second AI call for EN chapters (it cost a third of an import): the questions follow the automatic
+            // links, and "Sugerează capitolele (AI)" on the test asks when the teacher wants it.
             return new Outcome(result, items, null);
         } catch (ExtractionException e) {
             log.warn("AI import {} failed: {}", id, e.getMessage(), e);
@@ -514,7 +537,7 @@ public class AiImportService {
         List<ExtractedItem> items = ai.getItemsJson() == null ? null : parse(ai.getItemsJson(), ITEMS);
         return new AiImportDto(ai.getId(), ai.getStatus(), ai.getPageCount(), ai.hasPages(),
                 items == null ? null : items.size(), ai.getError(), ai.getSchoolClassId(), ai.getChapterId(),
-                ai.getQuizId(), ai.getCreatedAt(), ai.getFinishedAt(), withItems ? items : null);
+                ai.getQuizId(), ai.getCreatedAt(), ai.getFinishedAt(), withItems ? items : null, ai.getReusedFrom());
     }
 
     private List<StoredPage> pages(AiImport ai) {

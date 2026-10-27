@@ -45,11 +45,6 @@ public record ExtractedItem(int page, String section, QuizItemType type, String 
         this(page, section, type, statement, options, points, hasFigure, warnings, List.of());
     }
 
-    /** The same reading with a chapter proposed for it and for each requirement. */
-    ExtractedItem withChapter(String chapter, String reason, List<Part> proposedParts) {
-        return new ExtractedItem(page, section, type, statement, options, points, hasFigure, warnings, proposedParts,
-                chapter, reason, figurePage, figureBox);
-    }
 
     /** One requirement: "Arată că $x=25$." worth 2 points (null when none are printed), and its proposed chapter. */
     public record Part(String statement, Integer points, String enChapter, String enChapterReason) {
@@ -58,8 +53,5 @@ public record ExtractedItem(int page, String section, QuizItemType type, String 
             this(statement, points, null, null);
         }
 
-        Part withChapter(String chapter, String reason) {
-            return new Part(statement, points, chapter, reason);
-        }
     }
 }

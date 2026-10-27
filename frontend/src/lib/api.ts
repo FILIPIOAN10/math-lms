@@ -914,6 +914,8 @@ export interface AiImport {
   finishedAt: string | null
   /** Only on getAiImport (null in the list). */
   items: ExtractedItem[] | null
+  /** The same pages were read before: that reading was copied (no AI call, no cost); null = read by the AI. */
+  reusedFrom?: number | null
 }
 
 export async function getAiImportSettings(): Promise<AiImportSettings> {

@@ -171,6 +171,20 @@ describe('AdminAiImportPage', () => {
     expect(api.createQuizFromAiImport).toHaveBeenCalledWith(5, expect.objectContaining({ figures: [] }))
   })
 
+  it('says when the same pages reused an earlier reading at no cost, and can still ask the AI afresh', async () => {
+    const user = userEvent.setup()
+    api.getAiImport.mockResolvedValue(done({ reusedFrom: 3 }))
+    api.retryAiImport.mockResolvedValue(done({ status: 'QUEUED', items: null, reusedFrom: null }))
+    renderAt('/admin/quizzes/ai-import/5')
+
+    expect(await screen.findByTestId('ai-reused')).toHaveTextContent('fără cost AI')
+    expect(screen.getAllByTestId('ai-draft')).toHaveLength(2) // the reading is there to review as usual
+    await user.click(screen.getByRole('button', { name: 'Citește din nou cu AI' }))
+
+    expect(api.retryAiImport).toHaveBeenCalledWith(5)
+    expect(await screen.findByText('Se citește pagina...')).toBeInTheDocument()
+  })
+
   it('offers to try a failed read again', async () => {
     const user = userEvent.setup()
     api.getAiImport.mockResolvedValue(done({ status: 'FAILED', error: 'Poza e prea neclară.', items: null }))

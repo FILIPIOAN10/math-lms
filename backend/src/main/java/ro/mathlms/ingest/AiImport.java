@@ -84,6 +84,14 @@ public class AiImport {
     @Column(name = "quiz_id")
     private Long quizId;
 
+    /** SHA-256 of the pages as stored, in order (V45): the same pages again reuse this reading. */
+    @Column(name = "pages_hash", length = 64)
+    private String pagesHash;
+
+    /** The import whose reading this one copied instead of asking the AI; null = read by the AI. */
+    @Column(name = "reused_from")
+    private Long reusedFrom;
+
     public AiImport(Long teacherId, Long schoolClassId, Long chapterId, int pageCount, String pageKeys, Instant now) {
         this.teacherId = Objects.requireNonNull(teacherId, "teacherId");
         this.schoolClassId = schoolClassId;
@@ -92,6 +100,27 @@ public class AiImport {
         this.pageKeys = Objects.requireNonNull(pageKeys, "pageKeys");
         this.status = AiImportStatus.QUEUED;
         this.createdAt = now;
+    }
+
+    /** Fingerprint of the pages, set when they are stored. */
+    void fingerprint(String pagesHash) {
+        this.pagesHash = pagesHash;
+    }
+
+    /**
+     * Done at once with {@code source}'s reading (the same pages): no AI call, so no tokens - {@code items} is the
+     * reading, in the order normalisation gives today.
+     */
+    void reuse(AiImport source, String items, Instant now) {
+        requireStatus(AiImportStatus.QUEUED);
+        this.itemsJson = Objects.requireNonNull(items, "items");
+        this.provider = source.provider;
+        this.model = source.model;
+        this.inputTokens = 0;
+        this.outputTokens = 0;
+        this.reusedFrom = source.id;
+        status = AiImportStatus.DONE;
+        finishedAt = now;
     }
 
     /** The worker took it. */
@@ -121,10 +150,17 @@ public class AiImport {
         finishedAt = now;
     }
 
-    /** "Încearcă din nou" on a failed import whose pages are still there. */
+    /**
+     * "Încearcă din nou" on a failed import whose pages are still there, or "Citește din nou cu AI" on a reused one:
+     * back in the queue for a fresh reading.
+     */
     void requeue() {
-        requireStatus(AiImportStatus.FAILED);
+        if (!(status == AiImportStatus.FAILED || (status == AiImportStatus.DONE && reusedFrom != null))) {
+            throw new IllegalStateException("AI import " + id + " is " + status + ", expected FAILED or a reused DONE");
+        }
         status = AiImportStatus.QUEUED;
+        itemsJson = null;
+        reusedFrom = null;
         error = null;
         startedAt = null;
         finishedAt = null;

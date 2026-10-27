@@ -261,6 +261,53 @@ class AiImportIntegrationTest {
     }
 
     @Test
+    void theSamePagesSentAgainReuseTheReadingWithoutAskingTheAi() throws Exception {
+        long first = uploadedId(upload(teacher, 2));
+        service.processNext();
+        long usedBefore = json(mockMvc.perform(get("/api/admin/ai-imports/settings").with(as(teacher)))).get("pagesUsedToday").asLong();
+
+        long again = uploadedId(upload(teacher, 2)); // the very same photos
+
+        JsonNode reused = json(mockMvc.perform(get("/api/admin/ai-imports/" + again).with(as(teacher))));
+        assertThat(reused.get("status").asString()).isEqualTo("DONE"); // at once, no worker, no AI call
+        assertThat(reused.get("reusedFrom").asLong()).isEqualTo(first);
+        assertThat(reused.get("items").size()).isEqualTo(4);
+        assertThat(importRepository.findById(again).orElseThrow().getOutputTokens()).isZero();
+        assertThat(pageFiles(again)).hasSize(2).allMatch(Files::exists); // its own photos, for previews and figures
+        // a reused reading costs nothing, so it does not count toward the daily limit
+        assertThat(json(mockMvc.perform(get("/api/admin/ai-imports/settings").with(as(teacher)))).get("pagesUsedToday").asLong())
+                .isEqualTo(usedBefore);
+        assertThat(service.processNext()).isFalse();
+    }
+
+    @Test
+    void aReusedReadingCanBeReadAgainByTheAiOnRequest() throws Exception {
+        long first = uploadedId(upload(teacher, 1));
+        service.processNext();
+        long again = uploadedId(upload(teacher, 1));
+
+        JsonNode reread = json(mockMvc.perform(post("/api/admin/ai-imports/" + again + "/retry").with(as(teacher)).with(csrf()))
+                .andExpect(status().isOk()));
+        assertThat(reread.get("status").asString()).isEqualTo("QUEUED");
+        assertThat(reread.get("reusedFrom").isNull()).isTrue();
+        assertThat(service.processNext()).isTrue();
+        assertThat(json(mockMvc.perform(get("/api/admin/ai-imports/" + again).with(as(teacher)))).get("status").asString())
+                .isEqualTo("DONE");
+        assertThat(first).isNotEqualTo(again);
+    }
+
+    @Test
+    void anotherTeachersReadingOfTheSamePagesIsNotReused() throws Exception {
+        uploadedId(upload(teacher, 1));
+        service.processNext();
+
+        long theirs = uploadedId(upload(otherTeacher, 1));
+
+        assertThat(json(mockMvc.perform(get("/api/admin/ai-imports/" + theirs).with(as(otherTeacher)))).get("status").asString())
+                .isEqualTo("QUEUED");
+    }
+
+    @Test
     void aPdfWithMorePagesThanOneImportTakesIsRefused() throws Exception {
         mockMvc.perform(multipart("/api/admin/ai-imports")
                         .file(new MockMultipartFile("files", "manual.pdf", "application/pdf",

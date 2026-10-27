@@ -23,6 +23,7 @@ public class GeminiPageExtractor implements PageExtractor {
     static final String NAME = "gemini";
     /** Thinking counts here too; 5 pages of exercises fit easily. */
     static final int MAX_OUTPUT_TOKENS = 25_000;
+    static final String THINKING_LEVEL = "LOW";
 
     private final GeminiClient client;
     private final ObjectMapper objectMapper;
@@ -67,6 +68,9 @@ public class GeminiPageExtractor implements PageExtractor {
         config.put("responseMimeType", "application/json");
         config.set("responseJsonSchema", PageReading.schema(objectMapper));
         config.put("maxOutputTokens", MAX_OUTPUT_TOKENS);
+        // Copying printed exercises needs little reasoning, and thinking is billed as output: the model's default
+        // (medium on gemini-3.8-flash) cost more than the transcription itself.
+        config.putObject("thinkingConfig").put("thinkingLevel", THINKING_LEVEL);
         return body;
     }
 }

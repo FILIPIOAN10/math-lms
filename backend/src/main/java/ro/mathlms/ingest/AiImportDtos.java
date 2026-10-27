@@ -28,7 +28,8 @@ public final class AiImportDtos {
      */
     public record AiImportDto(Long id, AiImportStatus status, int pageCount, boolean pagesAvailable, Integer itemCount,
                               String error, Long schoolClassId, Long chapterId, Long quizId, Instant createdAt,
-                              Instant finishedAt, List<ExtractedItem> items) {
+                              Instant finishedAt, List<ExtractedItem> items,
+                              Long reusedFrom) { // the import whose reading was copied (no AI call); null = read by the AI
     }
 
     /**
