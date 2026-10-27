@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { ImportItemsDialog } from '@/components/ImportItemsDialog'
 import { MathContent } from '@/components/MathContent'
+import { MathField } from '@/components/MathField'
 import { QuestionImage } from '@/components/QuestionImage'
 import { PageHeader } from '@/components/PageHeader'
 import { RowMenu } from '@/components/RowMenu'
@@ -326,6 +327,17 @@ export function ItemDialog({
   const shownImage = newImageUrl
     ?? (image === 'keep' && initial?.image ? questionImageUrl(initial.id, initial.image) : null)
 
+  // "Mai multe opțiuni": folded unless the question still waits for its figure.
+  const [more, setMore] = useState(Boolean(initial?.imageRequired))
+  const moreSet = [
+    shownImage ? 'desen' : null,
+    section.trim() ? section.split('\n')[0].trim() : null,
+    chapterId ? 'capitol' : null,
+    enChapterId ? 'capitol EN' : null,
+    solution.trim() ? (type === 'OPEN' ? 'barem' : 'rezolvare') : null,
+    hints.some((h) => h.trim()) ? roCount(hints.filter((h) => h.trim()).length, 'indiciu', 'indicii') : null,
+  ].filter((x): x is string => x !== null)
+
   function pickImage(file: File | undefined) {
     if (!file) return
     if (!file.type.startsWith('image/')) {
@@ -342,6 +354,7 @@ export function ItemDialog({
     if (!file) return
     e.preventDefault()
     pickImage(file)
+    setMore(true) // show the figure just pasted
   }
 
   const isEdit = initial !== null
@@ -461,107 +474,60 @@ export function ItemDialog({
       description="Enunțul, variantele și baremul pot conține LaTeX între $…$."
     >
       <form className="flex max-h-[75vh] flex-col gap-4 overflow-y-auto pr-1" onSubmit={submit} onPaste={onPaste}>
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="itype">Tip</Label>
-          <select
-            id="itype"
-            className={selectClass}
-            value={type}
-            disabled={isEdit}
-            onChange={(e) => setType(e.target.value as QuizItemType)}
-          >
-            <option value="SINGLE_CHOICE">Grilă (o singură variantă corectă)</option>
-            <option value="OPEN">Cu rezolvare (elevul trimite poza)</option>
-          </select>
-          {isEdit && <p className="text-xs text-muted-foreground">Tipul nu se poate schimba după creare.</p>}
-        </div>
-
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="isection">Secțiune (opțional)</Label>
-          <Textarea id="isection" rows={2} maxLength={300} value={section} onChange={(e) => setSection(e.target.value)}
-                    placeholder={'SUBIECTUL I\nÎncercuiește litera corespunzătoare răspunsului corect.'} className="min-h-0" />
-          <p className="text-xs text-muted-foreground">
-            Ca la Evaluarea Națională: întrebările cu aceeași secțiune apar grupate sub titlu (primul rând) și numerotate de la 1.
-            Gol = fără secțiune.
-          </p>
-        </div>
-
-        {chapters.length > 0 && (
+        {!isEdit && (
           <div className="flex flex-col gap-2">
-            <Label htmlFor="ichapter">Capitol</Label>
-            <ChapterSelect
-              id="ichapter"
-              value={chapterId}
-              onChange={setChapterId}
-              chapters={chapters}
-              emptyLabel={quizChapterTitle ? `Ca la test (${quizChapterTitle})` : 'Ca la test (niciunul)'}
-            />
+            <Label htmlFor="itype">Tip</Label>
+            <select
+              id="itype"
+              className={selectClass}
+              value={type}
+              disabled={isEdit}
+              onChange={(e) => setType(e.target.value as QuizItemType)}
+            >
+              <option value="SINGLE_CHOICE">Grilă (o singură variantă corectă)</option>
+              <option value="OPEN">Cu rezolvare (elevul trimite poza)</option>
+            </select>
           </div>
+
         )}
-        {enChapters.length > 0 && (
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="ienchapter">Capitol EN (unde ajunge elevul dacă greșește)</Label>
-            <EnChapterSelect id="ienchapter" value={enChapterId} onChange={setEnChapterId} chapters={enChapters}
-                             autoId={initial?.enChapterAuto} />
-          </div>
-        )}
+
         <div className="flex flex-col gap-2">
           <Label htmlFor="istatement">Enunț</Label>
-          <Textarea id="istatement" value={statement} onChange={(e) => setStatement(e.target.value)} required />
-          {statement.trim() !== '' && (
-            <MathContent className="rounded-md bg-muted/40 px-2 py-1 text-sm">{statement}</MathContent>
-          )}
+          {/* Typeset as the student sees it; a click makes it editable (with the typeset preview under the box). */}
+          <MathField id="istatement" label="Enunț" multiline livePreview value={statement} onChange={setStatement} />
         </div>
 
-        <div className="flex flex-col gap-2" data-testid="image-field">
-          <Label>Imagine sub enunț (opțional)</Label>
-          {shownImage ? (
-            <img src={shownImage} alt="Figura întrebării" className="max-h-56 w-fit rounded-lg border bg-white object-contain" />
-          ) : (
-            <p className="rounded-lg border border-dashed px-3 py-4 text-center text-sm text-muted-foreground">
-              Fă o captură a figurii (Win+Shift+S), apoi apasă Ctrl+V oriunde în acest dialog — sau alege un fișier.
-              {initial?.imageRequired && <span className="block font-medium text-amber-700 dark:text-amber-300">Întrebarea așteaptă o figură.</span>}
-            </p>
-          )}
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" size="sm" variant="outline" onClick={() => imagePicker.current?.click()}>
-              {shownImage ? 'Înlocuiește imaginea' : 'Alege imaginea'}
+        {type === 'SINGLE_CHOICE' ? (
+          <div className="flex flex-col gap-2">
+            <Label>Variante (bifează corecta)</Label>
+            {options.map((o, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  name="correct-option"
+                  checked={o.correct}
+                  onChange={() => setCorrect(i)}
+                  aria-label={`Varianta ${optionLetter(i)}) corectă`}
+                />
+                <span aria-hidden="true" className="w-4 shrink-0 text-sm font-semibold">{optionLetter(i)})</span>
+                <MathField
+                  id={`ioption-${i}`}
+                  label={`Varianta ${optionLetter(i)})`}
+                  value={o.text}
+                  onChange={(text) => setOptionText(i, text)}
+                  onKeyDown={(e) => onOptionEnter(e, i)}
+                  placeholder={`Varianta ${optionLetter(i)})`}
+                />
+                <Button type="button" variant="ghost" size="icon-sm" onClick={() => removeOption(i)} disabled={options.length <= 2} aria-label="Șterge varianta">
+                  ×
+                </Button>
+              </div>
+            ))}
+            <Button type="button" variant="outline" size="sm" onClick={addOption} className="self-start">
+              Adaugă variantă
             </Button>
-            {shownImage && (
-              <Button type="button" size="sm" variant="outline" className="text-destructive"
-                      onClick={() => setImage(initial?.image ? 'remove' : 'keep')}>
-                Scoate imaginea
-              </Button>
-            )}
           </div>
-          <input
-            ref={imagePicker}
-            type="file"
-            accept="image/png,image/jpeg,image/webp,image/gif"
-            className="hidden"
-            aria-label="Fișierul imaginii"
-            onChange={(e) => {
-              pickImage(e.target.files?.[0])
-              e.target.value = '' // the same file again still counts as a choice
-            }}
-          />
-        </div>
-
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="ipoints">Punctaj</Label>
-          <Input
-            id="ipoints"
-            type="number"
-            min={0}
-            value={type === 'OPEN' && parts.length > 0 ? String(partsTotal) : points}
-            onChange={(e) => setPoints(e.target.value)}
-            disabled={type === 'OPEN' && parts.length > 0}
-            className="w-28"
-          />
-          {type === 'OPEN' && parts.length > 0 && (
-            <p className="text-xs text-muted-foreground">Suma cerințelor de mai jos.</p>
-          )}
-        </div>
+        ) : null}
 
         {type === 'OPEN' && (
           <div className="flex flex-col gap-2" data-testid="parts-editor">
@@ -605,7 +571,7 @@ export function ItemDialog({
                     aria-label={`Barem cerința ${label})`}
                     className="ml-7 min-h-12 w-[calc(100%-1.75rem)]"
                   />
-                  {enChapters.length > 0 && (
+                  {more && enChapters.length > 0 && (
                     <div className="ml-7">
                       <EnChapterSelect
                         id={`ienchapter-part-${i}`}
@@ -636,77 +602,138 @@ export function ItemDialog({
           </div>
         )}
 
-        {type === 'SINGLE_CHOICE' ? (
-          <div className="flex flex-col gap-2">
-            <Label>Variante (bifează corecta)</Label>
-            {options.map((o, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  name="correct-option"
-                  checked={o.correct}
-                  onChange={() => setCorrect(i)}
-                  aria-label={`Varianta ${optionLetter(i)}) corectă`}
-                />
-                <span aria-hidden="true" className="w-4 shrink-0 text-sm font-semibold">{optionLetter(i)})</span>
-                <Input
-                  id={`ioption-${i}`}
-                  value={o.text}
-                  onChange={(e) => setOptionText(i, e.target.value)}
-                  onKeyDown={(e) => onOptionEnter(e, i)}
-                  placeholder={`Varianta ${optionLetter(i)})`}
-                />
-                <Button type="button" variant="ghost" size="icon-sm" onClick={() => removeOption(i)} disabled={options.length <= 2} aria-label="Șterge varianta">
-                  ×
-                </Button>
-              </div>
-            ))}
-            <Button type="button" variant="outline" size="sm" onClick={addOption} className="self-start">
-              Adaugă variantă
-            </Button>
-          </div>
-        ) : null}
-
         <div className="flex flex-col gap-2">
-          <Label htmlFor="isolution">
-            {type === 'OPEN' ? 'Barem / rezolvare (opțional)' : 'Rezolvare explicată (opțional)'}
-          </Label>
-          <Textarea id="isolution" value={solution} onChange={(e) => setSolution(e.target.value)} />
-          <p className="text-xs text-muted-foreground">
-            Elevul o vede după trimitere (în rezultat) și, în modul practică, imediat după ce răspunde.
-          </p>
+          <Label htmlFor="ipoints">Punctaj</Label>
+          <Input
+            id="ipoints"
+            type="number"
+            min={0}
+            value={type === 'OPEN' && parts.length > 0 ? String(partsTotal) : points}
+            onChange={(e) => setPoints(e.target.value)}
+            disabled={type === 'OPEN' && parts.length > 0}
+            className="w-28"
+          />
+          {type === 'OPEN' && parts.length > 0 && (
+            <p className="text-xs text-muted-foreground">Suma cerințelor de mai jos.</p>
+          )}
         </div>
 
-        <div className="flex flex-col gap-2" data-testid="hints-editor">
-          <Label>Indicii progresive (opțional, maxim {MAX_HINTS})</Label>
-          {hints.map((h, i) => (
-            <div key={i} className="flex items-start gap-2">
-              <span className="mt-2 w-5 text-xs text-muted-foreground">{i + 1}.</span>
-              <Textarea
-                value={h}
-                onChange={(e) => setHintText(i, e.target.value)}
-                placeholder={`Indiciul ${i + 1} — de la vag la concret`}
-                aria-label={`Indiciul ${i + 1}`}
+        {/* What most questions never need sits folded below: the folded line says what is already set. */}
+        <details data-testid="item-more" open={more} onToggle={(e) => setMore(e.currentTarget.open)}
+                 className="rounded-lg border px-3 py-2">
+          <summary className="cursor-pointer text-sm font-medium">
+            Mai multe opțiuni
+            {moreSet.length > 0 && (
+              <span data-testid="item-more-summary" className="ml-2 font-normal text-muted-foreground">({moreSet.join(' · ')})</span>
+            )}
+          </summary>
+          <div className="mt-3 flex flex-col gap-4">
+            <div className="flex flex-col gap-2" data-testid="image-field">
+              <Label>Desen sau figură (opțional)</Label>
+              {shownImage ? (
+                <img src={shownImage} alt="Figura întrebării" className="max-h-56 w-fit rounded-lg border bg-white object-contain" />
+              ) : (
+                <p className="rounded-lg border border-dashed px-3 py-4 text-center text-sm text-muted-foreground">
+                  Doar dacă enunțul are un desen, un grafic sau un tabel (ex. un triunghi, o dreaptă cu puncte). Fă o captură
+                  (Win+Shift+S) și apasă Ctrl+V oriunde aici, sau alege un fișier.
+                  {initial?.imageRequired && <span className="block font-medium text-amber-700 dark:text-amber-300">Întrebarea așteaptă o figură.</span>}
+                </p>
+              )}
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" size="sm" variant="outline" onClick={() => imagePicker.current?.click()}>
+                  {shownImage ? 'Înlocuiește imaginea' : 'Alege imaginea'}
+                </Button>
+                {shownImage && (
+                  <Button type="button" size="sm" variant="outline" className="text-destructive"
+                          onClick={() => setImage(initial?.image ? 'remove' : 'keep')}>
+                    Scoate imaginea
+                  </Button>
+                )}
+              </div>
+              <input
+                ref={imagePicker}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                className="hidden"
+                aria-label="Fișierul imaginii"
+                onChange={(e) => {
+                  pickImage(e.target.files?.[0])
+                  e.target.value = '' // the same file again still counts as a choice
+                }}
               />
-              <Button type="button" variant="ghost" size="icon-sm" onClick={() => removeHint(i)} aria-label={`Șterge indiciul ${i + 1}`}>
-                ×
-              </Button>
             </div>
-          ))}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="self-start"
-            disabled={hints.length >= MAX_HINTS}
-            onClick={() => setHints((prev) => [...prev, ''])}
-          >
-            Adaugă indiciu
-          </Button>
-          <p className="text-xs text-muted-foreground">
-            Apar doar în modul practică, unul câte unul, în ordinea de mai sus. Testul notat nu are indicii.
-          </p>
-        </div>
+
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="isection">Secțiune (opțional)</Label>
+              <Textarea id="isection" rows={2} maxLength={300} value={section} onChange={(e) => setSection(e.target.value)}
+                        placeholder={'SUBIECTUL I\nÎncercuiește litera corespunzătoare răspunsului corect.'} className="min-h-0" />
+              <p className="text-xs text-muted-foreground">
+                Ca la Evaluarea Națională: întrebările cu aceeași secțiune apar grupate sub titlu (primul rând) și numerotate de la 1.
+                Gol = fără secțiune.
+              </p>
+            </div>
+
+            {chapters.length > 0 && (
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="ichapter">Capitol</Label>
+                <ChapterSelect
+                  id="ichapter"
+                  value={chapterId}
+                  onChange={setChapterId}
+                  chapters={chapters}
+                  emptyLabel={quizChapterTitle ? `Ca la test (${quizChapterTitle})` : 'Ca la test (niciunul)'}
+                />
+              </div>
+            )}
+            {enChapters.length > 0 && (
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="ienchapter">Capitol EN (unde ajunge elevul dacă greșește)</Label>
+                <EnChapterSelect id="ienchapter" value={enChapterId} onChange={setEnChapterId} chapters={enChapters}
+                                 autoId={initial?.enChapterAuto} />
+              </div>
+            )}
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="isolution">
+                {type === 'OPEN' ? 'Barem / rezolvare (opțional)' : 'Rezolvare explicată (opțional)'}
+              </Label>
+              <Textarea id="isolution" value={solution} onChange={(e) => setSolution(e.target.value)} />
+              <p className="text-xs text-muted-foreground">
+                Elevul o vede după trimitere (în rezultat) și, în modul practică, imediat după ce răspunde.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-2" data-testid="hints-editor">
+              <Label>Indicii progresive (opțional, maxim {MAX_HINTS})</Label>
+              {hints.map((h, i) => (
+                <div key={i} className="flex items-start gap-2">
+                  <span className="mt-2 w-5 text-xs text-muted-foreground">{i + 1}.</span>
+                  <Textarea
+                    value={h}
+                    onChange={(e) => setHintText(i, e.target.value)}
+                    placeholder={`Indiciul ${i + 1} — de la vag la concret`}
+                    aria-label={`Indiciul ${i + 1}`}
+                  />
+                  <Button type="button" variant="ghost" size="icon-sm" onClick={() => removeHint(i)} aria-label={`Șterge indiciul ${i + 1}`}>
+                    ×
+                  </Button>
+                </div>
+              ))}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="self-start"
+                disabled={hints.length >= MAX_HINTS}
+                onClick={() => setHints((prev) => [...prev, ''])}
+              >
+                Adaugă indiciu
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                Apar doar în modul practică, unul câte unul, în ordinea de mai sus. Testul notat nu are indicii.
+              </p>
+            </div>
+          </div>
+        </details>
 
         {saved > 0 && (
           <p role="status" className="text-sm text-emerald-700 dark:text-emerald-300">

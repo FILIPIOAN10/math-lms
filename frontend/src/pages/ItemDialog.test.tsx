@@ -169,7 +169,8 @@ describe('ItemDialog quick entry', () => {
 
     await userEvent.type(screen.getByPlaceholderText('Varianta d)'), 'ultima{Enter}')
 
-    expect(screen.getAllByPlaceholderText(/^Varianta [a-z]\)$/)).toHaveLength(5)
+    // five variants now (d) is shown typeset once left, so count their "corectă" choices, not the empty boxes)
+    expect(screen.getAllByRole('radio', { name: /^Varianta [a-z]\) corectă$/ })).toHaveLength(5)
     await waitFor(() => expect(screen.getByPlaceholderText('Varianta e)')).toHaveFocus())
     expect(onSubmit).not.toHaveBeenCalled()
   })
@@ -283,6 +284,8 @@ describe('ItemDialog EN chapter', () => {
       ],
     }
     render(<ItemDialog open onClose={vi.fn()} initial={cube} onSubmit={onSubmit} enChapters={enChapters} />)
+    expect(screen.queryByLabelText('Capitol EN cerința a)')).not.toBeInTheDocument() // folded away by default
+    await userEvent.click(screen.getByText('Mai multe opțiuni'))
 
     const select = screen.getByLabelText('Capitol EN (unde ajunge elevul dacă greșește)')
     expect(select).toHaveDisplayValue('Automat: G9 Drepte și plane')
@@ -303,3 +306,76 @@ describe('ItemDialog EN chapter', () => {
   })
 })
 
+
+describe('ItemDialog kept simple', () => {
+  const grila: QuizItemDto = {
+    id: 12, position: 0, type: 'SINGLE_CHOICE', statement: 'Rezultatul este:', points: 5, solution: null, hints: [],
+    chapterId: null, section: 'SUBIECTUL I\nÎncercuiește litera',
+    options: [{ id: 1, position: 0, text: '$2$', correct: false }, { id: 2, position: 1, text: '$3$', correct: true }],
+  }
+
+  it('shows the statement, the variants and the points first; everything else is folded away', () => {
+    renderDialog(grila)
+
+    const more = screen.getByTestId('item-more')
+    expect(more).not.toHaveAttribute('open')
+    expect(more).toHaveTextContent('Mai multe opțiuni')
+    // what is folded: the figure, the heading, the solution, the hints
+    for (const label of ['Desen sau figură (opțional)', 'Secțiune (opțional)', 'Rezolvare explicată (opțional)']) {
+      expect(more).toContainElement(screen.getByText(label))
+    }
+    expect(more).toContainElement(screen.getByTestId('hints-editor'))
+    // what is not: statement, variants, points
+    expect(more).not.toContainElement(screen.getByLabelText('Enunț'))
+    expect(more).not.toContainElement(screen.getByLabelText('Punctaj'))
+    expect(more).not.toContainElement(screen.getByLabelText('Varianta a) corectă'))
+    // editing: the type cannot change, so it is not asked
+    expect(screen.queryByLabelText('Tip')).not.toBeInTheDocument()
+  })
+
+  it('says on the folded line what is already set, so nothing is hidden by surprise', () => {
+    renderDialog({ ...grila, image: 'fig.png', solution: 'Calcul.' })
+
+    expect(screen.getByTestId('item-more-summary')).toHaveTextContent('desen · SUBIECTUL I · rezolvare')
+  })
+
+  it('opens by itself when the question still waits for its figure', () => {
+    renderDialog({ ...grila, imageRequired: true })
+
+    expect(screen.getByTestId('item-more')).toHaveAttribute('open')
+  })
+
+  it('shows the statement and the variants typeset, and edits one only when clicked', async () => {
+    const onSubmit = renderDialog(grila)
+
+    expect(screen.queryByDisplayValue('$2$')).not.toBeInTheDocument() // no raw LaTeX on screen
+    const variantA = screen.getByRole('button', { name: 'Varianta a)' })
+    expect(variantA.querySelector('.katex')).not.toBeNull()
+
+    await userEvent.click(variantA)
+    const box = screen.getByDisplayValue('$2$')
+    expect(box).toHaveFocus()
+    await userEvent.clear(box)
+    await userEvent.type(box, '$-2$')
+    await userEvent.tab() // leaving the box shows it typeset again
+
+    expect(screen.queryByDisplayValue('$-2$')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Varianta a)' }).querySelector('.katex')).not.toBeNull()
+    await userEvent.click(screen.getByRole('button', { name: 'Salvează' }))
+    expect((await submitted(onSubmit)).options?.[0].text).toBe('$-2$')
+  })
+
+  it('edits the typeset statement on click, with the live preview while typing', async () => {
+    renderDialog(grila)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Enunț' }))
+
+    expect(screen.getByDisplayValue('Rezultatul este:')).toHaveFocus()
+  })
+
+  it('asks the type only for a new question', () => {
+    renderDialog(null)
+
+    expect(screen.getByLabelText('Tip')).toBeInTheDocument()
+  })
+})
