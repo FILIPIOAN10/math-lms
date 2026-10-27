@@ -59,8 +59,10 @@ describe('GradeByItem', () => {
     )
 
     expect(await screen.findByText('Propunere AI: 3 / 5 p')).toBeInTheDocument()
-    expect(screen.getByText('Motiv 50.')).toBeInTheDocument()
-    await waitFor(() => expect(screen.getByRole('radiogroup', { name: 'Puncte acordate' }).contains(document.activeElement)).toBe(true))
+    expect(await screen.findByText('Motiv 50.')).toBeInTheDocument() // MathContent typesets after a tick
+    // the autofocus lands after the paper and its proposal load: give it time when the whole suite runs at once
+    await waitFor(() => expect(screen.getByRole('radiogroup', { name: 'Puncte acordate' }).contains(document.activeElement)).toBe(true),
+      { timeout: 3000 })
     await userEvent.keyboard('{Enter}')
 
     await waitFor(() => expect(gradeOpenItem).toHaveBeenCalledWith(50, 2, 3, null))
@@ -80,7 +82,7 @@ describe('GradeByItem', () => {
 
     expect(await screen.findByRole('button', { name: 'Întrebarea 2 (1/2)' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByTestId('answer-grader')).toHaveTextContent('Radu · lucrarea 2 din 2')
-    expect(screen.getByText('Barem 2')).toBeInTheDocument()
+    expect(await screen.findByText('Barem 2')).toBeInTheDocument() // MathContent typesets after a tick
     expect(screen.getByRole('img', { name: 'Rezolvarea lui Radu, pagina 1 din 1' })).toHaveAttribute('src', '/photo/51/2/41')
   })
 

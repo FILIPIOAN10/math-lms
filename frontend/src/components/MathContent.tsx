@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useLayoutEffect, useRef } from 'react'
 import renderMathInElement from 'katex/contrib/auto-render'
 
 /**
@@ -9,11 +9,14 @@ import renderMathInElement from 'katex/contrib/auto-render'
  *
  * {@code inline} renders a <span> instead of a <div>, for math inside running text (a <p>, a
  * <label>, a list item's sentence), where a <div> is not valid HTML.
+ *
+ * The text goes in before the browser paints (a layout effect): with a plain effect the element was briefly empty -
+ * a blank flash on screen, and tests looking for the text right after a render found nothing under load.
  */
 export function MathContent({ children, className, inline = false }: { children: string; className?: string; inline?: boolean }) {
   const ref = useRef<HTMLElement | null>(null)
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = ref.current
     if (!el) {
       return
