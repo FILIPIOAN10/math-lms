@@ -52,11 +52,12 @@ jobs:
         env:
           BACKEND_IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-backend:${{ env.RELEASE_VERSION }}
           FRONTEND_IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-frontend:${{ env.RELEASE_VERSION }}
+          TUTOR_IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-tutor:${{ env.RELEASE_VERSION }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
-          envs: BACKEND_IMAGE,FRONTEND_IMAGE
+          envs: BACKEND_IMAGE,FRONTEND_IMAGE,TUTOR_IMAGE
           script: |
             set -eu
             cd "${DEPLOY_PATH:-/opt/math-lms}"
@@ -67,8 +68,12 @@ jobs:
             set_var() { grep -q "^$1=" .env.prod && sed -i "s|^$1=.*|$1=$2|" .env.prod || echo "$1=$2" >> .env.prod; }
             set_var BACKEND_IMAGE "$BACKEND_IMAGE"
             set_var FRONTEND_IMAGE "$FRONTEND_IMAGE"
+            set_var TUTOR_IMAGE "$TUTOR_IMAGE"
+            # The tutor only where .env.prod turns its profile on (COMPOSE_PROFILES=tutor[,monitoring]).
+            SERVICES="backend frontend"
+            if grep -Eq '^COMPOSE_PROFILES=.*\btutor\b' .env.prod; then SERVICES="$SERVICES tutor"; fi
 
-            $COMPOSE pull backend frontend
+            $COMPOSE pull $SERVICES
             $COMPOSE up -d --no-build --remove-orphans
 
             # Health gate: through nginx, the backend must answer (401 = the app is up and the proxy works).
@@ -83,7 +88,7 @@ jobs:
             if [ "$HEALTHY" != "true" ]; then
               echo "::error::New release is not healthy — rolling back"
               cp .env.prod.previous .env.prod
-              $COMPOSE pull backend frontend || true
+              $COMPOSE pull $SERVICES || true
               $COMPOSE up -d --no-build --remove-orphans
               exit 1
             fi

@@ -30,7 +30,7 @@ scurte în întrebări complete. Din 2026-10-28 lanțul e în produs: serviciu F
 | 8 | Serviciu FastAPI intern + Docker | ✅ | `feat/tutor-hints` (`249a50c`) |
 | 9 | Proxy Spring `POST /api/admin/quiz-items/{id}/tutor-hints` (proprietarul întrebării, rate limit, flag `app.tutor.enabled`) | ✅ | `feat/tutor-hints` (`b0639ce`) |
 | 10 | Buton „Sugerează indicii (AI)” în editorul întrebării (fără „Laborator Tutor” separat) | ✅ | `feat/tutor-hints` (`5d1e6f4`) |
-| 11 | CI, Azure OpenAI, pachetul de interviu | ⬜ | |
+| 11 | CI + producție ✅ (`7827e53`); Azure OpenAI, pachetul de interviu ⬜ | 🟡 | `feat/tutor-hints` |
 | 12 | (opțional) ajutor live pentru elev | ⬜ | |
 
 ## Ce s-a făcut, pe pași
@@ -90,7 +90,9 @@ scurte în întrebări complete. Din 2026-10-28 lanțul e în produs: serviciu F
 - [x] Teste: 11 Python (`test_api.py`), 11 backend, 5 frontend; suitele întregi verzi: 128 Python, 1154 backend, 594 frontend.
 - [x] Live: I.1 `20 − 2·(7 − 2)` → 3 trepte corecte, pagina 14 citată, 0,000567 $; aria cercului → refuz `too_far` (0,508) fără apel la model, prin clientul Java real; token greșit → mesaj de configurare.
 - ✗ Abatere de la plan: fără rând în jurnal (o propunere nu schimbă nimic; salvarea întrebării e deja jurnalizată), fără cache și fără „Laborator Tutor”.
-- [ ] Rămas: containerul în `docker-compose.prod.yml`, testele Python în CI (pasul 11), ecranul neverificat în browser (backend-ul de dev rula codul vechi).
+- [x] Ecranul verificat de tine în browser (2026-10-28).
+- [x] Pasul 11, partea CI + producție (`7827e53`): serviciul `tutor` în `docker-compose.prod.yml` (profil `tutor` din `COMPOSE_PROFILES`, fără port, `uploads` doar citire, același token), imaginea `math-lms-tutor` construită + scanată Trivy la release, deploy-ul o trage doar cu profilul pornit; job `tutor` în CI (pytest pe Python 3.13 + serviciu pgvector; în CI o bază lipsă e eșec, nu skip). Imaginea: `apt-get upgrade` per release și fără pip-ul de bază (avea msgpack/urllib3/setuptools vechi → 5 HIGH). Verificat local: Trivy curat, actionlint curat, compose randat cu profilul, `build_chapter AI --dry-run` în container cu `uploads` montat read-only, CI simulat într-o copie curată fără `.env` → 128 verzi. Ghid: `docs/DEPLOY.md` §10.
+- [ ] Rămas din 11: Azure OpenAI, pachetul de interviu; pe server: capitolele construite cu `build_chapter` (tabela e goală acolo), cu S3 pozele nu sunt pe disc.
 
 ### Pașii 6, 7, 11, 12 ⬜
 Detaliile și „de ce" sunt în `tutor/ROADMAP.md`. Pe scurt: 6 exerciții similare + sympy (curățat înainte de `sympify`) ·

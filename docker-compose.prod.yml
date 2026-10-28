@@ -102,6 +102,10 @@ services:
       GEMINI_STRONG_MODEL: ${GEMINI_STRONG_MODEL:-gemini-4-argon}
       GEMINI_GRADING_THINKING: ${GEMINI_GRADING_THINKING:-MEDIUM}
       GEMINI_BAREM_THINKING: ${GEMINI_BAREM_THINKING:-LOW}
+      # "Sugerează indicii (AI)" (tutor/): OFF unless TUTOR_ENABLED=true and the `tutor` profile runs (docs/DEPLOY.md §10).
+      TUTOR_ENABLED: ${TUTOR_ENABLED:-false}
+      TUTOR_BASE_URL: http://tutor:8001
+      TUTOR_SERVICE_TOKEN: ${TUTOR_SERVICE_TOKEN:-}
       # F11 - files in a private S3 bucket instead of the uploads volume (docs/DEPLOY.md section 9). local = the volume.
       FILE_STORAGE_PROVIDER: ${FILE_STORAGE_PROVIDER:-local}
       S3_BUCKET: ${S3_BUCKET:-}
@@ -112,6 +116,27 @@ services:
       # Provider keys kept as files (the Gemini service-account JSON). A directory, so a missing key is just an empty
       # folder and the app starts anyway; read-only, never in the image or in git.
       - ./secrets:/app/secrets:ro
+
+  # ---- tutor (opt-in: COMPOSE_PROFILES=tutor in .env.prod, or --profile tutor) ----
+  # The help chain over HTTP, called only by the backend: never published, no port. It answers only with a
+  # TUTOR_SERVICE_TOKEN (the same in both services) and only from the chapters built here with build_chapter, which reads
+  # the chapter photos from the uploads volume (read-only). docs/DEPLOY.md §10.
+  tutor:
+    profiles: ["tutor"]
+    image: ${TUTOR_IMAGE:-mathlms-tutor:local}
+    build: ./tutor
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-mathlms}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-mathlms}
+      SERVICE_TOKEN: ${TUTOR_SERVICE_TOKEN:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      CHAT_MODEL: ${TUTOR_CHAT_MODEL:-gpt-6-luna}
+      EN_CHAPTER_IMAGES_DIR: /app/uploads/en-chapters
+    volumes:
+      - uploads:/app/uploads:ro
 
   frontend:
     image: ${FRONTEND_IMAGE:-mathlms-frontend:local}
