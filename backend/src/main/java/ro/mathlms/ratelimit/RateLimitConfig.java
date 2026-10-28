@@ -45,6 +45,9 @@ public class RateLimitConfig {
                 new RateLimitRule("photo-upload", "POST", "/api/quiz/attempts/*/responses/*/photo", 20, minute, RateLimitKeyType.USER),
                 // Each one is a paid AI call over a whole test: bounds the provider bill like the import's daily pages.
                 new RateLimitRule("en-chapter-suggestions", "POST", "/api/admin/quizzes/*/en-chapter-suggestions", 30,
+                        Duration.ofDays(1), RateLimitKeyType.USER),
+                // Three paid model calls per question (the tutor's levels): a whole paper twice over, per teacher per day.
+                new RateLimitRule("tutor-hints", "POST", "/api/admin/quiz-items/*/tutor-hints", 60,
                         Duration.ofDays(1), RateLimitKeyType.USER)
         );
     }
