@@ -27,6 +27,7 @@ import {
   deleteQuizItem,
   getAiImportSettings,
   getAiGradingSettings,
+  getTutorSettings,
   getQuiz,
   listChapterOptions,
   listClasses,
@@ -50,6 +51,7 @@ import {
 } from '@/lib/api'
 import { EnChapterSelect } from '@/components/EnChapterSelect'
 import { EnChapterSuggestionsDialog } from '@/components/EnChapterSuggestionsDialog'
+import { TutorHintsPanel } from '@/components/TutorHintsPanel'
 import { BaremDialog } from '@/components/BaremDialog'
 import { formatDate, optionLetter, roCount } from '@/lib/format'
 import { errorMessage } from '@/lib/errors'
@@ -278,6 +280,7 @@ export function ItemDialog({
   enChapters = [],
   quizChapterTitle = null,
   defaultSection = null,
+  tutorOn = false,
 }: {
   open: boolean
   onClose: () => void
@@ -292,6 +295,8 @@ export function ItemDialog({
   quizChapterTitle?: string | null
   /** For a new question: the heading of the last one, so a section keeps filling up ("SUBIECTUL al III-lea"). */
   defaultSection?: string | null
+  /** The server has the tutor on: a saved question can ask it for hints ("Sugerează indicii (AI)"). */
+  tutorOn?: boolean
 }) {
   const [type, setType] = useState<QuizItemType>(initial?.type ?? 'SINGLE_CHOICE')
   const [statement, setStatement] = useState(initial?.statement ?? '')
@@ -731,6 +736,15 @@ export function ItemDialog({
               <p className="text-xs text-muted-foreground">
                 Apar doar în modul practică, unul câte unul, în ordinea de mai sus. Testul notat nu are indicii.
               </p>
+              {tutorOn && initial && (
+                <TutorHintsPanel
+                  itemId={initial.id}
+                  hintsLeft={MAX_HINTS - hints.length}
+                  canUseAsSolution={type !== 'OPEN' && solution.trim() === ''}
+                  onAddHint={(text) => setHints((prev) => (prev.length < MAX_HINTS ? [...prev, text] : prev))}
+                  onUseAsSolution={setSolution}
+                />
+              )}
             </div>
           </div>
         </details>
@@ -810,6 +824,8 @@ export function AdminQuizzesPage() {
   // "Barem din poze (AI)": only where the server has the barem reader (and the AI grading) switched on.
   const [aiGradingOn, setAiGradingOn] = useState(false)
   const [readingBarem, setReadingBarem] = useState(false)
+  // "Sugerează indicii (AI)" in the question editor: only where the server has the tutor switched on.
+  const [tutorOn, setTutorOn] = useState(false)
 
   useEffect(() => {
     listQuizzes()
@@ -830,6 +846,9 @@ export function AdminQuizzesPage() {
       .catch(() => undefined) // the button just stays hidden
     getAiGradingSettings()
       .then((s) => setAiGradingOn(s.enabled))
+      .catch(() => undefined) // the button just stays hidden
+    getTutorSettings()
+      .then((s) => setTutorOn(s.enabled))
       .catch(() => undefined) // the button just stays hidden
   }, [])
 
@@ -1191,6 +1210,7 @@ export function AdminQuizzesPage() {
           enChapters={enChapters}
           quizChapterTitle={chapterTitle(quiz.chapterId)}
           defaultSection={quiz.items.at(-1)?.section ?? null}
+          tutorOn={tutorOn}
           onSubmit={async (input, image) => {
             const saved = itemDialog.item
               ? await updateQuizItem(itemDialog.item.id, input)
