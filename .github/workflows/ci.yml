@@ -80,6 +80,47 @@ jobs:
       - name: Build (tsc + vite)
         run: npm run build
 
+  tutor:
+    name: Tutor (Python, pytest)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tutor
+    # The database tests build a throwaway database from the real Flyway migrations (tests/conftest.py), on the same
+    # image as production and on the port and credentials the tutor's settings default to - nothing to configure.
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_DB: mathlms
+          POSTGRES_USER: mathlms
+          POSTGRES_PASSWORD: mathlms_dev_password
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U mathlms -d mathlms"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up uv (and Python 3.13, as in the image)
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.12.18"
+          python-version: "3.13"
+          enable-cache: true
+          cache-dependency-glob: tutor/uv.lock
+
+      - name: Install dependencies (locked)
+        run: uv sync --locked
+
+      # No model and no key: the chain and the service run with fake models; only the database is real.
+      - name: Unit + database tests
+        run: uv run pytest -q -rs
+
   gitleaks:
     name: Gitleaks (secret scanning)
     runs-on: ubuntu-latest
@@ -148,3 +189,11 @@ jobs:
           push: false
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,scope=frontend,mode=max
+
+      - name: Build tutor image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./tutor
+          push: false
+          cache-from: type=gha,scope=tutor
+          cache-to: type=gha,scope=tutor,mode=max

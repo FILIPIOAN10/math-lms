@@ -228,3 +228,42 @@ Scriptul copiază tot volumul în bucket și se oprește cu eroare dacă în buc
 `FILE_STORAGE_PROVIDER=s3`, `S3_BUCKET=math-lms-files-NUME`, `S3_REGION=eu-central-1`, și `docker compose … up -d backend`.
 **Verifică** o poză de elev și o imagine de subiect în aplicație; abia după câteva zile poți goli volumul `uploads`.
 Înapoi pe disc: `FILE_STORAGE_PROVIDER=local` (fișierele noi din S3 se copiază înapoi cu `aws s3 sync s3://…/uploads ./uploads`).
+
+## 10. Tutorul: „Sugerează indicii (AI)” (serviciul `tutor/`)
+
+Butonul din editorul întrebării cere tutorului un indiciu, un indiciu mai mare și rezolvarea, scrise **doar** din paginile
+capitolului EN, cu pagina din manual la fiecare. Profesorul adaugă ce păstrează și salvează; elevii nu declanșează niciun apel.
+Se trimite la OpenAI doar textul întrebării și pasajele din manual — niciun nume, niciun cont. Cost: ~0,0006 $ o întrebare.
+
+Containerul `tutor` nu are port publicat: îl apelează doar backend-ul, pe rețeaua internă, cu un token comun.
+
+**Pornire** (în `.env.prod`, apoi `docker compose -f docker-compose.prod.yml --env-file .env.prod up -d`):
+```bash
+COMPOSE_PROFILES=tutor              # cu monitorizare: COMPOSE_PROFILES=tutor,monitoring
+TUTOR_ENABLED=true
+TUTOR_SERVICE_TOKEN=...             # openssl rand -hex 32 — același șir merge la backend și la tutor
+OPENAI_API_KEY=sk-...               # aceeași cheie ca la importul din poze
+```
+La un release (tag `v*`), workflow-ul de deploy pune și `TUTOR_IMAGE` și trage imaginea tutorului doar dacă profilul e pornit.
+
+**Atenție la `POSTGRES_PASSWORD`:** tutorul îl pune într-un URL (`postgresql+psycopg://user:parola@postgres/…`). Caracterele
+`@ : / # ? %` îl strică — folosește o parolă doar din litere și cifre (`openssl rand -hex 24`) sau codific-o în URL.
+
+**Capitolele trebuie construite pe server** — fără ele tabela `tutor_chunks` e goală și tutorul răspunde doar „Nu am asta în
+manual.”. Pozele capitolului (încărcate din pagina capitolului EN, „Adaugă PDF”) stau în volumul `uploads`, pe care tutorul îl vede
+doar pentru citire:
+```bash
+COMPOSE="docker compose -f docker-compose.prod.yml --env-file .env.prod"
+$COMPOSE exec tutor ls /app/uploads/en-chapters | head            # pozele se văd?
+$COMPOSE exec tutor python -m tutor.build_chapter AI --dry-run    # ce ar face, fără apeluri plătite
+$COMPOSE exec tutor python -m tutor.build_chapter AI --max-usd 0.10
+```
+`build_chapter` transcrie pozele (o singură dată pe poză), le taie în pasaje, face embeddings și scrie textul în paginile
+capitolului **doar unde profesorul nu a scris deja**. Merge numai cu `FILE_STORAGE_PROVIDER=local`: cu S3 pozele nu sunt pe disc
+(neacoperit încă).
+
+**Verificare:** `$COMPOSE exec tutor python -c "import urllib.request; print(urllib.request.urlopen('http://localhost:8001/health').read())"`
+→ `{"status":"ok"}`; apoi în aplicație, pe o întrebare salvată din „SUBIECTUL I”, „Sugerează indicii (AI)”.
+„Tutorul nu răspunde acum” = containerul nu rulează; „Tutorul nu e configurat pe server” = tokenul lipsește sau diferă.
+
+**Oprire:** `TUTOR_ENABLED=false` (butonul dispare) și scoți `tutor` din `COMPOSE_PROFILES`.

@@ -1,5 +1,7 @@
-"""A throw-away database built from the real Flyway migrations (needs the dev Postgres up; skipped otherwise)."""
+"""A throw-away database built from the real Flyway migrations (needs the dev Postgres up; skipped otherwise - except in
+CI, where a missing database is a failure, so the database tests can never pass by not running)."""
 
+import os
 import pathlib
 import uuid
 
@@ -24,6 +26,8 @@ def conn():
     try:
         admin = psycopg.connect(settings.psycopg_dsn, autocommit=True, connect_timeout=3)
     except psycopg.OperationalError:
+        if os.environ.get("CI"):
+            raise
         pytest.skip("Postgres de dezvoltare nu rulează")
     name = f"tutor_test_{uuid.uuid4().hex[:8]}"
     admin.execute(f'CREATE DATABASE "{name}"')
