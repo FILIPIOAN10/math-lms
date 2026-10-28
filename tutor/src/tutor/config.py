@@ -13,6 +13,10 @@ class Settings(BaseSettings):
     # will require it when it is actually used.
     openai_api_key: SecretStr | None = None
 
+    # The HTTP service (`tutor.api`): the shared secret the backend sends in X-Tutor-Token. Without it the service
+    # answers 503 to every help request, so a container started without configuration is never an open model proxy.
+    service_token: SecretStr | None = None
+
     chat_model: str = "gpt-6-luna"
     embedding_model: str = "text-embedding-3-small"
 
