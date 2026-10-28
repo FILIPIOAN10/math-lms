@@ -7,6 +7,7 @@ from tutor.retrieval import (
     Hit,
     max_marginal_relevance,
     reciprocal_rank_fusion,
+    retrieve_for_exercise,
     search,
     slot_baseline,
     tokens,
@@ -120,6 +121,24 @@ def test_the_slot_baseline_returns_everything_under_the_linked_page_in_book_orde
 
     assert [h.content for h in hits] == ["primul", "al doilea"]
     assert slot_baseline(conn, "II.9", limit=5) == []  # no page linked to that place
+
+
+def test_an_exam_position_whose_page_has_no_text_yet_falls_back_to_the_search(conn):
+    add_pages(conn, "AIS5P5")
+    store_chunks(conn, [doc("AIS2P2", "Scăderea numerelor", position=1)], EMBEDDINGS, "m", "book.pdf")
+    conn.execute("CREATE TABLE IF NOT EXISTS en_chapter_slots (slot VARCHAR(12) PRIMARY KEY, "
+                 "chapter_id BIGINT NOT NULL REFERENCES en_chapters (id))")
+    conn.execute("INSERT INTO en_chapter_slots (slot, chapter_id) SELECT 'I.1', id FROM en_chapters WHERE code = 'AIS5P5'")
+
+    retrieval = retrieve_for_exercise(conn, "Scăderea numerelor", EMBEDDINGS, slot="I.1", max_distance=2.0)
+
+    assert retrieval.strategy == "vector" and [h.code for h in retrieval.hits] == ["AIS2P2"]  # AIS5P5 has no chunks
+
+
+def test_a_book_with_nothing_stored_gives_no_passages(conn):
+    retrieval = retrieve_for_exercise(conn, "orice", EMBEDDINGS)
+
+    assert retrieval.reason == "no_passages" and not retrieval.usable and retrieval.hits == []
 
 
 def test_a_hit_is_the_gold_section_or_anything_beneath_it():
