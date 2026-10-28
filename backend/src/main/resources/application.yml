@@ -202,6 +202,15 @@ app:
       daily-answer-limit: ${AI_GRADING_DAILY_LIMIT:300}
       barem-max-pages: ${AI_BAREM_MAX_PAGES:5}
       barem-daily-page-limit: ${AI_BAREM_DAILY_PAGES:20}
+  # The tutor service (tutor/, FastAPI): "Sugerează indicii (AI)" in the question editor writes a hint, a bigger hint
+  # and the solution from the EN chapter pages only, with their pages. OFF unless TUTOR_ENABLED=true. Sends only the
+  # question's text and its exam position. The token must equal the service's SERVICE_TOKEN; the timeout stays under
+  # nginx's 60 s because the teacher waits for the answer.
+  tutor:
+    enabled: ${TUTOR_ENABLED:false}
+    base-url: ${TUTOR_BASE_URL:http://localhost:8001}
+    token: ${TUTOR_SERVICE_TOKEN:}
+    timeout: ${TUTOR_TIMEOUT:55s}
 
 # Rate limiting (Phase 6.1): per-endpoint fixed windows in Redis, rules in RateLimitConfig.
 rate:

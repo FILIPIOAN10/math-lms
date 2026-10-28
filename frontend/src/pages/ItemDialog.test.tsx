@@ -4,6 +4,9 @@ import { describe, expect, it, vi } from 'vitest'
 import { ItemDialog } from '@/pages/AdminQuizzesPage'
 import type { ItemInput, QuizItemDto } from '@/lib/api'
 
+const api = vi.hoisted(() => ({ suggestTutorHints: vi.fn() }))
+vi.mock('@/lib/api', async (original) => ({ ...(await original<typeof import('@/lib/api')>()), ...api }))
+
 const openItem: QuizItemDto = {
   id: 9, position: 2, type: 'OPEN', statement: 'Rezolvă ecuația', points: 10, solution: 'x = 2', options: [],
   hints: ['Mută termenii', 'Împarte la coeficient'], chapterId: null,
@@ -110,6 +113,27 @@ describe('ItemDialog hints editor', () => {
 
     expect(screen.getAllByLabelText(/^Indiciul \d$/)).toHaveLength(5)
     expect(add).toBeDisabled()
+  })
+
+  it('offers the tutor only for a saved question, and a kept level becomes the next hint that is saved', async () => {
+    api.suggestTutorHints.mockResolvedValue({
+      answered: true, refusal: null, refusalReason: null, inputTokens: 1, outputTokens: 1, costUsd: 0,
+      levels: [{ level: 1, text: 'Adună termenii asemenea.', sources: [{ code: 'AII', title: 'Ecuații', bookPage: 40 }] }],
+    })
+    const { unmount } = render(<ItemDialog open onClose={vi.fn()} initial={null} onSubmit={vi.fn()} tutorOn />)
+    expect(screen.queryByRole('button', { name: 'Sugerează indicii (AI)' })).not.toBeInTheDocument()
+    unmount()
+    const onSubmit = vi.fn().mockResolvedValue(undefined)
+    render(<ItemDialog open onClose={vi.fn()} initial={openItem} onSubmit={onSubmit} tutorOn />)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Sugerează indicii (AI)' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Adaugă ca indiciu' }))
+
+    expect(api.suggestTutorHints).toHaveBeenCalledWith(9)
+    expect(screen.getByLabelText('Indiciul 3')).toHaveValue('Adună termenii asemenea.')
+    expect(screen.queryByRole('button', { name: 'Pune la rezolvare' })).not.toBeInTheDocument() // open: that box is the barem
+    await userEvent.click(screen.getByRole('button', { name: 'Salvează' }))
+    expect((await submitted(onSubmit)).hints).toEqual(['Mută termenii', 'Împarte la coeficient', 'Adună termenii asemenea.'])
   })
 
   it('removes a hint and renumbers the rest', async () => {

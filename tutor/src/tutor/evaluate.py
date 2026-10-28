@@ -172,7 +172,8 @@ def render(results: dict, questions: list[Question], model: str, chunks: int) ->
     lines += [
         f"- întrebări la care manualul răspunde: {min(pos):.2f} – {max(pos):.2f} (mediana {statistics.median(pos):.2f})",
         f"- întrebări din afara manualului: {min(neg):.2f} – {max(neg):.2f} (mediana {statistics.median(neg):.2f})",
-        f"- cel mai bun prag: {threshold:.2f} → {accuracy:.0%} corecte (răspunde sub prag, refuză peste)",
+        f"- cel mai bun prag: {threshold:.3f} → {accuracy:.0%} corecte (răspunde sub prag, refuză peste; "
+        f"nu-l rotunji în jos: o întrebare acoperită stă chiar la {max(pos):.3f})",
         "",
         "## Unde a ratat (nicio bucată corectă în primele 5)",
     ]

@@ -1983,6 +1983,48 @@ export async function suggestEnChapters(quizId: number): Promise<ItemChapterSugg
   return ((await response.json()) as { items: ItemChapterSuggestion[] }).items
 }
 
+// ---------- Tutor: hints written from the EN chapter pages ----------
+
+export interface TutorSettings {
+  enabled: boolean
+}
+
+export async function getTutorSettings(): Promise<TutorSettings> {
+  const response = await apiFetch('/admin/tutor/settings')
+  return response.json()
+}
+
+/** A textbook page a level relied on. */
+export interface TutorSource {
+  code: string
+  title: string
+  bookPage: number
+}
+
+/** Level 1 = a hint, 2 = a bigger hint, 3 = the full solution. */
+export interface TutorLevel {
+  level: number
+  text: string
+  sources: TutorSource[]
+}
+
+/** `refusal` ("Nu am asta în manual.") when the levels stopped before 3; `answered` = at least one level. */
+export interface TutorHints {
+  answered: boolean
+  levels: TutorLevel[]
+  refusal: string | null
+  refusalReason: string | null
+  inputTokens: number
+  outputTokens: number
+  costUsd: number
+}
+
+/** "Sugerează indicii (AI)": proposals only; nothing changes in the question until the teacher saves it. */
+export async function suggestTutorHints(itemId: number): Promise<TutorHints> {
+  const response = await postJson(`/admin/quiz-items/${itemId}/tutor-hints`, {})
+  return response.json()
+}
+
 /** For each question listed: its EN chapter afterwards (null = automatic); of its requirements, only those listed change. */
 export interface EnChapterAssignment {
   itemId: number

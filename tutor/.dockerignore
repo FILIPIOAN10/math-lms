@@ -1,0 +1,11 @@
+# Only pyproject.toml, uv.lock and src/ go into the image: never the key, the textbook or the notes.
+.env
+.venv/
+data/
+interview/
+eval/
+tests/
+**/__pycache__/
+.pytest_cache/
+CHECKLIST.md
+ROADMAP.md

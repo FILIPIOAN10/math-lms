@@ -35,6 +35,24 @@ services:
       timeout: 5s
       retries: 5
 
+  # The tutor's help chain over HTTP (tutor/), called only by the backend ("Sugerează indicii (AI)" in the question
+  # editor). Opt-in: `docker compose --profile tutor up -d --build tutor`. OPENAI_API_KEY comes from tutor/.env; the
+  # token must equal the backend's TUTOR_SERVICE_TOKEN. Bound to localhost: the browser never talks to it.
+  tutor:
+    build: ./tutor
+    container_name: mathlms-tutor
+    profiles: ["tutor"]
+    restart: unless-stopped
+    env_file: ./tutor/.env
+    environment:
+      DATABASE_URL: postgresql+psycopg://mathlms:mathlms_dev_password@postgres:5432/mathlms
+      SERVICE_TOKEN: ${TUTOR_SERVICE_TOKEN:-dev-tutor-token}
+    ports:
+      - "127.0.0.1:8001:8001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   pgdata:
   redisdata:
