@@ -1,6 +1,6 @@
 # Tutor AI — unde am rămas
 
-Fișier de reluare între sesiuni. **Actualizat: 2026-10-16** (pașii 0–5 făcuți și comiși local; 4–5 nepuse pe GitHub). Planul complet cu „de ce" la
+Fișier de reluare între sesiuni. **Actualizat: 2026-10-28** (pașii 0–5 și 8–10 făcuți; 4, 5, 8–10 pe branch-ul `feat/tutor-hints`, nepus pe GitHub). Planul complet cu „de ce" la
 fiecare pas e în `tutor/ROADMAP.md` (local, nu e în git); povestea pentru interviu e în `tutor/interview/` (local, nu e în git).
 
 **Ca să reiei într-o sesiune nouă, spune:** „continuăm `tutor/`, citește `tutor/CHECKLIST.md`; următorul pas e …".
@@ -10,9 +10,10 @@ fiecare pas e în `tutor/ROADMAP.md` (local, nu e în git); povestea pentru inte
 Construim, în `math-lms/tutor/`, un tutor AI de matematică (clasa a 8-a, Evaluarea Națională) care demonstrează RAG + LangChain,
 **măsurat și demonstrabil la interviu**. Ajutorul e pentru profesor (el aprobă fiecare sugestie), nu direct pentru elev.
 
-**6 din 13 pași făcuți** (0–5): teoria e în baza de date ca text și ca vectori, căutarea ei e comparată pe cifre, lanțul
+**9 din 13 pași făcuți** (0–5, 8–10): teoria e în baza de date ca text și ca vectori, căutarea ei e comparată pe cifre, lanțul
 scrie indicii pe 3 trepte doar din manual (sau spune „Nu am asta în manual"), iar un CLI cu conversație rescrie continuările
-scurte în întrebări complete. Urmează exercițiile similare cu verificare sympy (pasul 6).
+scurte în întrebări complete. Din 2026-10-28 lanțul e în produs: serviciu FastAPI intern, proxy Spring și butonul
+„Sugerează indicii (AI)” în editorul întrebării. Urmează exercițiile similare cu verificare sympy (pasul 6).
 
 ## Starea pașilor
 
@@ -26,9 +27,9 @@ scurte în întrebări complete. Urmează exercițiile similare cu verificare sy
 | 5 | CLI de dezvoltare (`python -m tutor.cli`: enunț → treapta 1/2/3, `/mai`, istoric limitat, continuări rescrise) | ✅ | comis local pe `feat/tutor-help-chain`, **nepus** |
 | 6 | Exerciții similare + verificare cu sympy (tool calling); aici intră și comanda „similar" din CLI | ⬜ **următorul** | |
 | 7 | Evaluare completă: set de aur extins, faithfulness, cost per apel | ⬜ | |
-| 8 | Serviciu FastAPI intern + Docker | ⬜ | |
-| 9 | Proxy Spring `/api/admin/tutor/*` (doar ADMIN, rate limit, audit, flag `tutor.enabled`) | ⬜ | |
-| 10 | „Laborator Tutor" + buton „Sugerează indicii" în frontend | ⬜ | |
+| 8 | Serviciu FastAPI intern + Docker | ✅ | `feat/tutor-hints` (`249a50c`) |
+| 9 | Proxy Spring `POST /api/admin/quiz-items/{id}/tutor-hints` (proprietarul întrebării, rate limit, flag `app.tutor.enabled`) | ✅ | `feat/tutor-hints` (`b0639ce`) |
+| 10 | Buton „Sugerează indicii (AI)” în editorul întrebării (fără „Laborator Tutor” separat) | ✅ | `feat/tutor-hints` (`5d1e6f4`) |
 | 11 | CI, Azure OpenAI, pachetul de interviu | ⬜ | |
 | 12 | (opțional) ajutor live pentru elev | ⬜ | |
 
@@ -81,7 +82,17 @@ scurte în întrebări complete. Urmează exercițiile similare cu verificare sy
 - [x] Sesiune reală de 5 mesaje (~0,0014 $): fără rescriere, continuările ar fi fost refuzate (0,509 / 0,486 > 0,48); rescrise au trecut (0,338 / 0,379)
 - [ ] Rămas: calitatea rescrierii nu e măsurată (doar 2 exemple reale) → pasul 7; comanda „similar" → pasul 6
 
-### Pașii 6–12 ⬜
+### Pașii 8–10 — tutorul în produs ✅ (2026-10-28, branch `feat/tutor-hints`)
+- [x] `api.py`: `POST /help` (enunț ≤ 4000, loc `I.1`, trepte 1–3) → treptele cu paginile, sau refuzul; `GET /health`. Token `X-Tutor-Token` (comparat în timp constant); fără `SERVICE_TOKEN` setat → 503 la orice cerere. Textul pasajelor nu iese din bază (doar capitol + pagină).
+- [x] `Dockerfile` (uv, dependențe blocate, utilizator non-root, healthcheck) + serviciul `tutor` în `docker-compose.yml`, profil opt-in, legat de localhost.
+- [x] Spring `ro.mathlms.tutor`: `TutorClient` (timeout 55 s < nginx 60 s, mesaje în română), `TutorHintService` (întrebarea ca text cu variante/cerințe; locul din test doar dacă profesorul nu a ales capitolul), `TutorController` (aceeași verificare ca la editare, 404 când e oprit), regulă de rate limit 60/zi/profesor.
+- [x] Frontend: `TutorHintsPanel` în „Mai multe opțiuni” → „Adaugă ca indiciu” pe fiecare treaptă, „Pune la rezolvare” doar dacă rezolvarea e goală și nu e întrebare deschisă (acolo e baremul). Nimic nu se aplică singur.
+- [x] Teste: 11 Python (`test_api.py`), 11 backend, 5 frontend; suitele întregi verzi: 128 Python, 1154 backend, 594 frontend.
+- [x] Live: I.1 `20 − 2·(7 − 2)` → 3 trepte corecte, pagina 14 citată, 0,000567 $; aria cercului → refuz `too_far` (0,508) fără apel la model, prin clientul Java real; token greșit → mesaj de configurare.
+- ✗ Abatere de la plan: fără rând în jurnal (o propunere nu schimbă nimic; salvarea întrebării e deja jurnalizată), fără cache și fără „Laborator Tutor”.
+- [ ] Rămas: containerul în `docker-compose.prod.yml`, testele Python în CI (pasul 11), ecranul neverificat în browser (backend-ul de dev rula codul vechi).
+
+### Pașii 6, 7, 11, 12 ⬜
 Detaliile și „de ce" sunt în `tutor/ROADMAP.md`. Pe scurt: 6 exerciții similare + sympy (curățat înainte de `sympify`) ·
 7 evaluare completă, faithfulness, cost per apel · 8 FastAPI intern + Docker · 9 proxy Spring doar ADMIN, cu rate limit,
 audit, flag `tutor.enabled` și cache · 10 „Laborator Tutor" în frontend · 11 CI, Azure, pachetul de interviu · 12 opțional.
@@ -91,7 +102,8 @@ audit, flag `tutor.enabled` și cache · 10 „Laborator Tutor" în frontend · 
 - Pașii 0–2 sunt în `main` (PR [#4](https://github.com/FILIPIOAN10/math-lms/pull/4), combinat 2026-10-15, `b925503`).
 - Pasul 3: PR [#5](https://github.com/FILIPIOAN10/math-lms/pull/5), `feat/tutor-ai` → `main`, **8 din 8 verificări verzi, fără conflicte** (2026-10-16), încă deschis.
   Comit-urile lui: `03587db` (corecția de chunking), `e791976` (pasul 3), `88e2297` (checklist).
-- **Pașii 4 și 5** sunt pe branch-ul local `feat/tutor-help-chain` (creat din `feat/tutor-ai`, deci conține și commit-urile din PR #5):
+- **2026-10-28:** branch nou `feat/tutor-hints` din `main` (PR #5 e combinat), cu `feat/tutor-help-chain` combinat în el (`67c7ab7`), apoi pașii 8–10 (`249a50c`, `b0639ce`, `5d1e6f4`). **Nepus pe GitHub**; la final un singur PR din `feat/tutor-hints`.
+- (istoric) **Pașii 4 și 5** sunt pe branch-ul local `feat/tutor-help-chain` (creat din `feat/tutor-ai`, deci conține și commit-urile din PR #5):
   `547a2fd` (politica de retrieval ca funcție, pragul exact în raport) și `a8a8d0a` (lanțul de ajutor, evaluarea lui, teste, prag 0,48).
   Pasul 5 = `conversation.py`, `cli.py`, `tests/fakes.py`, `test_conversation.py`, `test_cli.py` și mici modificări în `help_chain.py`/`config.py`.
   **Nimic din 4–5 nu e împins.** Când îl împingi: combini întâi PR #5, apoi deschizi PR din `feat/tutor-help-chain` (va arăta doar pasul 4).
