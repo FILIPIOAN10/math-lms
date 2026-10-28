@@ -30,12 +30,15 @@ public class GeminiAnswerGrader implements AnswerGrader {
     private final GeminiClient client;
     private final ObjectMapper objectMapper;
     private final String model;
+    private final String thinkingLevel;
 
     public GeminiAnswerGrader(GeminiClient client, ObjectMapper objectMapper,
-                              @Value("${app.ai.gemini.strong-model:gemini-4-argon}") String model) {
+                              @Value("${app.ai.gemini.strong-model:gemini-4-argon}") String model,
+                              @Value("${app.ai.gemini.grading-thinking-level:MEDIUM}") String thinkingLevel) {
         this.client = client;
         this.objectMapper = objectMapper;
         this.model = model;
+        this.thinkingLevel = thinkingLevel;
     }
 
     @Override
@@ -75,6 +78,7 @@ public class GeminiAnswerGrader implements AnswerGrader {
         config.put("responseMimeType", "application/json");
         config.set("responseJsonSchema", GradingReading.schema(objectMapper));
         config.put("maxOutputTokens", MAX_OUTPUT_TOKENS);
+        GeminiClient.thinkingLevel(config, thinkingLevel);
         return body;
     }
 

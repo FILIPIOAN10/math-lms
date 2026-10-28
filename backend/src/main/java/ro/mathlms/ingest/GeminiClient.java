@@ -16,6 +16,7 @@ import tools.jackson.databind.node.ObjectNode;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 /**
@@ -116,6 +117,16 @@ public class GeminiClient {
 
     String model() {
         return model;
+    }
+
+    /**
+     * Sets how long the model thinks ({@code LOW}, {@code MEDIUM}, {@code HIGH}) in a request's generationConfig. A
+     * blank level leaves it out, so the model's default applies - never an empty value Google would answer 400 to.
+     */
+    public static void thinkingLevel(ObjectNode generationConfig, String level) {
+        if (level != null && !level.isBlank()) {
+            generationConfig.putObject("thinkingConfig").put("thinkingLevel", level.strip().toUpperCase(Locale.ROOT));
+        }
     }
 
     /** Sends {@code body} (contents, systemInstruction, generationConfig) and returns Vertex's raw answer. */

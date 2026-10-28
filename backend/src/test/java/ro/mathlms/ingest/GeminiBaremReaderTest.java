@@ -41,7 +41,7 @@ class GeminiBaremReaderTest {
         server = MockRestServiceServer.bindTo(builder).build();
         // the client's default model is the cheap one: the reader must ask for the strong one
         GeminiClient client = new GeminiClient(builder.build(), () -> "ya29.test", "proj-1", "global", "gemini-3.8-flash");
-        reader = new GeminiBaremReader(client, new ObjectMapper(), "gemini-4-argon");
+        reader = new GeminiBaremReader(client, new ObjectMapper(), "gemini-4-argon", "LOW");
     }
 
     private static String answer(String json) {
@@ -63,6 +63,7 @@ class GeminiBaremReaderTest {
                         org.hamcrest.Matchers.containsString("I.1 | grilă | 5p | Cât face $6 - 6 : 2$? | variante: a) 0; b) 3; c) 6; d) 9"),
                         org.hamcrest.Matchers.containsString("III.1 | cu rezolvare | 5p | Un teren dreptunghiular. | cerințe: a) (2p)"))))
                 .andExpect(jsonPath("$.generationConfig.responseJsonSchema.properties.entries.items.required.length()").value(5))
+                .andExpect(jsonPath("$.generationConfig.thinkingConfig.thinkingLevel").value("LOW"))
                 .andRespond(withSuccess(answer("""
                         {"entries": [
                           {"label": "I.1", "correctLetter": "B)", "barem": null, "parts": [], "warnings": []},
@@ -90,5 +91,14 @@ class GeminiBaremReaderTest {
 
         assertThatThrownBy(() -> reader.read(List.of(new PageImage(new byte[]{1}, "image/png")), QUESTIONS))
                 .isInstanceOf(ExtractionException.class).hasMessage(PageReading.UNREADABLE_ANSWER);
+    }
+
+    @Test
+    void aBlankThinkingLevelLeavesTheModelsDefault() {
+        GeminiClient client = new GeminiClient(RestClient.create(), () -> "ya29.test", "proj-1", "global", "gemini-3.8-flash");
+
+        assertThat(new GeminiBaremReader(client, new ObjectMapper(), "gemini-4-argon", "")
+                .request(List.of(new PageImage(new byte[]{1}, "image/png")), QUESTIONS)
+                .path("generationConfig").has("thinkingConfig")).isFalse();
     }
 }

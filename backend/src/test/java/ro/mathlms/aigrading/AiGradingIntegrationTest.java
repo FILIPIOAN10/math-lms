@@ -152,6 +152,50 @@ class AiGradingIntegrationTest {
     }
 
     @Test
+    void theQueueTakesTheSameQuestionsAnswersOneAfterAnother() {
+        Quiz paper = quizAdminService.createQuiz("Subiectul III " + System.nanoTime(), null, null, null, false);
+        for (int position = 0; position < 2; position++) {
+            quizAdminService.addItem(paper.getId(), new ItemRequest(QuizItemType.OPEN, position, "Problema " + position, 0,
+                    null, null, null, null, "SUBIECTUL al III-lea", null,
+                    List.of(new PartRequest("Calculează.", 2, "Rezultatul ... 2p"))));
+        }
+        List<QuizItem> problems = itemRepository.findByQuizIdOrderByPosition(paper.getId());
+        quizAdminService.setPublished(paper.getId(), true);
+        // two students hand in one after the other: queued as (1, A) (1, B) (2, A) (2, B)
+        long first = handIn(paper, problems, student);
+        long second = handIn(paper, problems, userRepository.save(
+                new User("elev2-" + System.nanoTime() + "@scoala.ro", "Ion Pop", Role.STUDENT)));
+        long a = problems.get(0).getId();
+        long b = problems.get(1).getId();
+
+        List<String> order = new java.util.ArrayList<>();
+        for (int i = 0; i < 4; i++) {
+            assertThat(service.processNext()).isTrue();
+            for (long attemptId : List.of(first, second)) {
+                for (long itemId : List.of(a, b)) {
+                    String key = (attemptId == first ? "1" : "2") + (itemId == a ? "A" : "B");
+                    AiGradeProposal p = proposalRepository.findByAttemptIdAndItemId(attemptId, itemId).orElseThrow();
+                    if (p.getStatus() != AiProposalStatus.QUEUED && !order.contains(key)) {
+                        order.add(key);
+                    }
+                }
+            }
+        }
+
+        assertThat(order).containsExactly("1A", "2A", "1B", "2B");
+    }
+
+    private long handIn(Quiz paper, List<QuizItem> problems, User who) {
+        long attemptId = attemptService.startAttempt(paper.getId(), who.getEmail()).attemptId();
+        for (QuizItem item : problems) {
+            attemptService.uploadOpenPhoto(attemptId, item.getId(),
+                    new MockMultipartFile("file", "rezolvare.png", "image/png", PNG), who.getEmail());
+        }
+        attemptService.submit(attemptId, who.getEmail());
+        return attemptId;
+    }
+
+    @Test
     void anotherTeacherSeesNoProposals() throws Exception {
         long attemptId = handIn();
         User stranger = userRepository.save(new User("teach-" + System.nanoTime() + "@scoala.ro", "Alt", Role.TEACHER));

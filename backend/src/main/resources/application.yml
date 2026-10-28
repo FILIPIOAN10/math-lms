@@ -187,6 +187,10 @@ app:
       # The strongest model, for what must be right rather than cheap: reading a test's barem and proposing grades
       # (2026-10: gemini-4-argon, $2 in / $10 out per 1M tokens until 2026-11-30, then $4 / $20).
       strong-model: ${GEMINI_STRONG_MODEL:gemini-4-argon}
+      # How long the strong model thinks before it answers (LOW, MEDIUM, HIGH): thinking is billed as output, so it was
+      # most of the cost of a proposal. Empty = the model's own default.
+      grading-thinking-level: ${GEMINI_GRADING_THINKING:MEDIUM}
+      barem-thinking-level: ${GEMINI_BAREM_THINKING:LOW}
     # The barem read from photos + the AI's grade proposals on Subiectul III (user's decisions 2026-10-26: Google only,
     # the AI proposes, the teacher confirms). OFF unless AI_GRADING_ENABLED=true. Sends the barem photos, and for a
     # proposal the photos of one answer with its statement and barem - never a name or an account.

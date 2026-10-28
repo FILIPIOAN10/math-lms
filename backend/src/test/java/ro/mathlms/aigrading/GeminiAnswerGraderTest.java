@@ -32,7 +32,7 @@ class GeminiAnswerGraderTest {
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
         GeminiAnswerGrader grader = new GeminiAnswerGrader(
                 new GeminiClient(builder.build(), () -> "ya29.test", "proj-1", "global", "gemini-3.8-flash"),
-                new ObjectMapper(), "gemini-4-argon");
+                new ObjectMapper(), "gemini-4-argon", "MEDIUM");
         Task task = new Task("Un teren.", 5, null,
                 List.of(new TaskPart("a", "Perimetrul.", 2, "$P = 130$ ... 2p"), new TaskPart("b", "Aria.", 3, "... 3p")),
                 new PageImage(new byte[]{9}, "image/png"),
@@ -52,6 +52,7 @@ class GeminiAnswerGraderTest {
                 .andExpect(jsonPath("$.contents[0].parts[5].inlineData.data").value("AQID"))
                 .andExpect(jsonPath("$.contents[0].parts[6].text").value("Pagina 2"))
                 .andExpect(jsonPath("$.generationConfig.responseJsonSchema.required.length()").value(5))
+                .andExpect(jsonPath("$.generationConfig.thinkingConfig.thinkingLevel").value("MEDIUM"))
                 .andRespond(withSuccess("""
                         {"candidates": [{"content": {"parts": [{"text": %s}]}, "finishReason": "STOP"}],
                          "usageMetadata": {"promptTokenCount": 4100, "candidatesTokenCount": 300, "thoughtsTokenCount": 5200},
@@ -66,5 +67,16 @@ class GeminiAnswerGraderTest {
         assertThat(proposal.model()).isEqualTo("gemini-4-argon");
         assertThat(proposal.inputTokens()).isEqualTo(4100);
         assertThat(proposal.outputTokens()).isEqualTo(5500);
+    }
+
+    @Test
+    void theThinkingLevelIsTidiedAndABlankOneLeavesTheModelsDefault() {
+        GeminiClient client = new GeminiClient(RestClient.create(), () -> "ya29.test", "proj-1", "global", "gemini-3.8-flash");
+        Task task = new Task("Un teren.", 5, "... 5p", List.of(), null, List.of(new PageImage(new byte[]{1}, "image/jpeg")));
+
+        assertThat(new GeminiAnswerGrader(client, new ObjectMapper(), "gemini-4-argon", " low ").request(task)
+                .path("generationConfig").path("thinkingConfig").path("thinkingLevel").asString()).isEqualTo("LOW");
+        assertThat(new GeminiAnswerGrader(client, new ObjectMapper(), "gemini-4-argon", " ").request(task)
+                .path("generationConfig").has("thinkingConfig")).isFalse();
     }
 }

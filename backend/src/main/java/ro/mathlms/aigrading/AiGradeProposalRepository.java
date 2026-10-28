@@ -9,11 +9,16 @@ import java.util.Optional;
 
 public interface AiGradeProposalRepository extends JpaRepository<AiGradeProposal, Long> {
 
-    /** Claims the oldest waiting proposal; {@code SKIP LOCKED} lets two app instances work side by side. */
+    /**
+     * Claims a waiting proposal, the same question's answers one after another (oldest first within it): every request
+     * then starts with the same instructions, problem, barem and figure, which Gemini's prefix cache bills for less. A
+     * paper handed in later may wait behind a busy question; grading is not urgent. {@code SKIP LOCKED} lets two app
+     * instances work side by side.
+     */
     @Query(value = """
             SELECT * FROM ai_grade_proposals
             WHERE status = 'QUEUED'
-            ORDER BY id
+            ORDER BY item_id, id
             FOR UPDATE SKIP LOCKED
             LIMIT 1
             """, nativeQuery = true)
