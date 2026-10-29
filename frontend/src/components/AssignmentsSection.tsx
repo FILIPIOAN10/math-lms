@@ -4,7 +4,8 @@ import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { assignmentBadge, dueCountdown, type BadgeTone } from '@/lib/assignments'
 import { formatDate } from '@/lib/format'
-import { formatGrade, romanianGrade } from '@/lib/grades'
+import { formatGrade, GRADE_TEXT, gradeBand, romanianGrade } from '@/lib/grades'
+import { cn } from '@/lib/utils'
 import { type MyAttemptDto, type StudentAssignment } from '@/lib/api'
 
 const TONES: Record<BadgeTone, string> = {
@@ -85,7 +86,7 @@ export function AssignmentsSection({
                 <div className="flex shrink-0 items-center gap-3">
                   {grade !== null && (
                     <span data-testid="assignment-grade" className="text-sm text-muted-foreground">
-                      nota <span className="text-lg font-semibold text-foreground tabular-nums">{formatGrade(grade)}</span>
+                      nota <span className={cn('text-lg font-semibold tabular-nums', GRADE_TEXT[gradeBand(grade)])}>{formatGrade(grade)}</span>
                     </span>
                   )}
                   <Link

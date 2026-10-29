@@ -18,6 +18,19 @@ describe('GradeFigure', () => {
     expect(screen.getByTestId('g-grade').className).toMatch(/text-3xl/)
   })
 
+  it('colours the grade by how it went: red under 5, amber up to 8, green from 8', () => {
+    const { rerender } = render(<GradeFigure score={4} maxScore={10} testId="g" />) // nota 4,60
+    expect(screen.getByTestId('g-grade')).toHaveAttribute('data-band', 'low')
+    expect(screen.getByTestId('g-grade').className).toMatch(/text-red-700/)
+
+    rerender(<GradeFigure score={5} maxScore={10} testId="g" />) // nota 5,50
+    expect(screen.getByTestId('g-grade')).toHaveAttribute('data-band', 'mid')
+
+    rerender(<GradeFigure score={8} maxScore={10} testId="g" />) // nota 8,20
+    expect(screen.getByTestId('g-grade')).toHaveAttribute('data-band', 'high')
+    expect(screen.getByTestId('g-grade').className).toMatch(/text-emerald-700/)
+  })
+
   it('shows only the points for a quiz worth nothing (it has no grade)', () => {
     render(<GradeFigure score={0} maxScore={0} testId="g" />)
 

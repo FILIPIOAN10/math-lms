@@ -1,8 +1,9 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { MathContent } from '@/components/MathContent'
 import { Link, useNavigate } from 'react-router-dom'
 import { ChapterQuizDialog } from '@/components/ChapterQuizDialog'
 import { ClassInviteDialog } from '@/components/ClassInviteDialog'
+import { RowMenu, type RowMenuItem } from '@/components/RowMenu'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog } from '@/components/ui/dialog'
@@ -24,6 +25,7 @@ import {
   listActiveUsers,
   listBooks,
   listChapters,
+  listClassSummaries,
   listClasses,
   listExercises,
   listRoster,
@@ -35,6 +37,7 @@ import {
   type AdminUserSummary,
   type Book,
   type Chapter,
+  type ClassSummary,
   type Difficulty,
   type Enrollment,
   type Exercise,
@@ -43,6 +46,9 @@ import {
 import { PageHeader } from '@/components/PageHeader'
 import { useConfirm } from '@/components/useConfirm'
 import { errorMessage } from '@/lib/errors'
+import { roCount } from '@/lib/format'
+import { formatGrade, GRADE_TEXT, gradeBand } from '@/lib/grades'
+import { cn } from '@/lib/utils'
 import { LoadingCards } from '@/components/LoadingCards'
 
 const DIFFICULTIES: Difficulty[] = ['EASY', 'MEDIUM', 'HARD']
@@ -324,6 +330,7 @@ type Dialogs =
   | { kind: 'exercise'; item: Exercise | null }
   | { kind: 'enroll'; schoolClass: SchoolClass }
   | { kind: 'invite'; schoolClass: SchoolClass }
+  | { kind: 'teacher'; schoolClass: SchoolClass }
   | { kind: 'chapterQuiz' }
   | null
 
@@ -335,6 +342,8 @@ export function AdminContentPage() {
   const navigate = useNavigate()
   const { confirm, dialog: confirmDialog } = useConfirm()
   const [classes, setClasses] = useState<SchoolClass[]>([])
+  // The numbers on each class card; a card simply shows none if they could not be loaded.
+  const [summaries, setSummaries] = useState<Record<number, ClassSummary>>({})
   const [cls, setCls] = useState<SchoolClass | null>(null)
   const [books, setBooks] = useState<Book[]>([])
   const [book, setBook] = useState<Book | null>(null)
@@ -345,11 +354,17 @@ export function AdminContentPage() {
   const [error, setError] = useState<string | null>(null)
   const [dialog, setDialog] = useState<Dialogs>(null)
 
+  const loadSummaries = () =>
+    listClassSummaries()
+      .then((list) => setSummaries(Object.fromEntries(list.map((row) => [row.classId, row]))))
+      .catch(() => undefined)
+
   useEffect(() => {
     listClasses()
       .then(setClasses)
       .catch((e) => setError(errorMessage(e)))
       .finally(() => setLoading(false))
+    void loadSummaries()
   }, [])
 
   useEffect(() => {
@@ -359,7 +374,7 @@ export function AdminContentPage() {
       .catch(() => undefined) // the picker is a help: without it the classes still work
   }, [isAdmin])
 
-  const reloadClasses = () => listClasses().then(setClasses)
+  const reloadClasses = () => Promise.all([listClasses().then(setClasses), loadSummaries()])
 
   async function changeTeacher(c: SchoolClass, teacherId: number) {
     setError(null)
@@ -520,37 +535,31 @@ export function AdminContentPage() {
         {/* Classes level */}
         {!loading && !cls && (
           classes.length === 0 ? <p className="text-muted-foreground">Nicio clasă. Adaugă prima.</p> : (
-            <RowList
-              rows={classes.map((c) => ({
-                id: c.id, title: c.name, description: c.description,
-                onOpen: () => openClass(c),
-                onEdit: () => setDialog({ kind: 'class', item: c }),
-                onDelete: () => removeWithConfirm(`clasa „${c.name}"`, () => deleteClass(c.id), reloadClasses),
-                extra: (
-                  <>
-                    <Button size="xs" onClick={() => setDialog({ kind: 'invite', schoolClass: c })}>Invită elevi</Button>
-                    <Button size="xs" variant="secondary" onClick={() => setDialog({ kind: 'enroll', schoolClass: c })}>Elevi</Button>
-                    <Link to={`/admin/classes/${c.id}/mastery`} className={buttonVariants({ size: 'xs', variant: 'secondary' })}>
-                      Pe capitole
-                    </Link>
-                    {isAdmin && teachers.length > 0 && (
-                      <select
-                        aria-label={`Profesorul clasei ${c.name}`}
-                        data-testid={`class-teacher-${c.id}`}
-                        className="h-6 rounded-md border border-border bg-background px-1 text-xs"
-                        value={c.teacherId ?? ''}
-                        onChange={(e) => e.target.value !== '' && void changeTeacher(c, Number(e.target.value))}
-                      >
-                        {c.teacherId === null && <option value="">Fără profesor</option>}
-                        {teachers.map((t) => (
-                          <option key={t.id} value={t.id}>{t.fullName}</option>
-                        ))}
-                      </select>
-                    )}
-                  </>
-                ),
-              }))}
-            />
+            <div className="space-y-2">
+              {classes.map((c) => (
+                <ClassCard
+                  key={c.id}
+                  schoolClass={c}
+                  summary={summaries[c.id] ?? null}
+                  teacherName={isAdmin ? teachers.find((t) => t.id === c.teacherId)?.fullName ?? null : null}
+                  onOpen={() => openClass(c)}
+                  onInvite={() => setDialog({ kind: 'invite', schoolClass: c })}
+                  menu={[
+                    { label: 'Elevii clasei', onClick: () => setDialog({ kind: 'enroll', schoolClass: c }) },
+                    { label: 'Pe capitole', to: `/admin/classes/${c.id}/mastery` },
+                    ...(isAdmin && teachers.length > 0
+                      ? [{ label: 'Schimbă profesorul', onClick: () => setDialog({ kind: 'teacher', schoolClass: c }), testId: `class-teacher-${c.id}` }]
+                      : []),
+                    { label: 'Editează', onClick: () => setDialog({ kind: 'class', item: c }) },
+                    {
+                      label: 'Șterge',
+                      destructive: true,
+                      onClick: () => void removeWithConfirm(`clasa „${c.name}"`, () => deleteClass(c.id), reloadClasses),
+                    },
+                  ]}
+                />
+              ))}
+            </div>
           )
         )}
       </div>
@@ -599,6 +608,17 @@ export function AdminContentPage() {
       {dialog?.kind === 'invite' && (
         <ClassInviteDialog open onClose={closeDialog} schoolClass={dialog.schoolClass} />
       )}
+      {dialog?.kind === 'teacher' && (
+        <TeacherDialog
+          schoolClass={dialog.schoolClass}
+          teachers={teachers}
+          onClose={closeDialog}
+          onSave={async (teacherId) => {
+            await changeTeacher(dialog.schoolClass, teacherId)
+            closeDialog()
+          }}
+        />
+      )}
       {dialog?.kind === 'chapterQuiz' && chapter && (
         <ChapterQuizDialog
           open onClose={closeDialog} chapter={chapter} exercises={exercises}
@@ -616,7 +636,6 @@ interface AdminRow {
   onOpen: () => void
   onEdit: () => void
   onDelete: () => void
-  extra?: ReactNode
 }
 
 function RowList({ rows }: { rows: AdminRow[] }) {
@@ -630,7 +649,6 @@ function RowList({ rows }: { rows: AdminRow[] }) {
               {row.description && <p className="truncate text-sm text-muted-foreground">{row.description}</p>}
             </div>
             <div className="flex flex-wrap justify-end gap-2">
-              {row.extra}
               <Button size="xs" variant="outline" onClick={row.onOpen}>Deschide</Button>
               <Button size="xs" variant="outline" onClick={row.onEdit}>Editează</Button>
               <Button size="xs" variant="destructive" onClick={row.onDelete}>Șterge</Button>
@@ -639,5 +657,107 @@ function RowList({ rows }: { rows: AdminRow[] }) {
         </Card>
       ))}
     </div>
+  )
+}
+
+/**
+ * One class: its name, how big it is and how it is doing (students, tests, mean grade in the grade's colour), and two
+ * buttons - open it, invite students. Everything else (roster, chapters map, teacher, edit, delete) is in the ⋯ menu,
+ * so the row reads at a glance instead of being a wall of equal buttons.
+ */
+function ClassCard({ schoolClass, summary, teacherName, onOpen, onInvite, menu }: {
+  schoolClass: SchoolClass
+  summary: ClassSummary | null
+  /** ADMIN only: who owns the class. */
+  teacherName: string | null
+  onOpen: () => void
+  onInvite: () => void
+  menu: RowMenuItem[]
+}) {
+  return (
+    <Card data-testid="class-card">
+      <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
+        <div className="min-w-0">
+          <p className="truncate font-medium">{schoolClass.name}</p>
+          {schoolClass.description && <p className="truncate text-sm text-muted-foreground">{schoolClass.description}</p>}
+          {(summary || teacherName) && (
+            <p data-testid="class-summary" className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-sm text-muted-foreground">
+              {summary && (
+                <>
+                  <span>{roCount(summary.students, 'elev', 'elevi')}</span>
+                  <span>{roCount(summary.quizzes, 'test', 'teste')}</span>
+                  {summary.average === null ? (
+                    <span>fără note încă</span>
+                  ) : (
+                    <span>
+                      media{' '}
+                      <span className={cn('font-semibold tabular-nums', GRADE_TEXT[gradeBand(summary.average)])}>
+                        {formatGrade(summary.average)}
+                      </span>
+                    </span>
+                  )}
+                </>
+              )}
+              {teacherName && <span>Profesor: {teacherName}</span>}
+            </p>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" onClick={onInvite}>Invită elevi</Button>
+          <Button size="sm" onClick={onOpen}>Deschide</Button>
+          <RowMenu label={`Mai multe acțiuni pentru ${schoolClass.name}`} items={menu} />
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+/** ADMIN: hands a class to another teacher (or admin), who then sees it, its students and its homework. */
+function TeacherDialog({ schoolClass, teachers, onClose, onSave }: {
+  schoolClass: SchoolClass
+  teachers: AdminUserSummary[]
+  onClose: () => void
+  onSave: (teacherId: number) => Promise<void>
+}) {
+  const [teacherId, setTeacherId] = useState<string>(schoolClass.teacherId === null ? '' : String(schoolClass.teacherId))
+  const [busy, setBusy] = useState(false)
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault()
+    if (teacherId === '') return
+    setBusy(true)
+    try {
+      await onSave(Number(teacherId))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()} title={`Profesorul clasei ${schoolClass.name}`}>
+      <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="class-teacher">Profesor</Label>
+          <select
+            id="class-teacher"
+            data-testid="class-teacher-select"
+            className="h-9 rounded-md border border-border bg-background px-2 text-sm"
+            value={teacherId}
+            onChange={(e) => setTeacherId(e.target.value)}
+          >
+            {schoolClass.teacherId === null && <option value="">Fără profesor</option>}
+            {teachers.map((t) => (
+              <option key={t.id} value={t.id}>{t.fullName}</option>
+            ))}
+          </select>
+        </div>
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="outline" onClick={onClose} disabled={busy}>Anulează</Button>
+          <Button type="submit" disabled={busy || teacherId === '' || Number(teacherId) === schoolClass.teacherId}>
+            Salvează
+          </Button>
+        </div>
+      </form>
+    </Dialog>
   )
 }

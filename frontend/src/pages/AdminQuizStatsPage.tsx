@@ -8,14 +8,21 @@ import { getQuizStats, type QuizStatsDto } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
 import { PageHeader } from '@/components/PageHeader'
 import { LoadingCards } from '@/components/LoadingCards'
+import { GRADE_FILL, gradeBand, romanianGrade } from '@/lib/grades'
+import { cn } from '@/lib/utils'
 
-/** A horizontal bar: `fraction` (0..1) of the track is filled. Plain divs on theme colors. */
-function Bar({ fraction }: { fraction: number }) {
+/** A horizontal bar: `fraction` (0..1) of the track is filled, in `fill` (the brand colour by default). */
+function Bar({ fraction, fill = 'bg-primary' }: { fraction: number; fill?: string }) {
   return (
     <div className="h-2 w-full rounded-full bg-muted" aria-hidden="true">
-      <div className="h-2 rounded-full bg-primary" style={{ width: `${Math.round(Math.max(0, Math.min(1, fraction)) * 100)}%` }} />
+      <div className={cn('h-2 rounded-full', fill)} style={{ width: `${Math.round(Math.max(0, Math.min(1, fraction)) * 100)}%` }} />
     </div>
   )
+}
+
+/** The grade band of a distribution bucket (equal slices of 0–100%), taken at the middle of its slice. */
+function bucketBand(index: number, buckets: number) {
+  return gradeBand(romanianGrade(index + 0.5, buckets)!)
 }
 
 /** Teacher analytics for one quiz: average, score distribution, and which items were hardest. */
@@ -86,10 +93,10 @@ export function AdminQuizStatsPage() {
             <Card>
               <CardContent className="space-y-3 py-4">
                 <h2 className="font-medium">Distribuția notelor</h2>
-                {stats.distribution.map((bucket) => (
+                {stats.distribution.map((bucket, i) => (
                   <div key={bucket.label} className="grid grid-cols-[5rem_1fr_2rem] items-center gap-3 text-sm">
                     <span className="text-muted-foreground">{bucket.label}</span>
-                    <Bar fraction={bucket.count / maxBucket} />
+                    <Bar fraction={bucket.count / maxBucket} fill={GRADE_FILL[bucketBand(i, stats.distribution.length)]} />
                     <span className="text-right">{bucket.count}</span>
                   </div>
                 ))}

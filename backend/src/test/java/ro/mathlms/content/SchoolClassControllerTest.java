@@ -84,4 +84,11 @@ class SchoolClassControllerTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
         verify(service).delete(5L);
     }
+
+    @Test
+    void summariesPassTheServiceRowsThrough() {
+        when(service.summaries()).thenReturn(List.of(new ClassSummaryDto(3L, 24, 5, 7.42)));
+
+        assertThat(controller.summaries()).containsExactly(new ClassSummaryDto(3L, 24, 5, 7.42));
+    }
 }

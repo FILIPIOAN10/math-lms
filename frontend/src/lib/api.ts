@@ -454,6 +454,20 @@ export async function updateClass(id: number, name: string, description: string 
   return response.json()
 }
 
+/** The numbers on a class card; `average` is the mean 1–10 grade of its graded tests, null until one is graded. */
+export interface ClassSummary {
+  classId: number
+  students: number
+  quizzes: number
+  average: number | null
+}
+
+/** Staff: students, tests and mean grade of every class they see. */
+export async function listClassSummaries(): Promise<ClassSummary[]> {
+  const response = await apiFetch('/admin/classes/summary')
+  return response.json()
+}
+
 /** ADMIN only: gives the class (with its students, homework and links) to another teacher. */
 export async function assignClassTeacher(id: number, teacherId: number): Promise<SchoolClass> {
   const response = await putJson(`/admin/classes/${id}/teacher`, { teacherId })

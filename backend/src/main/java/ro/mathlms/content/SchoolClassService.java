@@ -39,6 +39,11 @@ public class SchoolClassService {
                 .sorted(Comparator.comparing(SchoolClass::getName, NaturalOrder.BY_NAME)).toList();
     }
 
+    /** The class cards' numbers (see {@link SchoolClassRepository#summaries()}), for every class. */
+    public List<ClassSummaryDto> summaries() {
+        return repository.summaries().stream().map(ClassSummaryDto::from).toList();
+    }
+
     public SchoolClass get(Long id) {
         return repository.findById(id)
                 .orElseThrow(() -> new ContentNotFoundException("SchoolClass", id));

@@ -54,6 +54,13 @@ public class SchoolClassController {
         return classes.stream().map(SchoolClassDto::from).toList();
     }
 
+    /** Staff: students, tests and mean grade per class, for the class cards (a TEACHER gets their own classes). */
+    @GetMapping("/api/admin/classes/summary")
+    @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
+    public List<ClassSummaryDto> summaries() {
+        return scope.keepOwnedClasses(service.summaries(), ClassSummaryDto::classId);
+    }
+
     @GetMapping("/api/classes/{id}")
     public SchoolClassDto get(@PathVariable Long id, Authentication authentication) {
         access.checkClass(id, authentication);

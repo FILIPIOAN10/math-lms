@@ -79,7 +79,7 @@ const TAB_CLASS =
 /** The icon of a tab, on a pill when it is the current page (the colour alone would be easy to miss). */
 function TabIcon({ icon: Icon, current }: { icon: NavItem['icon']; current: boolean }) {
   return (
-    <span className={cn('rounded-full px-4 py-0.5 transition-colors', current && 'bg-muted')}>
+    <span className={cn('rounded-full px-4 py-0.5 transition-colors', current && 'bg-primary/10')}>
       <Icon aria-hidden="true" className="size-5" strokeWidth={current ? 2.25 : 1.75} />
     </span>
   )
@@ -129,7 +129,7 @@ function TabBar({ role, counts, pathname }: { role: Role; counts: Counts; pathna
               key={item.to}
               to={item.to}
               aria-current={current ? 'page' : undefined}
-              className={cn(TAB_CLASS, current ? 'text-foreground' : 'text-muted-foreground')}
+              className={cn(TAB_CLASS, current ? 'text-primary' : 'text-muted-foreground')}
             >
               <TabIcon icon={item.icon} current={current} />
               <span className="max-w-full truncate px-0.5">{item.short ?? item.label}</span>
@@ -152,7 +152,7 @@ function TabBar({ role, counts, pathname }: { role: Role; counts: Counts; pathna
               aria-controls={menuId}
               data-current={currentInMore ? 'true' : undefined}
               onClick={() => setOpen((o) => !o)}
-              className={cn(TAB_CLASS, currentInMore || open ? 'text-foreground' : 'text-muted-foreground')}
+              className={cn(TAB_CLASS, currentInMore || open ? 'text-primary' : 'text-muted-foreground')}
             >
               <TabIcon icon={Ellipsis} current={currentInMore} />
               <span>Mai mult</span>
@@ -173,7 +173,7 @@ function TabBar({ role, counts, pathname }: { role: Role; counts: Counts; pathna
                         onClick={() => setOpen(false)}
                         className={cn(
                           'flex h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50',
-                          current && 'bg-muted',
+                          current && 'bg-primary/10 text-primary',
                         )}
                       >
                         <item.icon aria-hidden="true" className="size-5 text-muted-foreground" />
@@ -233,7 +233,7 @@ export function AppShell() {
                     aria-current={active ? 'page' : undefined}
                     className={cn(
                       'inline-flex h-9 shrink-0 items-center rounded-lg px-3 text-sm font-medium whitespace-nowrap transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
-                      active ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                      active ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                     )}
                   >
                     {item.label}
