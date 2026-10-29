@@ -237,4 +237,8 @@ final class ApiSeeder {
                 .map(HttpCookie::getValue)
                 .findFirst();
     }
+    /** Returnează ID-ul unui utilizator pentru teste (ex: IDOR) */
+    long getUserIdForTest(String role, String email) {
+        return userId(role, email);
+    }
 }

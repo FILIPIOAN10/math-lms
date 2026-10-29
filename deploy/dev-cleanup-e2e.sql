@@ -17,9 +17,9 @@
 BEGIN;
 
 CREATE TEMP TABLE e2e_quiz  ON COMMIT DROP AS
-  SELECT id FROM quizzes WHERE title ~ '^E2E (flow|clasa|parinte|publica si tema|nota noua|pe subiect|pe .ntrebare|profesor|offline) [0-9]+$';
+  SELECT id FROM quizzes WHERE title ~ '^E2E (flow|clasa|parinte|publica si tema|nota noua|pe subiect|pe .ntrebare|profesor|offline|IDOR) [0-9]+$';
 CREATE TEMP TABLE e2e_class ON COMMIT DROP AS
-  SELECT id FROM school_classes WHERE name ~ '^E2E (clasa|invitatie|tema|profesor|clasa offline) [0-9]+$';
+  SELECT id FROM school_classes WHERE name ~ '^E2E (clasa|invitatie|tema|profesor|clasa offline|clasa IDOR) [0-9]+$';
 
 -- Safety net: an E2E class that holds a real quiz or real content would lose it; stop instead.
 DO $$

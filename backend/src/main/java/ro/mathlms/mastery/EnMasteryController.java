@@ -47,9 +47,9 @@ public class EnMasteryController {
     @PreAuthorize("hasRole('PARENT')")
     public List<EnChapterMasteryDto> child(@PathVariable Long studentId, Authentication auth) {
         User parent = userRepository.findByEmail(auth.getName())
-                .orElseThrow(() -> new ParentAccessException("Unknown parent account"));
+                .orElseThrow(() -> new ParentAccessException("Contul de părinte nu există."));
         User child = userRepository.findByIdAndParentId(studentId, parent.getId())
-                .orElseThrow(() -> new ParentAccessException("Not your child"));
+                .orElseThrow(() -> new ParentAccessException("Acesta nu e copilul tău."));
         return service.forStudent(child);
     }
 

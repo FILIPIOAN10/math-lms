@@ -79,68 +79,73 @@ export function ParentChildPage() {
         />
 
         {error && <p className="text-sm text-destructive">{error}</p>}
-        {!attempts && !error && <LoadingCards />}
-        {assignments && (
-          <AssignmentsSection
-            assignments={assignments}
-            attempts={attempts ?? []}
-            childId={Number(childId)}
-            title="Teme"
-            emptyText="Nicio temă dată clasei copilului."
-          />
-        )}
-        {mastery && (
-          <HomeSection title="Pe capitole">
-            <Card>
-              <CardContent className="py-4">
-                <MasteryList rows={mastery} />
-              </CardContent>
-            </Card>
-          </HomeSection>
-        )}
-        {enMastery && enMastery.some((r) => r.questions > 0) && (
-          <HomeSection title="Pe capitolele EN">
-            <Card>
-              <CardContent className="py-4">
-                <EnMasteryList rows={enMastery} />
-              </CardContent>
-            </Card>
-          </HomeSection>
-        )}
-        {progress && (
-          <Card>
-            <CardContent className="space-y-2 py-4">
-              <h2 className="font-medium">Progres în timp</h2>
-              <ProgressChart points={progress} />
-            </CardContent>
-          </Card>
-        )}
-        {attempts && attempts.length === 0 && (
-          <p className="text-sm text-muted-foreground">Copilul nu a dat încă niciun test.</p>
-        )}
 
-        {attempts?.map((a) => (
-          <Card key={a.attemptId}>
-            <CardContent className="flex items-center justify-between gap-3 py-3" data-testid="child-attempt">
-              <div className="min-w-0 space-y-1">
-                <p className="truncate font-medium">{a.quizTitle}</p>
-                <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                  {a.mode === 'PRACTICE' ? <AttemptModeBadge mode={a.mode} /> : <AttemptStatusBadge status={a.status} />}
-                  <span>{formatDate(a.submittedAt ?? a.startedAt)}</span>
-                  {a.score !== null && <span className="text-foreground">{scoreLine(a.score, a.maxScore)}</span>}
-                </p>
-              </div>
-              {a.status !== 'IN_PROGRESS' && (
-                <Link
-                  to={`/parent/children/${childId}/attempts/${a.attemptId}`}
-                  className={buttonVariants({ size: 'sm', variant: 'outline' })}
-                >
-                  Vezi rezultatul
-                </Link>
-              )}
-            </CardContent>
-          </Card>
-        ))}
+        {!error && (
+          <>
+            {!attempts && <LoadingCards />}
+            {assignments && (
+              <AssignmentsSection
+                assignments={assignments}
+                attempts={attempts ?? []}
+                childId={Number(childId)}
+                title="Teme"
+                emptyText="Nicio temă dată clasei copilului."
+              />
+            )}
+            {mastery && (
+              <HomeSection title="Pe capitole">
+                <Card>
+                  <CardContent className="py-4">
+                    <MasteryList rows={mastery} />
+                  </CardContent>
+                </Card>
+              </HomeSection>
+            )}
+            {enMastery && enMastery.some((r) => r.questions > 0) && (
+              <HomeSection title="Pe capitolele EN">
+                <Card>
+                  <CardContent className="py-4">
+                    <EnMasteryList rows={enMastery} />
+                  </CardContent>
+                </Card>
+              </HomeSection>
+            )}
+            {progress && (
+              <Card>
+                <CardContent className="space-y-2 py-4">
+                  <h2 className="font-medium">Progres în timp</h2>
+                  <ProgressChart points={progress} />
+                </CardContent>
+              </Card>
+            )}
+            {attempts && attempts.length === 0 && (
+              <p className="text-sm text-muted-foreground">Copilul nu a dat încă niciun test.</p>
+            )}
+
+            {attempts?.map((a) => (
+              <Card key={a.attemptId}>
+                <CardContent className="flex items-center justify-between gap-3 py-3" data-testid="child-attempt">
+                  <div className="min-w-0 space-y-1">
+                    <p className="truncate font-medium">{a.quizTitle}</p>
+                    <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                      {a.mode === 'PRACTICE' ? <AttemptModeBadge mode={a.mode} /> : <AttemptStatusBadge status={a.status} />}
+                      <span>{formatDate(a.submittedAt ?? a.startedAt)}</span>
+                      {a.score !== null && <span className="text-foreground">{scoreLine(a.score, a.maxScore)}</span>}
+                    </p>
+                  </div>
+                  {a.status !== 'IN_PROGRESS' && (
+                    <Link
+                      to={`/parent/children/${childId}/attempts/${a.attemptId}`}
+                      className={buttonVariants({ size: 'sm', variant: 'outline' })}
+                    >
+                      Vezi rezultatul
+                    </Link>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </>
+        )}
       </div>
     </div>
   )

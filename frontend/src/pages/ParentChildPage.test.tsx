@@ -15,7 +15,7 @@ vi.mock('@/lib/api', async (original) => ({ ...(await original<typeof import('@/
 
 const homework = (id: number, title: string, over: Partial<StudentAssignment> = {}): StudentAssignment => ({
   assignmentId: id, quizId: id, quizTitle: title, schoolClassName: 'Clasa a 8-a',
-  dueAt: new Date(Date.now() + 2 * 86_400_000).toISOString(), state: 'NOT_STARTED', late: false, overdue: false,
+  dueAt: new Date(Date.now() + 86_400_000).toISOString(), state: 'NOT_STARTED', late: false, overdue: false,
   attemptId: null, timeLimitMinutes: null, ...over,
 })
 
@@ -88,9 +88,9 @@ describe('ParentChildPage', () => {
   })
 
   it("shows the server's refusal for a child that is not yours", async () => {
-    api.getChildAssignments.mockRejectedValue(new ApiError(403, 'Not your child'))
-    api.getChildAttempts.mockRejectedValue(new ApiError(403, 'Not your child'))
+    api.getChildAssignments.mockRejectedValue(new ApiError(403, 'Acesta nu e copilul tău.'))
+    api.getChildAttempts.mockRejectedValue(new ApiError(403, 'Acesta nu e copilul tău.'))
     renderPage()
-    expect(await screen.findByText('Not your child')).toBeInTheDocument()
+    expect(await screen.findByText('Acesta nu e copilul tău.')).toBeInTheDocument()
   })
 })

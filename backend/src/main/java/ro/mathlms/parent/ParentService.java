@@ -80,19 +80,19 @@ public class ParentService {
         boolean isTheirs = quizAttemptService.listMyAttempts(child.getEmail()).stream()
                 .anyMatch(attempt -> attempt.attemptId().equals(attemptId));
         if (!isTheirs) {
-            throw new ParentAccessException("Not your child's attempt");
+            throw new ParentAccessException("Lucrarea nu e a copilului tău.");
         }
         return quizAttemptService.getResult(attemptId, child.getEmail());
     }
 
     private User requireParent(String parentEmail) {
         return userRepository.findByEmail(parentEmail)
-                .orElseThrow(() -> new ParentAccessException("Unknown parent account"));
+                .orElseThrow(() -> new ParentAccessException("Contul de părinte nu există"));
     }
 
     private User requireOwnChild(String parentEmail, Long studentId) {
         User parent = requireParent(parentEmail);
         return userRepository.findByIdAndParentId(studentId, parent.getId())
-                .orElseThrow(() -> new ParentAccessException("Not your child"));
+                .orElseThrow(() -> new ParentAccessException("Acesta nu e copilul tău"));
     }
 }
