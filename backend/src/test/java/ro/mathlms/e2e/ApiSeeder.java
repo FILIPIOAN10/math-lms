@@ -237,6 +237,17 @@ final class ApiSeeder {
                 .map(HttpCookie::getValue)
                 .findFirst();
     }
+    /** Student side: how many attempts the logged-in student has at this quiz (G4: a double submit must make one). */
+    long countMyAttempts(long quizId) {
+        long count = 0;
+        for (JsonNode attempt : send("GET", "/api/quiz/attempts", null)) {
+            if (attempt.get("quizId").asLong() == quizId) {
+                count++;
+            }
+        }
+        return count;
+    }
+
     /** Returnează ID-ul unui utilizator pentru teste (ex: IDOR) */
     long getUserIdForTest(String role, String email) {
         return userId(role, email);
