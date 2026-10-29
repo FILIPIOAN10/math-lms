@@ -8,7 +8,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Phase 5: the admin links Ana to the parent account; Ana hands in a quiz; the parent logs in, opens
- * "Copiii mei" → Ana → the quiz → the result (worded for the parent).
+ * Acasă → Ana ("Vezi detalii") → the quiz → the result (worded for the parent).
  */
 class ParentE2eTest extends E2eBase {
 
@@ -26,9 +26,9 @@ class ParentE2eTest extends E2eBase {
         student.takeAndSubmit(quizId, "Varianta B");
 
         login(PARENT, PASSWORD);
-        byTestId("my-children").click();
+        // Acasă is the parent's only page: one card per child, "Vezi detalii" opens the child
         wait.until(ExpectedConditions.elementToBeClickable(By.xpath(
-                "//*[contains(normalize-space(.), 'Ana Student')]//*[@data-testid='child-open']"))).click();
+                "//*[@data-testid='child-card'][contains(normalize-space(.), 'Ana Student')]//a[normalize-space()='Vezi detalii']"))).click();
 
         wait.until(ExpectedConditions.elementToBeClickable(By.xpath(
                 "//*[@data-testid='child-attempt'][contains(normalize-space(.), '" + quizTitle + "')]//a"))).click();

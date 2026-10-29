@@ -40,12 +40,8 @@ const NAV: Record<Role, NavItem[]> = {
     { to: '/capitole', label: 'Capitole EN', icon: BookOpen, testId: 'en-chapters' },
     { to: '/content', label: 'Conținut', icon: Library },
   ],
-  PARENT: [
-    { to: '/', label: 'Acasă', icon: House },
-    { to: '/parent', label: 'Copiii mei', icon: Users, testId: 'my-children' },
-    { to: '/capitole', label: 'Capitole EN', icon: BookOpen, testId: 'en-chapters' },
-    { to: '/content', label: 'Conținut', icon: Library },
-  ],
+  // A parent needs one page: Acasă lists their children, each opening the child's homework, grades and progress.
+  PARENT: [{ to: '/', label: 'Acasă', icon: House }],
   // Five links (T6): quizzes and homework are one "Teste" area with tabs; approving, inviting and linking people is
   // one "Elevi" page.
   ADMIN: [
@@ -75,6 +71,11 @@ export function isNavActive(item: NavItem, pathname: string): boolean {
 /** The main navigation of one role, in the order it is shown. */
 export function navItems(role: Role): NavItem[] {
   return NAV[role]
+}
+
+/** Whether the role has more than one page to go between - a single link (the parent's Acasă) needs no menu. */
+export function hasNavigation(role: Role): boolean {
+  return NAV[role].length > 1
 }
 
 /** How many tabs fit across a phone: with more links, the last tab becomes "Mai mult". */

@@ -75,7 +75,7 @@ export function ParentChildPage() {
         <PageHeader
           title={childName ?? 'Copilul meu'}
           description="Temele, progresul și testele date."
-          breadcrumbs={[{ label: 'Copiii mei', to: '/parent' }, { label: childName ?? 'Copilul meu' }]}
+          breadcrumbs={[{ label: 'Acasă', to: '/' }, { label: childName ?? 'Copilul meu' }]}
         />
 
         {error && <p className="text-sm text-destructive">{error}</p>}

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { useAuth } from '@/context/AuthContext'
 import { getMyAttempts, listAttemptsForGrading, listPendingUsers, type Role } from '@/lib/api'
 import { roCount } from '@/lib/format'
-import { isNavActive, NAV_COUNTS_CHANGED, navItems, roleLabel, tabBarItems, type NavCount, type NavItem } from '@/lib/roles'
+import { hasNavigation, isNavActive, NAV_COUNTS_CHANGED, navItems, roleLabel, tabBarItems, type NavCount, type NavItem } from '@/lib/roles'
 import { cn } from '@/lib/utils'
 import { LoadingCards } from '@/components/LoadingCards'
 
@@ -209,6 +209,7 @@ export function AppShell() {
   if (!signedIn || !user.role) {
     return <Outlet />
   }
+  const withNav = hasNavigation(user.role)
 
   return (
     <div className="min-h-screen bg-muted">
@@ -217,29 +218,31 @@ export function AppShell() {
           <Link to="/" className="text-base font-semibold">
             Math LMS
           </Link>
-          <nav
-            aria-label="Navigare principală"
-            className="order-last -mx-1 hidden w-full gap-1 overflow-x-auto [scrollbar-width:none] md:flex lg:order-none lg:mx-0 lg:w-auto"
-          >
-            {navItems(user.role).map((item) => {
-              const active = isNavActive(item, pathname)
-              return (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  data-testid={item.testId}
-                  aria-current={active ? 'page' : undefined}
-                  className={cn(
-                    'inline-flex h-9 shrink-0 items-center rounded-lg px-3 text-sm font-medium whitespace-nowrap transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
-                    active ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-                  )}
-                >
-                  {item.label}
-                  {item.count && <CountBadge kind={item.count} n={counts[item.count]} />}
-                </Link>
-              )
-            })}
-          </nav>
+          {withNav && (
+            <nav
+              aria-label="Navigare principală"
+              className="order-last -mx-1 hidden w-full gap-1 overflow-x-auto [scrollbar-width:none] md:flex lg:order-none lg:mx-0 lg:w-auto"
+            >
+              {navItems(user.role).map((item) => {
+                const active = isNavActive(item, pathname)
+                return (
+                  <Link
+                    key={item.to}
+                    to={item.to}
+                    data-testid={item.testId}
+                    aria-current={active ? 'page' : undefined}
+                    className={cn(
+                      'inline-flex h-9 shrink-0 items-center rounded-lg px-3 text-sm font-medium whitespace-nowrap transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+                      active ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                    )}
+                  >
+                    {item.label}
+                    {item.count && <CountBadge kind={item.count} n={counts[item.count]} />}
+                  </Link>
+                )
+              })}
+            </nav>
+          )}
           <div className="ml-auto flex items-center gap-3">
             <Link
               to="/account"
@@ -260,13 +263,13 @@ export function AppShell() {
         </div>
       </header>
       {/* On a phone the bottom padding keeps the end of every page clear of the tab bar. */}
-      <main className="pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pb-0">
+      <main className={cn(withNav && 'pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pb-0')}>
         {/* The header stays put while the next page's code downloads. */}
         <Suspense fallback={<div className="mx-auto max-w-3xl p-4"><LoadingCards /></div>}>
           <Outlet />
         </Suspense>
       </main>
-      <TabBar role={user.role} counts={counts} pathname={pathname} />
+      {withNav && <TabBar role={user.role} counts={counts} pathname={pathname} />}
     </div>
   )
 }

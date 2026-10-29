@@ -67,10 +67,11 @@ describe('AppShell', () => {
     expect(screen.getByText('pagina teste')).toBeInTheDocument()
   })
 
-  it('gives a parent the link to their children', () => {
+  it('gives a parent no menu: Acasă (the logo) is their only page', () => {
     auth.value.user = user({ role: 'PARENT', fullName: 'Maria Parinte' })
     renderShell()
-    expect(navLabels()).toEqual(['Acasă', 'Copiii mei', 'Capitole EN', 'Conținut'])
+    expect(screen.queryByRole('navigation', { name: 'Navigare principală' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Math LMS' })).toHaveAttribute('href', '/')
   })
 
   it('names the role in Romanian, never the enum', () => {
@@ -227,10 +228,10 @@ describe('AppShell', () => {
       expect(within(tabBar()).queryByRole('button', { name: 'Mai mult' })).not.toBeInTheDocument()
     })
 
-    it('fits all four parent links', () => {
+    it('shows a parent no tab bar', () => {
       auth.value.user = user({ role: 'PARENT' })
       renderShell()
-      expect(tabLabels()).toEqual(['Acasă', 'Copiii mei', 'Capitole EN', 'Conținut'])
+      expect(screen.queryByRole('navigation', { name: 'Meniu principal' })).not.toBeInTheDocument()
     })
 
     it('carries the same counts as the desktop links', async () => {
