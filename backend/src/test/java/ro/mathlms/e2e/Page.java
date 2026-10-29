@@ -33,4 +33,10 @@ abstract class Page {
     protected void waitForBodyText(String text) {
         wait.until(ExpectedConditions.textToBePresentInElementLocated(By.tagName("body"), text));
     }
+
+    /** A button or link with exactly this visible text, once it can be clicked. */
+    protected void clickText(String text) {
+        wait.until(ExpectedConditions.elementToBeClickable(By.xpath(
+                "//*[(self::button or self::a) and normalize-space()='" + text + "']"))).click();
+    }
 }

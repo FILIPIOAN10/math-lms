@@ -1,9 +1,9 @@
 -- Removes the data the Selenium E2E suite leaves in the DEV database (never run it on production).
 --
 -- What counts as E2E data (matched by exact name pattern, nothing else is touched):
---   * quizzes titled  "E2E flow|clasa|parinte|publica si tema|nota noua|pe subiect|pe întrebare <digits>"
+--   * quizzes titled  "E2E flow|clasa|parinte|publica si tema|nota noua|pe subiect|pe întrebare|profesor|offline <digits>"
 --     + their items, options, hints, attempts, answers and homework
---   * classes named   "E2E clasa|invitatie|tema <digits>" + their enrollments, homework and invite links
+--   * classes named   "E2E clasa|invitatie|tema|profesor|clasa offline <digits>" + their enrollments, homework and invite links
 --   * the journal rows (F1) about any of the above
 -- Kept: every other quiz/class, all users, parent links, your own attempts.
 --
@@ -17,9 +17,9 @@
 BEGIN;
 
 CREATE TEMP TABLE e2e_quiz  ON COMMIT DROP AS
-  SELECT id FROM quizzes WHERE title ~ '^E2E (flow|clasa|parinte|publica si tema|nota noua|pe subiect|pe .ntrebare) [0-9]+$';
+  SELECT id FROM quizzes WHERE title ~ '^E2E (flow|clasa|parinte|publica si tema|nota noua|pe subiect|pe .ntrebare|profesor|offline) [0-9]+$';
 CREATE TEMP TABLE e2e_class ON COMMIT DROP AS
-  SELECT id FROM school_classes WHERE name ~ '^E2E (clasa|invitatie|tema) [0-9]+$';
+  SELECT id FROM school_classes WHERE name ~ '^E2E (clasa|invitatie|tema|profesor|clasa offline) [0-9]+$';
 
 -- Safety net: an E2E class that holds a real quiz or real content would lose it; stop instead.
 DO $$
@@ -48,7 +48,11 @@ DELETE FROM quizzes        WHERE id IN (SELECT id FROM e2e_quiz);
 DELETE FROM enrollments    WHERE school_class_id IN (SELECT id FROM e2e_class);
 DELETE FROM school_classes WHERE id IN (SELECT id FROM e2e_class); -- invite links go with it (ON DELETE CASCADE)
 -- The teachers' journal is append-only in the app; on a dev database its E2E rows are just noise.
-DELETE FROM admin_audit_log WHERE label ~ 'E2E (flow|clasa|parinte|publica si tema|nota noua|pe subiect|pe .ntrebare|invitatie|tema) [0-9]+';
+DELETE FROM admin_audit_log WHERE label ~ 'E2E (flow|clasa|parinte|publica si tema|nota noua|pe subiect|pe .ntrebare|invitatie|tema|profesor|offline) [0-9]+';
+
+-- Corectură (V43): coloanele reale pentru 2FA
+DELETE FROM totp_recovery_codes WHERE user_id IN (SELECT id FROM users WHERE email = 'admin2fa@mathlms.local');
+UPDATE users SET totp_secret = NULL, totp_enabled_at = NULL, totp_last_step = NULL WHERE email = 'admin2fa@mathlms.local';
 
 \echo '--- left after cleanup:'
 SELECT (SELECT count(*) FROM quizzes) AS quizzes,

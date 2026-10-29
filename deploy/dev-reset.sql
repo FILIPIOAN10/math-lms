@@ -4,9 +4,11 @@
 -- items, options, hints, attempts, answers (and their photo pages), daily-review answers, homework, invite links,
 -- queued emails, AI imports (from textbook photos) and the teachers' journal
 -- (ids restart at 1).
--- Deletes every user EXCEPT the four seed accounts below, which are (re)created ACTIVE with the
+-- Deletes every user EXCEPT the six seed accounts below, which are (re)created ACTIVE with the
 -- password Admin123!, no parent link and no Google link:
 --   admin@mathlms.local          ADMIN
+--   admin2fa@mathlms.local       ADMIN
+--   profesor@mathlms.local       TEACHER
 --   parinte@mathlms.local        PARENT
 --   student.activ@mathlms.local  STUDENT
 --   student.nou@mathlms.local    STUDENT
@@ -22,7 +24,7 @@ BEGIN;
 
 UPDATE users SET parent_id = NULL, invite_link_id = NULL;
 
-TRUNCATE review_answers, response_part_points, response_photos, item_responses, quiz_attempts, quiz_item_hints, quiz_options,
+TRUNCATE review_answers, response_part_points, response_photos, item_responses, ai_grade_proposals, quiz_attempts, quiz_item_hints, quiz_options,
          quiz_item_parts, quiz_items, assignments,
          quizzes, exercises, chapters, books, enrollments, outbox_event, ai_imports, admin_audit_log
          RESTART IDENTITY;
@@ -34,13 +36,16 @@ DELETE FROM school_classes;
 ALTER TABLE invite_links ALTER COLUMN id RESTART WITH 1;
 ALTER TABLE school_classes ALTER COLUMN id RESTART WITH 1;
 
-DELETE FROM users WHERE email NOT IN ('admin@mathlms.local', 'parinte@mathlms.local',
-                                      'student.activ@mathlms.local', 'student.nou@mathlms.local');
+-- AM ADAUGAT CELE 2 CONTURI NOI AICI CA SĂ NU FIE ȘTERSE
+DELETE FROM users WHERE email NOT IN ('admin@mathlms.local', 'admin2fa@mathlms.local', 'profesor@mathlms.local',
+                                      'parinte@mathlms.local', 'student.activ@mathlms.local', 'student.nou@mathlms.local');
 
 -- BCrypt hash of Admin123! (same as docs/TESTING.md section B).
 INSERT INTO users (email, full_name, role, password, email_verified, status, requested_role,
                    parent_id, google_id, erased, erased_at) VALUES
   ('admin@mathlms.local',         'Prof Admin',    'ADMIN',   '$2b$10$m4o.4XuUThq9WDeJynErLuS5nirO61RZ8TUGYT6N7uqrGUIjNBouy', true, 'ACTIVE', NULL, NULL, NULL, false, NULL),
+  ('admin2fa@mathlms.local',      'Admin DoiFA',   'ADMIN',   '$2b$10$m4o.4XuUThq9WDeJynErLuS5nirO61RZ8TUGYT6N7uqrGUIjNBouy', true, 'ACTIVE', NULL, NULL, NULL, false, NULL),
+  ('profesor@mathlms.local',      'Ion Profesor',  'TEACHER', '$2b$10$m4o.4XuUThq9WDeJynErLuS5nirO61RZ8TUGYT6N7uqrGUIjNBouy', true, 'ACTIVE', NULL, NULL, NULL, false, NULL),
   ('parinte@mathlms.local',       'Maria Parinte', 'PARENT',  '$2b$10$m4o.4XuUThq9WDeJynErLuS5nirO61RZ8TUGYT6N7uqrGUIjNBouy', true, 'ACTIVE', NULL, NULL, NULL, false, NULL),
   ('student.activ@mathlms.local', 'Ana Student',   'STUDENT', '$2b$10$m4o.4XuUThq9WDeJynErLuS5nirO61RZ8TUGYT6N7uqrGUIjNBouy', true, 'ACTIVE', NULL, NULL, NULL, false, NULL),
   ('student.nou@mathlms.local',   'Radu Nou',      'STUDENT', '$2b$10$m4o.4XuUThq9WDeJynErLuS5nirO61RZ8TUGYT6N7uqrGUIjNBouy', true, 'ACTIVE', NULL, NULL, NULL, false, NULL)

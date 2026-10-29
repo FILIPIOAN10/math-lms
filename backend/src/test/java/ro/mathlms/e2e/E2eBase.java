@@ -32,6 +32,8 @@ abstract class E2eBase {
     static final String API_URL = System.getProperty("e2e.apiUrl", "http://localhost:8080");
     static final String PASSWORD = "Admin123!"; // seed password from docs/TESTING.md
     static final String ADMIN = "admin@mathlms.local";
+    static final String ADMIN_2FA = "admin2fa@mathlms.local";
+    static final String TEACHER = "profesor@mathlms.local";
     static final String STUDENT = "student.activ@mathlms.local";
     static final String STUDENT_NAME = "Ana Student";
     /** The second seed student (Clasa a 9-a in the B2 dataset): for flows that need two papers. */
@@ -44,13 +46,7 @@ abstract class E2eBase {
 
     @BeforeEach
     void startBrowser() {
-        ChromeOptions options = new ChromeOptions();
-        // -De2e.headless=false opens a visible Chrome so you can watch the test run
-        if (!"false".equals(System.getProperty("e2e.headless"))) {
-            options.addArguments("--headless=new");
-        }
-        options.addArguments("--window-size=1280,900");
-        driver = new ChromeDriver(options);
+        driver = createBrowser();
         wait = new WebDriverWait(driver, Duration.ofSeconds(10));
     }
 
@@ -59,6 +55,16 @@ abstract class E2eBase {
         if (driver != null) {
             driver.quit();
         }
+    }
+
+    protected WebDriver createBrowser() {
+        ChromeOptions options = new ChromeOptions();
+        // -De2e.headless=false opens a visible Chrome so you can watch the test run
+        if (!"false".equals(System.getProperty("e2e.headless"))) {
+            options.addArguments("--headless=new");
+        }
+        options.addArguments("--window-size=1280,900");
+        return new ChromeDriver(options);
     }
 
     protected void open(String path) {
@@ -74,6 +80,21 @@ abstract class E2eBase {
         driver.findElement(By.cssSelector("input[type=password]")).sendKeys(password);
         driver.findElement(By.cssSelector("button[type=submit]")).click();
         wait.until(ExpectedConditions.urlToBe(BASE_URL + "/"));
+    }
+
+    /** Logs in waiting for the 2FA step. */
+    protected void loginWithCode(String email, String password, String code) {
+        open("/login");
+        wait.until(ExpectedConditions.elementToBeClickable(
+                By.xpath("//*[@role='tab' and normalize-space()='Email și parolă']"))).click();
+        driver.findElement(By.cssSelector("input[type=email]")).sendKeys(email);
+        driver.findElement(By.cssSelector("input[type=password]")).sendKeys(password);
+        driver.findElement(By.cssSelector("button[type=submit]")).click();
+
+        WebElement codeInput = wait.until(ExpectedConditions.visibilityOfElementLocated(
+                By.cssSelector("[data-testid='two-factor-step'] input, input[name='code'], input[name='token']")));
+        codeInput.sendKeys(code);
+        driver.findElement(By.cssSelector("button[type=submit]")).click();
     }
 
     /**
