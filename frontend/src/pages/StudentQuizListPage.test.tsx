@@ -42,17 +42,31 @@ describe('StudentQuizListPage', () => {
     api.getMyAssignments.mockResolvedValue([])
   })
 
-  it('offers a test never taken with a plain "Începe"', async () => {
+  it('offers a test never taken under "De făcut", with a plain "Începe"', async () => {
     api.getStudentQuizzes.mockResolvedValue([quiz(1, 'Fracții')])
     api.getMyAttempts.mockResolvedValue([])
     renderPage()
 
     const c = await card('Fracții')
+    expect(screen.getByTestId('quizzes-todo')).toContainElement(c)
+    expect(within(c).getByTestId('quiz-state')).toHaveTextContent('De făcut')
     expect(within(c).getByRole('link', { name: 'Începe' })).toHaveAttribute('href', '/quizzes/1/take')
-    expect(within(c).queryByTestId('quiz-done')).not.toBeInTheDocument()
+    expect(within(c).queryByTestId('quiz-history')).not.toBeInTheDocument()
   })
 
-  it('shows a test already taken as done, with its latest grade, the result first and a retake second', async () => {
+  it('shows one card for a quiz that is homework, on offer and already attempted', async () => {
+    api.getStudentQuizzes.mockResolvedValue([quiz(1, 'Fracții')])
+    api.getMyAssignments.mockResolvedValue([{ ...homework(1, 'GRADED'), quizTitle: 'Fracții', attemptId: 9 }])
+    api.getMyAttempts.mockResolvedValue([attempt({ attemptId: 9, quizId: 1, quizTitle: 'Fracții' })])
+    renderPage()
+
+    const cards = await screen.findAllByTestId('quiz-card')
+    expect(cards).toHaveLength(1)
+    expect(within(cards[0]).getByText('Clasa a 8-a')).toBeInTheDocument()
+    expect(within(cards[0]).getByTestId('quiz-grade')).toHaveTextContent('nota 7,55')
+  })
+
+  it('shows a graded test with its latest grade, the result, a retake and the older attempts folded', async () => {
     api.getStudentQuizzes.mockResolvedValue([quiz(1, 'Fracții')])
     api.getMyAttempts.mockResolvedValue([ // newest first
       attempt({ attemptId: 9, quizId: 1, score: 8, maxScore: 11 }),
@@ -61,9 +75,14 @@ describe('StudentQuizListPage', () => {
     renderPage()
 
     const c = await card('Fracții')
-    expect(within(c).getByTestId('quiz-done')).toHaveTextContent('Dat · 8 / 11 p · nota 7,55')
+    expect(screen.getByTestId('quizzes-done')).toContainElement(c)
+    expect(within(c).getByTestId('quiz-state')).toHaveTextContent('Notat')
+    expect(within(c).getByTestId('quiz-grade')).toHaveTextContent('nota 7,55')
     expect(within(c).getByRole('link', { name: 'Vezi rezultatul' })).toHaveAttribute('href', '/quizzes/attempts/9/result')
     expect(within(c).getByRole('link', { name: 'Dă din nou' })).toHaveAttribute('href', '/quizzes/1/take')
+    const history = within(c).getByTestId('quiz-history')
+    expect(history).toHaveTextContent('Toate încercările (2)')
+    expect(within(history).getAllByRole('link', { name: 'Deschide' })[1]).toHaveAttribute('href', '/quizzes/attempts/3/result')
   })
 
   it('says a handed-in test waits for the teacher', async () => {
@@ -71,52 +90,58 @@ describe('StudentQuizListPage', () => {
     api.getMyAttempts.mockResolvedValue([attempt({ attemptId: 9, quizId: 1, status: 'SUBMITTED', score: null })])
     renderPage()
 
-    expect(within(await card('Fracții')).getByTestId('quiz-done')).toHaveTextContent('Predat — în corectare')
+    const c = await card('Fracții')
+    expect(within(c).getByTestId('quiz-state')).toHaveTextContent('În corectare')
+    expect(within(c).queryByTestId('quiz-grade')).not.toBeInTheDocument()
   })
 
-  it('offers "Continuă" for a test in progress, ignoring practice sessions for the done state', async () => {
+  it('offers "Continuă" for a test in progress; a practice session changes only its own button', async () => {
     api.getStudentQuizzes.mockResolvedValue([quiz(1, 'Fracții', { practiceAllowed: true })])
     api.getMyAttempts.mockResolvedValue([
       attempt({ attemptId: 10, quizId: 1, status: 'IN_PROGRESS', score: null, submittedAt: null }),
-      attempt({ attemptId: 8, quizId: 1, mode: 'PRACTICE', score: null }),
+      attempt({ attemptId: 8, quizId: 1, mode: 'PRACTICE', status: 'IN_PROGRESS', score: null, submittedAt: null }),
     ])
     renderPage()
 
     const c = await card('Fracții')
+    expect(within(c).getByTestId('quiz-state')).toHaveTextContent('În lucru')
     expect(within(c).getByRole('link', { name: 'Continuă' })).toHaveAttribute('href', '/quizzes/1/take')
-    expect(within(c).queryByTestId('quiz-done')).not.toBeInTheDocument()
+    expect(within(c).getByRole('link', { name: 'Continuă practica' })).toHaveAttribute('href', '/quizzes/1/take?mode=practice')
   })
 
-  it('lists homework still to do only under "Teme", not again under the tests', async () => {
-    api.getStudentQuizzes.mockResolvedValue([quiz(1, 'Fracții'), quiz(2, 'Ecuații')])
+  it('shows the deadline of homework still to do and flags it when overdue', async () => {
+    api.getStudentQuizzes.mockResolvedValue([quiz(1, 'Fracții')])
     api.getMyAttempts.mockResolvedValue([])
-    api.getMyAssignments.mockResolvedValue([homework(1, 'NOT_STARTED')])
+    api.getMyAssignments.mockResolvedValue([{ ...homework(1, 'NOT_STARTED'), overdue: true }])
     renderPage()
 
-    const cards = await screen.findAllByTestId('quiz-card')
-    expect(cards.map((c) => c.textContent)).toEqual([expect.stringContaining('Ecuații')])
+    const c = await card('Fracții')
+    expect(within(c).getByTestId('quiz-state')).toHaveTextContent('Termen depășit')
+    expect(c).toHaveTextContent('Termen:')
+    expect(within(c).getByRole('link', { name: 'Începe' })).toBeInTheDocument()
   })
 
-  it('shows "x / max p · nota" in the attempt history', async () => {
+  it('keeps the history of a test no longer on offer, without a retake', async () => {
     api.getStudentQuizzes.mockResolvedValue([])
-    api.getMyAttempts.mockResolvedValue([attempt({ quizTitle: 'Fracții', score: 8, maxScore: 11 })])
+    api.getMyAttempts.mockResolvedValue([attempt({ attemptId: 4, quizId: 7, quizTitle: 'Retras' })])
     renderPage()
 
-    expect(await screen.findByText('8 / 11 p · nota 7,55')).toBeInTheDocument()
+    const c = await card('Retras')
+    expect(within(c).getByRole('link', { name: 'Vezi rezultatul' })).toBeInTheDocument()
+    expect(within(c).queryByRole('link', { name: 'Dă din nou' })).not.toBeInTheDocument()
   })
 
-  it('S3: marks a grade not yet opened as "Nou" and makes its result the main button', async () => {
+  it('S3: marks a grade not yet opened as "Nou", shows it first and opens that attempt', async () => {
     api.getStudentQuizzes.mockResolvedValue([])
     api.getMyAttempts.mockResolvedValue([
-      attempt({ attemptId: 1, quizTitle: 'Nouă', newResult: true }),
-      attempt({ attemptId: 2, quizTitle: 'Văzută', newResult: false }),
+      attempt({ attemptId: 2, quizId: 2, quizTitle: 'Văzută', newResult: false }),
+      attempt({ attemptId: 1, quizId: 1, quizTitle: 'Nouă', newResult: true }),
     ])
     renderPage()
 
     expect(await screen.findAllByTestId('new-result')).toHaveLength(1)
-    const links = screen.getAllByRole('link', { name: 'Vezi rezultatul' })
-    expect(links[0]).toHaveAttribute('href', '/quizzes/attempts/1/result')
-    expect(links[0]).not.toHaveClass('border-border') // the filled button, not the outline one
+    expect((await screen.findAllByTestId('quiz-card'))[0]).toHaveTextContent('Nouă')
+    expect(screen.getAllByRole('link', { name: 'Vezi rezultatul' })[0]).toHaveAttribute('href', '/quizzes/attempts/1/result')
   })
 
   it('after "Salvează și ieși", says the work is saved and where to continue it', async () => {

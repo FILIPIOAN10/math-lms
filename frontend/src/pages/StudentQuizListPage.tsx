@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { AssignmentsSection } from '@/components/AssignmentsSection'
 import { AttemptModeBadge } from '@/components/AttemptModeBadge'
 import { AttemptStatusBadge } from '@/components/AttemptStatusBadge'
 import { NewResultBadge } from '@/components/NewResultBadge'
@@ -14,24 +13,148 @@ import {
   type QuizSummary,
   type StudentAssignment,
 } from '@/lib/api'
+import { assignmentBadge, BADGE_TONES, dueCountdown, type BadgeTone } from '@/lib/assignments'
 import { errorMessage } from '@/lib/errors'
-import { formatMinutes } from '@/lib/format'
-import { scoreLine } from '@/lib/grades'
-import { todoAssignments } from '@/lib/home'
+import { formatDate, formatMinutes } from '@/lib/format'
+import { formatGrade, GRADE_TEXT, gradeBand, romanianGrade, scoreLine } from '@/lib/grades'
+import { buildQuizCards, type QuizCard } from '@/lib/quizCards'
+import { cn } from '@/lib/utils'
 import { PageHeader } from '@/components/PageHeader'
 import { LoadingCards } from '@/components/LoadingCards'
 
-function formatDate(iso: string | null): string {
-  return iso ? new Date(iso).toLocaleString('ro-RO', { dateStyle: 'medium', timeStyle: 'short' }) : '—'
+function StatePill({ tone, children }: { tone: BadgeTone; children: string }) {
+  return <span data-testid="quiz-state" className={`rounded-md px-2 py-0.5 text-xs font-medium ${BADGE_TONES[tone]}`}>{children}</span>
 }
 
-/** The student's quiz hub: published quizzes to take + their own attempt history. */
+/** The pill of a card; homework has its own words for a deadline passed or a late hand-in. */
+function statePill(card: QuizCard) {
+  const open = card.state === 'todo' || card.state === 'in-progress'
+  if (open && card.assignment) {
+    const badge = assignmentBadge(card.assignment)
+    return <StatePill tone={badge.tone}>{badge.text}</StatePill>
+  }
+  switch (card.state) {
+    case 'in-progress': return <StatePill tone="info">În lucru</StatePill>
+    case 'todo': return <StatePill tone="info">De făcut</StatePill>
+    case 'waiting': return <StatePill tone="info">În corectare</StatePill>
+    case 'graded': return <StatePill tone="success">Notat</StatePill>
+    case 'practised': return <StatePill tone="info">Practică</StatePill>
+  }
+}
+
+/** Where the student opens one attempt from the list of them: its result, or back into it while it is open. */
+function attemptLink(a: MyAttemptDto) {
+  return a.status === 'IN_PROGRESS'
+    ? `/quizzes/${a.quizId}/take${a.mode === 'PRACTICE' ? '?mode=practice' : ''}`
+    : `/quizzes/attempts/${a.attemptId}/result`
+}
+
+/** Every attempt at a quiz, folded away: the card itself says how it stands, this is for looking back. */
+function AttemptHistory({ attempts }: { attempts: MyAttemptDto[] }) {
+  return (
+    <details data-testid="quiz-history" className="w-full text-sm">
+      <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+        Toate încercările ({attempts.length})
+      </summary>
+      <ul className="mt-2 divide-y">
+        {attempts.map((a) => (
+          <li key={a.attemptId} className="flex flex-wrap items-center justify-between gap-2 py-1.5">
+            <span className="flex flex-wrap items-center gap-2 text-muted-foreground">
+              {a.mode === 'PRACTICE' ? <AttemptModeBadge mode={a.mode} /> : <AttemptStatusBadge status={a.status} />}
+              <span>{formatDate(a.submittedAt ?? a.startedAt)}</span>
+              {a.score !== null && <span className="text-foreground">{scoreLine(a.score, a.maxScore)}</span>}
+            </span>
+            <Link to={attemptLink(a)} className="font-medium underline-offset-2 hover:underline">
+              {a.status === 'IN_PROGRESS' ? 'Reia' : 'Deschide'}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </details>
+  )
+}
+
+/** One quiz, whatever it is to the student (homework, a free test, something already graded), and what to do next. */
+function QuizCardView({ card, now }: { card: QuizCard; now: number }) {
+  const { assignment, shown } = card
+  const open = card.state === 'todo' || card.state === 'in-progress'
+  const grade = card.state === 'graded' && shown?.score != null ? romanianGrade(shown.score, shown.maxScore) : null
+  const takeUrl = `/quizzes/${card.quizId}/take`
+  const onlyAttempt = card.attempts.length === 1 && card.attempts[0] === shown
+
+  return (
+    <Card>
+      {/* On a phone the grade and the buttons go under the title instead of squeezing it. */}
+      <CardContent data-testid="quiz-card" className="flex flex-wrap items-center justify-between gap-3 py-3">
+        <div className="min-w-0 flex-1 basis-56 space-y-1">
+          <p className="truncate font-medium">{card.title}</p>
+          {card.description && <p className="truncate text-sm text-muted-foreground">{card.description}</p>}
+          <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+            {statePill(card)}
+            {card.newResult && <NewResultBadge />}
+            {!open && assignment?.late && <StatePill tone="warning">Predată cu întârziere</StatePill>}
+            {assignment && <span>{assignment.schoolClassName}</span>}
+            {open && assignment && (
+              <span>Termen: {formatDate(assignment.dueAt)} ({dueCountdown(assignment.dueAt, now)})</span>
+            )}
+            {!open && shown?.submittedAt && <span>{formatDate(shown.submittedAt)}</span>}
+            {card.state === 'graded' && shown?.score != null && <span>{shown.score} / {shown.maxScore} p</span>}
+            {open && card.timeLimitMinutes !== null && (
+              <span data-testid="quiz-time-limit" className="text-xs font-medium">⏱ {formatMinutes(card.timeLimitMinutes)}</span>
+            )}
+          </p>
+        </div>
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {grade !== null && (
+            <span data-testid="quiz-grade" className="mr-1 text-sm text-muted-foreground">
+              nota <span className={cn('text-lg font-semibold tabular-nums', GRADE_TEXT[gradeBand(grade)])}>{formatGrade(grade)}</span>
+            </span>
+          )}
+          {card.practiceAllowed && (
+            <Link
+              to={`${takeUrl}?mode=practice`}
+              data-testid="quiz-practice"
+              className={buttonVariants({ size: 'sm', variant: 'outline' })}
+            >
+              {card.practiceOpen ? 'Continuă practica' : 'Exersează'}
+            </Link>
+          )}
+          {open ? (
+            <Link to={takeUrl} data-testid="quiz-open" className={buttonVariants({ size: 'sm' })}>
+              {card.state === 'in-progress' ? 'Continuă' : 'Începe'}
+            </Link>
+          ) : (
+            <>
+              {card.available && (
+                <Link to={takeUrl} data-testid="quiz-open" className={buttonVariants({ size: 'sm', variant: 'outline' })}>
+                  Dă din nou
+                </Link>
+              )}
+              {shown && (
+                <Link to={`/quizzes/attempts/${shown.attemptId}/result`} className={buttonVariants({ size: 'sm' })}>
+                  Vezi rezultatul
+                </Link>
+              )}
+            </>
+          )}
+        </div>
+        {card.attempts.length > 0 && !onlyAttempt && <AttemptHistory attempts={card.attempts} />}
+      </CardContent>
+    </Card>
+  )
+}
+
+/**
+ * The student's tests, one card per quiz however many ways it reached them: homework, a test open to take, their
+ * attempts. "De făcut" comes first, then what they already handed in; older attempts fold away inside each card.
+ */
 export function StudentQuizListPage() {
   const [quizzes, setQuizzes] = useState<QuizSummary[]>([])
   const [attempts, setAttempts] = useState<MyAttemptDto[]>([])
   const [assignments, setAssignments] = useState<StudentAssignment[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [loadedAt] = useState(() => Date.now()) // deadlines count down from when the list was shown
   // Set by "Salvează și ieși" in a test: the work it saved, so the student knows it is safe and where to pick it up.
   // Read once, then dropped from the history entry, so coming Back here later does not repeat it.
   const location = useLocation()
@@ -58,24 +181,12 @@ export function StudentQuizListPage() {
     }
   }, [])
 
-  const openQuizIds = (mode: 'TEST' | 'PRACTICE') =>
-    new Set(attempts.filter((a) => a.status === 'IN_PROGRESS' && a.mode === mode).map((a) => a.quizId))
-  const inProgressTests = openQuizIds('TEST')
-  const inProgressPractices = openQuizIds('PRACTICE')
-
-  // The latest handed-in graded test per quiz (attempts come newest first), for the "already taken" line.
-  const latestDone = new Map<number, MyAttemptDto>()
-  for (const a of attempts) {
-    if (a.mode === 'TEST' && a.status !== 'IN_PROGRESS' && !latestDone.has(a.quizId)) latestDone.set(a.quizId, a)
-  }
-  // Homework still to do is offered under "Teme"; listing it again here would show two "Începe" for one quiz.
-  const homeworkToDo = new Set(todoAssignments(assignments).map((a) => a.quizId))
-  const available = quizzes.filter((q) => !homeworkToDo.has(q.id))
+  const { todo, done } = buildQuizCards(quizzes, assignments, attempts)
 
   return (
     <div className="p-4">
       <div className="mx-auto max-w-3xl space-y-6">
-        <PageHeader title="Testele mele" description="Temele, testele pe care le poți da și ce ai dat până acum." />
+        <PageHeader title="Testele mele" description="Ce ai de făcut și ce ai dat până acum." />
 
         {savedQuizTitle && (
           <p
@@ -91,111 +202,25 @@ export function StudentQuizListPage() {
 
         {!loading && (
           <>
-            <AssignmentsSection assignments={assignments} attempts={attempts} />
-
-            <section className="space-y-2">
-              <h2 className="font-medium">Teste disponibile</h2>
-              {available.length === 0 ? (
+            <section className="space-y-2" data-testid="quizzes-todo">
+              <h2 className="font-medium">De făcut</h2>
+              {todo.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  {quizzes.length === 0
+                  {done.length === 0
                     ? 'Niciun test publicat momentan. Revino după ce profesorul publică unul.'
-                    : 'Toate testele tale sunt la „Teme”.'}
+                    : 'Nimic de făcut acum.'}
                 </p>
               ) : (
-                available.map((q) => {
-                  const done = inProgressTests.has(q.id) ? undefined : latestDone.get(q.id)
-                  return (
-                  <Card key={q.id}>
-                    <CardContent data-testid="quiz-card" className="flex items-center justify-between gap-3 py-3">
-                      <div className="min-w-0">
-                        <p className="truncate font-medium">{q.title}</p>
-                        {q.description && (
-                          <p className="truncate text-sm text-muted-foreground">{q.description}</p>
-                        )}
-                        {q.timeLimitMinutes !== null && (
-                          <p className="text-xs font-medium text-muted-foreground" data-testid="quiz-time-limit">
-                            ⏱ {formatMinutes(q.timeLimitMinutes)}
-                          </p>
-                        )}
-                        {done && (
-                          <p data-testid="quiz-done" className="text-sm text-emerald-700 dark:text-emerald-300">
-                            {done.status === 'GRADED' && done.score !== null
-                              ? `✓ Dat · ${scoreLine(done.score, done.maxScore)}`
-                              : '✓ Predat — în corectare'}
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex shrink-0 gap-2">
-                        {q.practiceAllowed && (
-                          <Link
-                            to={`/quizzes/${q.id}/take?mode=practice`}
-                            data-testid="quiz-practice"
-                            className={buttonVariants({ size: 'sm', variant: 'outline' })}
-                          >
-                            {inProgressPractices.has(q.id) ? 'Continuă practica' : 'Exersează'}
-                          </Link>
-                        )}
-                        {done ? (
-                          <>
-                            <Link
-                              to={`/quizzes/${q.id}/take`}
-                              data-testid="quiz-open"
-                              className={buttonVariants({ size: 'sm', variant: 'outline' })}
-                            >
-                              Dă din nou
-                            </Link>
-                            <Link to={`/quizzes/attempts/${done.attemptId}/result`} className={buttonVariants({ size: 'sm' })}>
-                              Vezi rezultatul
-                            </Link>
-                          </>
-                        ) : (
-                          <Link to={`/quizzes/${q.id}/take`} data-testid="quiz-open" className={buttonVariants({ size: 'sm' })}>
-                            {inProgressTests.has(q.id) ? 'Continuă' : 'Începe'}
-                          </Link>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                  )
-                })
+                todo.map((card) => <QuizCardView key={card.quizId} card={card} now={loadedAt} />)
               )}
             </section>
 
-            <section className="space-y-2">
-              <h2 className="font-medium">Încercările mele</h2>
-              {attempts.length === 0 ? (
+            <section className="space-y-2" data-testid="quizzes-done">
+              <h2 className="font-medium">Teste date</h2>
+              {done.length === 0 ? (
                 <p className="text-sm text-muted-foreground">Nu ai dat încă niciun test.</p>
               ) : (
-                attempts.map((a) => (
-                  <Card key={a.attemptId}>
-                    <CardContent className="flex items-center justify-between gap-3 py-3">
-                      <div className="min-w-0 space-y-1">
-                        <p className="truncate font-medium">{a.quizTitle}</p>
-                        <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                          {a.mode === 'PRACTICE' ? <AttemptModeBadge mode={a.mode} /> : <AttemptStatusBadge status={a.status} />}
-                          {a.newResult && <NewResultBadge />}
-                          <span>{formatDate(a.submittedAt ?? a.startedAt)}</span>
-                          {a.score !== null && <span className="text-foreground">{scoreLine(a.score, a.maxScore)}</span>}
-                        </p>
-                      </div>
-                      {a.status === 'IN_PROGRESS' ? (
-                        <Link
-                          to={`/quizzes/${a.quizId}/take${a.mode === 'PRACTICE' ? '?mode=practice' : ''}`}
-                          className={buttonVariants({ size: 'sm', variant: 'secondary' })}
-                        >
-                          Continuă
-                        </Link>
-                      ) : (
-                        <Link
-                          to={`/quizzes/attempts/${a.attemptId}/result`}
-                          className={buttonVariants({ size: 'sm', variant: a.newResult ? 'default' : 'outline' })}
-                        >
-                          Vezi rezultatul
-                        </Link>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))
+                done.map((card) => <QuizCardView key={card.quizId} card={card} now={loadedAt} />)
               )}
             </section>
           </>

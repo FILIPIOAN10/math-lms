@@ -2,18 +2,11 @@ import { useId, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { assignmentBadge, dueCountdown, type BadgeTone } from '@/lib/assignments'
+import { assignmentBadge, BADGE_TONES, dueCountdown } from '@/lib/assignments'
 import { formatDate } from '@/lib/format'
 import { formatGrade, GRADE_TEXT, gradeBand, romanianGrade } from '@/lib/grades'
 import { cn } from '@/lib/utils'
 import { type MyAttemptDto, type StudentAssignment } from '@/lib/api'
-
-const TONES: Record<BadgeTone, string> = {
-  info: 'bg-sky-500/15 text-sky-700 dark:text-sky-300',
-  success: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
-  warning: 'bg-amber-500/15 text-amber-700 dark:text-amber-300',
-  danger: 'bg-destructive/15 text-destructive',
-}
 
 /**
  * The student's homework: quizzes their teacher assigned to their class with a deadline. The deadline is soft - an
@@ -70,7 +63,7 @@ export function AssignmentsSection({
               <div className="min-w-0 flex-1 basis-56 space-y-1">
                 <p className="truncate font-medium">{a.quizTitle}</p>
                 <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                  <span className={`rounded-md px-2 py-0.5 text-xs font-medium ${TONES[badge.tone]}`}>{badge.text}</span>
+                  <span className={`rounded-md px-2 py-0.5 text-xs font-medium ${BADGE_TONES[badge.tone]}`}>{badge.text}</span>
                   {attempt?.submittedAt && <span>pe {formatDate(attempt.submittedAt)}</span>}
                   <span>{a.schoolClassName}</span>
                   {!done ? (

@@ -2,6 +2,14 @@ import { type StudentAssignment } from '@/lib/api'
 
 export type BadgeTone = 'info' | 'success' | 'warning' | 'danger'
 
+/** The colours of a status pill. */
+export const BADGE_TONES: Record<BadgeTone, string> = {
+  info: 'bg-sky-500/15 text-sky-700 dark:text-sky-300',
+  success: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
+  warning: 'bg-amber-500/15 text-amber-700 dark:text-amber-300',
+  danger: 'bg-destructive/15 text-destructive',
+}
+
 /** The pill a student sees on an assignment. A late hand-in is "late", not "overdue": overdue means still to do. */
 export function assignmentBadge(a: Pick<StudentAssignment, 'state' | 'late' | 'overdue'>): { text: string; tone: BadgeTone } {
   if (a.state === 'SUBMITTED' || a.state === 'GRADED') {

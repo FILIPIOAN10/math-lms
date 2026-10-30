@@ -28,7 +28,7 @@ class QuizVisibilityE2eTest extends E2eBase {
 
         login(STUDENT, PASSWORD);
         open("/quizzes");
-        wait.until(ExpectedConditions.textToBePresentInElementLocated(By.tagName("body"), "Teste disponibile"));
+        wait.until(ExpectedConditions.textToBePresentInElementLocated(By.tagName("body"), "Teste date"));
         assertThat(driver.findElements(quizCard(quizTitle))).as("not enrolled yet").isEmpty();
 
         api.enroll(classId, STUDENT);
