@@ -425,7 +425,7 @@ export function AdminGradingPage({ aiPollMs = AI_POLL_MS }: { aiPollMs?: number 
 
   return (
     <div className="p-4">
-      <div className={cn('mx-auto space-y-4', detail && !byItem ? 'max-w-6xl' : 'max-w-3xl')}>
+      <div className={cn('mx-auto space-y-4', detail || byItem ? 'max-w-6xl' : 'max-w-3xl')}>
         <PageHeader
           title={byItem ? `${byItem.quizTitle} — pe întrebare` : detail ? `${detail.studentName} — ${detail.quizTitle}` : 'Corectură'}
           description={byItem || detail ? undefined : 'Lucrările predate, cu întrebările care așteaptă nota ta.'}

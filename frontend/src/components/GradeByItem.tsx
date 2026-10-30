@@ -331,6 +331,7 @@ function AnswerGrader({
     e.preventDefault()
     onNext?.()
   }
+  const hasPhotos = answer.photoIds.length > 0
 
   return (
     <Card data-testid="answer-grader">
@@ -341,20 +342,27 @@ function AnswerGrader({
           </p>
         </div>
 
-        {answer.photoIds.length > 0 ? (
-          <PhotoPages
-            stacked
-            urls={answer.photoIds.map(photoUrl)}
-            alt={(page) => `Rezolvarea lui ${paper.studentName}, pagina ${page} din ${answer.photoIds.length}`}
-          />
-        ) : (
-          <p className="text-sm text-muted-foreground">Elevul nu a trimis nicio poză.</p>
-        )}
-
-        <form onSubmit={submit} noValidate>
-          <ItemGradeForm item={answer} save={save} bank={bank} autoFocus registerFlush={registerFlush}
-                         aiOn={aiOn} aiProposal={aiProposal} onRequestAiProposal={onRequestAiProposal} />
-        </form>
+        {/* On a wide screen the photo stays in view beside the points, so no scrolling between looking and grading. */}
+        <div data-testid="grade-split" className={cn('space-y-3', hasPhotos && 'lg:grid lg:grid-cols-2 lg:items-start lg:gap-6 lg:space-y-0')}>
+          <div className={cn(hasPhotos && 'lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto')}>
+            {hasPhotos ? (
+              <PhotoPages
+                stacked
+                urls={answer.photoIds.map(photoUrl)}
+                alt={(page) => `Rezolvarea lui ${paper.studentName}, pagina ${page} din ${answer.photoIds.length}`}
+              />
+            ) : (
+              <p className="text-sm text-muted-foreground">Elevul nu a trimis nicio poză.</p>
+            )}
+          </div>
+          <form onSubmit={submit} noValidate className="min-w-0 space-y-2">
+            <ItemGradeForm item={answer} save={save} bank={bank} autoFocus registerFlush={registerFlush}
+                           aiOn={aiOn} aiProposal={aiProposal} onRequestAiProposal={onRequestAiProposal} />
+            <p className="text-xs text-muted-foreground">
+              Din tastatură: <kbd className="rounded border px-1 font-mono">0–9</kbd> dă punctajul și îl salvează.
+            </p>
+          </form>
+        </div>
 
         <div className={cn('flex justify-between gap-2', !onPrevious && 'justify-end')}>
           {onPrevious && <Button size="sm" variant="ghost" onClick={onPrevious}>← Lucrarea anterioară</Button>}

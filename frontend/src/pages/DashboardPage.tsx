@@ -5,6 +5,7 @@ import { TwoFactorRequired } from '@/components/TwoFactorRequired'
 import { useAuth } from '@/context/AuthContext'
 import { InstallBanner } from '@/components/InstallApp'
 import { usePageTitle } from '@/lib/usePageTitle'
+import { cn } from '@/lib/utils'
 
 const SUBTITLES = {
   STUDENT: 'Iată ce ai de făcut.',
@@ -24,7 +25,8 @@ export function DashboardPage() {
 
   return (
     <div className="p-4">
-      <div className="mx-auto max-w-3xl space-y-6">
+      {/* A parent has one card per child: a narrow column reads better. The others use the width of a laptop. */}
+      <div className={cn('mx-auto max-w-3xl space-y-6', user.role !== 'PARENT' && 'lg:max-w-5xl')}>
         <div>
           <h1 data-testid="welcome" className="text-2xl font-semibold">Bine ai venit, {user.fullName}</h1>
           <p className="text-sm text-muted-foreground">{SUBTITLES[user.role]}</p>

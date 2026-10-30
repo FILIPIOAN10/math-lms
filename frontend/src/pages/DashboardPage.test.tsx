@@ -268,6 +268,23 @@ describe('DashboardPage — teacher', () => {
     expect(screen.queryByRole('region', { name: 'Scurtături' })).not.toBeInTheDocument()
   })
 
+  it('puts the deadlines beside the papers to grade, for a wide screen', async () => {
+    renderHome()
+
+    const main = await screen.findByTestId('home-main')
+    expect(within(main).getByRole('region', { name: 'Termene' })).toBeInTheDocument()
+    expect(within(screen.getByTestId('home-side')).getByRole('region', { name: 'De corectat' })).toBeInTheDocument()
+  })
+
+  it('keeps one column for a teacher with nothing to grade', async () => {
+    auth.value = { user: user({ role: 'TEACHER' }), loading: false }
+    api.listAttemptsForGrading.mockResolvedValue([])
+    renderHome()
+
+    await screen.findByTestId('home-main')
+    expect(screen.queryByTestId('home-side')).not.toBeInTheDocument()
+  })
+
   it('lists the deadlines that need attention with how many students handed in', async () => {
     renderHome()
 

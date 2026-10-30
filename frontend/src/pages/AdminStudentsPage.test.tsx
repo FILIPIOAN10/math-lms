@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -81,6 +81,51 @@ describe('AdminStudentsPage', () => {
     expect(screen.queryByText(/valabil 7 zile: părintele/)).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Despre lista de elevi' }))
     expect(await screen.findByText(/valabil 7 zile: părintele/)).toBeInTheDocument()
+  })
+
+  describe('search and filters', () => {
+    const five = (role: string) => Promise.resolve(role === 'STUDENT'
+      ? [student(1, 'Ana Pop'), student(2, 'Radu Nou'), student(3, 'Ștefan Ene'), student(4, 'Maria Ionescu'), student(5, 'Dan Vasile')]
+      : [])
+    const inClass = (studentId: number, ...classes: string[]) => ({ studentId, classes, lastScore: null, lastMaxScore: null })
+
+    it('offers none for a short list', async () => {
+      renderPage()
+
+      await screen.findByRole('link', { name: 'Ana Pop' })
+      expect(screen.queryByTestId('filter-bar')).not.toBeInTheDocument()
+    })
+
+    it('finds a student by name, ignoring diacritics, and says how many are left', async () => {
+      const user = userEvent.setup()
+      api.listActiveUsers.mockImplementation(five)
+      renderPage()
+
+      await screen.findByRole('link', { name: 'Ana Pop' })
+      await user.type(screen.getByRole('searchbox', { name: /Caută elev/ }), 'stefan')
+
+      expect(screen.getByRole('link', { name: 'Ștefan Ene' })).toBeInTheDocument()
+      expect(screen.queryByRole('link', { name: 'Ana Pop' })).not.toBeInTheDocument()
+      expect(within(screen.getByTestId('filter-bar')).getByRole('status')).toHaveTextContent('1 din 5')
+    })
+
+    it('filters by class, and says so when nothing matches, with a way back', async () => {
+      const user = userEvent.setup()
+      api.listActiveUsers.mockImplementation(five)
+      api.listStudentRows.mockResolvedValue([inClass(1, '7A'), inClass(2, '8B'), inClass(3, '7A')])
+      renderPage()
+
+      await user.selectOptions(await screen.findByRole('combobox', { name: 'Clasa' }), '7A')
+      expect(screen.getByRole('link', { name: 'Ana Pop' })).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: 'Ștefan Ene' })).toBeInTheDocument()
+      expect(screen.queryByRole('link', { name: 'Radu Nou' })).not.toBeInTheDocument()
+
+      await user.type(screen.getByRole('searchbox', { name: /Caută elev/ }), 'zzz')
+      expect(screen.getByTestId('no-matches')).toBeInTheDocument()
+
+      await user.click(screen.getAllByRole('button', { name: 'Șterge filtrele' })[0])
+      expect(screen.getByRole('link', { name: 'Radu Nou' })).toBeInTheDocument()
+    })
   })
 
   it("links each student's name to their page", async () => {

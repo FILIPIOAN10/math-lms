@@ -161,6 +161,38 @@ describe('AdminQuizzesPage', () => {
     expect(within(draft).queryByRole('link', { name: 'Statistici' })).not.toBeInTheDocument()
   })
 
+  it('searches and filters the list once there are five tests', async () => {
+    const user = userEvent.setup()
+    api.listQuizzes.mockResolvedValue([
+      { ...summary(1, 'Fracții'), schoolClassName: '7A' },
+      { ...summary(2, 'Ecuații'), schoolClassName: '7A' },
+      { ...summary(3, 'Procente', 'DRAFT'), schoolClassName: '8B' },
+      summary(4, 'Geometrie'),
+      summary(5, 'Simulare EN', 'DRAFT'),
+    ])
+    renderAt('/admin/quizzes')
+    await screen.findByText('Fracții')
+
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Stare' }), 'DRAFT')
+    expect(screen.getAllByTestId('quiz-row')).toHaveLength(2)
+
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Clasa' }), '8B')
+    expect(screen.getAllByTestId('quiz-row')).toHaveLength(1)
+    expect(screen.getByText('Procente')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Șterge filtrele' }))
+    await user.type(screen.getByRole('searchbox', { name: /Caută test/ }), 'ecuatii')
+    expect(screen.getAllByTestId('quiz-row')).toHaveLength(1)
+    expect(within(screen.getByTestId('filter-bar')).getByRole('status')).toHaveTextContent('1 din 5')
+  })
+
+  it('offers no search for a short list', async () => {
+    renderAt('/admin/quizzes')
+
+    await screen.findByText('Simulare EN')
+    expect(screen.queryByTestId('filter-bar')).not.toBeInTheDocument()
+  })
+
   it('offers the other actions in the menu, deleting last', async () => {
     renderAt('/admin/quizzes')
     await userEvent.click(within(await row('Simulare EN')).getByRole('button', { name: 'Mai multe acțiuni pentru Simulare EN' }))

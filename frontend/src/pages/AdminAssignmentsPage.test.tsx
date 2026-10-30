@@ -1,4 +1,5 @@
 import { render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AdminAssignmentsPage } from '@/pages/AdminAssignmentsPage'
@@ -37,6 +38,29 @@ describe('AdminAssignmentsPage', () => {
     api.listQuizzes.mockResolvedValue([])
     api.listClasses.mockResolvedValue([])
     api.getAssignmentStatus.mockResolvedValue([status(7, 'Radu Marin', 'NOT_STARTED'), status(8, 'Ana', 'GRADED')])
+  })
+
+  it('searches and filters the homework once there are five', async () => {
+    const user = userEvent.setup()
+    api.listAssignments.mockResolvedValue([
+      summary(1, 'Fracții'),
+      summary(2, 'Ecuații'),
+      { ...summary(3, 'Procente'), overdue: true },
+      { ...summary(4, 'Geometrie'), schoolClassName: 'Clasa a 9-a B', overdue: true },
+      summary(5, 'Simulare EN'),
+    ])
+    renderPage('/admin/assignments')
+    await screen.findByText('Procente')
+
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Termen' }), 'overdue')
+    expect(screen.getAllByTestId('assignment-row')).toHaveLength(2)
+
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Clasa' }), 'Clasa a 9-a B')
+    expect(screen.getAllByTestId('assignment-row')).toHaveLength(1)
+
+    await user.click(screen.getByRole('button', { name: 'Șterge filtrele' }))
+    await user.type(screen.getByRole('searchbox', { name: /Caută temă/ }), 'fractii')
+    expect(screen.getAllByTestId('assignment-row')).toHaveLength(1)
   })
 
   it('opens who handed in for the homework named in ?open= (the link from Acasă)', async () => {

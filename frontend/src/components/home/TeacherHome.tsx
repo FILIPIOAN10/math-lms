@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { FirstRunChecklist } from '@/components/home/FirstRunChecklist'
-import { HomeEmpty, HomeSection, HomeShortcut, StatTile } from '@/components/home/HomeBits'
+import { HomeColumns, HomeEmpty, HomeSection, HomeShortcut, StatTile } from '@/components/home/HomeBits'
 import {
   getAssignmentStatus,
   listActiveUsers,
@@ -87,8 +87,10 @@ export function TeacherHome({ canApprove = true }: { canApprove?: boolean }) {
   const open = data.assignments.filter((a) => !a.overdue).length
   const deadlines = upcomingDeadlines(data.assignments, loadedAt)
 
+  const hasSide = data.toGrade.length > 0 || canApprove
+
   return (
-    <>
+    <div className="space-y-6">
       {firstRun && <FirstRunChecklist steps={firstRun} />}
       <div className={data.pending === null ? 'grid grid-cols-2 gap-3' : 'grid grid-cols-3 gap-3'}>
         <StatTile
@@ -104,110 +106,121 @@ export function TeacherHome({ canApprove = true }: { canApprove?: boolean }) {
         <StatTile to="/admin/assignments" value={open} label="Teme deschise" icon={ClipboardList} testId="tile-assignments" />
       </div>
 
-      <HomeSection
-        title="Termene"
-        action={
-          deadlines.length > 0 && (
-            <Link to="/admin/assignments" className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
-              Toate temele
-            </Link>
-          )
-        }
-      >
-        {deadlines.length === 0 ? (
-          <HomeEmpty
-            action={
-              <Link to="/admin/assignments" className={buttonVariants({ variant: 'outline', size: 'sm' })}>
-                Dă o temă
-              </Link>
-            }
-          >
-            Nicio temă cu termen apropiat.
-          </HomeEmpty>
-        ) : (
-          deadlines.map((a) => (
-            <Link
-              key={a.id}
-              to={`/admin/assignments?open=${a.id}`}
-              className="block rounded-xl outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+      <HomeColumns
+        main={
+          <>
+            <HomeSection
+              title="Termene"
+              action={
+                deadlines.length > 0 && (
+                  <Link to="/admin/assignments" className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
+                    Toate temele
+                  </Link>
+                )
+              }
             >
-              <Card data-testid="deadline-row" className="hover-lift">
-                <CardContent className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-3">
-                  <div className="min-w-0 space-y-1">
-                    <p data-testid="deadline-title" className="truncate font-medium">{a.quizTitle}</p>
-                    <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                      {a.overdue && (
-                        <span className="rounded-md bg-destructive/15 px-2 py-0.5 text-xs font-medium text-destructive">
-                          Termen depășit
-                        </span>
-                      )}
-                      <span>{a.schoolClassName}</span>
-                      <span>
-                        {formatDate(a.dueAt)} ({dueCountdown(a.dueAt, loadedAt)})
-                      </span>
-                    </p>
-                    {missing[a.id]?.length > 0 && (
-                      <p className="text-sm">
-                        {missing[a.id].length === 1 ? 'Lipsește' : 'Lipsesc'}: {missing[a.id].join(', ')}
-                      </p>
-                    )}
-                  </div>
-                  {a.enrolled === 0 ? (
-                    <p className="text-sm text-muted-foreground">Niciun elev în clasă</p>
-                  ) : (
-                    <p className="text-sm font-medium">
-                      {a.done} / {a.enrolled} predate
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-            </Link>
-          ))
-        )}
-      </HomeSection>
-
-      {data.toGrade.length > 0 && (
-        <HomeSection
-          title="De corectat"
-          action={
-            <Link to="/admin/grading" className={buttonVariants({ size: 'sm' })}>
-              Corectează
-            </Link>
-          }
-        >
-          <Card>
-            <CardContent className="divide-y py-1">
-              {data.toGrade.slice(0, GRADING_PREVIEW).map((a) => (
-                <Link
-                  key={a.attemptId}
-                  to={`/admin/grading?attempt=${a.attemptId}`}
-                  className="group -mx-2 flex flex-wrap items-center justify-between gap-x-3 rounded-md px-2 py-2 text-sm outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50"
+              {deadlines.length === 0 ? (
+                <HomeEmpty
+                  action={
+                    <Link to="/admin/assignments" className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+                      Dă o temă
+                    </Link>
+                  }
                 >
-                  <span className="font-medium group-hover:underline">{a.studentName}</span>
-                  <span className="text-muted-foreground">
-                    {a.quizTitle} · {formatDate(a.submittedAt)}
-                  </span>
-                </Link>
-              ))}
-              {data.toGrade.length > GRADING_PREVIEW && (
-                <p className="py-2 text-sm text-muted-foreground">
-                  și încă {data.toGrade.length - GRADING_PREVIEW}…
-                </p>
+                  Nicio temă cu termen apropiat.
+                </HomeEmpty>
+              ) : (
+                deadlines.map((a) => (
+                  <Link
+                    key={a.id}
+                    to={`/admin/assignments?open=${a.id}`}
+                    className="block rounded-xl outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                  >
+                    <Card data-testid="deadline-row" className="hover-lift">
+                      <CardContent className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-3">
+                        <div className="min-w-0 space-y-1">
+                          <p data-testid="deadline-title" className="truncate font-medium">{a.quizTitle}</p>
+                          <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                            {a.overdue && (
+                              <span className="rounded-md bg-destructive/15 px-2 py-0.5 text-xs font-medium text-destructive">
+                                Termen depășit
+                              </span>
+                            )}
+                            <span>{a.schoolClassName}</span>
+                            <span>
+                              {formatDate(a.dueAt)} ({dueCountdown(a.dueAt, loadedAt)})
+                            </span>
+                          </p>
+                          {missing[a.id]?.length > 0 && (
+                            <p className="text-sm">
+                              {missing[a.id].length === 1 ? 'Lipsește' : 'Lipsesc'}: {missing[a.id].join(', ')}
+                            </p>
+                          )}
+                        </div>
+                        {a.enrolled === 0 ? (
+                          <p className="text-sm text-muted-foreground">Niciun elev în clasă</p>
+                        ) : (
+                          <p className="text-sm font-medium">
+                            {a.done} / {a.enrolled} predate
+                          </p>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </Link>
+                ))
               )}
-            </CardContent>
-          </Card>
-        </HomeSection>
-      )}
+            </HomeSection>
+          </>
+        }
+        side={
+          hasSide ? (
+            <>
+                {data.toGrade.length > 0 && (
+                  <HomeSection
+                    title="De corectat"
+                    action={
+                      <Link to="/admin/grading" className={buttonVariants({ size: 'sm' })}>
+                        Corectează
+                      </Link>
+                    }
+                  >
+                    <Card>
+                      <CardContent className="divide-y py-1">
+                        {data.toGrade.slice(0, GRADING_PREVIEW).map((a) => (
+                          <Link
+                            key={a.attemptId}
+                            to={`/admin/grading?attempt=${a.attemptId}`}
+                            className="group -mx-2 flex flex-wrap items-center justify-between gap-x-3 rounded-md px-2 py-2 text-sm outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50"
+                          >
+                            <span className="font-medium group-hover:underline">{a.studentName}</span>
+                            <span className="text-muted-foreground">
+                              {a.quizTitle} · {formatDate(a.submittedAt)}
+                            </span>
+                          </Link>
+                        ))}
+                        {data.toGrade.length > GRADING_PREVIEW && (
+                          <p className="py-2 text-sm text-muted-foreground">
+                            și încă {data.toGrade.length - GRADING_PREVIEW}…
+                          </p>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </HomeSection>
+                )}
 
-      {/* Both pages are the admins': a TEACHER would only bounce back here. */}
-      {canApprove && (
-        <HomeSection title="Scurtături">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <HomeShortcut to="/admin/en-chapters" icon={BookOpen} title="Capitole EN" text="Materia și modelele rezolvate" />
-            <HomeShortcut to="/admin/journal" icon={History} title="Jurnal" text="Cine a schimbat ce și când" />
-          </div>
-        </HomeSection>
-      )}
-    </>
+                {/* Both pages are the admins': a TEACHER would only bounce back here. */}
+                {canApprove && (
+                  <HomeSection title="Scurtături">
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <HomeShortcut to="/admin/en-chapters" icon={BookOpen} title="Capitole EN" text="Materia și modelele rezolvate" />
+                      <HomeShortcut to="/admin/journal" icon={History} title="Jurnal" text="Cine a schimbat ce și când" />
+                    </div>
+                  </HomeSection>
+                )}
+            </>
+          ) : undefined
+        }
+      />
+    </div>
   )
 }

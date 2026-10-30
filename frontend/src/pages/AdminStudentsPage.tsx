@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { CopyLinkField } from '@/components/CopyLinkField'
+import { FilterBar, FilterSelect, NoMatches } from '@/components/FilterBar'
 import { HelpTip } from '@/components/HelpTip'
 import { InviteLinkCard } from '@/components/InviteLinkCard'
 import { AdminInviteCard } from '@/components/AdminInviteCard'
@@ -20,6 +21,7 @@ import {
 } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
 import { formatDate, initials } from '@/lib/format'
+import { FILTER_FROM, matchesQuery } from '@/lib/search'
 import { formatGrade, GRADE_TEXT, gradeBand, romanianGrade } from '@/lib/grades'
 import { cn } from '@/lib/utils'
 import { LoadingCards } from '@/components/LoadingCards'
@@ -44,6 +46,8 @@ export function AdminStudentsPage() {
   const [students, setStudents] = useState<AdminUserSummary[]>([])
   // Classes and latest result per student; the columns stay empty if they could not be loaded.
   const [rows, setRows] = useState<Record<number, StudentListRow>>({})
+  const [query, setQuery] = useState('')
+  const [classFilter, setClassFilter] = useState('')
   const [parents, setParents] = useState<AdminUserSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -71,6 +75,16 @@ export function AdminStudentsPage() {
     void loadPeople()
     // eslint-disable-next-line react-hooks/exhaustive-deps -- loads once per role
   }, [isAdmin])
+
+  const classNames = [...new Set(Object.values(rows).flatMap((r) => r.classes))]
+    .sort((a, b) => a.localeCompare(b, 'ro', { numeric: true }))
+  const filtering = query.trim() !== '' || classFilter !== ''
+  const visible = students.filter((s) =>
+    matchesQuery(query, s.fullName, s.email, s.parentName) && (classFilter === '' || (rows[s.id]?.classes ?? []).includes(classFilter)))
+  const clearFilters = () => {
+    setQuery('')
+    setClassFilter('')
+  }
 
   function setBusy(id: number, busy: boolean) {
     setBusyIds((prev) => {
@@ -163,7 +177,30 @@ export function AdminStudentsPage() {
 
             {actionError && <p className="text-sm text-destructive">{actionError}</p>}
 
-            {!loading && !error && students.length > 0 && (
+            {!loading && !error && students.length >= FILTER_FROM && (
+              <FilterBar
+                label="Caută elev, email sau părinte"
+                search={query}
+                onSearch={setQuery}
+                active={filtering}
+                onClear={clearFilters}
+                shown={visible.length}
+                total={students.length}
+              >
+                {classNames.length > 0 && (
+                  <FilterSelect
+                    label="Clasa"
+                    value={classFilter}
+                    onChange={setClassFilter}
+                    options={[{ value: '', label: 'Toate clasele' }, ...classNames.map((name) => ({ value: name, label: name }))]}
+                  />
+                )}
+              </FilterBar>
+            )}
+
+            {!loading && !error && students.length > 0 && visible.length === 0 && <NoMatches onClear={clearFilters} />}
+
+            {!loading && !error && visible.length > 0 && (
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse text-sm">
                   <thead>
@@ -175,7 +212,7 @@ export function AdminStudentsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {students.map((s) => {
+                    {visible.map((s) => {
                       const busy = busyIds.has(s.id)
                       const choice = selectedParent[s.id] ?? ''
                       return (

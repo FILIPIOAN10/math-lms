@@ -86,6 +86,19 @@ export function HomeShortcut({ to, icon: Icon, title, text }: { to: string; icon
   )
 }
 
+/**
+ * The home page of a role on a wide screen: what to act on in the wide column, the rest beside it. Under `lg`, and when
+ * there is no `side`, everything is one column, in the same order.
+ */
+export function HomeColumns({ main, side }: { main: ReactNode; side?: ReactNode }) {
+  return (
+    <div data-testid="home-columns" className={cn('grid gap-6', side && 'lg:grid-cols-[3fr_2fr] lg:items-start')}>
+      <div data-testid="home-main" className="min-w-0 space-y-6">{main}</div>
+      {side && <div data-testid="home-side" className="min-w-0 space-y-6">{side}</div>}
+    </div>
+  )
+}
+
 /** The calm "nothing here" line inside a card, with an optional way forward. */
 export function HomeEmpty({ children, action }: { children: ReactNode; action?: ReactNode }) {
   return (

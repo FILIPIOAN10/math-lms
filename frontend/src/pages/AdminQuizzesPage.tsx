@@ -11,6 +11,7 @@ import { MathContent } from '@/components/MathContent'
 import { MathField } from '@/components/MathField'
 import { QuestionImage } from '@/components/QuestionImage'
 import { PageHeader } from '@/components/PageHeader'
+import { FilterBar, FilterSelect, NoMatches } from '@/components/FilterBar'
 import { RowMenu, type RowMenuItem } from '@/components/RowMenu'
 import { TestsTabs } from '@/components/TestsTabs'
 import { PublishDialog } from '@/components/PublishDialog'
@@ -58,6 +59,7 @@ import { BaremDialog } from '@/components/BaremDialog'
 import { formatDate, optionLetter, roCount } from '@/lib/format'
 import { errorMessage } from '@/lib/errors'
 import { formatGrade, GRADE_TEXT, gradeBand } from '@/lib/grades'
+import { FILTER_FROM, matchesQuery } from '@/lib/search'
 import { shrinkImage } from '@/lib/image'
 import { cn } from '@/lib/utils'
 import { LoadingCards } from '@/components/LoadingCards'
@@ -807,6 +809,9 @@ export function AdminQuizzesPage() {
   const { confirm, dialog: confirmDialog } = useConfirm()
 
   const [quizzes, setQuizzes] = useState<QuizSummary[]>([])
+  const [query, setQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
+  const [classFilter, setClassFilter] = useState('')
   // The numbers on each row; a row simply shows none if they could not be loaded.
   const [summaries, setSummaries] = useState<Record<number, QuizListSummary>>({})
   const [classes, setClasses] = useState<SchoolClass[]>([])
@@ -883,6 +888,18 @@ export function AdminQuizzesPage() {
       .filter(({ item }) => item.type === 'SINGLE_CHOICE' && !item.options.some((o) => o.correct))
       .map(({ label }) => label)
     : []
+  const filtering = query.trim() !== '' || statusFilter !== '' || classFilter !== ''
+  const classNames = [...new Set(quizzes.map((q) => q.schoolClassName).filter((n): n is string => n !== null))]
+    .sort((a, b) => a.localeCompare(b, 'ro', { numeric: true }))
+  const visibleQuizzes = quizzes.filter((q) =>
+    matchesQuery(query, q.title, q.schoolClassName, q.description)
+    && (statusFilter === '' || q.status === statusFilter)
+    && (classFilter === '' || q.schoolClassName === classFilter))
+  const clearFilters = () => {
+    setQuery('')
+    setStatusFilter('')
+    setClassFilter('')
+  }
   const quizError = loadError !== null && loadError.id === quizId && quiz === null ? loadError.message : null
   // The editor's AI helpers, each only where the server has it on; they need questions to work on.
   const aiTools: RowMenuItem[] = quiz && quiz.items.length > 0 ? [
@@ -1119,8 +1136,35 @@ export function AdminQuizzesPage() {
             {error && <p className="text-sm text-destructive">{error}</p>}
             {loading && <LoadingCards />}
             {!loading && quizzes.length === 0 && <p className="text-muted-foreground">Niciun test. Adaugă primul.</p>}
+            {quizzes.length >= FILTER_FROM && (
+              <FilterBar
+                label="Caută test sau clasă"
+                search={query}
+                onSearch={setQuery}
+                active={filtering}
+                onClear={clearFilters}
+                shown={visibleQuizzes.length}
+                total={quizzes.length}
+              >
+                <FilterSelect
+                  label="Stare"
+                  value={statusFilter}
+                  onChange={setStatusFilter}
+                  options={[{ value: '', label: 'Toate' }, { value: 'PUBLISHED', label: 'Publicate' }, { value: 'DRAFT', label: 'Ciorne' }]}
+                />
+                {classNames.length > 0 && (
+                  <FilterSelect
+                    label="Clasa"
+                    value={classFilter}
+                    onChange={setClassFilter}
+                    options={[{ value: '', label: 'Toate clasele' }, ...classNames.map((name) => ({ value: name, label: name }))]}
+                  />
+                )}
+              </FilterBar>
+            )}
+            {quizzes.length > 0 && visibleQuizzes.length === 0 && <NoMatches onClear={clearFilters} />}
             <div className="space-y-2">
-              {quizzes.map((q) => (
+              {visibleQuizzes.map((q) => (
                 <Card key={q.id} className="hover-lift">
                   <CardContent data-testid="quiz-row" className="flex flex-wrap items-center justify-between gap-3 py-3">
                     <div className="min-w-0 flex-1 basis-56 space-y-0.5">

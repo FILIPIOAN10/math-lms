@@ -70,6 +70,14 @@ describe('GradeByItem', () => {
   })
 
 
+  it('puts the photo beside the points, for a wide screen, and keeps one column without a photo', async () => {
+    setup([paper(50, 'Ana'), paper(51, 'Radu')])
+
+    const split = await screen.findByTestId('grade-split')
+    expect(split.className).toMatch(/lg:grid-cols-2/)
+    expect(within(split).getByTestId('photo-pages')).toBeInTheDocument()
+  })
+
   it('names the open questions as the students saw them, with how many papers have points', async () => {
     setup([paper(50, 'Ana', [4, null]), paper(51, 'Radu')])
 

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { AssignmentsSection } from '@/components/AssignmentsSection'
-import { HomeEmpty, HomeSection } from '@/components/home/HomeBits'
+import { HomeColumns, HomeEmpty, HomeSection } from '@/components/home/HomeBits'
 import {
   getMyAssignments,
   getMyAttempts,
@@ -65,7 +65,9 @@ export function StudentHome() {
   const newResults = data.attempts.filter((a) => a.newResult)
 
   return (
-    <>
+    <HomeColumns
+      main={
+        <>
       {newResults.length > 0 && (
         <HomeSection title={newResults.length === 1 ? 'Ai o notă nouă' : 'Ai note noi'}>
           {newResults.map((a) => (
@@ -102,7 +104,27 @@ export function StudentHome() {
           </HomeEmpty>
         </HomeSection>
       )}
-
+      {started.length > 0 && (
+        <HomeSection title="Teste începute">
+          {started.map((a) => (
+            <Card key={a.attemptId}>
+              <CardContent className="flex items-center justify-between gap-3 py-3">
+                <div className="min-w-0">
+                  <p className="truncate font-medium">{a.quizTitle}</p>
+                  <p className="text-sm text-muted-foreground">Început: {formatDate(a.startedAt)}</p>
+                </div>
+                <Link to={`/quizzes/${a.quizId}/take`} className={buttonVariants({ size: 'sm' })}>
+                  Continuă
+                </Link>
+              </CardContent>
+            </Card>
+          ))}
+        </HomeSection>
+      )}
+        </>
+      }
+      side={
+        <>
       {review && review.totalCards > 0 && (
         <HomeSection title="Recapitulare">
           <Card data-testid="home-review">
@@ -125,25 +147,6 @@ export function StudentHome() {
           </Card>
         </HomeSection>
       )}
-
-      {started.length > 0 && (
-        <HomeSection title="Teste începute">
-          {started.map((a) => (
-            <Card key={a.attemptId}>
-              <CardContent className="flex items-center justify-between gap-3 py-3">
-                <div className="min-w-0">
-                  <p className="truncate font-medium">{a.quizTitle}</p>
-                  <p className="text-sm text-muted-foreground">Început: {formatDate(a.startedAt)}</p>
-                </div>
-                <Link to={`/quizzes/${a.quizId}/take`} className={buttonVariants({ size: 'sm' })}>
-                  Continuă
-                </Link>
-              </CardContent>
-            </Card>
-          ))}
-        </HomeSection>
-      )}
-
       <HomeSection
         title="Rezultate"
         action={
@@ -190,6 +193,8 @@ export function StudentHome() {
           )}
         </div>
       </HomeSection>
-    </>
+        </>
+      }
+    />
   )
 }

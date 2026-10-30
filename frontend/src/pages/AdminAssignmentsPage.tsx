@@ -24,6 +24,8 @@ import { dueCountdown, isoToLocalInput, localInputToIso } from '@/lib/assignment
 import { errorMessage } from '@/lib/errors'
 import { formatDate } from '@/lib/format'
 import { PageHeader } from '@/components/PageHeader'
+import { FilterBar, FilterSelect, NoMatches } from '@/components/FilterBar'
+import { FILTER_FROM, matchesQuery } from '@/lib/search'
 import { useConfirm } from '@/components/useConfirm'
 import { TestsTabs } from '@/components/TestsTabs'
 import { LoadingCards } from '@/components/LoadingCards'
@@ -133,6 +135,9 @@ export function AssignmentDialog({
 export function AdminAssignmentsPage() {
   const { confirm, dialog: confirmDialog } = useConfirm()
   const [assignments, setAssignments] = useState<AssignmentSummary[]>([])
+  const [query, setQuery] = useState('')
+  const [stateFilter, setStateFilter] = useState('')
+  const [classFilter, setClassFilter] = useState('')
   const [quizzes, setQuizzes] = useState<QuizSummary[]>([])
   const [classes, setClasses] = useState<SchoolClass[]>([])
   const [loading, setLoading] = useState(true)
@@ -207,6 +212,19 @@ export function AdminAssignmentsPage() {
     }
   }
 
+  const filtering = query.trim() !== '' || stateFilter !== '' || classFilter !== ''
+  const classNames = [...new Set(assignments.map((a) => a.schoolClassName))]
+    .sort((a, b) => a.localeCompare(b, 'ro', { numeric: true }))
+  const visibleAssignments = assignments.filter((a) =>
+    matchesQuery(query, a.quizTitle, a.schoolClassName)
+    && (stateFilter === '' || (stateFilter === 'overdue') === a.overdue)
+    && (classFilter === '' || a.schoolClassName === classFilter))
+  const clearFilters = () => {
+    setQuery('')
+    setStateFilter('')
+    setClassFilter('')
+  }
+
   return (
     <div className="p-4">
       <div className="mx-auto max-w-3xl space-y-4">
@@ -228,8 +246,35 @@ export function AdminAssignmentsPage() {
         {!loading && assignments.length === 0 && (
           <p className="text-sm text-muted-foreground">Nicio temă încă. Apasă „Dă o temă”.</p>
         )}
+        {assignments.length >= FILTER_FROM && (
+          <FilterBar
+            label="Caută temă sau clasă"
+            search={query}
+            onSearch={setQuery}
+            active={filtering}
+            onClear={clearFilters}
+            shown={visibleAssignments.length}
+            total={assignments.length}
+          >
+            <FilterSelect
+              label="Termen"
+              value={stateFilter}
+              onChange={setStateFilter}
+              options={[{ value: '', label: 'Toate' }, { value: 'open', label: 'Deschise' }, { value: 'overdue', label: 'Cu termen depășit' }]}
+            />
+            {classNames.length > 1 && (
+              <FilterSelect
+                label="Clasa"
+                value={classFilter}
+                onChange={setClassFilter}
+                options={[{ value: '', label: 'Toate clasele' }, ...classNames.map((name) => ({ value: name, label: name }))]}
+              />
+            )}
+          </FilterBar>
+        )}
+        {assignments.length > 0 && visibleAssignments.length === 0 && <NoMatches onClear={clearFilters} />}
 
-        {assignments.map((a) => (
+        {visibleAssignments.map((a) => (
           <Card key={a.id} id={`assignment-${a.id}`} className="scroll-mt-20">
             <CardContent data-testid="assignment-row" className="space-y-3 py-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
