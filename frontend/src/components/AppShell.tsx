@@ -232,10 +232,11 @@ export function AppShell() {
                     data-testid={item.testId}
                     aria-current={active ? 'page' : undefined}
                     className={cn(
-                      'inline-flex h-9 shrink-0 items-center rounded-lg px-3 text-sm font-medium whitespace-nowrap transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+                      'inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-3 text-sm font-medium whitespace-nowrap transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
                       active ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                     )}
                   >
+                    <item.icon aria-hidden="true" className="size-4" />
                     {item.label}
                     {item.count && <CountBadge kind={item.count} n={counts[item.count]} />}
                   </Link>
