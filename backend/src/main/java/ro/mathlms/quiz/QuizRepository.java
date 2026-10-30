@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -56,4 +57,38 @@ public interface QuizRepository extends JpaRepository<Quiz, Long> {
             + " and (q.schoolClass is null or q.schoolClass.id in :classIds) order by q.title")
     List<Quiz> findVisibleToClasses(@Param("status") QuizStatus status,
                                     @Param("classIds") Collection<Long> classIds);
+
+    /**
+     * One row per quiz for the teacher's list: its questions, the papers handed in, the mean 1–10 grade of those graded
+     * (practice has no grade; a test worth no points is skipped) and the homework deadline - the next one still to come,
+     * else the last one that passed.
+     */
+    @Query(nativeQuery = true, value = """
+            select q.id as quizId,
+                   (select count(*) from quiz_items i where i.quiz_id = q.id) as questions,
+                   (select count(*) from quiz_attempts a
+                     where a.quiz_id = q.id and a.mode = 'TEST' and a.status <> 'IN_PROGRESS') as papers,
+                   (select avg(1 + 9.0 * a.score
+                               / nullif((select sum(i.points) from quiz_items i where i.quiz_id = q.id), 0))
+                      from quiz_attempts a
+                     where a.quiz_id = q.id and a.mode = 'TEST' and a.status = 'GRADED' and a.score is not null) as average,
+                   (select coalesce(min(h.due_at) filter (where h.due_at >= now()), max(h.due_at))
+                      from assignments h where h.quiz_id = q.id) as dueAt
+              from quizzes q
+            """)
+    List<QuizListRow> listSummaries();
+
+    interface QuizListRow {
+        Long getQuizId();
+
+        Long getQuestions();
+
+        Long getPapers();
+
+        /** Null until a paper is graded. */
+        Double getAverage();
+
+        /** Null when the quiz is not homework. */
+        Instant getDueAt();
+    }
 }

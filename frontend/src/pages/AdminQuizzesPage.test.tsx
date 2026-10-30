@@ -7,6 +7,7 @@ import type { QuizDetail, QuizSummary } from '@/lib/api'
 
 const api = vi.hoisted(() => ({
   listQuizzes: vi.fn(),
+  listQuizSummaries: vi.fn(),
   listClasses: vi.fn(),
   getQuiz: vi.fn(),
   setQuizPublished: vi.fn(),
@@ -57,6 +58,7 @@ describe('AdminQuizzesPage', () => {
   beforeEach(() => {
     Object.values(api).forEach((fn) => fn.mockReset())
     api.listQuizzes.mockResolvedValue([summary(7, 'Simulare EN'), summary(8, 'Ciornă nouă', 'DRAFT')])
+    api.listQuizSummaries.mockResolvedValue([])
     api.listClasses.mockResolvedValue([
       { id: 8, name: 'Clasa a 8-a', description: null },
       { id: 9, name: 'Clasa a 9-a', description: null },
@@ -124,12 +126,35 @@ describe('AdminQuizzesPage', () => {
     expect(within(draft).queryByRole('link', { name: 'Dă ca temă' })).not.toBeInTheDocument()
   })
 
+  it('shows the numbers on each row and a visible link to the statistics of a published test', async () => {
+    api.listQuizSummaries.mockResolvedValue([
+      { quizId: 7, questions: 18, papers: 24, average: 7.42, dueAt: '2026-11-02T18:00:00Z' },
+      { quizId: 8, questions: 1, papers: 0, average: null, dueAt: null },
+    ])
+    renderAt('/admin/quizzes')
+
+    const published = await row('Simulare EN')
+    const numbers = await within(published).findByTestId('quiz-numbers')
+    expect(numbers).toHaveTextContent('18 întrebări')
+    expect(numbers).toHaveTextContent('24 de lucrări')
+    expect(numbers).toHaveTextContent('media 7,42')
+    expect(numbers).toHaveTextContent('Termen:')
+    expect(within(published).getByRole('link', { name: 'Statistici' })).toHaveAttribute('href', '/admin/quizzes/7/stats')
+
+    const draft = await row('Ciornă nouă')
+    const draftNumbers = await within(draft).findByTestId('quiz-numbers')
+    expect(draftNumbers).toHaveTextContent('1 întrebare')
+    expect(draftNumbers).not.toHaveTextContent('media')
+    expect(draftNumbers).not.toHaveTextContent('Termen')
+    expect(within(draft).queryByRole('link', { name: 'Statistici' })).not.toBeInTheDocument()
+  })
+
   it('offers the other actions in the menu, deleting last', async () => {
     renderAt('/admin/quizzes')
     await userEvent.click(within(await row('Simulare EN')).getByRole('button', { name: 'Mai multe acțiuni pentru Simulare EN' }))
 
     const items = (await screen.findAllByRole('menuitem')).map((i) => i.textContent)
-    expect(items).toEqual(['Statistici', 'Editează detaliile', 'Copiază', 'Depublică', 'Șterge'])
+    expect(items).toEqual(['Editează detaliile', 'Copiază', 'Depublică', 'Șterge'])
   })
 
   it('asks in a dialog before deleting, and deletes only on yes', async () => {
@@ -192,6 +217,7 @@ describe('AdminQuizzesPage — chapter tag', () => {
   beforeEach(() => {
     Object.values(api).forEach((fn) => fn.mockReset())
     api.listQuizzes.mockResolvedValue([])
+    api.listQuizSummaries.mockResolvedValue([])
     api.listClasses.mockResolvedValue([
       { id: 8, name: 'Clasa a 8-a', description: null },
       { id: 9, name: 'Clasa a 9-a', description: null },

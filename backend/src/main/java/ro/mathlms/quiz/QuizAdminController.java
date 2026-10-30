@@ -36,6 +36,12 @@ public class QuizAdminController {
         return scope.keepOwnedQuizzes(service.listQuizzes(), Quiz::getId).stream().map(QuizSummaryDto::from).toList();
     }
 
+    /** Questions, papers, mean grade and deadline per quiz, for the list's rows (a TEACHER gets their own tests). */
+    @GetMapping("/api/admin/quizzes/summary")
+    public List<QuizListSummaryDto> summaries() {
+        return scope.keepOwnedQuizzes(service.listSummaries(), QuizListSummaryDto::quizId);
+    }
+
     @GetMapping("/api/admin/quizzes/{id}")
     public QuizDetailDto detail(@PathVariable Long id) {
         scope.requireQuiz(id);

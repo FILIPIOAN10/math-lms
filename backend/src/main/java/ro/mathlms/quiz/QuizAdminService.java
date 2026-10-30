@@ -84,6 +84,11 @@ public class QuizAdminService {
         return quizRepository.findAll();
     }
 
+    /** The list rows' numbers (see {@link QuizRepository#listSummaries()}), for every quiz. */
+    public List<QuizListSummaryDto> listSummaries() {
+        return quizRepository.listSummaries().stream().map(QuizListSummaryDto::from).toList();
+    }
+
     public Quiz getQuiz(Long id) {
         return quizRepository.findById(id)
                 .orElseThrow(() -> new QuizNotFoundException("Quiz", id));

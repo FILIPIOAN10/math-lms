@@ -31,6 +31,7 @@ import {
   getQuiz,
   listChapterOptions,
   listClasses,
+  listQuizSummaries,
   listQuizzes,
   questionImageUrl,
   removeQuestionImage,
@@ -43,6 +44,7 @@ import {
   type ChapterOption,
   type QuizItemDto,
   type QuizItemType,
+  type QuizListSummary,
   type QuizSummary,
   type QuizInput,
   type SchoolClass,
@@ -55,7 +57,9 @@ import { TutorHintsPanel } from '@/components/TutorHintsPanel'
 import { BaremDialog } from '@/components/BaremDialog'
 import { formatDate, optionLetter, roCount } from '@/lib/format'
 import { errorMessage } from '@/lib/errors'
+import { formatGrade, GRADE_TEXT, gradeBand } from '@/lib/grades'
 import { shrinkImage } from '@/lib/image'
+import { cn } from '@/lib/utils'
 import { LoadingCards } from '@/components/LoadingCards'
 
 /** A requirement a), b)... while it is being edited (points as typed). */
@@ -803,6 +807,8 @@ export function AdminQuizzesPage() {
   const { confirm, dialog: confirmDialog } = useConfirm()
 
   const [quizzes, setQuizzes] = useState<QuizSummary[]>([])
+  // The numbers on each row; a row simply shows none if they could not be loaded.
+  const [summaries, setSummaries] = useState<Record<number, QuizListSummary>>({})
   const [classes, setClasses] = useState<SchoolClass[]>([])
   const [chapters, setChapters] = useState<ChapterOption[]>([])
   const [enChapters, setEnChapters] = useState<EnChapterSummary[]>([])
@@ -827,7 +833,13 @@ export function AdminQuizzesPage() {
   // "Sugerează indicii (AI)" in the question editor: only where the server has the tutor switched on.
   const [tutorOn, setTutorOn] = useState(false)
 
+  const loadSummaries = () =>
+    listQuizSummaries()
+      .then((list) => setSummaries(Object.fromEntries(list.map((row) => [row.quizId, row]))))
+      .catch(() => undefined)
+
   useEffect(() => {
+    void loadSummaries()
     listQuizzes()
       .then(setQuizzes)
       .catch((e) => setError(errorMessage(e)))
@@ -873,7 +885,7 @@ export function AdminQuizzesPage() {
     : []
   const quizError = loadError !== null && loadError.id === quizId && quiz === null ? loadError.message : null
 
-  const reloadList = () => listQuizzes().then(setQuizzes)
+  const reloadList = () => Promise.all([listQuizzes().then(setQuizzes), loadSummaries()])
   const chapterTitle = (id: number | null) => (id === null ? null : chapters.find((c) => c.id === id)?.title ?? null)
   /** The EN chapter a question sends students to: the teacher's choice, else the default for its place. */
   const enChapterOf = (item: QuizItemDto) => {
@@ -1110,8 +1122,8 @@ export function AdminQuizzesPage() {
             <div className="space-y-2">
               {quizzes.map((q) => (
                 <Card key={q.id}>
-                  <CardContent data-testid="quiz-row" className="flex items-center justify-between gap-3 py-3">
-                    <div className="min-w-0 space-y-0.5">
+                  <CardContent data-testid="quiz-row" className="flex flex-wrap items-center justify-between gap-3 py-3">
+                    <div className="min-w-0 flex-1 basis-56 space-y-0.5">
                       <p className="flex min-w-0 items-center gap-2">
                         <Link to={`/admin/quizzes/${q.id}`} className="truncate font-medium hover:underline">
                           {q.title}
@@ -1124,8 +1136,18 @@ export function AdminQuizzesPage() {
                         {q.practiceAllowed && ' · practică permisă'}
                       </p>
                       {q.description && <p className="truncate text-sm text-muted-foreground">{q.description}</p>}
+                      {summaries[q.id] && <QuizRowNumbers summary={summaries[q.id]} />}
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
+                      {(q.status === 'PUBLISHED' || (summaries[q.id]?.papers ?? 0) > 0) && (
+                        <Link
+                          to={`/admin/quizzes/${q.id}/stats`}
+                          data-testid="quiz-stats"
+                          className={buttonVariants({ size: 'sm', variant: 'ghost' })}
+                        >
+                          Statistici
+                        </Link>
+                      )}
                       {q.status === 'PUBLISHED' ? (
                         <Link to={`/admin/assignments?quizId=${q.id}`} className={buttonVariants({ size: 'sm', variant: 'outline' })}>
                           Dă ca temă
@@ -1138,7 +1160,6 @@ export function AdminQuizzesPage() {
                       <RowMenu
                         label={`Mai multe acțiuni pentru ${q.title}`}
                         items={[
-                          { label: 'Statistici', to: `/admin/quizzes/${q.id}/stats`, testId: 'quiz-stats' },
                           { label: 'Editează detaliile', onClick: () => setQuizDialog({ item: q }) },
                           { label: 'Copiază', onClick: () => void duplicate(q) },
                           ...(q.status === 'PUBLISHED' ? [{ label: 'Depublică', onClick: () => void togglePublish(q) }] : []),
@@ -1270,5 +1291,24 @@ export function AdminQuizzesPage() {
         />
       )}
     </div>
+  )
+}
+
+/** How a test is doing at a glance: its size, the papers handed in, their mean grade and the homework deadline. */
+function QuizRowNumbers({ summary }: { summary: QuizListSummary }) {
+  return (
+    <p data-testid="quiz-numbers" className="flex flex-wrap gap-x-3 gap-y-0.5 text-sm text-muted-foreground">
+      <span>{roCount(summary.questions, 'întrebare', 'întrebări')}</span>
+      <span>{roCount(summary.papers, 'lucrare', 'lucrări')}</span>
+      {summary.average !== null && (
+        <span>
+          media{' '}
+          <span className={cn('font-semibold tabular-nums', GRADE_TEXT[gradeBand(summary.average)])}>
+            {formatGrade(summary.average)}
+          </span>
+        </span>
+      )}
+      {summary.dueAt && <span>Termen: {formatDate(summary.dueAt)}</span>}
+    </p>
   )
 }

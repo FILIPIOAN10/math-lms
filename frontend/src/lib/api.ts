@@ -803,6 +803,20 @@ export async function getClassReview(classId: number): Promise<StudentReviewStat
   return response.json()
 }
 
+/** The numbers on a row of the teacher's test list; `average` and `dueAt` are null until there is one. */
+export interface QuizListSummary {
+  quizId: number
+  questions: number
+  papers: number
+  average: number | null
+  dueAt: string | null
+}
+
+export async function listQuizSummaries(): Promise<QuizListSummary[]> {
+  const response = await apiFetch('/admin/quizzes/summary')
+  return response.json()
+}
+
 export async function listQuizzes(): Promise<QuizSummary[]> {
   const response = await apiFetch('/admin/quizzes')
   return response.json()

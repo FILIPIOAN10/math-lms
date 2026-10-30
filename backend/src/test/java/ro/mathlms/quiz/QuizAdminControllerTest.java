@@ -75,4 +75,12 @@ class QuizAdminControllerTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
         verify(service).deleteItem(7L);
     }
+
+    @Test
+    void summariesPassTheServiceRowsThrough() {
+        QuizListSummaryDto row = new QuizListSummaryDto(7L, 3, 2, 7.42, null);
+        when(service.listSummaries()).thenReturn(List.of(row));
+
+        assertThat(controller.summaries()).containsExactly(row);
+    }
 }
