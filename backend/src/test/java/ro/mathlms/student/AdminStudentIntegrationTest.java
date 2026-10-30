@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 import ro.mathlms.TestcontainersConfiguration;
@@ -13,10 +14,18 @@ import ro.mathlms.content.Enrollment;
 import ro.mathlms.content.EnrollmentRepository;
 import ro.mathlms.content.SchoolClass;
 import ro.mathlms.content.SchoolClassRepository;
+import ro.mathlms.quiz.Quiz;
+import ro.mathlms.quiz.QuizAttempt;
+import ro.mathlms.quiz.QuizAttemptRepository;
+import ro.mathlms.quiz.QuizItem;
+import ro.mathlms.quiz.QuizItemRepository;
+import ro.mathlms.quiz.QuizItemType;
+import ro.mathlms.quiz.QuizRepository;
 import ro.mathlms.user.Role;
 import ro.mathlms.user.User;
 import ro.mathlms.user.UserRepository;
 
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -32,6 +41,10 @@ class AdminStudentIntegrationTest {
     @Autowired private UserRepository userRepository;
     @Autowired private SchoolClassRepository schoolClassRepository;
     @Autowired private EnrollmentRepository enrollmentRepository;
+    @Autowired private QuizRepository quizRepository;
+    @Autowired private QuizItemRepository quizItemRepository;
+    @Autowired private QuizAttemptRepository quizAttemptRepository;
+    @Autowired private JdbcTemplate jdbc;
 
     private User ana;
     private User maria;
@@ -58,6 +71,29 @@ class AdminStudentIntegrationTest {
                 .andExpect(jsonPath("$.classes[0].name").value(clasa.getName()))
                 .andExpect(jsonPath("$.parentId").value(maria.getId()))
                 .andExpect(jsonPath("$.parentName").value("Maria Pop"));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void theListGivesEachStudentTheirClassesAndLatestGradedTest() throws Exception {
+        graded("2026-10-01T10:00:00Z", 2);
+        graded("2026-10-05T10:00:00Z", 8); // the newest counts
+        graded("2026-10-03T10:00:00Z", 1);
+        String row = "$[?(@.studentId == " + ana.getId() + ")]";
+
+        mockMvc.perform(get("/api/admin/students/summary"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath(row + ".classes[0]", contains(clasa.getName())))
+                .andExpect(jsonPath(row + ".lastScore", contains(8)))
+                .andExpect(jsonPath(row + ".lastMaxScore", contains(10)));
+    }
+
+    private void graded(String submittedAt, int score) {
+        Quiz quiz = quizRepository.save(new Quiz("Teza " + System.nanoTime(), null));
+        quizItemRepository.save(new QuizItem(quiz, 0, QuizItemType.OPEN, "Rezolvă", 10, null));
+        QuizAttempt attempt = quizAttemptRepository.save(new QuizAttempt(quiz, ana));
+        jdbc.update("update quiz_attempts set status = 'GRADED', score = ?, submitted_at = ?::timestamptz where id = ?",
+                score, submittedAt, attempt.getId());
     }
 
     @Test

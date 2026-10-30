@@ -311,6 +311,19 @@ export interface AdminUserSummary {
   parentName: string | null
 }
 
+/** What the list of students adds to an account; the scores are null until a test is graded. */
+export interface StudentListRow {
+  studentId: number
+  classes: string[]
+  lastScore: number | null
+  lastMaxScore: number | null
+}
+
+export async function listStudentRows(): Promise<StudentListRow[]> {
+  const response = await apiFetch('/admin/students/summary')
+  return response.json()
+}
+
 export async function listActiveUsers(role: Role): Promise<AdminUserSummary[]> {
   const response = await apiFetch(`/admin/users?role=${role}`)
   return response.json()

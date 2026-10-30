@@ -10,6 +10,7 @@ vi.mock('@/context/AuthContext', () => ({ useAuth: () => auth.value }))
 
 const api = vi.hoisted(() => ({
   listActiveUsers: vi.fn(),
+  listStudentRows: vi.fn(),
   linkParent: vi.fn(),
   createParentInvite: vi.fn(),
   listPendingUsers: vi.fn(),
@@ -42,6 +43,7 @@ describe('AdminStudentsPage', () => {
     api.listActiveUsers.mockImplementation((role: string) =>
       Promise.resolve(role === 'STUDENT' ? [student(1, 'Ana Pop'), student(2, 'Radu Nou', 'Maria Parinte')] : []))
     api.listPendingUsers.mockResolvedValue([])
+    api.listStudentRows.mockResolvedValue([])
   })
 
   it('shows a teacher their students and the parent invite, but nothing only admins do', async () => {
@@ -54,6 +56,31 @@ describe('AdminStudentsPage', () => {
     expect(screen.queryByTestId('pending-accounts')).not.toBeInTheDocument()
     expect(api.listPendingUsers).not.toHaveBeenCalled()
     expect(api.listActiveUsers).not.toHaveBeenCalledWith('PARENT')
+  })
+
+  it('shows each student with their class and latest grade, a dash before the first one', async () => {
+    api.listStudentRows.mockResolvedValue([
+      { studentId: 1, classes: ['7A', '8B'], lastScore: 8, lastMaxScore: 11 },
+      { studentId: 2, classes: [], lastScore: null, lastMaxScore: null },
+    ])
+    renderPage()
+
+    await screen.findByRole('link', { name: 'Ana Pop' })
+    expect(await screen.findByText('7A')).toBeInTheDocument()
+    expect(screen.getByTestId('student-classes-1')).toHaveTextContent('8B')
+    expect(screen.getByTestId('student-grade-1')).toHaveTextContent('7,55')
+    expect(screen.getByTestId('student-classes-2')).toHaveTextContent('—')
+    expect(screen.getByTestId('student-grade-2')).toHaveTextContent('—')
+  })
+
+  it('keeps the long explanation behind a "?"', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await screen.findByRole('link', { name: 'Ana Pop' })
+    expect(screen.queryByText(/valabil 7 zile: părintele/)).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Despre lista de elevi' }))
+    expect(await screen.findByText(/valabil 7 zile: părintele/)).toBeInTheDocument()
   })
 
   it("links each student's name to their page", async () => {

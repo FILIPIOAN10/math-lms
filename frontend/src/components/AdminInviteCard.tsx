@@ -4,6 +4,7 @@ import { useConfirm } from '@/components/useConfirm'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
+import { HelpTip } from '@/components/HelpTip'
 import { listAdminInvites, createAdminInvite, revokeInviteLink, type InviteLink } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
 import { formatDate } from '@/lib/format'
@@ -62,12 +63,15 @@ export function AdminInviteCard() {
     <Card>
       {dialog}
       <CardHeader>
-        <CardTitle className="text-xl">Invitații pentru profesori</CardTitle>
-        <CardDescription>
-          Aceste linkuri invită un <strong>profesor</strong>: după aprobare vede și schimbă doar clasele și testele lui.
-          Rolul de administrator îl dai tu, la aprobare.
-          Din motive de securitate, linkul are <strong>o singură utilizare</strong>, expiră în <strong>24 de ore</strong>, iar contul creat va necesita <strong>aprobare manuală</strong>.
-        </CardDescription>
+        <CardTitle className="flex items-center gap-2 text-xl">
+          Invitații pentru profesori
+          <HelpTip label="Despre invitațiile pentru profesori">
+            Profesorul invitat vede și schimbă, după aprobare, doar clasele și testele lui. Rolul de administrator îl dai tu,
+            la aprobare. Din motive de securitate, linkul are <strong>o singură utilizare</strong>, expiră în{' '}
+            <strong>24 de ore</strong>, iar contul creat necesită <strong>aprobare manuală</strong>.
+          </HelpTip>
+        </CardTitle>
+        <CardDescription>Un link de o singură folosință, valabil 24 de ore.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="flex flex-wrap items-end gap-4">

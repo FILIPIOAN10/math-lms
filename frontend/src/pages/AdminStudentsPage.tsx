@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { CopyLinkField } from '@/components/CopyLinkField'
+import { HelpTip } from '@/components/HelpTip'
 import { InviteLinkCard } from '@/components/InviteLinkCard'
 import { AdminInviteCard } from '@/components/AdminInviteCard'
 import { PageHeader } from '@/components/PageHeader'
@@ -12,12 +13,23 @@ import {
   createParentInvite,
   linkParent,
   listActiveUsers,
+  listStudentRows,
   type AdminUserSummary,
   type InviteLink,
+  type StudentListRow,
 } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
-import { formatDate } from '@/lib/format'
+import { formatDate, initials } from '@/lib/format'
+import { formatGrade, GRADE_TEXT, gradeBand, romanianGrade } from '@/lib/grades'
+import { cn } from '@/lib/utils'
 import { LoadingCards } from '@/components/LoadingCards'
+
+/** A student's latest grade in its colour, or a dash before the first one. */
+function LastGrade({ row }: { row: StudentListRow | undefined }) {
+  const grade = row?.lastScore != null && row.lastMaxScore != null ? romanianGrade(row.lastScore, row.lastMaxScore) : null
+  if (grade === null) return <span className="text-muted-foreground">—</span>
+  return <span className={cn('font-semibold tabular-nums', GRADE_TEXT[gradeBand(grade)])}>{formatGrade(grade)}</span>
+}
 
 /**
  * T6 "Elevi și părinți": everything about people in one place — accounts waiting for approval (only while someone
@@ -30,6 +42,8 @@ export function AdminStudentsPage() {
   const { user } = useAuth()
   const isAdmin = user?.role === 'ADMIN'
   const [students, setStudents] = useState<AdminUserSummary[]>([])
+  // Classes and latest result per student; the columns stay empty if they could not be loaded.
+  const [rows, setRows] = useState<Record<number, StudentListRow>>({})
   const [parents, setParents] = useState<AdminUserSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -41,6 +55,9 @@ export function AdminStudentsPage() {
   const [parentLinks, setParentLinks] = useState<Record<number, InviteLink>>({})
 
   function loadPeople() {
+    listStudentRows()
+      .then((list) => setRows(Object.fromEntries(list.map((row) => [row.studentId, row]))))
+      .catch(() => undefined)
     return Promise.all([listActiveUsers('STUDENT'), isAdmin ? listActiveUsers('PARENT') : Promise.resolve([])])
       .then(([studentList, parentList]) => {
         setStudents(studentList)
@@ -111,17 +128,20 @@ export function AdminStudentsPage() {
       <div className="mx-auto max-w-4xl space-y-4">
         <PageHeader
           title="Elevi și părinți"
-          description="Elevii noi intră cu „Invită elevi” de pe rândul clasei (în Clase). Aici vezi fiecare elev, îi inviți sau îi legi părintele și aprobi conturile venite pe altă cale."
+          description="Elevii noi intră cu „Invită elevi” din Clase."
         />
         {isAdmin && <PendingAccountsCard onApproved={() => void loadPeople()} />}
         <Card>
           <CardHeader>
-            <CardTitle className="text-xl">Elevii{loading ? '' : ` (${students.length})`}</CardTitle>
-            <CardDescription>
-              Numele deschide pagina elevului (teme, note, capitole, recapitulare). <strong>Invită părintele</strong> generează un link de o singură folosință, valabil 7 zile: părintele
-              care își face cont prin el e legat automat de elev, fără aprobare. Dacă părintele are deja cont, alege-l
-              din listă și apasă <strong>Leagă</strong>.
-            </CardDescription>
+            <CardTitle className="flex items-center gap-2 text-xl">
+              Elevii{loading ? '' : ` (${students.length})`}
+              <HelpTip label="Despre lista de elevi">
+                Numele deschide pagina elevului (teme, note, capitole, recapitulare). <strong>Invită părintele</strong> generează
+                un link de o singură folosință, valabil 7 zile: părintele care își face cont prin el e legat automat de elev,
+                fără aprobare. Dacă părintele are deja cont, alege-l din listă și apasă <strong>Leagă</strong>.
+              </HelpTip>
+            </CardTitle>
+            <CardDescription>Numele deschide pagina elevului.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {loading && <LoadingCards />}
@@ -149,9 +169,9 @@ export function AdminStudentsPage() {
                   <thead>
                     <tr className="border-b text-left text-muted-foreground">
                       <th className="py-2 pr-4 font-medium">Elev</th>
-                      <th className="py-2 pr-4 font-medium">Email</th>
-                      <th className="py-2 pr-4 font-medium">Părinte curent</th>
-                      <th className="py-2 font-medium">{isAdmin ? 'Leagă de' : 'Părinte'}</th>
+                      <th className="py-2 pr-4 font-medium">Clasa</th>
+                      <th className="py-2 pr-4 font-medium">Ultima notă</th>
+                      <th className="py-2 font-medium">Părinte</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -161,15 +181,39 @@ export function AdminStudentsPage() {
                       return (
                         <tr key={s.id} className="border-b last:border-0">
                           <td className="py-3 pr-4">
-                            <Link to={`/admin/students/${s.id}`} className="font-medium hover:underline">
-                              {s.fullName}
-                            </Link>
+                            <div className="flex items-center gap-2.5">
+                              <span
+                                aria-hidden="true"
+                                className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary"
+                              >
+                                {initials(s.fullName)}
+                              </span>
+                              <div className="min-w-0">
+                                <Link to={`/admin/students/${s.id}`} className="block font-medium hover:underline">
+                                  {s.fullName}
+                                </Link>
+                                <span className="block text-xs text-muted-foreground">{s.email}</span>
+                              </div>
+                            </div>
                           </td>
-                          <td className="py-3 pr-4">{s.email}</td>
-                          <td className="py-3 pr-4 text-muted-foreground">
-                            {s.parentName ?? '—'}
+                          <td className="py-3 pr-4" data-testid={`student-classes-${s.id}`}>
+                            {rows[s.id]?.classes.length ? (
+                              <span className="flex flex-wrap gap-1">
+                                {rows[s.id].classes.map((name) => (
+                                  <span key={name} className="rounded-md bg-muted px-2 py-0.5 text-xs font-medium whitespace-nowrap">
+                                    {name}
+                                  </span>
+                                ))}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </td>
+                          <td className="py-3 pr-4" data-testid={`student-grade-${s.id}`}>
+                            <LastGrade row={rows[s.id]} />
                           </td>
                           <td className="py-3">
+                            {s.parentName && <p className="mb-1">{s.parentName}</p>}
                             <div className="flex flex-wrap gap-2">
                               {isAdmin && (
                                 <>

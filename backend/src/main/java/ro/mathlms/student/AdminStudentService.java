@@ -7,6 +7,7 @@ import ro.mathlms.assignment.AssignmentService;
 import ro.mathlms.content.EnrollmentRepository;
 import ro.mathlms.mastery.MasteryDtos.ChapterMasteryDto;
 import ro.mathlms.mastery.MasteryService;
+import ro.mathlms.quiz.QuizAttemptRepository;
 import ro.mathlms.quiz.QuizAttemptService;
 import ro.mathlms.quiz.StudentQuizDtos.MyAttemptDto;
 import ro.mathlms.quiz.StudentQuizDtos.ProgressPointDto;
@@ -17,7 +18,10 @@ import ro.mathlms.user.Role;
 import ro.mathlms.user.User;
 import ro.mathlms.user.UserRepository;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * T5: everything the teacher needs about ONE student on one page — classes, parent, homework, grades, progress,
@@ -30,19 +34,41 @@ public class AdminStudentService {
     private final UserRepository userRepository;
     private final EnrollmentRepository enrollmentRepository;
     private final QuizAttemptService quizAttemptService;
+    private final QuizAttemptRepository quizAttemptRepository;
     private final AssignmentService assignmentService;
     private final MasteryService masteryService;
     private final ReviewService reviewService;
 
     public AdminStudentService(UserRepository userRepository, EnrollmentRepository enrollmentRepository,
-                               QuizAttemptService quizAttemptService, AssignmentService assignmentService,
-                               MasteryService masteryService, ReviewService reviewService) {
+                               QuizAttemptService quizAttemptService, QuizAttemptRepository quizAttemptRepository,
+                               AssignmentService assignmentService, MasteryService masteryService,
+                               ReviewService reviewService) {
         this.userRepository = userRepository;
         this.enrollmentRepository = enrollmentRepository;
         this.quizAttemptService = quizAttemptService;
+        this.quizAttemptRepository = quizAttemptRepository;
         this.assignmentService = assignmentService;
         this.masteryService = masteryService;
         this.reviewService = reviewService;
+    }
+
+    /** One row per student who has a class or a graded test; a student with neither simply has no row. */
+    @Transactional(readOnly = true)
+    public List<StudentListRowDto> listRows() {
+        Map<Long, List<String>> classes = new HashMap<>();
+        enrollmentRepository.findAllStudentClasses().forEach(row ->
+                classes.computeIfAbsent(row.getStudentId(), id -> new ArrayList<>()).add(row.getClassName()));
+        Map<Long, QuizAttemptRepository.LastResultRow> last = new HashMap<>();
+        quizAttemptRepository.findLastResults().forEach(row -> last.put(row.getStudentId(), row));
+
+        List<Long> ids = new ArrayList<>(classes.keySet());
+        last.keySet().stream().filter(id -> !classes.containsKey(id)).forEach(ids::add);
+        return ids.stream().map(id -> {
+            QuizAttemptRepository.LastResultRow result = last.get(id);
+            return new StudentListRowDto(id, classes.getOrDefault(id, List.of()),
+                    result == null ? null : result.getScore(),
+                    result == null ? null : result.getMaxScore());
+        }).toList();
     }
 
     @Transactional(readOnly = true)

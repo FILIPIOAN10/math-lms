@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
+import { BookOpen, ClipboardList, History, PenLine, UserCheck } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { FirstRunChecklist } from '@/components/home/FirstRunChecklist'
-import { HomeEmpty, HomeSection, StatTile } from '@/components/home/HomeBits'
+import { HomeEmpty, HomeSection, HomeShortcut, StatTile } from '@/components/home/HomeBits'
 import {
   getAssignmentStatus,
   listActiveUsers,
@@ -90,11 +91,17 @@ export function TeacherHome({ canApprove = true }: { canApprove?: boolean }) {
     <>
       {firstRun && <FirstRunChecklist steps={firstRun} />}
       <div className={data.pending === null ? 'grid grid-cols-2 gap-3' : 'grid grid-cols-3 gap-3'}>
-        <StatTile to="/admin/grading" value={data.toGrade.length} label="Lucrări de corectat" urgent testId="tile-grading" />
+        <StatTile
+          to="/admin/grading" value={data.toGrade.length} label="Lucrări de corectat" icon={PenLine}
+          urgent doneLabel="Totul corectat" testId="tile-grading"
+        />
         {data.pending !== null && (
-          <StatTile to="/admin/students" value={data.pending} label="Conturi de aprobat" urgent testId="tile-pending" />
+          <StatTile
+            to="/admin/students" value={data.pending} label="Conturi de aprobat" icon={UserCheck}
+            urgent doneLabel="Niciun cont în așteptare" testId="tile-pending"
+          />
         )}
-        <StatTile to="/admin/assignments" value={open} label="Teme deschise" testId="tile-assignments" />
+        <StatTile to="/admin/assignments" value={open} label="Teme deschise" icon={ClipboardList} testId="tile-assignments" />
       </div>
 
       <HomeSection
@@ -192,14 +199,15 @@ export function TeacherHome({ canApprove = true }: { canApprove?: boolean }) {
         </HomeSection>
       )}
 
-      <p className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
-        <Link to="/admin/en-chapters" className="text-muted-foreground hover:text-foreground hover:underline">
-          Capitole EN: materia și modelele rezolvate
-        </Link>
-        <Link to="/admin/journal" className="text-muted-foreground hover:text-foreground hover:underline">
-          Jurnal: cine a schimbat ce și când
-        </Link>
-      </p>
+      {/* Both pages are the admins': a TEACHER would only bounce back here. */}
+      {canApprove && (
+        <HomeSection title="Scurtături">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <HomeShortcut to="/admin/en-chapters" icon={BookOpen} title="Capitole EN" text="Materia și modelele rezolvate" />
+            <HomeShortcut to="/admin/journal" icon={History} title="Jurnal" text="Cine a schimbat ce și când" />
+          </div>
+        </HomeSection>
+      )}
     </>
   )
 }

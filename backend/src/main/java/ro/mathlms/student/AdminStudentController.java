@@ -29,6 +29,12 @@ public class AdminStudentController {
         this.scope = scope;
     }
 
+    /** Classes and latest result per student, for the list of students (a TEACHER gets their own students). */
+    @GetMapping("/api/admin/students/summary")
+    public List<StudentListRowDto> summaries() {
+        return scope.keepOwnedStudents(service.listRows(), StudentListRowDto::studentId);
+    }
+
     @GetMapping("/api/admin/students/{studentId}")
     public StudentProfileDto profile(@PathVariable Long studentId) {
         scope.requireStudent(studentId);

@@ -46,4 +46,15 @@ public interface EnrollmentRepository extends JpaRepository<Enrollment, Long> {
     @Query("select e from Enrollment e join fetch e.student"
             + " where e.schoolClass.id = :classId order by e.student.fullName")
     List<Enrollment> findBySchoolClassIdFetchStudent(@Param("classId") Long classId);
+
+    /** Every student's class names, for the list of students (a row per enrollment, classes in name order). */
+    @Query("select e.student.id as studentId, e.schoolClass.name as className from Enrollment e"
+            + " order by e.schoolClass.name")
+    List<StudentClassRow> findAllStudentClasses();
+
+    interface StudentClassRow {
+        Long getStudentId();
+
+        String getClassName();
+    }
 }

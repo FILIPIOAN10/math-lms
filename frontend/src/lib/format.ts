@@ -15,6 +15,11 @@ export function roCount(n: number, one: string, many: string): string {
   return `${n}${n !== 0 && (lastTwo === 0 || lastTwo >= 20) ? ' de ' : ' '}${many}`
 }
 
+/** "Ana Maria Pop" -> "AM": up to two initials, for a person's round badge. */
+export function initials(fullName: string): string {
+  return fullName.trim().split(/\s+/).slice(0, 2).map((word) => word.charAt(0).toUpperCase()).join('')
+}
+
 /** "a", "b", "c"... - an option's letter by its place, as a paper test prints a), b), c), d). Empty if not found. */
 export function optionLetter(index: number): string {
   return index >= 0 ? String.fromCharCode(97 + index) : ''

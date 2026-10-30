@@ -243,6 +243,31 @@ describe('DashboardPage — teacher', () => {
     expect(api.listAttemptsForGrading).toHaveBeenCalledWith('SUBMITTED')
   })
 
+  it('says so in words when nothing waits, instead of a bare zero', async () => {
+    api.listAttemptsForGrading.mockResolvedValue([])
+    api.listPendingUsers.mockResolvedValue([])
+    renderHome()
+
+    expect(await screen.findByTestId('tile-grading')).toHaveTextContent('Totul corectat ✓')
+    expect(screen.getByTestId('tile-pending')).toHaveTextContent('Niciun cont în așteptare ✓')
+  })
+
+  it('offers an admin the shortcuts to the chapters and the journal', async () => {
+    renderHome()
+
+    const shortcuts = await screen.findByRole('region', { name: 'Scurtături' })
+    expect(within(shortcuts).getByRole('link', { name: /Capitole EN/ })).toHaveAttribute('href', '/admin/en-chapters')
+    expect(within(shortcuts).getByRole('link', { name: /Jurnal/ })).toHaveAttribute('href', '/admin/journal')
+  })
+
+  it('shows a teacher no shortcuts to the pages only admins open', async () => {
+    auth.value = { user: user({ role: 'TEACHER' }), loading: false }
+    renderHome()
+
+    await screen.findByTestId('tile-grading')
+    expect(screen.queryByRole('region', { name: 'Scurtături' })).not.toBeInTheDocument()
+  })
+
   it('lists the deadlines that need attention with how many students handed in', async () => {
     renderHome()
 

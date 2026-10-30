@@ -102,4 +102,26 @@ public interface QuizAttemptRepository extends JpaRepository<QuizAttempt, Long> 
     /** Every attempt of these students with its quiz - what the mastery map is computed from (E6). */
     @Query("select a from QuizAttempt a join fetch a.quiz where a.student.id in :studentIds")
     List<QuizAttempt> findByStudentIdsFetchQuiz(@Param("studentIds") java.util.Collection<Long> studentIds);
+
+    /**
+     * Each student's latest graded test with what it was worth, for the list of students. Practice has no grade and a
+     * test worth no points has none either, so neither counts.
+     */
+    @Query(nativeQuery = true, value = """
+            select distinct on (a.student_id)
+                   a.student_id as studentId, a.score as score, m.total as maxScore
+              from quiz_attempts a
+              join (select quiz_id, sum(points) as total from quiz_items group by quiz_id) m on m.quiz_id = a.quiz_id
+             where a.status = 'GRADED' and a.mode = 'TEST' and a.score is not null and m.total > 0
+             order by a.student_id, a.submitted_at desc nulls last, a.id desc
+            """)
+    List<LastResultRow> findLastResults();
+
+    interface LastResultRow {
+        Long getStudentId();
+
+        Integer getScore();
+
+        Long getMaxScore();
+    }
 }

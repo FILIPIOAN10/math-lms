@@ -3,6 +3,7 @@ import { CopyLinkField } from '@/components/CopyLinkField'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
+import { HelpTip } from '@/components/HelpTip'
 import { createInvite as createInviteRequest, type Invite, type Role } from '@/lib/api'
 
 // Admin invites are deliberately not offered: a link that mints a teacher account is too
@@ -41,13 +42,16 @@ export function InviteLinkCard({ createInvite = createInviteRequest }: Props) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-xl">Link general (cu aprobare)</CardTitle>
-        <CardDescription>
-          Mai simplu: pentru elevi folosește <strong>Invită elevi</strong> din Clase (pe rândul clasei), iar pentru
-          părinți <strong>Invită părintele</strong> din lista de mai jos — contul intră direct în clasă / se leagă
-          singur, fără aprobare. Linkul general de aici nu știe clasa: e valabil 7 zile, îl pot folosi mai multe
-          persoane, iar fiecare cont apare sus, la „Conturi de aprobat”, unde îl aprobi, înscrii și legi tu.
-        </CardDescription>
+        <CardTitle className="flex items-center gap-2 text-xl">
+          Link general (cu aprobare)
+          <HelpTip label="Despre linkul general">
+            Mai simplu: pentru elevi folosește <strong>Invită elevi</strong> din Clase, iar pentru părinți{' '}
+            <strong>Invită părintele</strong> din lista de elevi — contul intră direct în clasă / se leagă singur, fără
+            aprobare. Linkul general nu știe clasa: e valabil 7 zile, îl pot folosi mai multe persoane, iar fiecare cont
+            apare sus, la „Conturi de aprobat”, unde îl aprobi, înscrii și legi tu.
+          </HelpTip>
+        </CardTitle>
+        <CardDescription>Pentru conturi pe care le aprobi tu, unul câte unul.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex flex-wrap items-end gap-2">
