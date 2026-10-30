@@ -280,7 +280,7 @@ Buton pe Dashboard: **Conținut**. Read-only.
 
 ### 10. Admin — quiz builder (`/admin/quizzes`, ca admin)
 - lista: **titlul** deschide editorul; pe fiecare rând **o singură acțiune principală** — „Dă ca temă” (publicat) sau „Publică” (ciornă);
-  restul în meniul **⋯** (Statistici, Editează detaliile, Copiază, Depublică, apoi **Șterge** cu roșu, după un separator; merge și din tastatură)
+  **Statistici** ca link pe rând, restul în meniul **⋯** (Editează detaliile, Copiază, Depublică, apoi **Șterge** cu roșu, după un separator; merge și din tastatură)
 - editorul are adresă proprie **`/admin/quizzes/:id`**: refresh, Back și bookmark rămân pe același quiz; un id inexistent → eroarea + „Înapoi la quiz-uri”
 - **Adaugă test** te duce direct în editor → **Adaugă întrebare**: grilă (pornește cu 4 variante, exact una corectă) sau deschis (punctaj + barem);
   „Salvează și adaugă încă unul” ține dialogul deschis; antetul arată „n subiecte · Total: x p”
@@ -781,7 +781,7 @@ cu `AI_PROVIDER=fake` capitolul se alege după cuvinte-cheie, fără rețea.
 | 1 | **Teste → Din poze (AI)**: încarcă o variantă EN, așteaptă citirea | La fiecare întrebare (și la fiecare cerință a)/b)) un câmp **Capitol EN** deja completat, cu „Propus de AI: …” sub el |
 | 2 | Schimbă capitolul la o întrebare | Motivul AI-ului dispare (nu mai e propunerea lui) |
 | 3 | **Creează testul**, deschide-l în editor | Etichetele **→ …** sunt cele alese la verificare; unde alegerea era chiar legătura automată a locului (ex. A1 la I.1), întrebarea rămâne pe **automat** — urmează „Legături automate” dacă le schimbi |
-| 4 | Pe un test existent (ex. creat înainte de etapa 3): **Sugerează capitolele (AI)** | „AI-ul citește întrebările…”, apoi lista: „Acum: A2 … (automat) → A3 …” cu motivul; bifate doar cele care schimbă ceva |
+| 4 | Pe un test existent (ex. creat înainte de etapa 3): **Instrumente AI ▾ → Sugerează capitolele (AI)** | „AI-ul citește întrebările…”, apoi lista: „Acum: A2 … (automat) → A3 …” cu motivul; bifate doar cele care schimbă ceva |
 | 5 | Debifează una, **Aplică (N)** | Doar cele bifate se schimbă; jurnalul: „Test modificat · capitol EN la N întrebări sau cerințe” |
 | 6 | Fără cheie OpenAI / OpenAI căzut | Mesaj clar în dialog („Cheia OpenAI lipsește…”, „OpenAI nu răspunde acum…”); la import, întrebările vin fără propunere, importul nu pică |
 | 7 | A 31-a cerere de propuneri în aceeași zi (limita: 30 / profesor / zi) | „Prea multe cereri. Încearcă din nou peste N ore.”; în logul backend fiecare cerere apare cu tokenii ei (`OpenAI (chapters): … tokens`) |
@@ -823,7 +823,7 @@ același proiect și aceeași cheie JSON ca importul din poze.
 
 | # | Ce faci | Ce trebuie să vezi |
 |---|---|---|
-| 1 | Deschide un test EN cu întrebări (editorul) | Butonul **Barem din poze (AI)** lângă „Importă din text” |
+| 1 | Deschide un test EN cu întrebări (editorul) | În meniul **Instrumente AI ▾**, lângă „Importă din text”: **Barem din poze (AI)** |
 | 2 | Alege 1–2 poze cu baremul oficial → **Citește baremul** | „AI-ul citește baremul… poate dura un minut sau două”, apoi lista întrebărilor (I.1, II.3, III.2…) |
 | 3 | La o grilă | „Acum: a) → b)” cu varianta propusă aleasă în listă; o poți schimba |
 | 4 | La o problemă din Subiectul III | Câte o casetă cu baremul fiecărei cerințe a), b), editabilă; avertismentele AI-ului apar cu ⚠ |

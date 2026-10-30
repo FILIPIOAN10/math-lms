@@ -11,7 +11,7 @@ import { MathContent } from '@/components/MathContent'
 import { MathField } from '@/components/MathField'
 import { QuestionImage } from '@/components/QuestionImage'
 import { PageHeader } from '@/components/PageHeader'
-import { RowMenu } from '@/components/RowMenu'
+import { RowMenu, type RowMenuItem } from '@/components/RowMenu'
 import { TestsTabs } from '@/components/TestsTabs'
 import { PublishDialog } from '@/components/PublishDialog'
 import { SectionHeadingView } from '@/components/SectionHeadingView'
@@ -884,6 +884,11 @@ export function AdminQuizzesPage() {
       .map(({ label }) => label)
     : []
   const quizError = loadError !== null && loadError.id === quizId && quiz === null ? loadError.message : null
+  // The editor's AI helpers, each only where the server has it on; they need questions to work on.
+  const aiTools: RowMenuItem[] = quiz && quiz.items.length > 0 ? [
+    ...(aiImportOn && enChapters.length > 0 ? [{ label: 'Sugerează capitolele (AI)', onClick: () => setSuggesting(true) }] : []),
+    ...(aiGradingOn ? [{ label: 'Barem din poze (AI)', onClick: () => setReadingBarem(true) }] : []),
+  ] : []
 
   const reloadList = () => Promise.all([listQuizzes().then(setQuizzes), loadSummaries()])
   const chapterTitle = (id: number | null) => (id === null ? null : chapters.find((c) => c.id === id)?.title ?? null)
@@ -992,12 +997,7 @@ export function AdminQuizzesPage() {
                       {quiz.status === 'PUBLISHED' ? 'Depublică' : 'Publică'}
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => setImporting(true)}>Importă din text</Button>
-                    {aiImportOn && enChapters.length > 0 && quiz.items.length > 0 && (
-                      <Button size="sm" variant="outline" onClick={() => setSuggesting(true)}>Sugerează capitolele (AI)</Button>
-                    )}
-                    {aiGradingOn && quiz.items.length > 0 && (
-                      <Button size="sm" variant="outline" onClick={() => setReadingBarem(true)}>Barem din poze (AI)</Button>
-                    )}
+                    {aiTools.length > 0 && <RowMenu label="Instrumente AI" text="Instrumente AI" items={aiTools} />}
                     <Button size="sm" onClick={() => setItemDialog({ item: null })}>Adaugă întrebare</Button>
                   </>
                 }

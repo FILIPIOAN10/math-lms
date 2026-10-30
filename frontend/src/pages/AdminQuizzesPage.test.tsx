@@ -86,14 +86,26 @@ describe('AdminQuizzesPage', () => {
     expect(screen.getByTestId('no-correct-answer')).toHaveTextContent('Fără răspuns corect')
   })
 
+  it('keeps one main action in the editor: adding a question, with the AI tools in their own menu', async () => {
+    api.getAiGradingSettings.mockResolvedValue({ enabled: true, baremMaxPages: 5, baremDailyPageLimit: 20, baremPagesUsedToday: 0 })
+    renderAt('/admin/quizzes/7')
+    await screen.findByText('Cât face 2+2?')
+
+    expect(await screen.findByRole('button', { name: 'Instrumente AI' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Barem din poze (AI)' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Importă din text' })).toHaveClass('border-border')
+    expect(screen.getByRole('button', { name: 'Adaugă întrebare' })).not.toHaveClass('border-border') // the filled one
+  })
+
   it('offers the barem from photos on a test with questions, only where the server reads it', async () => {
     renderAt('/admin/quizzes/7')
     await screen.findByText('Cât face 2+2?')
-    expect(screen.queryByRole('button', { name: 'Barem din poze (AI)' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Instrumente AI' })).not.toBeInTheDocument() // no AI on: no empty menu
 
     api.getAiGradingSettings.mockResolvedValue({ enabled: true, baremMaxPages: 5, baremDailyPageLimit: 20, baremPagesUsedToday: 0 })
     renderAt('/admin/quizzes/7')
-    await userEvent.click(await screen.findByRole('button', { name: 'Barem din poze (AI)' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Instrumente AI' }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Barem din poze (AI)' }))
     expect(await screen.findByRole('dialog', { name: 'Barem din poze (AI)' })).toBeInTheDocument()
   })
 

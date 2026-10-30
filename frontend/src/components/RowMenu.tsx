@@ -18,15 +18,17 @@ export interface RowMenuItem {
 /**
  * The secondary actions of one list row behind a single "⋯" button, so the row shows only its main action. Keyboard
  * and screen-reader support (arrow keys, Escape, focus return) come from Base UI's menu. `label` names the row, e.g.
- * "Mai multe acțiuni pentru Simulare EN", because many rows have the same button.
+ * "Mai multe acțiuni pentru Simulare EN", because many rows have the same button. With `text` the button says what the
+ * menu holds ("Instrumente AI ▾") instead of "⋯", for a group of actions that is not a row's leftovers.
  */
-export function RowMenu({ label, items }: { label: string; items: RowMenuItem[] }) {
+export function RowMenu({ label, items, text }: { label: string; items: RowMenuItem[]; text?: string }) {
   const navigate = useNavigate()
 
   return (
     <Menu.Root>
-      <Menu.Trigger aria-label={label} className={buttonVariants({ variant: 'outline', size: 'icon-sm' })}>
-        <span aria-hidden="true">⋯</span>
+      <Menu.Trigger aria-label={label} className={buttonVariants({ variant: 'outline', size: text ? 'sm' : 'icon-sm' })}>
+        {text ?? <span aria-hidden="true">⋯</span>}
+        {text && <span aria-hidden="true">▾</span>}
       </Menu.Trigger>
       <Menu.Portal>
         <Menu.Positioner align="end" sideOffset={4} className="z-50">
