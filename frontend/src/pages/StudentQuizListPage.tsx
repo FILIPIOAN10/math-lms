@@ -83,7 +83,7 @@ function QuizCardView({ card, now }: { card: QuizCard; now: number }) {
   const onlyAttempt = card.attempts.length === 1 && card.attempts[0] === shown
 
   return (
-    <Card>
+    <Card className="hover-lift">
       {/* On a phone the grade and the buttons go under the title instead of squeezing it. */}
       <CardContent data-testid="quiz-card" className="flex flex-wrap items-center justify-between gap-3 py-3">
         <div className="min-w-0 flex-1 basis-56 space-y-1">

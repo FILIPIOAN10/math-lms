@@ -131,7 +131,7 @@ export function TeacherHome({ canApprove = true }: { canApprove?: boolean }) {
               to={`/admin/assignments?open=${a.id}`}
               className="block rounded-xl outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
             >
-              <Card data-testid="deadline-row" className="transition-colors hover:bg-background/60">
+              <Card data-testid="deadline-row" className="hover-lift">
                 <CardContent className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-3">
                   <div className="min-w-0 space-y-1">
                     <p data-testid="deadline-title" className="truncate font-medium">{a.quizTitle}</p>

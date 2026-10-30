@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
+import { AuthLayout } from '@/components/AuthLayout'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -242,8 +243,8 @@ export function RegisterPage() {
   const inviteToken = searchParams.get('token')
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-muted p-4">
+    <AuthLayout>
       {inviteToken ? <InvitedRegistration inviteToken={inviteToken} /> : <MissingInvite />}
-    </div>
+    </AuthLayout>
   )
 }

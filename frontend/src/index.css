@@ -134,3 +134,55 @@
     accent-color: var(--primary);
   }
 }
+
+/* A card that opens something rises a little under the mouse. Without motion it only gains the shadow. */
+@utility hover-lift {
+  transition: box-shadow 150ms ease, transform 150ms ease;
+
+  &:hover {
+    box-shadow: 0 6px 16px -6px oklch(0 0 0 / 18%);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    &:hover {
+      transform: translateY(-2px);
+    }
+  }
+}
+
+/* The grade arrives: the ring fills up to its share, the number settles. Played again when the grade changes. */
+@keyframes grade-ring {
+  from {
+    stroke-dasharray: 0 100;
+  }
+}
+
+@keyframes grade-number {
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+}
+
+@keyframes confetti-fall {
+  from {
+    opacity: 1;
+    transform: translateY(0) rotate(0);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(70vh) rotate(540deg);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .grade-ring-fill {
+    animation: grade-ring 700ms ease-out;
+  }
+
+  .grade-number {
+    display: inline-block;
+    animation: grade-number 400ms ease-out;
+  }
+}

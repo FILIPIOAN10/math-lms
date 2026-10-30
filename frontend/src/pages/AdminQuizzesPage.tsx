@@ -1121,7 +1121,7 @@ export function AdminQuizzesPage() {
             {!loading && quizzes.length === 0 && <p className="text-muted-foreground">Niciun test. Adaugă primul.</p>}
             <div className="space-y-2">
               {quizzes.map((q) => (
-                <Card key={q.id}>
+                <Card key={q.id} className="hover-lift">
                   <CardContent data-testid="quiz-row" className="flex flex-wrap items-center justify-between gap-3 py-3">
                     <div className="min-w-0 flex-1 basis-56 space-y-0.5">
                       <p className="flex min-w-0 items-center gap-2">

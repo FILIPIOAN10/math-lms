@@ -12,7 +12,9 @@ import { SectionHeadingView } from '@/components/SectionHeadingView'
 import { numberItems } from '@/lib/sections'
 import { ownPhotoUrl, type AttemptResultViewDto, type ItemResultDto } from '@/lib/api'
 import { roCount } from '@/lib/format'
+import { Confetti } from '@/components/Confetti'
 import { GradeFigure } from '@/components/GradeFigure'
+import { celebrateFirstTen } from '@/lib/celebrate'
 import { mistakesOf, practiceMistakesHref } from '@/lib/mistakes'
 import { revisionLinks } from '@/lib/enChapters'
 
@@ -246,9 +248,14 @@ export function AttemptResultView({ result, audience = 'student' }: { result: At
   const mistakeIds = new Set(result.status === 'GRADED' && !practice ? mistakesOf(result.items).itemIds : [])
   const offerFilter = mistakeIds.size > 0 && mistakeIds.size < result.items.length
   const shown = withHeadings(numberItems(result.items), (n) => !onlyMistakes || mistakeIds.has(n.item.itemId))
+  // The student's first 10, on their own result; read once, so a later render does not ask again.
+  const [celebrate] = useState(() =>
+    audience === 'student' && !practice && result.status === 'GRADED' && result.maxScore > 0
+    && result.finalScore === result.maxScore && celebrateFirstTen())
 
   return (
     <>
+      {celebrate && <Confetti />}
       <Card>
         <CardContent className="space-y-2 py-4">
           <div className="flex flex-wrap items-center justify-between gap-2">

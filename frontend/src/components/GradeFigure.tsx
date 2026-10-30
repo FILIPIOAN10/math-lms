@@ -10,7 +10,7 @@ function GradeRing({ percent, band, size }: { percent: number; band: GradeBand; 
       <circle
         cx="18" cy="18" r="15.9155" fill="none" strokeWidth="3.5" strokeLinecap="round"
         strokeDasharray={`${Math.max(percent, 1)} 100`}
-        className={GRADE_STROKE[band]}
+        className={cn('grade-ring-fill', GRADE_STROKE[band])}
       />
     </svg>
   )
@@ -43,14 +43,15 @@ export function GradeFigure({
   const band = gradeBand(grade)
   return (
     <div data-testid={testId} className="flex items-center gap-3">
-      <GradeRing percent={percent} band={band} size={size} />
+      <GradeRing key={percent} percent={percent} band={band} size={size} />
       <div>
         <p className="flex items-baseline gap-2">
           <span className="text-sm font-medium text-muted-foreground">Nota</span>
           <span
+            key={grade}
             data-testid={testId && `${testId}-grade`}
             data-band={band}
-            className={cn('font-semibold tabular-nums', GRADE_TEXT[band], size === 'lg' ? 'text-4xl' : 'text-3xl')}
+            className={cn('grade-number font-semibold tabular-nums', GRADE_TEXT[band], size === 'lg' ? 'text-4xl' : 'text-3xl')}
           >
             {formatGrade(grade)}
           </span>

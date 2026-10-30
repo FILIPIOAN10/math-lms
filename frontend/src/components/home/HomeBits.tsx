@@ -47,7 +47,7 @@ export function StatTile({
       data-testid={testId}
       className="block rounded-xl outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
     >
-      <Card className="h-full transition hover:shadow-md motion-safe:hover:-translate-y-0.5">
+      <Card className="hover-lift h-full">
         <CardContent className="flex items-start justify-between gap-2 py-4">
           {done ? (
             <p className="text-lg font-semibold text-emerald-700 dark:text-emerald-300">{doneLabel} ✓</p>
@@ -71,7 +71,7 @@ export function StatTile({
 export function HomeShortcut({ to, icon: Icon, title, text }: { to: string; icon: LucideIcon; title: string; text: string }) {
   return (
     <Link to={to} className="block rounded-xl outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
-      <Card className="h-full transition hover:shadow-md motion-safe:hover:-translate-y-0.5">
+      <Card className="hover-lift h-full">
         <CardContent className="flex items-center gap-3 py-3">
           <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
             <Icon aria-hidden="true" className="size-5" />

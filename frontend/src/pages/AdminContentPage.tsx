@@ -675,7 +675,7 @@ function ClassCard({ schoolClass, summary, teacherName, onOpen, onInvite, menu }
   menu: RowMenuItem[]
 }) {
   return (
-    <Card data-testid="class-card">
+    <Card data-testid="class-card" className="hover-lift">
       <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
         <div className="min-w-0">
           <p className="truncate font-medium">{schoolClass.name}</p>

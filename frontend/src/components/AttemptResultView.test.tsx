@@ -53,6 +53,28 @@ describe('AttemptResultView', () => {
     expect(screen.getByTestId('result-score-grade').className).toMatch(/text-4xl/)
   })
 
+  it('throws confetti on the first 10 of a student, once, and not for a parent or a lower grade', () => {
+    localStorage.clear()
+    vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: true }))
+    const ten = { ...graded, finalScore: 15 }
+
+    const parent = render(<AttemptResultView result={ten} audience="parent" />, { wrapper: MemoryRouter })
+    expect(screen.queryByTestId('confetti')).not.toBeInTheDocument()
+    parent.unmount()
+
+    const lower = render(<AttemptResultView result={graded} />, { wrapper: MemoryRouter })
+    expect(screen.queryByTestId('confetti')).not.toBeInTheDocument()
+    lower.unmount()
+
+    const first = render(<AttemptResultView result={ten} />, { wrapper: MemoryRouter })
+    expect(screen.getByTestId('confetti')).toBeInTheDocument()
+    first.unmount()
+
+    render(<AttemptResultView result={ten} />, { wrapper: MemoryRouter })
+    expect(screen.queryByTestId('confetti')).not.toBeInTheDocument()
+    vi.unstubAllGlobals()
+  })
+
   it("shows the teacher's comment on the paper and on each answer", () => {
     render(<AttemptResultView result={graded} />, { wrapper: MemoryRouter })
 
