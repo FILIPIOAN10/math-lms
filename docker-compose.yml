@@ -36,7 +36,7 @@ services:
       retries: 5
 
   # The tutor's help chain over HTTP (tutor/), called only by the backend ("Sugerează indicii (AI)" in the question
-  # editor). Opt-in: `docker compose --profile tutor up -d --build tutor`. OPENAI_API_KEY comes from tutor/.env; the
+  # editor). Opt-in: `docker compose --profile tutor up -d --build tutor`. GEMINI_PROJECT and GEMINI_CREDENTIALS_FILE come from tutor/.env; the
   # token must equal the backend's TUTOR_SERVICE_TOKEN. Bound to localhost: the browser never talks to it.
   tutor:
     build: ./tutor

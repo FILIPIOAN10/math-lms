@@ -5,7 +5,8 @@ def test_defaults_point_to_the_lms_database_from_docker_compose():
     settings = Settings(_env_file=None)
 
     assert settings.database_url.endswith("localhost:5433/mathlms")
-    assert settings.embedding_model == "text-embedding-3-small"
+    assert settings.llm_provider == "gemini"
+    assert settings.embedding_model == "gemini-embedding-001"
     assert settings.openai_api_key is None
 
 

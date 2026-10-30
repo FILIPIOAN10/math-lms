@@ -15,10 +15,10 @@ from dataclasses import dataclass, field
 
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import Runnable, RunnableLambda
-from langchain_openai import ChatOpenAI
 
 from tutor.config import Settings
-from tutor.help_chain import LEVELS, Found, HelpService, HelpStep, Refusal, _neutralize, chat_options
+from tutor.help_chain import LEVELS, Found, HelpService, HelpStep, Refusal, _neutralize
+from tutor.llm import chat_client
 
 CONDENSE_SYSTEM = """\
 You help a maths tutor understand a Romanian grade-8 student's latest message. Rewrite the message as ONE \
@@ -157,4 +157,4 @@ def _condensed(message) -> Condensed:
 
 def condense_model(settings: Settings) -> Runnable:
     """The real model for the rewrite: plain text, a few lines at most."""
-    return ChatOpenAI(**chat_options(settings, 500)) | RunnableLambda(_condensed)
+    return chat_client(settings, 500) | RunnableLambda(_condensed)

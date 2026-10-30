@@ -16,10 +16,13 @@ import sys
 from dataclasses import dataclass
 
 import httpx
+from google import genai
+from google.genai import errors, types
 from PIL import Image
 from pypdf import PdfReader
 
 from tutor.config import Settings, get_settings
+from tutor.llm import gemini_access, using_openai
 
 INSTRUCTIONS = """\
 You transcribe ONE photographed page of a Romanian school mathematics textbook (grade 8) into Markdown.
@@ -187,6 +190,12 @@ def parse_response(response: dict, fallback_model: str) -> Transcription:
     except json.JSONDecodeError as error:
         raise TranscriptionError("Răspunsul nu e JSON-ul așteptat.") from error
     usage = response.get("usage", {})
+    return transcription(data, response.get("model", fallback_model),
+                         int(usage.get("input_tokens", 0)), int(usage.get("output_tokens", 0)))
+
+
+def transcription(data: dict, model: str, input_tokens: int, output_tokens: int) -> Transcription:
+    """The page as the model read it, whichever model that was."""
     figures = []
     for raw in data.get("figures", []):
         # A box is fractions of the image: keep it inside [0, 1] whatever the model answered.
@@ -198,14 +207,52 @@ def parse_response(response: dict, fallback_model: str) -> Transcription:
         page_number=data.get("page_number"),
         markdown=data.get("markdown", ""),
         warnings=list(data.get("warnings", [])),
-        model=response.get("model", fallback_model),
-        input_tokens=int(usage.get("input_tokens", 0)),
-        output_tokens=int(usage.get("output_tokens", 0)),
+        model=model,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
         figures=tuple(figures),
     )
 
 
+def gemini_client(settings: Settings) -> genai.Client:
+    return genai.Client(vertexai=True, **gemini_access(settings))
+
+
+def transcribe_with_gemini(jpeg: bytes, settings: Settings) -> Transcription:
+    """One page through Gemini: the same instructions and JSON shape as the OpenAI request."""
+    config = types.GenerateContentConfig(
+        system_instruction=INSTRUCTIONS,
+        max_output_tokens=MAX_OUTPUT_TOKENS,
+        response_mime_type="application/json",
+        response_json_schema=SCHEMA,
+    )
+    contents = [types.Part.from_bytes(data=jpeg, mime_type="image/jpeg"), "Transcribe this page."]
+    try:
+        client = gemini_client(settings)
+    except (RuntimeError, OSError, ValueError) as error:
+        raise TranscriptionError(str(error)) from error
+    try:
+        response = client.models.generate_content(model=settings.chat_model, contents=contents, config=config)
+    except errors.APIError as error:
+        raise TranscriptionError(f"Gemini a răspuns {error.code}: {str(error.message)[:300]}") from error
+    finish = response.candidates[0].finish_reason if response.candidates else None
+    if finish == types.FinishReason.MAX_TOKENS:
+        raise TranscriptionError("Răspunsul a fost tăiat (prea lung); încearcă o pagină mai mică.")
+    if not response.text:
+        raise TranscriptionError("Răspunsul nu conține text.")
+    try:
+        data = json.loads(response.text)
+    except json.JSONDecodeError as error:
+        raise TranscriptionError("Răspunsul nu e JSON-ul așteptat.") from error
+    usage = response.usage_metadata
+    return transcription(data, settings.chat_model,
+                         (usage.prompt_token_count or 0) if usage else 0,
+                         (usage.candidates_token_count or 0) if usage else 0)
+
+
 def transcribe_page(jpeg: bytes, settings: Settings, client: httpx.Client) -> Transcription:
+    if not using_openai(settings):
+        return transcribe_with_gemini(jpeg, settings)
     if settings.openai_api_key is None:
         raise TranscriptionError("Lipsește OPENAI_API_KEY (pune-l în tutor/.env).")
     try:
@@ -263,7 +310,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--pages", help="ex. 1-2 sau 1,3 (implicit: toate)")
     parser.add_argument("--max-side", type=int, default=1800, help="latura lungă a imaginii trimise, în px")
     parser.add_argument("--max-usd", type=float, default=0.25, help="se oprește când costul estimat depășește plafonul")
-    parser.add_argument("--dry-run", action="store_true", help="doar pregătește imaginile, fără apel către OpenAI")
+    parser.add_argument("--dry-run", action="store_true", help="doar pregătește imaginile, fără apel către model")
     parser.add_argument("--out", type=pathlib.Path, default=pathlib.Path("data/theory"))
     args = parser.parse_args(argv)
 

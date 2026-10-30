@@ -160,7 +160,7 @@ app:
   # OPENAI_API_KEY in .env; AI_PROVIDER=fake reads made-up questions (dev).
   ai:
     enabled: ${AI_IMPORT_ENABLED:false}
-    provider: ${AI_PROVIDER:openai}
+    provider: ${AI_PROVIDER:gemini}
     max-pages: ${AI_MAX_PAGES:5}
     # Per teacher per day (Romanian midnight to midnight): bounds the provider bill.
     daily-page-limit: ${AI_DAILY_PAGE_LIMIT:50}

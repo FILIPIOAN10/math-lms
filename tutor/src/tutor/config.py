@@ -1,4 +1,5 @@
 from functools import lru_cache
+from typing import Literal
 
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -9,16 +10,26 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
+    # Which models answer: "gemini" (Google Cloud, like the backend's AI features) or "openai". Changing it means new
+    # embeddings too: run `tutor.ingest` again, and measure `max_distance` again, it was set for one embedding model.
+    llm_provider: Literal["gemini", "openai"] = "gemini"
+
     # Optional here so the database-only commands run without a key; the LLM factory
     # will require it when it is actually used.
     openai_api_key: SecretStr | None = None
+    gemini_project: str | None = None
+    gemini_location: str = "global"
+    # The JSON key of the service account (the same one as the backend's GEMINI_CREDENTIALS_FILE), kept outside the repo.
+    gemini_credentials_file: str | None = None
 
     # The HTTP service (`tutor.api`): the shared secret the backend sends in X-Tutor-Token. Without it the service
     # answers 503 to every help request, so a container started without configuration is never an open model proxy.
     service_token: SecretStr | None = None
 
-    chat_model: str = "gpt-6-luna"
-    embedding_model: str = "text-embedding-3-small"
+    # With LLM_PROVIDER=openai set these too: CHAT_MODEL=gpt-6-luna, EMBEDDING_MODEL=text-embedding-3-small.
+    chat_model: str = "gemini-3.8-flash"
+    embedding_model: str = "gemini-embedding-001"
+    embedding_dimensions: int = 1536  # the size of the tutor_chunks.embedding column
 
     openai_base_url: str = "https://api.openai.com/v1"
     reasoning_effort: str = "low"
@@ -31,6 +42,7 @@ class Settings(BaseSettings):
     # question is declared "not in the book". 0.48 sits in the gap between the farthest covered question (0.4646) and
     # the second-nearest uncovered one (0.5057); the one uncovered question closer than that (0.4048) is stopped by the
     # model's own `covered` flag (eval/help-report.md). Do not round the measured boundary down: 0.46 refused a covered one.
+    # Measured with text-embedding-3-small: another embedding model has other distances, so measure it again after a switch.
     retrieval_k: int = 4
     max_distance: float = 0.48
 

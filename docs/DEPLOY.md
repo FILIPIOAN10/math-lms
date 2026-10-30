@@ -233,7 +233,7 @@ Scriptul copiază tot volumul în bucket și se oprește cu eroare dacă în buc
 
 Butonul din editorul întrebării cere tutorului un indiciu, un indiciu mai mare și rezolvarea, scrise **doar** din paginile
 capitolului EN, cu pagina din manual la fiecare. Profesorul adaugă ce păstrează și salvează; elevii nu declanșează niciun apel.
-Se trimite la OpenAI doar textul întrebării și pasajele din manual — niciun nume, niciun cont. Cost: ~0,0006 $ o întrebare.
+Se trimite la Gemini doar textul întrebării și pasajele din manual — niciun nume, niciun cont. Cost: ~0,0006 $ o întrebare.
 
 Containerul `tutor` nu are port publicat: îl apelează doar backend-ul, pe rețeaua internă, cu un token comun.
 
@@ -242,7 +242,7 @@ Containerul `tutor` nu are port publicat: îl apelează doar backend-ul, pe reț
 COMPOSE_PROFILES=tutor              # cu monitorizare: COMPOSE_PROFILES=tutor,monitoring
 TUTOR_ENABLED=true
 TUTOR_SERVICE_TOKEN=...             # openssl rand -hex 32 — același șir merge la backend și la tutor
-OPENAI_API_KEY=sk-...               # aceeași cheie ca la importul din poze
+# același GEMINI_PROJECT și aceeași cheie JSON (./secrets/gcp-vertex.json) ca la importul din poze
 ```
 La un release (tag `v*`), workflow-ul de deploy pune și `TUTOR_IMAGE` și trage imaginea tutorului doar dacă profilul e pornit.
 

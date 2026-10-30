@@ -51,7 +51,7 @@ class HelpResponse(BaseModel):
 
 @lru_cache
 def help_service() -> HelpService:
-    """Built on first use (it needs the OpenAI key and the database), then shared; tests override it."""
+    """Built on first use (it needs the model access and the database), then shared; tests override it."""
     return HelpService.from_settings(get_settings())
 
 

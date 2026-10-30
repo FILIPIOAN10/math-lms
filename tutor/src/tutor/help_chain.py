@@ -21,10 +21,10 @@ import psycopg
 from langchain_core.embeddings import Embeddings
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import Runnable, RunnableBranch, RunnableLambda, RunnablePassthrough
-from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 
 from tutor.config import Settings, get_settings
+from tutor.llm import chat_client, using_openai
 from tutor.llm import embeddings as make_embeddings
 from tutor.retrieval import retrieve_for_exercise
 from tutor.transcribe import cost_usd
@@ -290,29 +290,11 @@ def _drafted(result: dict) -> Drafted:
     return Drafted(parsed, usage.get("input_tokens", 0), usage.get("output_tokens", 0))
 
 
-def chat_options(settings: Settings, max_tokens: int) -> dict:
-    """Arguments for the real model client: the Responses API, nothing stored at the provider."""
-    if settings.openai_api_key is None:
-        raise RuntimeError("Lipsește OPENAI_API_KEY (pune-l în tutor/.env).")
-    options: dict = {
-        "model": settings.chat_model,
-        "api_key": settings.openai_api_key,
-        "base_url": settings.openai_base_url,
-        "use_responses_api": True,
-        "store": False,
-        "max_tokens": max_tokens,
-    }
-    if settings.reasoning_effort:
-        options["reasoning"] = {"effort": settings.reasoning_effort}
-    if settings.chat_temperature is not None:
-        options["temperature"] = settings.chat_temperature
-    return options
-
-
 def chat_model(settings: Settings) -> Runnable:
     """The real model with strict JSON in the shape of `Draft`."""
-    llm = ChatOpenAI(**chat_options(settings, settings.help_max_output_tokens))
-    return llm.with_structured_output(Draft, method="json_schema", strict=True, include_raw=True) | RunnableLambda(_drafted)
+    llm = chat_client(settings, settings.help_max_output_tokens)
+    options = {"strict": True} if using_openai(settings) else {}
+    return llm.with_structured_output(Draft, method="json_schema", include_raw=True, **options) | RunnableLambda(_drafted)
 
 
 def passage_lines(passages: list[Passage]) -> list[str]:

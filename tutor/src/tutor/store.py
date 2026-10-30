@@ -66,13 +66,16 @@ def store_chunks(conn: psycopg.Connection, documents: list[Document], embeddings
 
     book_pages = sorted({d.metadata["book_page"] for d in documents})
     existing = conn.execute(
-        "SELECT id, chapter_id, content_hash FROM tutor_chunks "
+        "SELECT id, chapter_id, content_hash, embedded_with FROM tutor_chunks "
         "WHERE source = %s AND source_name = %s AND book_page = ANY(%s)",
         (source, source_name, book_pages),
     ).fetchall()
-    existing_keys = {(chapter_id, digest): row_id for row_id, chapter_id, digest in existing}
+    # A chunk embedded by another model is not comparable with the rest of the index: it counts as gone, and comes back.
+    existing_keys = {(chapter_id, digest): row_id for row_id, chapter_id, digest, model in existing
+                     if model == embedding_model}
+    outdated = [row[0] for row in existing if row[3] != embedding_model]
 
-    stale = [row_id for key, row_id in existing_keys.items() if key not in wanted]
+    stale = outdated + [row_id for key, row_id in existing_keys.items() if key not in wanted]
     if stale:
         conn.execute("DELETE FROM tutor_chunks WHERE id = ANY(%s)", (stale,))
         report.removed = len(stale)

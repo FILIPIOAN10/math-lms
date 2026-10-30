@@ -132,11 +132,17 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-mathlms}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-mathlms}
       SERVICE_TOKEN: ${TUTOR_SERVICE_TOKEN:-}
+      LLM_PROVIDER: ${TUTOR_LLM_PROVIDER:-gemini}
+      GEMINI_PROJECT: ${GEMINI_PROJECT:-}
+      GEMINI_LOCATION: ${GEMINI_LOCATION:-global}
+      GEMINI_CREDENTIALS_FILE: ${GEMINI_CREDENTIALS_FILE:-/app/secrets/gcp-vertex.json}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      CHAT_MODEL: ${TUTOR_CHAT_MODEL:-gpt-6-luna}
+      CHAT_MODEL: ${TUTOR_CHAT_MODEL:-gemini-3.8-flash}
+      EMBEDDING_MODEL: ${TUTOR_EMBEDDING_MODEL:-gemini-embedding-001}
       EN_CHAPTER_IMAGES_DIR: /app/uploads/en-chapters
     volumes:
       - uploads:/app/uploads:ro
+      - ./secrets:/app/secrets:ro
 
   frontend:
     image: ${FRONTEND_IMAGE:-mathlms-frontend:local}

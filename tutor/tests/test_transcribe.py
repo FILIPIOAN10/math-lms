@@ -1,8 +1,10 @@
 import io
 import json
+from types import SimpleNamespace
 
 import httpx
 import pytest
+from google.genai import types
 from PIL import Image
 
 from tutor.config import Settings
@@ -19,7 +21,7 @@ from tutor.transcribe import (
 
 
 def settings(**overrides) -> Settings:
-    return Settings(_env_file=None, openai_api_key="sk-test", **overrides)
+    return Settings(_env_file=None, llm_provider="openai", openai_api_key="sk-test", **overrides)
 
 
 def photo(width: int, height: int) -> bytes:
@@ -143,7 +145,7 @@ def test_transcribe_page_sends_the_bearer_key_and_parses_the_answer():
 
 
 def test_missing_key_is_reported_before_any_request():
-    config = Settings(_env_file=None)  # no key
+    config = Settings(_env_file=None, llm_provider="openai")  # no key
     with httpx.Client(transport=httpx.MockTransport(lambda r: pytest.fail("no request expected"))) as client:
         with pytest.raises(TranscriptionError):
             transcribe_page(b"x", config, client)
@@ -166,3 +168,50 @@ def test_parse_pages_accepts_ranges_and_lists():
     assert parse_pages(None) is None
     with pytest.raises(ValueError):
         parse_pages("a-b")
+
+
+class FakeGemini:
+    """Stands in for the Google client: records the request, answers what the test set."""
+
+    def __init__(self, response):
+        self.response = response
+        self.request = None
+        self.models = self
+
+    def generate_content(self, **request):
+        self.request = request
+        return self.response
+
+
+def gemini_answer(text, finish=types.FinishReason.STOP):
+    return SimpleNamespace(
+        text=text,
+        candidates=[SimpleNamespace(finish_reason=finish)],
+        usage_metadata=SimpleNamespace(prompt_token_count=120, candidates_token_count=45),
+    )
+
+
+def test_gemini_is_sent_the_image_and_answers_the_same_shape(monkeypatch):
+    fake = FakeGemini(gemini_answer('{"page_number": 9, "markdown": "Text", "warnings": [], "figures": []}'))
+    monkeypatch.setattr("tutor.transcribe.gemini_client", lambda _settings: fake)
+
+    result = transcribe_page(b"jpeg", Settings(_env_file=None), None)
+
+    assert (result.page_number, result.markdown) == (9, "Text")
+    assert (result.input_tokens, result.output_tokens) == (120, 45)
+    assert result.model == "gemini-3.8-flash"
+    assert fake.request["config"].response_mime_type == "application/json"
+    assert fake.request["contents"][0].inline_data.data == b"jpeg"
+
+
+def test_a_gemini_answer_cut_short_is_an_error_not_half_a_page(monkeypatch):
+    fake = FakeGemini(gemini_answer('{"markdown": "Te', types.FinishReason.MAX_TOKENS))
+    monkeypatch.setattr("tutor.transcribe.gemini_client", lambda _settings: fake)
+
+    with pytest.raises(TranscriptionError, match="tăiat"):
+        transcribe_page(b"jpeg", Settings(_env_file=None), None)
+
+
+def test_missing_gemini_settings_are_reported_as_a_clear_error():
+    with pytest.raises(TranscriptionError, match="GEMINI_PROJECT"):
+        transcribe_page(b"jpeg", Settings(_env_file=None), None)

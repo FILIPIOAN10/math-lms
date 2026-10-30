@@ -98,3 +98,13 @@ def test_chunks_from_photos_point_at_their_photo_and_say_so(conn):
     # deleting the photo takes its chunks with it
     conn.execute("DELETE FROM en_chapter_photos WHERE id = %s", (photo_id,))
     assert conn.execute("SELECT count(*) FROM tutor_chunks").fetchone()[0] == 0
+
+
+def test_chunks_embedded_by_another_model_are_embedded_again(conn):
+    documents = [doc("AIS2P2", "Scăderea: $a-b=d$.")]
+    store_chunks(conn, documents, EMBEDDINGS, "model-vechi", "book.pdf")
+
+    report = store_chunks(conn, documents, EMBEDDINGS, "model-nou", "book.pdf")
+
+    assert (report.inserted, report.removed, report.unchanged) == (1, 1, 0)
+    assert [row[5] for row in rows(conn)] == ["model-nou"]
