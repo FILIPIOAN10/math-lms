@@ -102,6 +102,18 @@
 			<artifactId>bcprov-jdk18on</artifactId>
 			<version>1.86</version>
 		</dependency>
+		<!-- Security override (Trivy, 2026-10-30): minio 9.0.3 brings guava 33.6.0 (CVE-2026-102554) and snappy-java
+		     1.1.10.8 (CVE-2026-93451, CVE-2026-108106), all HIGH. Drop once minio ships newer ones. -->
+		<dependency>
+			<groupId>com.google.guava</groupId>
+			<artifactId>guava</artifactId>
+			<version>33.7.2-jre</version>
+		</dependency>
+		<dependency>
+			<groupId>org.xerial.snappy</groupId>
+			<artifactId>snappy-java</artifactId>
+			<version>1.1.10.9</version>
+		</dependency>
 
 		<!-- Health checks for Docker / CI + metrics (Phase 6.3) -->
 		<dependency>
