@@ -97,6 +97,17 @@ class QuizAdminServiceTest {
     }
 
     @Test
+    void theDetailSaysWhetherStudentsTookTheTest() {
+        when(quizRepository.findById(1L)).thenReturn(Optional.of(quiz));
+
+        when(quizRepository.countAttempts(1L)).thenReturn(0L);
+        assertThat(service.getQuizDetail(1L).taken()).isFalse();
+
+        when(quizRepository.countAttempts(1L)).thenReturn(1L);
+        assertThat(service.getQuizDetail(1L).taken()).isTrue();
+    }
+
+    @Test
     void activityCountsWhoIsWritingAndTheHomeworkClasses() {
         when(quizRepository.findById(1L)).thenReturn(Optional.of(quiz));
         when(quizRepository.countStudentsWriting(1L)).thenReturn(3L);

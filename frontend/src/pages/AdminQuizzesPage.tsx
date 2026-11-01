@@ -982,7 +982,7 @@ export function AdminQuizzesPage() {
   }
 
   /** Variant B of a test, or the editable version of one students already took (its own items are frozen). */
-  async function duplicate(q: QuizSummary) {
+  async function duplicate(q: { id: number }) {
     setError(null)
     try {
       const copy = await copyQuiz(q.id)
@@ -1063,9 +1063,9 @@ export function AdminQuizzesPage() {
                         Publică
                       </Button>
                     )}
-                    <Button size="sm" variant="outline" onClick={() => setImporting(true)}>Importă din text</Button>
+                    <Button size="sm" variant="outline" onClick={() => setImporting(true)} disabled={quiz.taken}>Importă din text</Button>
                     {aiTools.length > 0 && <RowMenu label="Instrumente AI" text="Instrumente AI" items={aiTools} />}
-                    <Button size="sm" onClick={() => setItemDialog({ item: null })}>Adaugă întrebare</Button>
+                    <Button size="sm" onClick={() => setItemDialog({ item: null })} disabled={quiz.taken}>Adaugă întrebare</Button>
                     {/* It interrupts students: never the first button, and it asks before doing anything. */}
                     {quiz.status === 'PUBLISHED' && (
                       <RowMenu
@@ -1078,6 +1078,16 @@ export function AdminQuizzesPage() {
               />
 
               {notice && <PublishedNotice notice={notice} onClose={() => setNotice(null)} />}
+              {quiz.taken && (
+                <div data-testid="quiz-taken"
+                     className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+                  <p className="min-w-0 flex-1 basis-56">
+                    Elevii au dat deja acest test, așa că nu mai poți adăuga sau șterge întrebări și nici schimba punctajele.
+                    Poți corecta doar textele, cu „Editează”.
+                  </p>
+                  <Button size="sm" onClick={() => void duplicate(quiz)}>Copiază și editează</Button>
+                </div>
+              )}
               {unanswered.length > 0 && (
                 <div data-testid="unanswered-grile"
                      className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
@@ -1125,10 +1135,12 @@ export function AdminQuizzesPage() {
                             <Button size="xs" variant="outline" onClick={() => setItemDialog({ item })} aria-label={`Editează întrebarea ${label}`}>
                               Editează
                             </Button>
-                            <RowMenu
-                              label={`Mai multe acțiuni pentru întrebarea ${label}`}
-                              items={[{ label: 'Șterge întrebarea', destructive: true, onClick: () => void removeItem(item, label) }]}
-                            />
+                            {!quiz.taken && (
+                              <RowMenu
+                                label={`Mai multe acțiuni pentru întrebarea ${label}`}
+                                items={[{ label: 'Șterge întrebarea', destructive: true, onClick: () => void removeItem(item, label) }]}
+                              />
+                            )}
                           </div>
                         </div>
                         <MathContent className="text-sm">{item.statement}</MathContent>

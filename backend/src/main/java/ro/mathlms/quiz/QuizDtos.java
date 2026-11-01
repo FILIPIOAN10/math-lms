@@ -90,11 +90,12 @@ public final class QuizDtos {
             String description,
             QuizStatus status,
             List<ItemDto> items,
-            Long chapterId // the default its items inherit
+            Long chapterId, // the default its items inherit
+            boolean taken // students have attempts: its questions and points are frozen, only the texts can change
     ) {
-        public static QuizDetailDto of(Quiz quiz, List<ItemDto> items) {
+        public static QuizDetailDto of(Quiz quiz, List<ItemDto> items, boolean taken) {
             return new QuizDetailDto(quiz.getId(), quiz.getTitle(), quiz.getDescription(),
-                    quiz.getStatus(), items, quiz.getChapter() == null ? null : quiz.getChapter().getId());
+                    quiz.getStatus(), items, quiz.getChapter() == null ? null : quiz.getChapter().getId(), taken);
         }
     }
 }

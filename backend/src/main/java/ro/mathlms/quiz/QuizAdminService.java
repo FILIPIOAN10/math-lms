@@ -103,7 +103,7 @@ public class QuizAdminService {
                         hintRepository.findByItemIdOrderByPosition(item.getId()),
                         partRepository.findByItemIdOrderByPosition(item.getId()), links))
                 .toList();
-        return QuizDetailDto.of(quiz, items);
+        return QuizDetailDto.of(quiz, items, quizRepository.countAttempts(id) > 0);
     }
 
     /** {@code schoolClassId} {@code null} = a quiz for every student. */

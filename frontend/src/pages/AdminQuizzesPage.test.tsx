@@ -142,6 +142,38 @@ describe('AdminQuizzesPage', () => {
     })
   })
 
+  describe('un test dat deja de elevi', () => {
+    it('says so up front and locks what the server would refuse', async () => {
+      api.getQuiz.mockResolvedValue(detail({ taken: true }))
+      renderAt('/admin/quizzes/7')
+
+      expect(await screen.findByTestId('quiz-taken')).toHaveTextContent('Elevii au dat deja acest test')
+      expect(screen.getByRole('button', { name: 'Adaugă întrebare' })).toBeDisabled()
+      expect(screen.getByRole('button', { name: 'Importă din text' })).toBeDisabled()
+      expect(screen.queryByRole('button', { name: 'Mai multe acțiuni pentru întrebarea 1' })).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Editează întrebarea 1' })).toBeEnabled() // the texts can still be corrected
+    })
+
+    it('leaves a test nobody took open for editing', async () => {
+      renderAt('/admin/quizzes/7')
+      await screen.findByText('Cât face 2+2?')
+
+      expect(screen.queryByTestId('quiz-taken')).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Adaugă întrebare' })).toBeEnabled()
+    })
+
+    it('opens a copy to edit from the banner', async () => {
+      api.getQuiz.mockImplementation((id: number) => Promise.resolve(detail({ id, taken: id === 7 })))
+      api.copyQuiz.mockResolvedValue(summary(9, 'Simulare EN (copie)', 'DRAFT'))
+      renderAt('/admin/quizzes/7')
+
+      await userEvent.click(within(await screen.findByTestId('quiz-taken')).getByRole('button', { name: 'Copiază și editează' }))
+
+      await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/admin/quizzes/9'))
+      expect(api.copyQuiz).toHaveBeenCalledWith(7)
+    })
+  })
+
   describe('Depublică', () => {
     const askFromList = async () => {
       renderAt('/admin/quizzes')

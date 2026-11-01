@@ -677,6 +677,8 @@ export interface QuizDetail {
   items: QuizItemDto[]
   /** The chapter its items inherit. */
   chapterId: number | null
+  /** Students have attempts: its questions and points are frozen, only the texts can change. */
+  taken: boolean
 }
 
 export interface OptionInput {
