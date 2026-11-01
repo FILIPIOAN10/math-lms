@@ -19,4 +19,12 @@ class StudentQuizzesPage extends Page {
                 "//*[@data-testid='quiz-card'][contains(normalize-space(.), '" + title + "')]"
                         + "//*[@data-testid='quiz-open']"))).click();
     }
+
+    /** Opens the result on this quiz's card. */
+    void openResult(String title) {
+        driver.get(E2eBase.BASE_URL + "/quizzes");
+        wait.until(ExpectedConditions.elementToBeClickable(By.xpath(
+                "//*[@data-testid='quiz-card'][contains(normalize-space(.), '" + title + "')]"
+                        + "//a[normalize-space(.)='Vezi rezultatul']"))).click();
+    }
 }

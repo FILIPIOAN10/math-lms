@@ -44,11 +44,12 @@ class QuizFlowE2eTest extends E2eBase {
         grading.givePoints(8);
         grading.finalizeGrade();
 
-        // The teacher's statistics page now counts that one graded attempt: average 13.0 / 15 p (87 %)
+        // The teacher's statistics page now counts that one graded attempt: grade 8,80, from 13 / 15 p (87 %)
         open("/admin/quizzes/" + quizId + "/stats");
         wait.until(ExpectedConditions.textToBePresentInElementLocated(
                 By.cssSelector("[data-testid='stats-graded']"), "1"));
-        assertThat(byTestId("stats-average").getText()).contains("13.0").contains("15").contains("87%");
+        assertThat(byTestId("stats-average").getText()).contains("8,80");
+        assertThat(byTestId("stats-average-points").getText()).contains("13 / 15 p").contains("87%");
 
         // Student sees the final score
         logout();

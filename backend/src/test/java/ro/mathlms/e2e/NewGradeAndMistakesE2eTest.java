@@ -35,13 +35,14 @@ class NewGradeAndMistakesE2eTest extends E2eBase {
         student.login(STUDENT, PASSWORD);
         long attemptId = student.takeAndSubmit(quizId, "8", "9");
 
-        // S3: on the home page, and as a number next to "Testele mele"
+        // S3: on the home page, and as a number next to "Testele mele". The notice is one row however many grades are
+        // new, and the other E2E tests leave theirs on this student, so the result opens from its card on the list.
         login(STUDENT, PASSWORD);
         WebElement notice = wait.until(ExpectedConditions.visibilityOfElementLocated(By.xpath(
                 "//*[@data-testid='home-new-result'][contains(normalize-space(.), '" + quizTitle + "')]")));
-        assertThat(notice.getText()).contains("Nou").contains("5 / 10 p");
+        assertThat(notice.getText()).contains("Nou");
         wait.until(ExpectedConditions.textMatches(By.cssSelector("nav a[href='/quizzes']"), java.util.regex.Pattern.compile("\\d")));
-        notice.findElement(By.linkText("Vezi rezultatul")).click();
+        new StudentQuizzesPage(driver, wait).openResult(quizTitle);
 
         // S4 on the result: question 1 to go back to, the wrong grilă comes back in the review, a practice of just it
         WebElement card = byTestId("practice-mistakes");
