@@ -123,7 +123,11 @@ describe('AdminQuizStatsPage', () => {
     api.getQuizStats.mockResolvedValue(stats({ items: [{
       itemId: 3, position: 0, type: 'NUMERIC', statement: 'Cât face 1/2 + 1/4?', points: 5, correctRate: 0.75, averagePoints: 3.8,
       options: [], suspect: null, numericAnswer: '3/4',
-      numbers: [{ value: '3/4', chosen: 3, correct: true }, { value: '1', chosen: 1, correct: false }],
+      numbers: [
+        { value: '3/4', chosen: 3, correct: true },
+        { value: '1', chosen: 1, correct: false },
+        { value: 'nu știu', chosen: 1, correct: false },
+      ],
     }] }))
     renderPage()
 
@@ -132,7 +136,8 @@ describe('AdminQuizStatsPage', () => {
     expect(screen.getAllByTestId('stats-number')[0]).toHaveTextContent('3 elevi')
     expect(screen.getByText(/Răspuns numeric/)).toBeInTheDocument()
 
-    await userEvent.click(screen.getByRole('button', { name: 'Asta e varianta corectă' }))
+    // Only one button: "nu știu" is not a number that could be the answer.
+    await userEvent.click(screen.getByRole('button', { name: 'Asta e răspunsul corect' }))
     await userEvent.click(screen.getByRole('button', { name: 'Schimbă și recalculează' }))
 
     expect(await screen.findByTestId('stats-notice')).toHaveTextContent('Răspunsul corect e acum 1. S-au schimbat 1 notă.')

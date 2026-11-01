@@ -869,7 +869,7 @@ trimite doar textul întrebării și al variantelor, niciodată ceva despre elev
 | 2 | Sub 6 elevi notați | Nicio alarmă: prea puține răspunsuri |
 | 3 | La varianta care chiar e corectă: **Asta e varianta corectă** → **Schimbă și recalculează** | „Răspunsul corect e acum b). S-au schimbat n note.”; media și procentele se schimbă |
 | 4 | Ca elev cu nota schimbată | Pe Acasă, nota apare iar ca „Nou”, cu punctajul nou |
-| 5 | **Jurnal**, filtrul Corectură | „Răspuns corect schimbat · … · răspuns corect a) → b), n note schimbate” |
+| 5 | **Jurnal**, filtrul Teste | „Răspuns corect schimbat · … · răspuns corect a) → b), n note schimbate” |
 
 ### 35. Răspuns numeric (V48) — ca profesor, apoi ca elev
 

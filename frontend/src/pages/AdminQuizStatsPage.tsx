@@ -10,7 +10,7 @@ import {
   correctAnswerKey, correctAnswerNumber, getAiImportSettings, getQuizStats, type NumberStat, type OptionStat, type QuizItemStat,
   type QuizStatsDto,
 } from '@/lib/api'
-import { itemTypeLabel } from '@/lib/numericAnswer'
+import { isNumber, itemTypeLabel } from '@/lib/numericAnswer'
 import { errorMessage } from '@/lib/errors'
 import { PageHeader } from '@/components/PageHeader'
 import { LoadingCards } from '@/components/LoadingCards'
@@ -102,9 +102,9 @@ function NumberCounts({ item, graded, onMakeCorrect }: {
               <span className="shrink-0 tabular-nums text-muted-foreground">{roCount(number.chosen, 'elev', 'elevi')}</span>
             </div>
             <Bar fraction={graded === 0 ? 0 : number.chosen / graded} fill={GRADE_FILL[number.correct ? 'high' : 'low']} />
-            {!number.correct && (
+            {!number.correct && isNumber(number.value) && (
               <Button type="button" size="xs" variant="ghost" onClick={() => onMakeCorrect(number)}>
-                Asta e varianta corectă
+                Asta e răspunsul corect
               </Button>
             )}
           </li>

@@ -45,14 +45,14 @@ public enum AuditAction {
     QUESTION_IMAGE_REMOVED(AuditCategory.QUIZ),
     /** A draft quiz made from photographed textbook pages (Faza 3); the quiz's own QUIZ_CREATED row comes with it. */
     QUIZ_FROM_PHOTOS(AuditCategory.QUIZ),
+    /** A question's right answer changed after the fact, every paper marked again. */
+    ANSWER_KEY_CORRECTED(AuditCategory.QUIZ),
 
     ANSWER_GRADED(AuditCategory.GRADING),
     PAPER_COMMENTED(AuditCategory.GRADING),
     PAPER_GRADED(AuditCategory.GRADING),
     /** A final grade taken back to be corrected; finalising again writes a new PAPER_GRADED row. */
     PAPER_REOPENED(AuditCategory.GRADING),
-    /** A grilă's right answer changed after the fact, every paper marked again. */
-    ANSWER_KEY_CORRECTED(AuditCategory.GRADING),
 
     HOMEWORK_ASSIGNED(AuditCategory.HOMEWORK),
     HOMEWORK_RESCHEDULED(AuditCategory.HOMEWORK),

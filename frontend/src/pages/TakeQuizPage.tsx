@@ -657,7 +657,7 @@ export function TakeQuizPage() {
       {practice && (
         <div
           data-testid="quiz-practice-banner"
-          className="fixed inset-x-0 top-0 z-10 border-b bg-violet-500/15 p-2 text-center text-sm font-semibold text-violet-800 dark:text-violet-200"
+          className="fixed inset-x-0 top-0 z-10 border-b bg-violet-100 p-2 text-center text-sm font-semibold text-violet-800 dark:bg-violet-950 dark:text-violet-200"
         >
           Exersare — răspunsurile se verifică pe loc, fără notă
         </div>
