@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useAuth } from '@/context/AuthContext'
 import { ApiError } from '@/lib/api'
+import { readLoginMethod, saveLoginMethod } from '@/lib/loginMethod'
 import { usePageTitle } from '@/lib/usePageTitle'
 
 /** Turns a failed login into a message that is safe to show the user. */
@@ -38,6 +39,7 @@ function loginErrorMessage(error: unknown): string {
 
 function GoogleTab() {
   function signInWithGoogle() {
+    saveLoginMethod('google')
     window.location.href = '/oauth2/authorization/google'
   }
 
@@ -131,6 +133,7 @@ function PasswordTab({ onNeedCode }: { onNeedCode: () => void }) {
     setSubmitting(true)
     try {
       const user = await login(email, password)
+      saveLoginMethod('password')
       // On success the AuthProvider sets the user and the router redirects; null = the authenticator code is next.
       if (user === null) onNeedCode()
     } catch (err) {
@@ -208,18 +211,24 @@ export function LoginPage() {
         </CardHeader>
         <CardContent>
           {needCode ? <TwoFactorStep onRestart={restart} /> : (
-            <Tabs defaultValue="google">
-              <TabsList>
-                <TabsTrigger value="google">Google</TabsTrigger>
-                <TabsTrigger value="password">Email și parolă</TabsTrigger>
-              </TabsList>
-              <TabsContent value="google">
-                <GoogleTab />
-              </TabsContent>
-              <TabsContent value="password">
-                <PasswordTab onNeedCode={() => setNeedCode(true)} />
-              </TabsContent>
-            </Tabs>
+            <>
+              <Tabs defaultValue={readLoginMethod()}>
+                <TabsList>
+                  <TabsTrigger value="google">Google</TabsTrigger>
+                  <TabsTrigger value="password">Email și parolă</TabsTrigger>
+                </TabsList>
+                <TabsContent value="google">
+                  <GoogleTab />
+                </TabsContent>
+                <TabsContent value="password">
+                  <PasswordTab onNeedCode={() => setNeedCode(true)} />
+                </TabsContent>
+              </Tabs>
+              {/* Accounts come from invitations: without this line a newcomer has nowhere to go from here. */}
+              <p data-testid="no-account" className="mt-4 text-center text-xs text-muted-foreground">
+                Nu ai cont? Cere-i profesorului linkul de invitație.
+              </p>
+            </>
           )}
         </CardContent>
       </Card>

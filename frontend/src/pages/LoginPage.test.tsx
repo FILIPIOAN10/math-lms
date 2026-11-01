@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -17,9 +17,82 @@ async function submitWithPassword() {
   await userEvent.click(screen.getByRole('button', { name: 'Conectează-te' }))
 }
 
+describe('LoginPage: how you signed in last', () => {
+  beforeEach(() => {
+    login.mockReset()
+    localStorage.clear()
+  })
+
+  const renderLogin = () => render(<MemoryRouter><LoginPage /></MemoryRouter>)
+
+  it('opens on Google the first time', () => {
+    renderLogin()
+
+    expect(screen.getByRole('tab', { name: 'Google' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.queryByLabelText('Parolă')).not.toBeInTheDocument()
+  })
+
+  it('opens with the password fields on screen after a password sign-in', async () => {
+    login.mockResolvedValue({ email: 'ana@scoala.ro' })
+    const { unmount } = renderLogin()
+    await userEvent.click(screen.getByRole('tab', { name: 'Email și parolă' }))
+    await userEvent.type(screen.getByLabelText('Email'), 'ana@scoala.ro')
+    await userEvent.type(screen.getByLabelText('Parolă'), 'parola-buna')
+    await userEvent.click(screen.getByRole('button', { name: 'Conectează-te' }))
+    await waitFor(() => expect(login).toHaveBeenCalled())
+    await waitFor(() => expect(localStorage.getItem('mathlms-login-method')).toBe('password'))
+    unmount()
+
+    renderLogin()
+
+    expect(screen.getByLabelText('Parolă')).toBeInTheDocument()
+    expect(screen.getByLabelText('Email')).toBeInTheDocument()
+  })
+
+  it('remembers a password sign-in that goes on to the authenticator code', async () => {
+    login.mockResolvedValue(null)
+    await submitWithPassword()
+
+    expect(await screen.findByTestId('two-factor-step')).toBeInTheDocument()
+    expect(localStorage.getItem('mathlms-login-method')).toBe('password')
+  })
+
+  it('does not remember a password that was refused', async () => {
+    login.mockRejectedValue(new ApiError(401, ''))
+    await submitWithPassword()
+
+    await screen.findByText('Email sau parolă greșite.')
+    expect(localStorage.getItem('mathlms-login-method')).toBeNull()
+  })
+
+  it('still opens when the browser blocks storage', () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('blocked')
+    })
+    renderLogin()
+
+    expect(screen.getByRole('tab', { name: 'Google' })).toBeInTheDocument()
+    vi.restoreAllMocks()
+  })
+
+  it('tells someone without an account where to get one', () => {
+    renderLogin()
+    expect(screen.getByTestId('no-account')).toHaveTextContent('Nu ai cont? Cere-i profesorului linkul de invitație.')
+  })
+
+  it('leaves that line out of the authenticator step', async () => {
+    login.mockResolvedValue(null)
+    await submitWithPassword()
+
+    await screen.findByTestId('two-factor-step')
+    expect(screen.queryByTestId('no-account')).not.toBeInTheDocument()
+  })
+})
+
 describe('LoginPage error messages', () => {
   beforeEach(() => {
     login.mockReset()
+    localStorage.clear()
   })
 
   it('says the credentials are wrong on 401', async () => {
