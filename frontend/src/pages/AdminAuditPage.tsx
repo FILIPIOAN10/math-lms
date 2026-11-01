@@ -18,9 +18,7 @@ import { AUDIT_CATEGORIES, auditActionLabel, auditActor, auditSubject, linksToSt
 import { errorMessage } from '@/lib/errors'
 import { formatDate } from '@/lib/format'
 import { LoadingCards } from '@/components/LoadingCards'
-
-const selectClass =
-  'h-9 rounded-lg border border-border bg-background px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50'
+import { selectClass } from '@/lib/formClasses'
 
 const PAGE_SIZE = 50
 

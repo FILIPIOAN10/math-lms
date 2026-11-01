@@ -30,9 +30,7 @@ import { FILTER_FROM, matchesQuery } from '@/lib/search'
 import { useConfirm } from '@/components/useConfirm'
 import { TestsTabs } from '@/components/TestsTabs'
 import { LoadingCards } from '@/components/LoadingCards'
-
-const selectClass =
-  'h-9 rounded-lg border border-border bg-background px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50'
+import { selectClass } from '@/lib/formClasses'
 
 const STATE_LABEL: Record<AssignmentState, string> = {
   NOT_STARTED: 'Neînceput',

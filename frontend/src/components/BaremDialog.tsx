@@ -14,6 +14,7 @@ import {
 } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
 import { shrinkImage } from '@/lib/image'
+import { selectClass } from '@/lib/formClasses'
 
 /** How often the reading is asked for while the AI works (it may think for a minute or two). */
 const POLL_MS = 3000
@@ -213,7 +214,7 @@ export function BaremDialog({ quizId, items, onClose, onApplied, pollMs = POLL_M
                           value={d.letter ?? ''}
                           disabled={proposal.taken}
                           onChange={(e) => setDraft(p.itemId, { letter: e.target.value })}
-                          className="h-8 rounded-lg border border-border bg-background px-2 text-sm max-sm:h-11"
+                          className={selectClass}
                         >
                           {options.map((o, i) => (
                             <option key={o.id} value={letterOf(i)}>{letterOf(i)}) {o.text}</option>

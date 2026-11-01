@@ -36,9 +36,7 @@ import { errorMessage } from '@/lib/errors'
 import { formatDate, optionLetter, roCount } from '@/lib/format'
 import { shrinkImage } from '@/lib/image'
 import { LoadingCards } from '@/components/LoadingCards'
-
-const selectClass =
-  'h-9 rounded-lg border border-border bg-background px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50'
+import { selectClass } from '@/lib/formClasses'
 
 /** How often the page asks whether the pages have been read. */
 const POLL_MS = 2000

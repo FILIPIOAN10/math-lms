@@ -44,14 +44,12 @@ import { gradedItem, hasParts, partsPayload } from '@/lib/grading'
 import { useCommentSnippets, type SnippetBank } from '@/lib/useCommentSnippets'
 import { cn } from '@/lib/utils'
 import { LoadingCards } from '@/components/LoadingCards'
+import { selectClass } from '@/lib/formClasses'
 
 /** Same limit as the server (V20 columns). */
 const MAX_COMMENT = 2000
 /** How often the AI's proposals are asked for while some are still being made. */
 const AI_POLL_MS = 5000
-
-const selectClass =
-  'h-8 rounded-lg border border-border bg-background px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50'
 
 function formatDate(iso: string | null): string {
   return iso ? new Date(iso).toLocaleString('ro-RO', { dateStyle: 'medium', timeStyle: 'short' }) : '—'

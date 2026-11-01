@@ -46,6 +46,16 @@ describe.each([':root', '.dark'] as const)('%s secondary text', (selector) => {
   })
 })
 
+describe('the last minute of a test timer', () => {
+  it('reads at 4.5:1 or more in white on the light theme\'s red', () => {
+    expect(contrast('oklch(1 0 0)', tokens(':root').destructive)).toBeGreaterThanOrEqual(4.5)
+  })
+
+  it('reads at 4.5:1 or more in near-black on the dark theme\'s lighter red', () => {
+    expect(contrast('oklch(0.145 0 0)', tokens('.dark').destructive)).toBeGreaterThanOrEqual(4.5)
+  })
+})
+
 it('measures a known pair right (black on white is 21:1)', () => {
   expect(contrast('oklch(0 0 0)', 'oklch(1 0 0)')).toBeCloseTo(21, 1)
 })

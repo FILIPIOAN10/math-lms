@@ -1,9 +1,7 @@
 import { type ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-
-const SELECT_CLASS =
-  'h-9 rounded-lg border border-border bg-background px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50'
+import { selectClass } from '@/lib/formClasses'
 
 /** A dropdown filter: the first option (value "") is "everything". `label` is what a screen reader calls it. */
 export function FilterSelect({ label, value, onChange, options }: {
@@ -13,7 +11,7 @@ export function FilterSelect({ label, value, onChange, options }: {
   options: { value: string; label: string }[]
 }) {
   return (
-    <select aria-label={label} className={SELECT_CLASS} value={value} onChange={(e) => onChange(e.target.value)}>
+    <select aria-label={label} className={selectClass} value={value} onChange={(e) => onChange(e.target.value)}>
       {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
     </select>
   )

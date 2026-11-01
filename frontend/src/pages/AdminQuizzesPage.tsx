@@ -68,6 +68,7 @@ import { FILTER_FROM, matchesQuery } from '@/lib/search'
 import { shrinkImage } from '@/lib/image'
 import { cn } from '@/lib/utils'
 import { LoadingCards } from '@/components/LoadingCards'
+import { selectClass } from '@/lib/formClasses'
 
 /** A requirement a), b)... while it is being edited (points as typed). */
 interface PartDraft {
@@ -83,9 +84,6 @@ const MAX_PARTS = 6
 
 /** What the question dialog does with the picture under the statement. */
 export type ImageChange = 'keep' | 'remove' | File
-
-const selectClass =
-  'h-9 rounded-lg border border-border bg-background px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50'
 
 /** Whether two questions sit under the same heading: one moves only inside its own section. */
 const sameSection = (a: QuizItemDto | undefined, b: QuizItemDto | undefined) =>

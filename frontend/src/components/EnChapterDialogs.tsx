@@ -9,9 +9,7 @@ import { MathContent } from '@/components/MathContent'
 import { type EnArea, type EnChapterInput, type EnChapterSummary, type EnExampleInput } from '@/lib/api'
 import { EN_AREAS, parentChoices } from '@/lib/enChapters'
 import { errorMessage } from '@/lib/errors'
-
-const selectClass =
-  'h-9 rounded-lg border border-border bg-background px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50'
+import { selectClass } from '@/lib/formClasses'
 
 /**
  * Create or edit an EN chapter: its code (how questions point at it), title, part and the optional text on its page.

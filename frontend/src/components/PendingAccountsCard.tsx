@@ -4,11 +4,9 @@ import { ErrorState } from '@/components/ErrorState'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { approveUser, listPendingUsers, rejectUser, type PendingUser, type Role } from '@/lib/api'
 import { roleLabel } from '@/lib/roles'
+import { selectClass } from '@/lib/formClasses'
 
 const ROLE_OPTIONS: Role[] = ['STUDENT', 'PARENT', 'TEACHER', 'ADMIN']
-
-const selectClass =
-  'h-8 rounded-lg border border-border bg-background px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50'
 
 /**
  * Accounts that confirmed their email and wait for the teacher (they came through a general link or Google; class and

@@ -21,6 +21,7 @@ import {
   type StudentListRow,
 } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
+import { selectClass } from '@/lib/formClasses'
 import { formatDate, initials } from '@/lib/format'
 import { FILTER_FROM, matchesQuery } from '@/lib/search'
 import { formatGrade, GRADE_TEXT, gradeBand, romanianGrade } from '@/lib/grades'
@@ -256,7 +257,7 @@ export function AdminStudentsPage() {
                               {isAdmin && (
                                 <>
                                   <select
-                                    className="h-8 rounded-lg border border-border bg-background px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50"
+                                    className={selectClass}
                                     value={choice}
                                     disabled={busy || parents.length === 0}
                                     onChange={(e) =>

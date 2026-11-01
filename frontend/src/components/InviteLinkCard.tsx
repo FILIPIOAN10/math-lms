@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label'
 import { HelpTip } from '@/components/HelpTip'
 import { createInvite as createInviteRequest, type Invite, type Role } from '@/lib/api'
+import { selectClass } from '@/lib/formClasses'
 
 // Admin invites are deliberately not offered: a link that mints a teacher account is too
 // powerful to be forwarded around. Teachers come in through ADMIN_EMAILS instead.
@@ -60,7 +61,7 @@ export function InviteLinkCard({ createInvite = createInviteRequest }: Props) {
             <select
               id="invite-role"
               data-testid="invite-role-select"
-              className="h-9 rounded-lg border border-border bg-background px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50"
+              className={selectClass}
               value={role}
               disabled={generating}
               onChange={(e) => setRole(e.target.value as Role)}

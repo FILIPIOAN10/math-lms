@@ -51,12 +51,9 @@ import { roCount } from '@/lib/format'
 import { formatGrade, GRADE_TEXT, gradeBand } from '@/lib/grades'
 import { cn } from '@/lib/utils'
 import { LoadingCards } from '@/components/LoadingCards'
+import { selectClass } from '@/lib/formClasses'
 
 const DIFFICULTIES: Difficulty[] = ['EASY', 'MEDIUM', 'HARD']
-const selectClass =
-  'h-9 rounded-lg border border-border bg-background px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50'
-
-
 /** Create/edit dialog for a class, book or chapter (name/title + optional description). */
 function TitleDescriptionDialog({
   open,
@@ -744,7 +741,7 @@ function TeacherDialog({ schoolClass, teachers, onClose, onSave }: {
           <select
             id="class-teacher"
             data-testid="class-teacher-select"
-            className="h-9 rounded-md border border-border bg-background px-2 text-sm"
+            className={selectClass}
             value={teacherId}
             onChange={(e) => setTeacherId(e.target.value)}
           >

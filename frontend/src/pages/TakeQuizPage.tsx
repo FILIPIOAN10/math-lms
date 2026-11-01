@@ -54,7 +54,7 @@ function timerTone(left: number): TimerTone {
 const TIMER_CLASSES: Record<TimerTone, string> = {
   normal: 'bg-background',
   warning: 'bg-amber-100 text-amber-900 dark:bg-amber-500/20 dark:text-amber-100',
-  danger: 'bg-destructive text-destructive-foreground',
+  danger: 'bg-destructive text-white dark:text-neutral-950',
 }
 
 /**

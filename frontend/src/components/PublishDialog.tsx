@@ -11,9 +11,7 @@ import {
 } from '@/lib/api'
 import { isoToLocalInput, localInputToIso } from '@/lib/assignments'
 import { errorMessage } from '@/lib/errors'
-
-const selectClass =
-  'h-9 rounded-lg border border-border bg-background px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50'
+import { selectClass } from '@/lib/formClasses'
 
 /** A week from now at 20:00 — the usual "for next lesson" deadline, easy to change. */
 function defaultDue(nowMs: number): string {

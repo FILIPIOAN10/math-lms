@@ -1,8 +1,6 @@
 import { type EnChapterSummary } from '@/lib/api'
 import { EN_AREAS } from '@/lib/enChapters'
-
-const selectClass =
-  'h-9 w-full min-w-0 rounded-lg border border-border bg-background px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50'
+import { selectClass } from '@/lib/formClasses'
 
 /**
  * Where a question (or a requirement) sends a student who loses points on it: "Automat" follows its place on the EN
