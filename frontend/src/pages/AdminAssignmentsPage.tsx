@@ -25,6 +25,7 @@ import { dueCountdown, isoToLocalInput, localInputToIso } from '@/lib/assignment
 import { errorMessage } from '@/lib/errors'
 import { formatDate } from '@/lib/format'
 import { PageHeader } from '@/components/PageHeader'
+import { RowMenu } from '@/components/RowMenu'
 import { FilterBar, FilterSelect, NoMatches } from '@/components/FilterBar'
 import { FILTER_FROM, matchesQuery } from '@/lib/search'
 import { useConfirm } from '@/components/useConfirm'
@@ -294,12 +295,17 @@ export function AdminAssignmentsPage() {
                     {a.notStarted > 0 && <> · neîncepute {a.notStarted}</>}
                   </p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex items-center gap-2">
                   <Button size="sm" variant="outline" onClick={() => toggleStatus(a)}>
-                    {openId === a.id ? 'Ascunde' : 'Stare'}
+                    {openId === a.id ? 'Ascunde' : 'Cine a predat'}
                   </Button>
-                  <Button size="sm" variant="outline" onClick={() => setMoving(a)}>Termen</Button>
-                  <Button size="sm" variant="outline" onClick={() => remove(a)} className="text-destructive">Șterge</Button>
+                  <RowMenu
+                    label={`Mai multe acțiuni pentru ${a.quizTitle}`}
+                    items={[
+                      { label: 'Schimbă termenul', onClick: () => setMoving(a) },
+                      { label: 'Șterge tema', destructive: true, onClick: () => void remove(a) },
+                    ]}
+                  />
                 </div>
               </div>
 

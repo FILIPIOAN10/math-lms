@@ -63,6 +63,18 @@ describe('AdminAssignmentsPage', () => {
     expect(screen.getAllByTestId('assignment-row')).toHaveLength(1)
   })
 
+  it('keeps changing and deleting a homework behind the ⋯ menu, deleting last', async () => {
+    renderPage('/admin/assignments')
+    const row = (await screen.findAllByTestId('assignment-row'))[0]
+
+    expect(within(row).queryByRole('button', { name: 'Șterge' })).not.toBeInTheDocument()
+    expect(within(row).queryByRole('button', { name: 'Termen' })).not.toBeInTheDocument()
+    await userEvent.click(within(row).getByRole('button', { name: /^Mai multe acțiuni pentru / }))
+
+    const items = (await screen.findAllByRole('menuitem')).map((i) => i.textContent)
+    expect(items).toEqual(['Schimbă termenul', 'Șterge tema'])
+  })
+
   it('opens who handed in for the homework named in ?open= (the link from Acasă)', async () => {
     renderPage('/admin/assignments?open=2')
 
@@ -72,6 +84,7 @@ describe('AdminAssignmentsPage', () => {
     const rows = screen.getAllByTestId('assignment-row')
     expect(within(rows[1]).getByTestId('assignment-status')).toBe(table)
     expect(within(rows[1]).getByRole('button', { name: 'Ascunde' })).toBeInTheDocument()
+    expect(within(rows[0]).getByRole('button', { name: 'Cine a predat' })).toBeInTheDocument()
   })
 
   it('opens nothing without ?open=', async () => {

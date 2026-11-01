@@ -489,10 +489,13 @@ export function AdminContentPage() {
                   <CardHeader>
                     <div className="flex items-center justify-between gap-2">
                       <CardTitle className="text-base">Exercițiul {i + 1}{ex.difficulty ? ` · ${ex.difficulty}` : ''}</CardTitle>
-                      <div className="flex gap-2">
-                        <Button size="xs" variant="outline" onClick={() => setDialog({ kind: 'exercise', item: ex })}>Editează</Button>
-                        <Button size="xs" variant="destructive" onClick={() => removeWithConfirm('acest exercițiu', () => deleteExercise(ex.id), reloadExercises)}>Șterge</Button>
-                      </div>
+                      <RowMenu
+                        label={`Mai multe acțiuni pentru exercițiul ${i + 1}`}
+                        items={[
+                          { label: 'Editează', onClick: () => setDialog({ kind: 'exercise', item: ex }) },
+                          { label: 'Șterge', destructive: true, onClick: () => void removeWithConfirm('acest exercițiu', () => deleteExercise(ex.id), reloadExercises) },
+                        ]}
+                      />
                     </div>
                   </CardHeader>
                   <CardContent>
@@ -648,10 +651,15 @@ function RowList({ rows }: { rows: AdminRow[] }) {
               <p className="truncate font-medium">{row.title}</p>
               {row.description && <p className="truncate text-sm text-muted-foreground">{row.description}</p>}
             </div>
-            <div className="flex flex-wrap justify-end gap-2">
-              <Button size="xs" variant="outline" onClick={row.onOpen}>Deschide</Button>
-              <Button size="xs" variant="outline" onClick={row.onEdit}>Editează</Button>
-              <Button size="xs" variant="destructive" onClick={row.onDelete}>Șterge</Button>
+            <div className="flex shrink-0 items-center gap-2">
+              <Button size="sm" variant="outline" onClick={row.onOpen}>Deschide</Button>
+              <RowMenu
+                label={`Mai multe acțiuni pentru ${row.title}`}
+                items={[
+                  { label: 'Editează', onClick: row.onEdit },
+                  { label: 'Șterge', destructive: true, onClick: row.onDelete },
+                ]}
+              />
             </div>
           </CardContent>
         </Card>
