@@ -1,4 +1,5 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
+import { ServerUnreachable } from '@/components/ServerUnreachable'
 import {
   ApiError,
   getCurrentUser,
@@ -22,22 +23,47 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 
+/** How often the check runs again while the server does not answer. */
+const RETRY_MS = 5000
+
+/** No answer about the session at all (no network, a server error, rate limited), as opposed to "you are signed out". */
+function isUnreachable(error: unknown): boolean {
+  return !(error instanceof ApiError) || error.status >= 500 || error.status === 429
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const [unreachable, setUnreachable] = useState(false)
+
+  const checkSession = useCallback(async () => {
+    try {
+      setUser(await getCurrentUser())
+      setUnreachable(false)
+    } catch (error) {
+      if (!(error instanceof ApiError && error.status === 401)) {
+        console.error('Auth check failed', error)
+      }
+      setUnreachable(isUnreachable(error))
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
   useEffect(() => {
-    getCurrentUser()
-      .then(setUser)
-      .catch((error) => {
-        if (error instanceof ApiError && error.status === 401) {
-          setUser(null)
-        } else {
-          console.error('Auth check failed', error)
-        }
-      })
-      .finally(() => setLoading(false))
-  }, [])
+    void checkSession()
+  }, [checkSession])
+
+  useEffect(() => {
+    if (!unreachable) return
+    const retry = () => void checkSession()
+    const timer = window.setInterval(retry, RETRY_MS)
+    window.addEventListener('online', retry)
+    return () => {
+      window.clearInterval(timer)
+      window.removeEventListener('online', retry)
+    }
+  }, [unreachable, checkSession])
 
   async function login(email: string, password: string) {
     const loggedIn = await apiLogin(email, password)
@@ -64,7 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider value={{ user, loading, login, verifyTwoFactor, refreshUser, logout }}>
-      {children}
+      {unreachable ? <ServerUnreachable onRetry={checkSession} /> : children}
     </AuthContext.Provider>
   )
 }
