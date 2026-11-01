@@ -14,9 +14,9 @@ import {
   type OfferedQuiz,
   type StudentAssignment,
 } from '@/lib/api'
-import { assignmentBadge, BADGE_TONES, dueCountdown, type BadgeTone } from '@/lib/assignments'
+import { assignmentBadge, BADGE_TONES, dueCountdown, isHandedIn, type BadgeTone } from '@/lib/assignments'
 import { errorMessage } from '@/lib/errors'
-import { formatDate, formatMinutes } from '@/lib/format'
+import { formatDate, formatDay, formatMinutes } from '@/lib/format'
 import { formatGrade, GRADE_TEXT, gradeBand, romanianGrade, scoreLine } from '@/lib/grades'
 import { buildQuizCards, type QuizCard } from '@/lib/quizCards'
 import { cn } from '@/lib/utils'
@@ -27,10 +27,13 @@ function StatePill({ tone, children }: { tone: BadgeTone; children: string }) {
   return <span data-testid="quiz-state" className={`rounded-md px-2 py-0.5 text-xs font-medium ${BADGE_TONES[tone]}`}>{children}</span>
 }
 
-/** The pill of a card; homework has its own words for a deadline passed or a late hand-in. */
+/**
+ * The pill of a card; homework has its own words for a deadline passed or a late hand-in. A retake of homework already
+ * handed in is simply a test in progress: "Predată" and the deadline belong to the first hand-in.
+ */
 function statePill(card: QuizCard) {
   const open = card.state === 'todo' || card.state === 'in-progress'
-  if (open && card.assignment) {
+  if (open && card.assignment && !isHandedIn(card.assignment)) {
     const badge = assignmentBadge(card.assignment)
     return <StatePill tone={badge.tone}>{badge.text}</StatePill>
   }
@@ -75,8 +78,11 @@ function AttemptHistory({ attempts }: { attempts: MyAttemptDto[] }) {
   )
 }
 
-/** One quiz, whatever it is to the student (homework, a free test, something already graded), and what to do next. */
-function QuizCardView({ card, now }: { card: QuizCard; now: number }) {
+/**
+ * One quiz, whatever it is to the student (homework, a free test, something already graded), and what to do next: its
+ * title, one line and the grade. What it was about only matters while it is still to do; the points are on the result.
+ */
+function QuizCardView({ card, now, showClass }: { card: QuizCard; now: number; showClass: boolean }) {
   const { assignment, shown, counted } = card
   const open = card.state === 'todo' || card.state === 'in-progress'
   const grade = card.state === 'graded' && counted?.score != null ? romanianGrade(counted.score, counted.maxScore) : null
@@ -89,17 +95,16 @@ function QuizCardView({ card, now }: { card: QuizCard; now: number }) {
       <CardContent data-testid="quiz-card" className="flex flex-wrap items-center justify-between gap-3 py-3">
         <div className="min-w-0 flex-1 basis-56 space-y-1">
           <p className="truncate font-medium">{card.title}</p>
-          {card.description && <p className="truncate text-sm text-muted-foreground">{card.description}</p>}
+          {open && card.description && <p className="truncate text-sm text-muted-foreground">{card.description}</p>}
           <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
             {statePill(card)}
             {card.newResult && <NewResultBadge />}
             {!open && assignment?.late && <StatePill tone="warning">Predată cu întârziere</StatePill>}
-            {assignment && <span>{assignment.schoolClassName}</span>}
-            {open && assignment && (
+            {showClass && assignment && <span>{assignment.schoolClassName}</span>}
+            {open && assignment && !isHandedIn(assignment) && (
               <span>Termen: {formatDate(assignment.dueAt)} ({dueCountdown(assignment.dueAt, now)})</span>
             )}
-            {!open && shown?.submittedAt && <span>{formatDate(shown.submittedAt)}</span>}
-            {card.state === 'graded' && counted?.score != null && <span>{counted.score} / {counted.maxScore} p</span>}
+            {!open && shown?.submittedAt && <span>{formatDay(shown.submittedAt)}</span>}
             {card.maxAttempts !== null && card.maxAttempts > 1 && card.attemptsUsed > 0 && (
               <span data-testid="quiz-attempts">{card.attemptsUsed} din {card.maxAttempts} încercări</span>
             )}
@@ -187,6 +192,8 @@ export function StudentQuizListPage() {
   }, [])
 
   const { todo, done } = buildQuizCards(quizzes, assignments, attempts)
+  // Naming the class says nothing to a student who has only one.
+  const showClass = new Set(assignments.map((a) => a.schoolClassName)).size > 1
 
   return (
     <div className="p-4">
@@ -216,7 +223,7 @@ export function StudentQuizListPage() {
                     : 'Nimic de făcut acum.'}
                 </p>
               ) : (
-                todo.map((card) => <QuizCardView key={card.quizId} card={card} now={loadedAt} />)
+                todo.map((card) => <QuizCardView key={card.quizId} card={card} now={loadedAt} showClass={showClass} />)
               )}
             </section>
 
@@ -225,7 +232,7 @@ export function StudentQuizListPage() {
               {done.length === 0 ? (
                 <p className="text-sm text-muted-foreground">Nu ai dat încă niciun test.</p>
               ) : (
-                done.map((card) => <QuizCardView key={card.quizId} card={card} now={loadedAt} />)
+                done.map((card) => <QuizCardView key={card.quizId} card={card} now={loadedAt} showClass={showClass} />)
               )}
             </section>
           </>

@@ -62,7 +62,6 @@ describe('StudentQuizListPage', () => {
 
     const cards = await screen.findAllByTestId('quiz-card')
     expect(cards).toHaveLength(1)
-    expect(within(cards[0]).getByText('Clasa a 8-a')).toBeInTheDocument()
     expect(within(cards[0]).getByTestId('quiz-grade')).toHaveTextContent('nota 7,55')
   })
 
@@ -83,6 +82,56 @@ describe('StudentQuizListPage', () => {
     const history = within(c).getByTestId('quiz-history')
     expect(history).toHaveTextContent('Toate încercările (2)')
     expect(within(history).getAllByRole('link', { name: 'Deschide' })[1]).toHaveAttribute('href', '/quizzes/attempts/3/result')
+  })
+
+  it('says a class only to a student who has more than one', async () => {
+    api.getStudentQuizzes.mockResolvedValue([quiz(1, 'Fracții')])
+    api.getMyAttempts.mockResolvedValue([])
+    api.getMyAssignments.mockResolvedValue([homework(1, 'NOT_STARTED')])
+    const { unmount } = renderPage()
+    expect(await card('Fracții')).not.toHaveTextContent('Clasa a 8-a')
+    unmount()
+
+    api.getMyAssignments.mockResolvedValue([homework(1, 'NOT_STARTED'), { ...homework(2, 'NOT_STARTED'), schoolClassName: 'Mate avansați' }])
+    renderPage()
+    expect(await card('Fracții')).toHaveTextContent('Clasa a 8-a')
+  })
+
+  it('keeps a graded card to its title, one line and the grade', async () => {
+    api.getStudentQuizzes.mockResolvedValue([quiz(1, 'Fracții', { description: 'Adunare de fracții.' })])
+    api.getMyAttempts.mockResolvedValue([attempt({ attemptId: 9, quizId: 1, score: 8, maxScore: 11 })])
+    renderPage()
+
+    const c = await card('Fracții')
+    expect(c).not.toHaveTextContent('Adunare de fracții.')
+    expect(c).not.toHaveTextContent('8 / 11 p')
+    expect(c).not.toHaveTextContent(/\d\d:\d\d/) // the day, without the hour
+    expect(c).toHaveTextContent('2026')
+  })
+
+  it('still says what a test is about while it is to do', async () => {
+    api.getStudentQuizzes.mockResolvedValue([quiz(1, 'Fracții', { description: 'Adunare de fracții.' })])
+    api.getMyAttempts.mockResolvedValue([])
+    renderPage()
+
+    expect(await card('Fracții')).toHaveTextContent('Adunare de fracții.')
+  })
+
+  it('shows a retake of homework already handed in as a test in progress, nothing else', async () => {
+    api.getStudentQuizzes.mockResolvedValue([quiz(1, 'Fracții')])
+    api.getMyAssignments.mockResolvedValue([{ ...homework(1, 'GRADED'), overdue: false, attemptId: 9,
+      dueAt: new Date(Date.now() - 6 * 86_400_000).toISOString() }])
+    api.getMyAttempts.mockResolvedValue([
+      attempt({ attemptId: 10, quizId: 1, status: 'IN_PROGRESS', score: null, submittedAt: null }),
+      attempt({ attemptId: 9, quizId: 1 }),
+    ])
+    renderPage()
+
+    const c = await card('Fracții')
+    expect(within(c).getByTestId('quiz-state')).toHaveTextContent('În lucru')
+    expect(c).not.toHaveTextContent('Predată')
+    expect(c).not.toHaveTextContent('depășit')
+    expect(within(c).getByRole('link', { name: 'Continuă' })).toBeInTheDocument()
   })
 
   it('offers to try again when the list could not load', async () => {
@@ -148,7 +197,6 @@ describe('StudentQuizListPage', () => {
     const c = await card('Fracții')
     expect(within(c).getByTestId('quiz-grade')).toHaveTextContent('nota 7,55')
     expect(within(c).getByTestId('quiz-grade')).toHaveTextContent('cea mai mare din 2')
-    expect(c).toHaveTextContent('8 / 11 p')
   })
 
   it('says nothing about "the highest" with a single grade', async () => {

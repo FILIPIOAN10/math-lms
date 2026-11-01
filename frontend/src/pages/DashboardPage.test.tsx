@@ -156,14 +156,44 @@ describe('DashboardPage — student', () => {
     expect(screen.getByText('Nimic nu așteaptă corectura.')).toBeInTheDocument()
   })
 
-  it('S3: puts a grade not yet opened at the top, with its result one click away', async () => {
+  it('S3: collapses several new grades into one row that leads to the list', async () => {
+    api.getMyAttempts.mockResolvedValue([
+      attempt({ attemptId: 30, quizTitle: 'Teză', newResult: true }),
+      attempt({ attemptId: 31, quizTitle: 'Fracții', newResult: true }),
+      attempt({ attemptId: 32, quizTitle: 'Procente', newResult: true }),
+    ])
+    renderHome()
+
+    const row = await screen.findByTestId('home-new-result')
+    expect(screen.getAllByTestId('home-new-result')).toHaveLength(1)
+    expect(row).toHaveTextContent('3 note noi')
+    expect(row).toHaveTextContent('Teză · Fracții · Procente')
+    expect(within(row).getByRole('link', { name: 'Vezi notele' })).toHaveAttribute('href', '/quizzes')
+  })
+
+  it('S3: keeps homework above new grades', async () => {
+    api.getMyAssignments.mockResolvedValue([{
+      assignmentId: 1, quizId: 9, quizTitle: 'Tema la fracții', schoolClassName: 'Clasa a 8-a',
+      dueAt: new Date(Date.now() + 86_400_000).toISOString(), state: 'NOT_STARTED', late: false, overdue: false,
+      attemptId: null, timeLimitMinutes: null,
+    }])
+    api.getMyAttempts.mockResolvedValue([attempt({ attemptId: 30, quizTitle: 'Teză', newResult: true })])
+    renderHome()
+
+    const row = await screen.findByTestId('home-new-result')
+    expect(screen.getByText('Tema la fracții').compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('S3: puts a grade first when there is nothing to do, with its result one click away', async () => {
     api.getMyAttempts.mockResolvedValue([
       attempt({ attemptId: 30, quizTitle: 'Teză', score: 8, maxScore: 11, newResult: true }),
       attempt({ attemptId: 31, quizTitle: 'Veche', newResult: false }),
     ])
     renderHome()
 
-    expect(await screen.findByRole('heading', { name: 'Ai o notă nouă' })).toBeInTheDocument()
+    await screen.findByTestId('home-new-result')
+    expect(screen.getByTestId('home-new-result').compareDocumentPosition(screen.getByText(/Nicio temă de făcut/))
+      & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     const rows = screen.getAllByTestId('home-new-result')
     expect(rows).toHaveLength(1)
     expect(rows[0]).toHaveTextContent('NouTeză')

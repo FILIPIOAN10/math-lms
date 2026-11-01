@@ -29,9 +29,35 @@ interface StudentData {
   progress: ProgressPointDto[]
 }
 
+/** New grades, in one row however many there are: they are news, and must not push the homework off the screen. */
+function NewGrades({ results }: { results: MyAttemptDto[] }) {
+  const only = results.length === 1 ? results[0] : null
+  return (
+    <Card data-testid="home-new-result">
+      <CardContent className="flex flex-wrap items-center justify-between gap-3 py-3">
+        <div className="min-w-0 flex-1 basis-48 space-y-1">
+          <p className="flex items-center gap-2">
+            <NewResultBadge />
+            <span className="truncate font-medium">{only ? only.quizTitle : roCount(results.length, 'notă nouă', 'note noi')}</span>
+          </p>
+          <p className="truncate text-sm text-muted-foreground">
+            {only
+              ? only.score !== null && scoreLine(only.score, only.maxScore)
+              : results.map((a) => a.quizTitle).join(' · ')}
+          </p>
+        </div>
+        <Link to={only ? `/quizzes/attempts/${only.attemptId}/result` : '/quizzes'} className={buttonVariants({ size: 'sm' })}>
+          {only ? 'Vezi rezultatul' : 'Vezi notele'}
+        </Link>
+      </CardContent>
+    </Card>
+  )
+}
+
 /**
  * The student's start page answers "what do I do now?": homework still to hand in (soonest first), tests started
- * and not handed in, then how the last graded test went and how many wait for the teacher.
+ * and not handed in, then any new grades (above them only when there is nothing to do), how the last graded test went
+ * and how many wait for the teacher.
  */
 export function StudentHome() {
   const [data, setData] = useState<StudentData | null>(null)
@@ -64,32 +90,14 @@ export function StudentHome() {
   const last = latestGrade(data.progress)
 
   const newResults = data.attempts.filter((a) => a.newResult)
+  const nothingToDo = todo.length === 0 && started.length === 0
+  const grades = newResults.length > 0 ? <NewGrades results={newResults} /> : null
 
   return (
     <HomeColumns
       main={
         <>
-      {newResults.length > 0 && (
-        <HomeSection title={newResults.length === 1 ? 'Ai o notă nouă' : 'Ai note noi'}>
-          {newResults.map((a) => (
-            <Card key={a.attemptId} data-testid="home-new-result">
-              <CardContent className="flex flex-wrap items-center justify-between gap-3 py-3">
-                <div className="min-w-0 space-y-1">
-                  <p className="flex items-center gap-2">
-                    <NewResultBadge />
-                    <span className="truncate font-medium">{a.quizTitle}</span>
-                  </p>
-                  {a.score !== null && <p className="text-sm text-muted-foreground">{scoreLine(a.score, a.maxScore)}</p>}
-                </div>
-                <Link to={`/quizzes/attempts/${a.attemptId}/result`} className={buttonVariants({ size: 'sm' })}>
-                  Vezi rezultatul
-                </Link>
-              </CardContent>
-            </Card>
-          ))}
-        </HomeSection>
-      )}
-
+      {nothingToDo && grades}
       {todo.length > 0 ? (
         <AssignmentsSection assignments={todo} title="De făcut" />
       ) : (
@@ -122,6 +130,7 @@ export function StudentHome() {
           ))}
         </HomeSection>
       )}
+      {!nothingToDo && grades}
         </>
       }
       side={

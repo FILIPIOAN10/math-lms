@@ -10,9 +10,14 @@ export const BADGE_TONES: Record<BadgeTone, string> = {
   danger: 'bg-destructive/15 text-destructive',
 }
 
+/** Whether the homework was handed in, whatever happened after: a retake does not undo it. */
+export function isHandedIn(a: Pick<StudentAssignment, 'state'>): boolean {
+  return a.state === 'SUBMITTED' || a.state === 'GRADED'
+}
+
 /** The pill a student sees on an assignment. A late hand-in is "late", not "overdue": overdue means still to do. */
 export function assignmentBadge(a: Pick<StudentAssignment, 'state' | 'late' | 'overdue'>): { text: string; tone: BadgeTone } {
-  if (a.state === 'SUBMITTED' || a.state === 'GRADED') {
+  if (isHandedIn(a)) {
     return a.late ? { text: 'Predată cu întârziere', tone: 'warning' } : { text: 'Predată', tone: 'success' }
   }
   if (a.overdue) return { text: 'Termen depășit', tone: 'danger' }

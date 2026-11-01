@@ -1,9 +1,18 @@
 import { describe, expect, it } from 'vitest'
-import { assignmentBadge, dueCountdown, isoToLocalInput, localInputToIso } from './assignments'
+import { assignmentBadge, dueCountdown, isHandedIn, isoToLocalInput, localInputToIso } from './assignments'
 
 const HOUR = 3_600_000
 const DAY = 24 * HOUR
 const NOW = Date.parse('2026-10-05T10:00:00Z')
+
+describe('isHandedIn', () => {
+  it('counts a paper waiting for its grade and a graded one, nothing else', () => {
+    expect(isHandedIn({ state: 'SUBMITTED' })).toBe(true)
+    expect(isHandedIn({ state: 'GRADED' })).toBe(true)
+    expect(isHandedIn({ state: 'IN_PROGRESS' })).toBe(false)
+    expect(isHandedIn({ state: 'NOT_STARTED' })).toBe(false)
+  })
+})
 
 describe('assignmentBadge', () => {
   it('says "De făcut" for something not started', () => {
