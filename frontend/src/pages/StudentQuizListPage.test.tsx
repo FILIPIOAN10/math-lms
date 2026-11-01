@@ -85,6 +85,17 @@ describe('StudentQuizListPage', () => {
     expect(within(history).getAllByRole('link', { name: 'Deschide' })[1]).toHaveAttribute('href', '/quizzes/attempts/3/result')
   })
 
+  it('lets the actions of a card wrap on a phone, instead of overflowing past its edge', async () => {
+    api.getStudentQuizzes.mockResolvedValue([quiz(1, 'Fracții', { practiceAllowed: true })])
+    api.getMyAttempts.mockResolvedValue([attempt({ attemptId: 9, quizId: 1 })])
+    renderPage()
+
+    const actions = within(await card('Fracții')).getByTestId('quiz-actions')
+    expect(within(actions).getByRole('link', { name: 'Vezi rezultatul' })).toBeInTheDocument()
+    expect(actions).not.toHaveClass('shrink-0') // a row that cannot shrink never reaches its wrap point
+    expect(actions).toHaveClass('flex-wrap', 'max-w-full')
+  })
+
   it('says a handed-in test waits for the teacher', async () => {
     api.getStudentQuizzes.mockResolvedValue([quiz(1, 'Fracții')])
     api.getMyAttempts.mockResolvedValue([attempt({ attemptId: 9, quizId: 1, status: 'SUBMITTED', score: null })])

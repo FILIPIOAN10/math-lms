@@ -104,7 +104,7 @@ function QuizCardView({ card, now }: { card: QuizCard; now: number }) {
             )}
           </p>
         </div>
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
+        <div data-testid="quiz-actions" className="flex max-w-full min-w-0 flex-wrap items-center gap-2">
           {grade !== null && (
             <span data-testid="quiz-grade" className="mr-1 text-sm text-muted-foreground">
               nota <span className={cn('text-lg font-semibold tabular-nums', GRADE_TEXT[gradeBand(grade)])}>{formatGrade(grade)}</span>
