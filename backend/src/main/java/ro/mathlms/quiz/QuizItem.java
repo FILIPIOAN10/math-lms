@@ -83,6 +83,10 @@ public class QuizItem {
     @Column(name = "image_required", nullable = false)
     private boolean imageRequired;
 
+    /** The right answer of a NUMERIC question, as the teacher wrote it; compared by value ({@link NumericAnswer}). */
+    @Column(name = "numeric_answer", length = NumericAnswer.MAX_LENGTH)
+    private String numericAnswer;
+
     /** The most characters a section heading (with its instruction) may have - the column's length. */
     public static final int MAX_SECTION = 300;
 
@@ -105,6 +109,17 @@ public class QuizItem {
         this.statement = requireNonBlank(statement, "statement");
         this.points = requireNonNegative(points);
         this.solution = solution;
+    }
+
+    /** Sets the right answer of a NUMERIC question; only a number will do. */
+    public void expectNumber(String answer) {
+        if (type != QuizItemType.NUMERIC) {
+            throw new IllegalStateException("Only a numeric question has a numeric answer, was " + type);
+        }
+        if (NumericAnswer.parse(answer).isEmpty()) {
+            throw new IllegalArgumentException("not a number: " + answer);
+        }
+        this.numericAnswer = answer.strip();
     }
 
     /** A new place in the test, nothing else about the question changing. */

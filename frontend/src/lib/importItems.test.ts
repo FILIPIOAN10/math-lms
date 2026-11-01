@@ -69,7 +69,7 @@ describe('parseItems', () => {
 
     expect(errors).toEqual([
       'Linia 1: textul trebuie să înceapă cu o întrebare numerotată („1. …”) sau cu „SUBIECTUL I”.',
-      'Întrebarea 3, linia 10: nu știu ce e „ceva rătăcit după variante” (variantele încep cu a), b)…, rezolvarea cu R:, indiciile cu I:).',
+      'Întrebarea 3, linia 10: nu știu ce e „ceva rătăcit după variante” (variantele încep cu a), b)…, rezolvarea cu R:, indiciile cu I:, răspunsul numeric cu N:).',
       'Întrebarea 1: marchează cu * exact o variantă corectă (acum: 0).',
       'Întrebarea 2: marchează cu * exact o variantă corectă (acum: 2).',
       'Întrebarea 3: o grilă are nevoie de cel puțin 2 variante.',
@@ -157,6 +157,18 @@ R: $x = 4$
   })
 
   describe('variants written as a list, and EN requirements', () => {
+    it('reads "N:" as the answer of a numeric question', () => {
+      const { items, errors } = parseItems('1. Cât face 1/2 + 1/4? (2p)\nN: 3/4\nR: Numitorul comun e 4.')
+
+      expect(errors).toEqual([])
+      expect(items[0]).toMatchObject({ type: 'NUMERIC', numericAnswer: '3/4', points: 2, solution: 'Numitorul comun e 4.', options: null })
+    })
+
+    it('refuses an "N:" that is not a number, and one next to variants', () => {
+      expect(parseItems('1. Cât? (2p)\nN: 20 cm').errors[0]).toContain('nu e un număr')
+      expect(parseItems('1. Cât? (2p)\n*a) 1\nb) 2\nN: 1').errors[0]).toContain('nu merge cu variante')
+    })
+
     it('reads "- a)" lines as the variants of a grilă, the star marking the right one', () => {
       const { items, errors } = parseItems([
         '1. Rezultatul calculului \\(\\dfrac{2}{3}+\\dfrac{1}{6}\\) este egal cu:',

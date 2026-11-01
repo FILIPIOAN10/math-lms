@@ -2,7 +2,7 @@ import type { PhotoBox } from '@/components/PhotoCrop'
 import type { EnChapterSummary, ExtractedItem, FigureInput, ItemInput, QuizItemType } from '@/lib/api'
 
 /** Points a question gets when none are printed next to it (EN: a grilă is 5 p, a full solution usually 10 p). */
-export const DEFAULT_POINTS: Record<QuizItemType, number> = { SINGLE_CHOICE: 5, OPEN: 10 }
+export const DEFAULT_POINTS: Record<QuizItemType, number> = { SINGLE_CHOICE: 5, OPEN: 10, NUMERIC: 5 }
 
 /** A question in the review: what the AI read, as the teacher edits it. */
 export interface DraftItem {

@@ -4,6 +4,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { ErrorState } from '@/components/ErrorState'
 import { LoadingCards } from '@/components/LoadingCards'
 import { MathContent } from '@/components/MathContent'
+import { NumberAnswer } from '@/components/NumberAnswer'
 import { OptionLetter } from '@/components/OptionLetter'
 import { PageHeader } from '@/components/PageHeader'
 import { PartsView } from '@/components/PartsView'
@@ -80,6 +81,8 @@ export function AdminQuizPreviewPage() {
                           </label>
                         ))}
                       </div>
+                    ) : item.type === 'NUMERIC' ? (
+                      <NumberAnswer id={`preview-${item.id}`} label={`Răspunsul la întrebarea ${label}`} value="" disabled onChange={() => undefined} />
                     ) : (
                       <p className="text-sm text-muted-foreground">
                         Elevul rezolvă pe hârtie, apoi fotografiază rezolvarea și o încarcă aici.

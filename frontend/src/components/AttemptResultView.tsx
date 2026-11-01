@@ -159,7 +159,7 @@ function ItemResult({
           </p>
         )}
 
-        {item.type === 'SINGLE_CHOICE' ? (
+        {item.type !== 'OPEN' ? (
           <div className="space-y-1 text-sm max-sm:text-base">
             <p className={item.correct ? 'text-emerald-700 dark:text-emerald-300' : 'text-destructive'}>
               {item.correct ? '✓ ' : '✗ '}

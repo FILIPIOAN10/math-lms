@@ -118,7 +118,7 @@ public class GdprExportService {
                 response.getItem().getPosition(),
                 response.getItem().getType().name(),
                 response.getItem().getStatement(),
-                response.getSelectedOption() == null ? null : response.getSelectedOption().getText(),
+                response.getSelectedOption() == null ? response.getNumericAnswer() : response.getSelectedOption().getText(),
                 response.getPhotos().stream().map(ResponsePhoto::getImageKey).toList(),
                 response.getAwardedPoints(),
                 response.getCorrect(),

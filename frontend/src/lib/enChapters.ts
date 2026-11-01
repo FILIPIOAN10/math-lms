@@ -163,7 +163,7 @@ export function revisionLinks(item: ItemResultDto): RevisionLink[] {
     parts.filter((p) => p.awardedPoints !== null && p.awardedPoints < p.points).forEach((p) => add(p.enChapter, p.label))
     return links
   }
-  const lost = item.type === 'SINGLE_CHOICE'
+  const lost = item.type !== 'OPEN'
     ? item.correct !== true
     : item.awardedPoints !== null && item.awardedPoints < item.points
   if (lost) add(item.enChapter, null)

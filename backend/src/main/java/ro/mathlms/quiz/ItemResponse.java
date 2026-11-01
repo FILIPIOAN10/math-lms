@@ -35,6 +35,7 @@ import java.util.UUID;
  *   <li>{@link QuizItemType#SINGLE_CHOICE} — {@link #selectedOption}; auto-graded via {@link #gradeAuto}.</li>
  *   <li>{@link QuizItemType#OPEN} — {@link #photos}: the photographed rezolvare, up to {@link #MAX_PHOTOS} pages in the
  *       order taken (S2); the teacher scores it via {@link #gradeManual(int)}.</li>
+ *   <li>{@link QuizItemType#NUMERIC} — {@link #numericAnswer}, as typed; auto-graded via {@link #gradeAuto}.</li>
  * </ul>
  * {@link #awardedPoints} and {@link #correct} stay null until the response is graded.
  */
@@ -64,6 +65,10 @@ public class ItemResponse {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "selected_option_id")
     private QuizOption selectedOption;
+
+    /** The number typed (NUMERIC items only), as the student wrote it; null = no answer. */
+    @Column(name = "numeric_answer", length = NumericAnswer.MAX_LENGTH)
+    private String numericAnswer;
 
     /** The photographed rezolvare (OPEN items only), oldest first. The legacy image_key column is frozen since V28. */
     @OneToMany(mappedBy = "response", cascade = jakarta.persistence.CascadeType.ALL, orphanRemoval = true)
@@ -125,15 +130,35 @@ public class ItemResponse {
         if (!Objects.equals(option.getItem().getId(), item.getId())) {
             throw new IllegalArgumentException("option does not belong to this item");
         }
-        boolean stale = fromClient != null && seq != null && fromClient.equals(clientId) && clientSeq != null
-                && seq <= clientSeq;
-        if (stale) {
+        if (isStale(fromClient, seq)) {
             return false;
         }
         this.selectedOption = option;
         this.clientId = fromClient;
         this.clientSeq = fromClient == null ? null : seq;
         return true;
+    }
+
+    /** Records the number typed for a NUMERIC item (blank takes it back), with the same late-retry rule as a choice. */
+    public boolean answerNumeric(String value, UUID fromClient, Long seq) {
+        requireType(QuizItemType.NUMERIC);
+        if (isStale(fromClient, seq)) {
+            return false;
+        }
+        String trimmed = value == null ? null : value.strip();
+        this.numericAnswer = trimmed == null || trimmed.isEmpty() ? null : trimmed;
+        this.clientId = fromClient;
+        this.clientSeq = fromClient == null ? null : seq;
+        return true;
+    }
+
+    private boolean isStale(UUID fromClient, Long seq) {
+        return fromClient != null && seq != null && fromClient.equals(clientId) && clientSeq != null && seq <= clientSeq;
+    }
+
+    /** Whether there is an answer here: a row may exist only because the student asked for a hint. */
+    public boolean isAnswered() {
+        return selectedOption != null || numericAnswer != null || hasPhotos();
     }
 
     /** The teacher's words about the wrong option chosen here; null when right, unanswered, or not written. */
@@ -186,9 +211,11 @@ public class ItemResponse {
         this.hintsUsed = Math.max(this.hintsUsed, number);
     }
 
-    /** Auto-grades a SINGLE_CHOICE response: correct answers earn the item's points, wrong ones zero. */
+    /** Auto-grades a SINGLE_CHOICE or NUMERIC response: correct answers earn the item's points, wrong ones zero. */
     public void gradeAuto(boolean correct, int awardedPoints) {
-        requireType(QuizItemType.SINGLE_CHOICE);
+        if (item.getType() == QuizItemType.OPEN) {
+            throw new IllegalStateException("an open answer is graded by the teacher");
+        }
         this.correct = correct;
         this.awardedPoints = requireNonNegative(awardedPoints);
     }

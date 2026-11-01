@@ -3,13 +3,16 @@
  * battery or a lost connection loses nothing. One entry per question (a newer choice replaces a waiting one); each
  * carries this browser's id and a counter, so the server can ignore an older retry that arrives late (V31).
  *
- * Holds only ids the student could send anyway by tapping: the server re-checks everything. Cleared on hand-in and on
+ * Holds only what the student could send anyway by tapping or typing: the server re-checks everything. Cleared on hand-in and on
  * sign-out (a shared family computer).
  */
 
 export interface PendingAnswer {
   itemId: number
-  optionId: number
+  /** The option picked; null for a numeric question, which has `value`. */
+  optionId: number | null
+  /** The number typed (blank takes it back). */
+  value?: string
   /** This browser's counter when the choice was made: higher = newer. */
   seq: number
 }
@@ -65,9 +68,12 @@ export class AnswerQueue {
     return this.state.pending.find((p) => p.itemId === itemId)
   }
 
-  /** A new choice for a question: replaces any older one still waiting for it. */
-  enqueue(itemId: number, optionId: number): PendingAnswer {
-    const entry = { itemId, optionId, seq: this.state.nextSeq }
+  /** A new answer for a question, an option or a typed number: replaces any older one still waiting for it. */
+  enqueue(itemId: number, answer: number | string): PendingAnswer {
+    const seq = this.state.nextSeq
+    const entry: PendingAnswer = typeof answer === 'string'
+      ? { itemId, optionId: null, value: answer, seq }
+      : { itemId, optionId: answer, seq }
     this.state = {
       ...this.state,
       nextSeq: this.state.nextSeq + 1,

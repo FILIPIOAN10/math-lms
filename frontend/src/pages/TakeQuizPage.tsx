@@ -6,6 +6,7 @@ import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { OptionLetter } from '@/components/OptionLetter'
 import { MathContent } from '@/components/MathContent'
 import { MistakeNote } from '@/components/MistakeNote'
+import { NumberAnswer } from '@/components/NumberAnswer'
 import { QuestionImage } from '@/components/QuestionImage'
 import { SectionHeadingView } from '@/components/SectionHeadingView'
 import { PartsView } from '@/components/PartsView'
@@ -116,6 +117,9 @@ function PhotoPicker({
   )
 }
 
+/** How long a typed number waits after the last key before it goes to the server. */
+const NUMBER_PAUSE_MS = 800
+
 /**
  * Taking one quiz. Nothing is created until the student presses "Începe" (the start call creates
  * the attempt, or resumes the one in progress). Before that the page shows what the student is walking into: the
@@ -146,6 +150,7 @@ export function TakeQuizPage() {
 
   const [attempt, setAttempt] = useState<StartedAttemptDto | null>(null)
   const [selected, setSelected] = useState<Record<number, number>>({})
+  const [numbers, setNumbers] = useState<Record<number, string>>({}) // itemId -> the number typed
   const [photos, setPhotos] = useState<Record<number, number[]>>({}) // itemId -> the pages sent (photo ids), oldest first
   const [feedback, setFeedback] = useState<Record<number, AnswerFeedback | undefined>>({}) // practice only
   const [hints, setHints] = useState<Record<number, string[]>>({}) // itemId -> hints revealed so far (practice only)
@@ -163,6 +168,9 @@ export function TakeQuizPage() {
   const autoSubmitted = useRef(false)
   // The choice the server has for each grilă: where the radio goes back to if the server refuses a newer one.
   const confirmed = useRef<Record<number, number>>({})
+  // The number last queued for each numeric question, and the pause that sends it once the student stops typing.
+  const sentNumbers = useRef<Record<number, string>>({})
+  const numberTimers = useRef(new Map<number, number>())
   // Hand-in found answers that never reached the server: how many (the dialog asks what to do).
   const [unsent, setUnsent] = useState<number | null>(null)
   // "Salvează și ieși": the clock warning first (timed test), then - only if some grile are still waiting - how many.
@@ -217,6 +225,7 @@ export function TakeQuizPage() {
     setSubmitting(true)
     setError(null)
     try {
+      commitTypedNumbers()
       await sync.flush(5000) // the server still takes answers for a few seconds after the clock (grace period)
       await submitQuizAttempt(attempt.attemptId)
       sync.clear()
@@ -277,20 +286,24 @@ export function TakeQuizPage() {
   const sync = useAnswerSync({
     attemptId: attempt?.attemptId ?? null,
     send: (answer, clientId) =>
-      saveQuizAnswer(attempt!.attemptId, answer.itemId, answer.optionId, { clientId, clientSeq: answer.seq }),
+      saveQuizAnswer(attempt!.attemptId, answer.itemId, answer.value ?? answer.optionId!, { clientId, clientSeq: answer.seq }),
     onSaved: (answer, result) => {
-      confirmed.current[answer.itemId] = answer.optionId
+      if (answer.optionId !== null) confirmed.current[answer.itemId] = answer.optionId
       setFeedback((s) => ({ ...s, [answer.itemId]: result ?? undefined })) // null in a graded test: nothing is revealed
     },
     onRejected: (answer, e) => {
-      // A real refusal (not the connection): the radio goes back to what the server has.
-      const kept = confirmed.current[answer.itemId]
-      setSelected((s) => {
-        const next = { ...s }
-        if (kept === undefined) delete next[answer.itemId]
-        else next[answer.itemId] = kept
-        return next
-      })
+      // A real refusal (not the connection): the radio goes back to what the server has. A typed number stays in its box.
+      if (answer.optionId !== null) {
+        const kept = confirmed.current[answer.itemId]
+        setSelected((s) => {
+          const next = { ...s }
+          if (kept === undefined) delete next[answer.itemId]
+          else next[answer.itemId] = kept
+          return next
+        })
+      } else {
+        delete sentNumbers.current[answer.itemId]
+      }
       setItemError(answer.itemId, errorMessage(e))
       if (isTimeUpConflict(e)) void submitBecauseTimeIsUp() // the server says time is up
     },
@@ -307,6 +320,7 @@ export function TakeQuizPage() {
   const pagesOf = (itemId: number): number[] => photos[itemId] ?? []
 
   function isAnswered(item: StudentItemDto): boolean {
+    if (item.type === 'NUMERIC') return (numbers[item.id] ?? '').trim() !== ''
     return item.type === 'SINGLE_CHOICE' ? selected[item.id] !== undefined : (photos[item.id]?.length ?? 0) > 0
   }
 
@@ -336,17 +350,24 @@ export function TakeQuizPage() {
         }
       }
       const restoredChoices: Record<number, number> = {}
+      const restoredNumbers: Record<number, string> = {}
       const restoredPhotos: Record<number, number[]> = {}
       const restoredFeedback: Record<number, AnswerFeedback | undefined> = {}
       for (const answer of data.answers) {
         if (answer.selectedOptionId !== null) restoredChoices[answer.itemId] = answer.selectedOptionId
+        if (answer.numericAnswer) restoredNumbers[answer.itemId] = answer.numericAnswer
         if (answer.photoIds.length > 0) restoredPhotos[answer.itemId] = answer.photoIds
         if (answer.feedback) restoredFeedback[answer.itemId] = answer.feedback
       }
       confirmed.current = { ...restoredChoices }
+      sentNumbers.current = { ...restoredNumbers }
       // Answers this browser made but never got onto the server (a reload while offline): shown, and sent again.
-      for (const waiting of storedPending(data.attemptId)) restoredChoices[waiting.itemId] = waiting.optionId
+      for (const waiting of storedPending(data.attemptId)) {
+        if (waiting.optionId !== null) restoredChoices[waiting.itemId] = waiting.optionId
+        else restoredNumbers[waiting.itemId] = waiting.value ?? ''
+      }
       setSelected(restoredChoices)
+      setNumbers(restoredNumbers)
       setPhotos(restoredPhotos)
       setFeedback(restoredFeedback)
       setHints(Object.fromEntries(data.revealedHints.map((r) => [r.itemId, r.hints])))
@@ -386,6 +407,30 @@ export function TakeQuizPage() {
     setFeedback((s) => ({ ...s, [itemId]: undefined })) // a practice verdict was about the previous choice
     setItemError(itemId, undefined)
     sync.enqueue(itemId, optionId)
+  }
+
+  /** Sends the number in the box, unless it is what the server already has or has on its way. */
+  function commitNumber(itemId: number, value: string) {
+    window.clearTimeout(numberTimers.current.get(itemId))
+    numberTimers.current.delete(itemId)
+    if ((sentNumbers.current[itemId] ?? '') === value.trim()) return
+    sentNumbers.current[itemId] = value.trim()
+    sync.enqueue(itemId, value.trim())
+  }
+
+  /** Before handing in or leaving: a number still in its pause goes now. */
+  function commitTypedNumbers() {
+    for (const itemId of numberTimers.current.keys()) commitNumber(itemId, numbers[itemId] ?? '')
+  }
+
+  /** In a test a number saves itself after a pause. In a practice only "Verifică" sends it: half a number must not be marked. */
+  function typeNumber(itemId: number, value: string) {
+    setNumbers((s) => ({ ...s, [itemId]: value }))
+    setFeedback((s) => ({ ...s, [itemId]: undefined }))
+    setItemError(itemId, undefined)
+    if (practice) return
+    window.clearTimeout(numberTimers.current.get(itemId))
+    numberTimers.current.set(itemId, window.setTimeout(() => commitNumber(itemId, value), NUMBER_PAUSE_MS))
   }
 
   async function upload(itemId: number, file: File) {
@@ -440,6 +485,7 @@ export function TakeQuizPage() {
     setLeaveStep(null)
     setUnsentOnLeave(null)
     setLeaving(true)
+    commitTypedNumbers()
     if (!(await sync.flush(5000))) {
       setUnsentOnLeave(Math.max(1, sync.pendingCount))
       setLeaving(false)
@@ -461,6 +507,7 @@ export function TakeQuizPage() {
     setUnsent(null)
     setSubmitting(true)
     setError(null)
+    commitTypedNumbers()
     if (!(await sync.flush(10_000))) {
       setUnsent(Math.max(1, sync.pendingCount))
       setSubmitting(false)
@@ -726,6 +773,46 @@ export function TakeQuizPage() {
                     </div>
                   )}
                 </div>
+              ) : item.type === 'NUMERIC' ? (
+                <div className="space-y-2">
+                  <NumberAnswer
+                    id={`item-number-${item.id}`}
+                    label={`Răspunsul la întrebarea ${labelOf.get(item.id)}`}
+                    value={numbers[item.id] ?? ''}
+                    disabled={timeUp}
+                    onChange={(value) => typeNumber(item.id, value)}
+                    onCommit={practice ? undefined : () => commitNumber(item.id, numbers[item.id] ?? '')}
+                  >
+                    {practice && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        data-testid="item-number-check"
+                        disabled={(numbers[item.id] ?? '').trim() === ''}
+                        onClick={() => {
+                          delete sentNumbers.current[item.id] // the same number asked again still gets its verdict
+                          commitNumber(item.id, numbers[item.id] ?? '')
+                        }}
+                      >
+                        Verifică
+                      </Button>
+                    )}
+                  </NumberAnswer>
+                  {feedback[item.id] && (
+                    <div data-testid="item-feedback" className="space-y-2 rounded-lg bg-muted p-3 text-sm">
+                      <p className={`font-medium ${feedback[item.id]?.correct ? 'text-emerald-700 dark:text-emerald-300' : 'text-destructive'}`}>
+                        {feedback[item.id]?.correct ? '✓ Corect!' : `✗ Greșit — răspunsul corect e ${feedback[item.id]?.correctNumber}.`}
+                      </p>
+                      {feedback[item.id]?.solution && (
+                        <div>
+                          <p className="text-xs font-medium text-muted-foreground">Rezolvare</p>
+                          <MathContent>{feedback[item.id]!.solution!}</MathContent>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               ) : (
                 <div className="space-y-3 text-sm">
                   <p className="text-muted-foreground">
@@ -831,7 +918,7 @@ export function TakeQuizPage() {
                 </div>
               )}
 
-              {item.type === 'SINGLE_CHOICE' ? (
+              {item.type !== 'OPEN' ? (
                 <SyncLine status={sync.statusOf(item.id)} />
               ) : (
                 saving[item.id] && <p className="text-xs text-muted-foreground">Se salvează...</p>

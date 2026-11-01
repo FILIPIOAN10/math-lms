@@ -87,6 +87,23 @@ function startedThree(secondsLeft: number | null = null): StartedAttemptDto {
   }
 }
 
+/** A test with one numeric question. */
+function startedNumeric(mode: AttemptMode = 'TEST', answers: StartedAttemptDto['answers'] = []): StartedAttemptDto {
+  return {
+    attemptId: 50, status: 'IN_PROGRESS', mode, deadlineAt: null, serverNow: '2026-10-04T12:00:00Z', answers, revealedHints: [],
+    quiz: {
+      id: 7, title: 'Simulare EN', description: null, timeLimitMinutes: null,
+      items: [{ id: 200, position: 1, type: 'NUMERIC', statement: 'Cât face 1/2 + 1/4?', points: 5, hintCount: 0, options: [] }],
+    },
+  }
+}
+
+async function beginNumeric(answer: StartedAttemptDto, label: string) {
+  api.startQuizAttempt.mockResolvedValue(answer)
+  await userEvent.click(await screen.findByRole('button', { name: label }))
+  return screen.findByTestId('item-number')
+}
+
 function renderPage(query: string) {
   return render(
     <MemoryRouter initialEntries={[`/quizzes/7/take${query}`]}>
@@ -111,6 +128,78 @@ describe('TakeQuizPage', () => {
     api.getQuizPreview.mockResolvedValue(preview())
     api.getMyAssignments.mockResolvedValue([])
     localStorage.clear() // the answer queue of attempt 50 must not leak from one test into the next
+  })
+
+  describe('numeric question', () => {
+    it('saves the number when the student leaves the box and counts the question as answered', async () => {
+      api.saveQuizAnswer.mockResolvedValue(null)
+      renderPage('')
+      const box = await beginNumeric(startedNumeric(), 'Începe testul')
+
+      await userEvent.type(box, '0,75')
+      await userEvent.tab()
+
+      await waitFor(() => expect(api.saveQuizAnswer).toHaveBeenCalledWith(50, 200, '0,75', expect.objectContaining({ clientSeq: 1 })))
+      expect(screen.getByRole('button', { name: /Întrebarea 1, cu răspuns/ })).toBeInTheDocument()
+    })
+
+    it('saves by itself after a pause, without waiting for the student to leave the box', async () => {
+      api.saveQuizAnswer.mockResolvedValue(null)
+      renderPage('')
+      const box = await beginNumeric(startedNumeric(), 'Începe testul')
+
+      await userEvent.type(box, '3/4')
+
+      await waitFor(() => expect(api.saveQuizAnswer).toHaveBeenCalledWith(50, 200, '3/4', expect.anything()), { timeout: 2000 })
+      expect(api.saveQuizAnswer).toHaveBeenCalledTimes(1)
+    })
+
+    it('warns about what is not a number while there is still time to fix it', async () => {
+      renderPage('')
+      const box = await beginNumeric(startedNumeric(), 'Începe testul')
+
+      await userEvent.type(box, '20 cm')
+
+      expect(screen.getByText(/Nu pare un număr/)).toBeInTheDocument()
+    })
+
+    it('hands in a number still waiting for its pause', async () => {
+      api.saveQuizAnswer.mockResolvedValue(null)
+      api.submitQuizAttempt.mockResolvedValue({ attemptId: 50, status: 'GRADED', autoScore: 5, autoMaxScore: 5, finalScore: 5 })
+      renderPage('')
+      const box = await beginNumeric(startedNumeric(), 'Începe testul')
+
+      await userEvent.type(box, '1')
+      await userEvent.click(screen.getByTestId('quiz-submit'))
+      await userEvent.click(await screen.findByRole('button', { name: 'Trimite' }))
+
+      await screen.findByText('rezultatul')
+      expect(api.saveQuizAnswer).toHaveBeenCalledWith(50, 200, '1', expect.anything())
+    })
+
+    it('gets the saved number back when the test is resumed', async () => {
+      renderPage('')
+
+      const box = await beginNumeric(startedNumeric('TEST', [
+        { itemId: 200, selectedOptionId: null, photoUploaded: false, feedback: null, photoIds: [], numericAnswer: '3/4' },
+      ]), 'Începe testul')
+
+      expect(box).toHaveValue('3/4')
+    })
+
+    it('in a practice waits for "Verifică", then says what is right', async () => {
+      api.saveQuizAnswer.mockResolvedValue({ correct: false, correctOptionId: null, solution: 'Numitorul comun e 4.', correctNumber: '3/4' })
+      renderPage('?mode=practice')
+      const box = await beginNumeric(startedNumeric('PRACTICE'), 'Începe exersarea')
+
+      await userEvent.type(box, '1')
+      await userEvent.tab()
+      expect(api.saveQuizAnswer).not.toHaveBeenCalled()
+      await userEvent.click(screen.getByTestId('item-number-check'))
+
+      expect(await screen.findByTestId('item-feedback')).toHaveTextContent('Greșit — răspunsul corect e 3/4')
+      expect(screen.getByTestId('item-feedback')).toHaveTextContent('Numitorul comun e 4.')
+    })
   })
 
   describe('practice mode (?mode=practice)', () => {

@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import ro.mathlms.quiz.AnswerKeyCorrection.AnswerKeyResultDto;
+import ro.mathlms.quiz.AnswerKeyCorrection.CorrectNumberRequest;
 import ro.mathlms.quiz.AnswerKeyCorrection.CorrectOptionRequest;
 import ro.mathlms.quiz.QuizStatsDtos.QuizStatsDto;
 import ro.mathlms.teaching.TeacherScope;
@@ -38,5 +39,12 @@ public class QuizStatsController {
     public AnswerKeyResultDto correctAnswer(@PathVariable Long itemId, @Valid @RequestBody CorrectOptionRequest request) {
         scope.requireQuizItem(itemId);
         return correction.correct(itemId, request.optionId());
+    }
+
+    /** The same for a numeric question. */
+    @PutMapping("/api/admin/quiz-items/{itemId}/correct-number")
+    public AnswerKeyResultDto correctNumber(@PathVariable Long itemId, @Valid @RequestBody CorrectNumberRequest request) {
+        scope.requireQuizItem(itemId);
+        return correction.correctNumber(itemId, request.value());
     }
 }

@@ -203,7 +203,7 @@ public class MasteryService {
         if (awarded != null) {
             return awarded;
         }
-        if (item.getType() == QuizItemType.SINGLE_CHOICE) {
+        if (item.getType() != QuizItemType.OPEN) {
             return 0; // left unanswered in a handed-in test
         }
         // An open answer without points: waiting for the teacher, unless the paper is already graded (then a 0).

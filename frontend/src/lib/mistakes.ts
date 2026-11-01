@@ -10,9 +10,9 @@ export interface Mistakes {
   wrongChoices: number
 }
 
-/** A grilă not answered right (wrong or empty), or a graded open question that did not get all its points. */
+/** An automatically marked question not answered right (wrong or empty), or a graded open one without all its points. */
 export function missed(item: ItemResultDto): boolean {
-  if (item.type === 'SINGLE_CHOICE') return item.correct !== true
+  if (item.type !== 'OPEN') return item.correct !== true
   return item.awardedPoints !== null && item.awardedPoints < item.points
 }
 

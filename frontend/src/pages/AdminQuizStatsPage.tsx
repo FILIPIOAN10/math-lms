@@ -6,7 +6,11 @@ import { ErrorState } from '@/components/ErrorState'
 import { MathContent } from '@/components/MathContent'
 import { SectionHeadingView } from '@/components/SectionHeadingView'
 import { numberItems } from '@/lib/sections'
-import { correctAnswerKey, getAiImportSettings, getQuizStats, type OptionStat, type QuizItemStat, type QuizStatsDto } from '@/lib/api'
+import {
+  correctAnswerKey, correctAnswerNumber, getAiImportSettings, getQuizStats, type NumberStat, type OptionStat, type QuizItemStat,
+  type QuizStatsDto,
+} from '@/lib/api'
+import { itemTypeLabel } from '@/lib/numericAnswer'
 import { errorMessage } from '@/lib/errors'
 import { PageHeader } from '@/components/PageHeader'
 import { LoadingCards } from '@/components/LoadingCards'
@@ -72,6 +76,45 @@ function OptionCounts({ item, graded, aiOn, onMakeCorrect, onMistakeSaved }: {
   )
 }
 
+/** The numbers typed for a numeric question, the same value counted once however it was written. */
+function NumberCounts({ item, graded, onMakeCorrect }: {
+  item: QuizItemStat
+  graded: number
+  onMakeCorrect: (number: NumberStat) => void
+}) {
+  const blank = Math.max(0, graded - item.numbers.reduce((sum, n) => sum + n.chosen, 0))
+  return (
+    <div className="space-y-2" data-testid="stats-numbers">
+      <p className="text-sm">Răspuns corect: <span className="font-medium">{item.numericAnswer}</span></p>
+      <ul className="space-y-2">
+        {item.numbers.map((number) => (
+          <li key={number.value} className="space-y-1 text-sm" data-testid="stats-number">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+              <span className="min-w-0">
+                {number.value}
+                {number.correct && (
+                  <span className="ml-1 font-semibold text-emerald-700 dark:text-emerald-300">
+                    <span aria-hidden="true">✓</span>
+                    <span className="sr-only"> (răspunsul marcat corect)</span>
+                  </span>
+                )}
+              </span>
+              <span className="shrink-0 tabular-nums text-muted-foreground">{roCount(number.chosen, 'elev', 'elevi')}</span>
+            </div>
+            <Bar fraction={graded === 0 ? 0 : number.chosen / graded} fill={GRADE_FILL[number.correct ? 'high' : 'low']} />
+            {!number.correct && (
+              <Button type="button" size="xs" variant="ghost" onClick={() => onMakeCorrect(number)}>
+                Asta e varianta corectă
+              </Button>
+            )}
+          </li>
+        ))}
+        {blank > 0 && <li className="text-sm text-muted-foreground">Altceva sau fără răspuns: {roCount(blank, 'elev', 'elevi')}</li>}
+      </ul>
+    </div>
+  )
+}
+
 /** Teacher analytics for one quiz: average, score distribution, and which items were hardest. */
 export function AdminQuizStatsPage() {
   const { quizId } = useParams<{ quizId: string }>()
@@ -100,19 +143,19 @@ export function AdminQuizStatsPage() {
   }, [load])
 
   /** A taken question keeps its answer everywhere else: this is the one place that changes it, and it says what follows. */
-  async function makeCorrect(item: QuizItemStat, label: string, option: OptionStat) {
+  async function makeCorrect(label: string, newAnswer: string, correct: () => Promise<{ changedGrades: number }>) {
     const yes = await confirm({
       title: `Schimbi răspunsul corect la întrebarea ${label}?`,
-      body: `Varianta ${option.letter}) devine cea corectă și toate lucrările se notează din nou. Elevii cărora li se schimbă nota o văd ca notă nouă.`,
+      body: `${newAnswer} devine răspunsul corect și toate lucrările se notează din nou. Elevii cărora li se schimbă nota o văd ca notă nouă.`,
       confirmLabel: 'Schimbă și recalculează',
     })
     if (!yes) return
     setError(null)
     setNotice(null)
     try {
-      const { changedGrades } = await correctAnswerKey(item.itemId, option.id)
+      const { changedGrades } = await correct()
       setStats(await load())
-      setNotice(`✓ Răspunsul corect e acum ${option.letter}). ${changedGrades === 0
+      setNotice(`✓ Răspunsul corect e acum ${newAnswer}. ${changedGrades === 0
         ? 'Nicio notă nu s-a schimbat.' : `S-au schimbat ${roCount(changedGrades, 'notă', 'note')}.`}`)
     } catch (e) {
       setError(errorMessage(e))
@@ -225,7 +268,7 @@ export function AdminQuizStatsPage() {
                   <CardContent className="space-y-2 py-3" data-testid="stats-item">
                     <div className="flex items-center justify-between gap-2 text-sm">
                       <span className="font-medium">
-                        Întrebarea {label} · {item.type === 'SINGLE_CHOICE' ? 'Grilă' : 'Cu rezolvare'} · {item.points} p
+                        Întrebarea {label} · {itemTypeLabel(item.type)} · {item.points} p
                       </span>
                       {hardest?.itemId === item.itemId && (
                         <span className="rounded bg-rose-500/15 px-1.5 py-0.5 text-xs text-rose-700 dark:text-rose-300">
@@ -251,8 +294,15 @@ export function AdminQuizStatsPage() {
                         item={item}
                         graded={stats.gradedAttempts}
                         aiOn={aiOn}
-                        onMakeCorrect={(option) => void makeCorrect(item, label, option)}
+                        onMakeCorrect={(option) => void makeCorrect(label, `${option.letter})`, () => correctAnswerKey(item.itemId, option.id))}
                         onMistakeSaved={() => void load().then(setStats).catch((e) => setError(errorMessage(e)))}
+                      />
+                    )}
+                    {item.type === 'NUMERIC' && stats.gradedAttempts > 0 && (
+                      <NumberCounts
+                        item={item}
+                        graded={stats.gradedAttempts}
+                        onMakeCorrect={(number) => void makeCorrect(label, number.value, () => correctAnswerNumber(item.itemId, number.value))}
                       />
                     )}
                     {item.averagePoints !== null && (

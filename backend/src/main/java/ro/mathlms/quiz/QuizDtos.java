@@ -52,7 +52,8 @@ public final class QuizDtos {
             boolean imageRequired, // imported with "[imagine]" and still waiting for its picture
             List<PartDtos.PartDto> parts, // requirements a), b)... of an open problem; empty = none
             Long enChapterId, // the EN chapter page the teacher chose; null = automatic (by its place on the paper)
-            Long enChapterAuto // what "automatic" points at for this question; null when its place has no default
+            Long enChapterAuto, // what "automatic" points at for this question; null when its place has no default
+            String numericAnswer // NUMERIC only: the right answer as the teacher wrote it
     ) {
         public static ItemDto from(QuizItem item, List<QuizOption> options, List<QuizItemHint> hints) {
             return from(item, options, hints, List.of());
@@ -80,7 +81,8 @@ public final class QuizDtos {
                     item.isImageRequired(),
                     PartDtos.PartDto.of(parts, links),
                     item.getEnChapter() == null ? null : item.getEnChapter().getId(),
-                    links == null ? null : EnChapterLinks.idOf(links.itemDefault(item)));
+                    links == null ? null : EnChapterLinks.idOf(links.itemDefault(item)),
+                    item.getNumericAnswer());
         }
     }
 

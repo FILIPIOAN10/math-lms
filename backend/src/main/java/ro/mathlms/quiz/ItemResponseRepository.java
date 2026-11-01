@@ -25,6 +25,11 @@ public interface ItemResponseRepository extends JpaRepository<ItemResponse, Long
             + " from ItemResponse r where r.attempt.id in :attemptIds and r.selectedOption is not null")
     List<OptionChoice> findChoicesByAttemptIds(@Param("attemptIds") java.util.Collection<Long> attemptIds);
 
+    /** Every number typed in the attempts that count, in one query. */
+    @Query("select new ro.mathlms.quiz.NumericChoice(r.item.id, r.numericAnswer, r.correct)"
+            + " from ItemResponse r where r.attempt.id in :attemptIds and r.numericAnswer is not null")
+    List<NumericChoice> findNumbersByAttemptIds(@Param("attemptIds") java.util.Collection<Long> attemptIds);
+
     /** Every answer to one question, with its attempt: a corrected answer key marks them all again. */
     @Query("select r from ItemResponse r join fetch r.attempt left join fetch r.selectedOption where r.item.id = :itemId")
     List<ItemResponse> findByItemIdFetchAttempt(@Param("itemId") Long itemId);

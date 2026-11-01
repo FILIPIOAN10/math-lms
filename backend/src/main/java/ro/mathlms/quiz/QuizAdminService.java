@@ -327,6 +327,9 @@ public class QuizAdminService {
         fresh.tagChapter(item.getChapter());
         fresh.pointToEnChapter(item.getEnChapter());
         fresh.placeInSection(item.getSection());
+        if (item.getType() == QuizItemType.NUMERIC) {
+            fresh.expectNumber(item.getNumericAnswer());
+        }
         String imageCopy = imageService.copyOf(item.getImageKey()); // each question owns its own file
         if (imageCopy != null) {
             fresh.attachImage(imageCopy);
@@ -526,6 +529,7 @@ public class QuizAdminService {
     private Added insertItem(Quiz quiz, ItemRequest request) {
         requireValidHints(request.hints()); // before anything is written
         requireValidParts(request);
+        requireNumber(request);
         QuizItem fresh = new QuizItem(
                 quiz, request.position(), request.type(), request.statement(),
                 pointsOf(request), request.solution());
@@ -533,6 +537,9 @@ public class QuizAdminService {
         fresh.pointToEnChapter(enChapter(request.enChapterId()));
         fresh.placeInSection(request.section());
         fresh.requireImage(Boolean.TRUE.equals(request.imageRequired()));
+        if (request.type() == QuizItemType.NUMERIC) {
+            fresh.expectNumber(request.numericAnswer());
+        }
         QuizItem item = itemRepository.save(fresh);
         return new Added(item, saveOptionsIfSingleChoice(item, request), saveHints(item, request.hints()),
                 saveParts(item, request.parts()));
@@ -567,6 +574,7 @@ public class QuizAdminService {
         }
         requireValidHints(request.hints());
         requireValidParts(request);
+        requireNumber(request);
         boolean journalled = seenByStudents(item.getQuiz());
         ItemSnapshot before = journalled ? snapshot(item) : null;
         // The chapter tag is bookkeeping for the mastery map, not part of the grade: it may change even once taken.
@@ -580,10 +588,20 @@ public class QuizAdminService {
             // Students' answers point at these options and their grades at these points: only texts may change.
             options = correctTextsInPlace(item, request);
             parts = correctPartTextsInPlace(item, request);
+            if (item.getType() == QuizItemType.NUMERIC) {
+                if (!NumericAnswer.same(item.getNumericAnswer(), request.numericAnswer())) {
+                    throw new QuizInUseException("Testul „" + item.getQuiz().getTitle() + "” a fost deja dat de elevi: "
+                            + "răspunsul corect se schimbă din Statistici, ca să se recalculeze notele.");
+                }
+                item.expectNumber(request.numericAnswer()); // the same value, written another way
+            }
             item.update(request.position(), request.statement(), item.getPoints(), request.solution());
             itemRepository.save(item);
         } else {
             item.update(request.position(), request.statement(), pointsOf(request), request.solution());
+            if (item.getType() == QuizItemType.NUMERIC) {
+                item.expectNumber(request.numericAnswer());
+            }
             itemRepository.save(item);
             // Replace options and requirements wholesale.
             optionRepository.deleteByItemId(itemId);
@@ -634,8 +652,8 @@ public class QuizAdminService {
                 if (changes && taken) {
                     throw new QuizInUseException("Testul „" + quiz.getTitle() + "” a fost deja dat de elevi: varianta "
                             + "corectă a întrebării " + QuestionNumbers.of(item, ordered)
-                            + " nu se mai poate schimba (grilele lor au fost corectate după ea). Baremul scris se poate "
-                            + "salva în continuare.");
+                            + " nu se mai poate schimba de aici: o schimbi din Statistici, ca să se recalculeze notele. "
+                            + "Baremul scris se poate salva în continuare.");
                 }
                 options.forEach(o -> o.markCorrect(o.getId().equals(entry.correctOptionId())));
                 optionRepository.saveAll(options);
@@ -719,7 +737,7 @@ public class QuizAdminService {
     /** What a question looked like, to word what an edit changed ("punctaj 3 → 5, răspuns corect"). */
     private record ItemSnapshot(String number, String statement, int points, String solution, List<String> options,
                                 int correctOption, List<String> hints, String section, Long chapterId,
-                                List<String> parts, Long enChapterId, List<String> mistakes) {
+                                List<String> parts, Long enChapterId, List<String> mistakes, String numericAnswer) {
 
         String changesTo(ItemSnapshot after) {
             return new AuditText.Changes()
@@ -735,6 +753,7 @@ public class QuizAdminService {
                     .addIfDifferent(parts, after.parts, "cerințe")
                     .addIfDifferent(enChapterId, after.enChapterId, "capitol EN")
                     .addIfDifferent(mistakes, after.mistakes, "explicații greșeli")
+                    .addIfDifferent(numericAnswer, after.numericAnswer, "răspuns corect")
                     .joined();
         }
     }
@@ -763,7 +782,7 @@ public class QuizAdminService {
                 parts.stream().map(p -> p.label() + ") " + p.getPoints() + "p " + p.getStatement() + " | " + p.getSolution()
                         + " | " + (p.getEnChapter() == null ? "" : p.getEnChapter().getCode())).toList(),
                 item.getEnChapter() == null ? null : item.getEnChapter().getId(),
-                ordered.stream().map(o -> String.valueOf(o.getMistake())).toList());
+                ordered.stream().map(o -> String.valueOf(o.getMistake())).toList(), item.getNumericAnswer());
     }
 
     /** The question an option belongs to: 404 for an option that does not exist. */
@@ -838,7 +857,7 @@ public class QuizAdminService {
     private List<QuizOption> correctTextsInPlace(QuizItem item, ItemRequest request) {
         String refusal = "Testul „" + item.getQuiz().getTitle() + "” a fost deja dat de elevi: la această întrebare poți "
                 + "corecta doar textele (enunț, variante, rezolvare, indicii) — punctajul, numărul de variante și "
-                + "varianta corectă nu se mai pot schimba.";
+                + "varianta corectă nu se mai pot schimba aici. Răspunsul corect se schimbă din Statistici.";
         if (pointsOf(request) != item.getPoints()) {
             throw new QuizInUseException(refusal);
         }
@@ -869,6 +888,12 @@ public class QuizAdminService {
         return request.parts() == null || request.parts().isEmpty()
                 ? request.points()
                 : request.parts().stream().mapToInt(PartDtos.PartRequest::points).sum();
+    }
+
+    private static void requireNumber(ItemRequest request) {
+        if (request.type() == QuizItemType.NUMERIC && NumericAnswer.parse(request.numericAnswer()).isEmpty()) {
+            throw new InvalidQuizException("Scrie răspunsul corect ca număr: 12, 0,5, 1/2 sau 0,(3).");
+        }
     }
 
     private static void requireValidParts(ItemRequest request) {

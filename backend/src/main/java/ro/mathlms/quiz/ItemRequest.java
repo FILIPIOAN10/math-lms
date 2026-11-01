@@ -28,8 +28,17 @@ public record ItemRequest(
         // optional, OPEN only: the requirements a), b)... with their own points and barem (EN Subiectul III); when given,
         // the item's points are their sum and {@code points} is ignored
         @Valid @Size(max = QuizItemPart.MAX_PARTS) List<PartDtos.PartRequest> parts,
-        Long enChapterId // optional: the EN chapter page for this question; null = the default for its place (V34)
+        Long enChapterId, // optional: the EN chapter page for this question; null = the default for its place (V34)
+        @Size(max = NumericAnswer.MAX_LENGTH) String numericAnswer // NUMERIC only: the right answer, "1/2", "0,5"...
 ) {
+    /** A question that is not answered with a number (what the builder sent before V48). */
+    public ItemRequest(QuizItemType type, int position, String statement, int points, String solution,
+                       List<OptionRequest> options, List<String> hints, Long chapterId, String section,
+                       Boolean imageRequired, List<PartDtos.PartRequest> parts, Long enChapterId) {
+        this(type, position, statement, points, solution, options, hints, chapterId, section, imageRequired, parts,
+                enChapterId, null);
+    }
+
     /** An item without its own EN chapter (what the builder sent before V34). */
     public ItemRequest(QuizItemType type, int position, String statement, int points, String solution,
                        List<OptionRequest> options, List<String> hints, Long chapterId, String section,

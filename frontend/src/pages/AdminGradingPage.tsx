@@ -14,6 +14,7 @@ import { useConfirm } from '@/components/useConfirm'
 import { ItemGradeForm } from '@/components/grading/ItemGradeForm'
 import { SectionHeadingView } from '@/components/SectionHeadingView'
 import { numberItems } from '@/lib/sections'
+import { itemTypeLabel } from '@/lib/numericAnswer'
 import {
   attemptPhotoUrl,
   commentOnAttempt,
@@ -567,15 +568,15 @@ export function AdminGradingPage({ aiPollMs = AI_POLL_MS }: { aiPollMs?: number 
               <Card>
                 <CardContent className="space-y-3 py-4">
                   <p className="text-sm font-medium">
-                    {local}. {item.type === 'SINGLE_CHOICE' ? 'Grilă' : 'Rezolvare'} · {item.points} p
+                    {local}. {item.type === 'OPEN' ? 'Rezolvare' : itemTypeLabel(item.type)} · {item.points} p
                   </p>
                   <MathContent className="text-sm">{item.statement}</MathContent>
                   <QuestionImage itemId={item.itemId} image={item.image} />
 
-                  {item.type === 'SINGLE_CHOICE' ? (
+                  {item.type !== 'OPEN' ? (
                     <div className="space-y-1 text-sm">
                       <p className={item.correct ? 'text-emerald-700 dark:text-emerald-300' : 'text-destructive'}>
-                        {item.correct ? '✓ ' : '✗ '}Ales:{' '}
+                        {item.correct ? '✓ ' : '✗ '}{item.type === 'NUMERIC' ? 'Scris' : 'Ales'}:{' '}
                         {item.selectedOptionText === null ? (
                           <em>fără răspuns</em>
                         ) : (

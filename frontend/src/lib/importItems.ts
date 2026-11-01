@@ -1,4 +1,5 @@
 import type { ItemInput } from '@/lib/api'
+import { isNumber } from '@/lib/numericAnswer'
 
 /**
  * Turns pasted text into quiz items, so a whole test is added in one go instead of one dialog per item:
@@ -11,6 +12,9 @@ import type { ItemInput } from '@/lib/api'
  *
  *   2. Rezolvă ecuația $x^2-7x+12=0$. (5p)   ← no options = an open item
  *   R: Δ = 1 (2p); x = 4, x = 3 (3p)
+ *
+ *   3. Cât face $\frac{1}{2}+\frac{1}{4}$? (2p)
+ *   N: 3/4             ← the answer is a number, marked by the server
  *
  * "(Np)" at the end of the statement gives the points (1 when missing). Lines without a prefix continue the statement,
  * or the solution once "R:" has started. Positions are 0-based here; the caller shifts them after existing items.
@@ -44,6 +48,7 @@ const PART = /^\s*(?:[-–•·]\s*)?\(?\s*(\d+)\s*(?:p|pct|puncte?)\s*\)?\s*([a
 const POINTS = /\(\s*(\d+)\s*(?:p|pct|puncte?)\s*\)\s*$/i
 const SOLUTION = /^\s*R:\s*(.*)$/i
 const HINT = /^\s*I:\s*(.+)$/i
+const NUMERIC = /^\s*N:\s*(.+)$/i
 const MAX_HINTS = 5 // matches QuizItem.MAX_HINTS on the server
 
 interface Draft {
@@ -58,6 +63,8 @@ interface Draft {
   parts: { text: string; points: number }[]
   solution: string[]
   hints: string[]
+  /** "N: 3/4": the question is answered with this number. */
+  numeric: string | null
   part: 'statement' | 'options' | 'parts' | 'solution' | 'hints'
 }
 
@@ -80,7 +87,7 @@ export function parseItems(text: string): ParsedItems {
     sectionHasItems = true
     drafts.push({
       number, pointsFirst, section: section ? section.join('\n') : null, imageRequired: false,
-      statement: [statement.trim()], options: [], parts: [], solution: [], hints: [], part: 'statement',
+      statement: [statement.trim()], options: [], parts: [], solution: [], hints: [], numeric: null, part: 'statement',
     })
   }
 
@@ -127,6 +134,11 @@ export function parseItems(text: string): ParsedItems {
       current.part = 'options'
       return
     }
+    const numeric = NUMERIC.exec(line)
+    if (numeric) {
+      current.numeric = numeric[1].trim()
+      return
+    }
     const solution = SOLUTION.exec(line)
     if (solution) {
       current.solution.push(solution[1].trim())
@@ -148,7 +160,7 @@ export function parseItems(text: string): ParsedItems {
       current.solution.push(line)
     } else {
       errors.push(`Întrebarea ${current.number}, linia ${index + 1}: nu știu ce e „${line}” `
-        + '(variantele încep cu a), b)…, rezolvarea cu R:, indiciile cu I:).')
+        + '(variantele încep cu a), b)…, rezolvarea cu R:, indiciile cu I:, răspunsul numeric cu N:).')
     }
   })
 
@@ -171,12 +183,16 @@ export function parseItems(text: string): ParsedItems {
       const correct = draft.options.filter((o) => o.correct).length
       if (correct !== 1) errors.push(`${label}: marchează cu * exact o variantă corectă (acum: ${correct}).`)
     }
+    if (draft.numeric !== null) {
+      if (choice || draft.parts.length > 0) errors.push(`${label}: răspunsul numeric (N:) nu merge cu variante sau cerințe.`)
+      if (!isNumber(draft.numeric)) errors.push(`${label}: „${draft.numeric}” nu e un număr (12, 0,5, 1/2 sau 0,(3)).`)
+    }
     if (draft.hints.length > MAX_HINTS) errors.push(`${label}: cel mult ${MAX_HINTS} indicii.`)
     if (draft.section && draft.section.length > MAX_SECTION) {
       errors.push(`${label}: titlul secțiunii (cu instrucțiunea) are peste ${MAX_SECTION} de caractere.`)
     }
     items.push({
-      type: choice ? 'SINGLE_CHOICE' : 'OPEN',
+      type: draft.numeric !== null ? 'NUMERIC' : choice ? 'SINGLE_CHOICE' : 'OPEN',
       position: i,
       statement,
       points: draft.parts.length > 0
@@ -184,6 +200,7 @@ export function parseItems(text: string): ParsedItems {
         : points ? Number(points[1]) : draft.pointsFirst ?? 1,
       solution: draft.solution.join('\n').trim() || null,
       options: choice ? draft.options.map((o, p) => ({ position: p, text: o.text, correct: o.correct })) : null,
+      numericAnswer: draft.numeric,
       hints: draft.hints,
       section: draft.section,
       imageRequired: draft.imageRequired,

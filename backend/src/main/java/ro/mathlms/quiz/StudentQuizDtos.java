@@ -116,9 +116,11 @@ public final class StudentQuizDtos {
      * would mark), the id of the right option, the barem, and the teacher's words about the wrong option chosen (null =
      * none). Never produced for a graded TEST.
      */
-    public record AnswerFeedbackDto(Boolean correct, Long correctOptionId, String solution, String mistake) {
+    public record AnswerFeedbackDto(Boolean correct, Long correctOptionId, String solution, String mistake,
+                                    String correctNumber // NUMERIC only: the right answer as the teacher wrote it
+    ) {
         public AnswerFeedbackDto(Boolean correct, Long correctOptionId, String solution) {
-            this(correct, correctOptionId, solution, null);
+            this(correct, correctOptionId, solution, null, null);
         }
     }
 
@@ -140,7 +142,8 @@ public final class StudentQuizDtos {
      */
     public record SavedAnswerDto(Long itemId, Long selectedOptionId, boolean photoUploaded,
                                  AnswerFeedbackDto feedback, // PRACTICE only; always null in a graded TEST
-                                 List<Long> photoIds         // S2: the pages sent, oldest first
+                                 List<Long> photoIds,        // S2: the pages sent, oldest first
+                                 String numericAnswer        // the number typed; null = none
     ) {
         public static SavedAnswerDto from(ItemResponse response) {
             return from(response, null);
@@ -152,7 +155,8 @@ public final class StudentQuizDtos {
                     response.getSelectedOption() == null ? null : response.getSelectedOption().getId(),
                     response.hasPhotos(),
                     feedback,
-                    response.photoIds());
+                    response.photoIds(),
+                    response.getNumericAnswer());
         }
     }
 

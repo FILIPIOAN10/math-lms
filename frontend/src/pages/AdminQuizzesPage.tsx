@@ -20,6 +20,7 @@ import { SectionHeadingView } from '@/components/SectionHeadingView'
 import { PartsView } from '@/components/PartsView'
 import { numberItems } from '@/lib/sections'
 import { MAX_MISTAKE } from '@/lib/quizStats'
+import { isNumber, itemTypeLabel, MAX_NUMBER_LENGTH } from '@/lib/numericAnswer'
 import { hasVariantsInStatement } from '@/lib/importItems'
 import { useConfirm } from '@/components/useConfirm'
 import {
@@ -341,6 +342,7 @@ export function ItemDialog({
   const [statement, setStatement] = useState(initial?.statement ?? '')
   const [points, setPoints] = useState(String(initial?.points ?? 5))
   const [solution, setSolution] = useState(initial?.solution ?? '')
+  const [numericAnswer, setNumericAnswer] = useState(initial?.numericAnswer ?? '')
   const [hints, setHints] = useState<string[]>(initial?.hints ?? [])
   const [chapterId, setChapterId] = useState(initial?.chapterId == null ? '' : String(initial.chapterId))
   const [enChapterId, setEnChapterId] = useState(initial?.enChapterId == null ? '' : String(initial.enChapterId))
@@ -463,8 +465,13 @@ export function ItemDialog({
         return
       }
     }
+    if (type === 'NUMERIC' && !isNumber(numericAnswer)) {
+      setError('Scrie răspunsul corect ca număr: 12, 0,5, 1/2 sau 0,(3).')
+      return
+    }
     const input: ItemInput = {
       type,
+      numericAnswer: type === 'NUMERIC' ? numericAnswer.trim() : null,
       position: initial?.position ?? 0,
       statement: statement.trim(),
       points: withParts ? partsTotal : Number(points) || 0,
@@ -494,6 +501,7 @@ export function ItemDialog({
         // Same type and points as the item just saved: a test is usually a run of similar items.
         setStatement('')
         setSolution('')
+        setNumericAnswer('')
         setHints([])
         setParts([])
         setEnChapterId('')
@@ -536,6 +544,7 @@ export function ItemDialog({
             >
               <option value="SINGLE_CHOICE">Grilă (o singură variantă corectă)</option>
               <option value="OPEN">Cu rezolvare (elevul trimite poza)</option>
+              <option value="NUMERIC">Răspuns numeric (se corectează singur)</option>
             </select>
           </div>
 
@@ -578,6 +587,24 @@ export function ItemDialog({
             </Button>
           </div>
         ) : null}
+
+        {type === 'NUMERIC' && (
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="inumeric">Răspunsul corect</Label>
+            <Input
+              id="inumeric"
+              value={numericAnswer}
+              onChange={(e) => setNumericAnswer(e.target.value)}
+              maxLength={MAX_NUMBER_LENGTH}
+              autoComplete="off"
+              placeholder="3/4"
+              className="w-44"
+            />
+            <p className="text-xs text-muted-foreground">
+              Se acceptă orice formă cu aceeași valoare: 3/4, 0,75, 6/8. Rezultatele cu radicali sau unități rămân întrebări cu rezolvare.
+            </p>
+          </div>
+        )}
 
         {type === 'OPEN' && (
           <div className="flex flex-col gap-2" data-testid="parts-editor">
@@ -1171,7 +1198,7 @@ export function AdminQuizzesPage() {
                       <CardContent className="space-y-2 py-3">
                         <div className="flex items-start justify-between gap-2">
                           <p className="text-sm font-medium">
-                            {local}. {item.type === 'SINGLE_CHOICE' ? 'Grilă' : 'Cu rezolvare'} · {item.points} p
+                            {local}. {itemTypeLabel(item.type)} · {item.points} p
                             {item.chapterId !== null && (
                               <span className="ml-2 rounded-md bg-sky-500/15 px-1.5 py-0.5 text-xs font-medium text-sky-800 dark:text-sky-200">
                                 {chapterTitle(item.chapterId) ?? 'alt capitol'}
@@ -1226,6 +1253,9 @@ export function AdminQuizzesPage() {
                         <PartsView
                           parts={(item.parts ?? []).map((p) => ({ label: p.label, statement: p.statement, points: p.points, barem: p.solution }))}
                         />
+                        {item.type === 'NUMERIC' && (
+                          <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">✓ Răspuns corect: {item.numericAnswer}</p>
+                        )}
                         {item.type === 'SINGLE_CHOICE' && (
                           <ul className="space-y-1 text-sm">
                             {item.options.map((o, i) => (

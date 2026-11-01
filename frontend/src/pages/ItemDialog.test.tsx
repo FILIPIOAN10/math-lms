@@ -22,6 +22,25 @@ async function submitted(onSubmit: ReturnType<typeof vi.fn>): Promise<ItemInput>
   return onSubmit.mock.calls[0][0]
 }
 
+describe('ItemDialog numeric question', () => {
+  it('needs a number and sends it', async () => {
+    const onSubmit = renderDialog(null)
+
+    await userEvent.selectOptions(screen.getByLabelText('Tip'), 'NUMERIC')
+    await userEvent.type(screen.getByLabelText('Enunț'), 'Cât face 1/2 + 1/4?')
+    await userEvent.type(screen.getByLabelText('Răspunsul corect'), '20 cm')
+    await userEvent.click(screen.getByRole('button', { name: 'Salvează' }))
+    expect(await screen.findByText(/Scrie răspunsul corect ca număr/)).toBeInTheDocument()
+    expect(onSubmit).not.toHaveBeenCalled()
+
+    await userEvent.clear(screen.getByLabelText('Răspunsul corect'))
+    await userEvent.type(screen.getByLabelText('Răspunsul corect'), '3/4')
+    await userEvent.click(screen.getByRole('button', { name: 'Salvează' }))
+
+    expect(await submitted(onSubmit)).toMatchObject({ type: 'NUMERIC', numericAnswer: '3/4', options: null })
+  })
+})
+
 describe('ItemDialog explanations of wrong options', () => {
   const grila: QuizItemDto = {
     id: 8, position: 0, type: 'SINGLE_CHOICE', statement: '1/2 + 1/4 =', points: 5, solution: null, hints: [], chapterId: null,

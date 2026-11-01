@@ -570,7 +570,7 @@ export async function unenroll(enrollmentId: number): Promise<void> {
 export type QuizStatus = 'DRAFT' | 'PUBLISHED'
 /** TEST = timed + graded; PRACTICE = immediate feedback, no timer, never graded (the teacher opts a quiz in). */
 export type AttemptMode = 'TEST' | 'PRACTICE'
-export type QuizItemType = 'SINGLE_CHOICE' | 'OPEN'
+export type QuizItemType = 'SINGLE_CHOICE' | 'OPEN' | 'NUMERIC'
 
 export interface QuizSummary {
   id: number
@@ -610,6 +610,8 @@ export interface QuizOptionDto {
 }
 
 export interface QuizItemDto {
+  /** NUMERIC only: the right answer as the teacher wrote it. */
+  numericAnswer?: string | null
   id: number
   position: number
   type: QuizItemType
@@ -697,6 +699,8 @@ export interface ItemInput {
   points: number
   solution: string | null
   options: OptionInput[] | null
+  /** NUMERIC only: the right answer, "1/2", "0,5"... */
+  numericAnswer?: string | null
   /** Up to 5 hints, in order; empty = none. */
   hints: string[]
   /** Overrides the quiz's chapter; null/absent = inherit. */
@@ -924,6 +928,16 @@ export interface QuizItemStat {
   /** The options of a grilă with how many chose each; empty for an open question. */
   options: OptionStat[]
   suspect: SuspectAnswer | null
+  /** A numeric question: the right answer, and the numbers typed, the same value counted once. */
+  numericAnswer: string | null
+  numbers: NumberStat[]
+}
+
+/** One number students typed, however they wrote it. */
+export interface NumberStat {
+  value: string
+  chosen: number
+  correct: boolean
 }
 
 export interface QuizStatsDto {
@@ -951,6 +965,12 @@ export async function saveOptionMistake(optionId: number, mistake: string): Prom
 export async function suggestOptionMistake(optionId: number): Promise<string> {
   const response = await postJson(`/admin/quiz-options/${optionId}/mistake-suggestion`, {})
   return ((await response.json()) as { text: string }).text
+}
+
+/** The right answer of a numeric question was wrong: changes it and marks every paper again. */
+export async function correctAnswerNumber(itemId: number, value: string): Promise<{ changedGrades: number }> {
+  const response = await putJson(`/admin/quiz-items/${itemId}/correct-number`, { value })
+  return response.json()
 }
 
 /** The marked answer of a grilă was wrong: changes it and marks every paper again. */
@@ -1293,6 +1313,8 @@ export interface AnswerFeedback {
   solution: string | null
   /** The teacher's words about the wrong option chosen; null/absent = none. */
   mistake?: string | null
+  /** A numeric question: the right answer as the teacher wrote it. */
+  correctNumber?: string | null
 }
 
 /** What the student already saved on a resumed attempt. */
@@ -1304,6 +1326,8 @@ export interface SavedAnswerDto {
   feedback: AnswerFeedback | null
   /** S2: the pages sent for an open question, oldest first. */
   photoIds: number[]
+  /** The number typed for a numeric question; null/absent = none. */
+  numericAnswer?: string | null
 }
 
 /** One revealed hint: its 1-based number, its text and how many hints the item has in all. */
@@ -1556,10 +1580,11 @@ async function feedbackOrNull(response: Response): Promise<AnswerFeedback | null
 export async function saveQuizAnswer(
   attemptId: number,
   itemId: number,
-  optionId: number,
+  answer: number | string, // the option picked, or the number typed
   client?: { clientId: string; clientSeq: number },
 ): Promise<AnswerFeedback | null> {
-  return feedbackOrNull(await putJson(`/quiz/attempts/${attemptId}/responses/${itemId}`, { optionId, ...client }))
+  const body = typeof answer === 'string' ? { value: answer } : { optionId: answer }
+  return feedbackOrNull(await putJson(`/quiz/attempts/${attemptId}/responses/${itemId}`, { ...body, ...client }))
 }
 
 /** S2: an open answer's pages after one was added or taken off, with the barem in a practice (null in a test). */

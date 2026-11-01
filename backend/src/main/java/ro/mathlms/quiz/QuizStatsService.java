@@ -6,10 +6,12 @@ import org.springframework.transaction.annotation.Transactional;
 import ro.mathlms.cache.CacheNames;
 import ro.mathlms.quiz.QuizStatsDtos.BucketDto;
 import ro.mathlms.quiz.QuizStatsDtos.ItemStatDto;
+import ro.mathlms.quiz.QuizStatsDtos.NumericStatDto;
 import ro.mathlms.quiz.QuizStatsDtos.OptionStatDto;
 import ro.mathlms.quiz.QuizStatsDtos.QuizStatsDto;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -26,6 +28,9 @@ public class QuizStatsService {
 
     /** The groups a teacher reads a class by: the grades of the app, not percents of the points. */
     private static final String[] BUCKET_LABELS = {"sub 5", "5 – 6,99", "7 – 8,99", "9 – 10"};
+
+    /** How many different numbers a question lists: the usual answers, not every typo. */
+    private static final int NUMBERS_SHOWN = 5;
 
     private final QuizRepository quizRepository;
     private final QuizItemRepository itemRepository;
@@ -66,6 +71,9 @@ public class QuizStatsService {
         Map<Long, List<OptionChoice>> choices = attemptIds.isEmpty() ? Map.of()
                 : responseRepository.findChoicesByAttemptIds(attemptIds).stream()
                         .collect(Collectors.groupingBy(OptionChoice::itemId));
+        Map<Long, List<NumericChoice>> numbers = attemptIds.isEmpty() ? Map.of()
+                : responseRepository.findNumbersByAttemptIds(attemptIds).stream()
+                        .collect(Collectors.groupingBy(NumericChoice::itemId));
         Map<Long, List<QuizOption>> options = items.isEmpty() ? Map.of()
                 : optionRepository.findByItemIdInOrderByItemIdAscPositionAsc(items.stream().map(QuizItem::getId).toList())
                         .stream().collect(Collectors.groupingBy(o -> o.getItem().getId()));
@@ -74,17 +82,30 @@ public class QuizStatsService {
             ItemStat stat = byItem.get(item.getId());
             long correct = stat == null ? 0 : stat.correct();
             long totalPoints = stat == null || stat.totalPoints() == null ? 0 : stat.totalPoints();
-            Double correctRate = graded == 0 || item.getType() != QuizItemType.SINGLE_CHOICE
+            Double correctRate = graded == 0 || item.getType() == QuizItemType.OPEN
                     ? null : (double) correct / graded;
             Double averagePoints = graded == 0 ? null : (double) totalPoints / graded;
             List<QuizOption> itemOptions = options.getOrDefault(item.getId(), List.of());
             List<OptionChoice> itemChoices = choices.getOrDefault(item.getId(), List.of());
             itemStats.add(new ItemStatDto(item.getId(), item.getPosition(), item.getType(), item.getStatement(),
                     item.getPoints(), correctRate, averagePoints, item.getSection(), optionStats(itemOptions, itemChoices),
-                    SuspectAnswer.find(itemOptions, itemChoices, counted, item.getPoints()).orElse(null)));
+                    SuspectAnswer.find(itemOptions, itemChoices, counted, item.getPoints()).orElse(null),
+                    item.getNumericAnswer(), numberStats(numbers.getOrDefault(item.getId(), List.of()))));
         }
         return new QuizStatsDto(quiz.getId(), quiz.getTitle(), graded, maxScore, averageScore, averagePercent,
                 distribution(scores, maxScore), itemStats);
+    }
+
+    /** The numbers typed, the same value counted once however it was written, most typed first. */
+    private static List<NumericStatDto> numberStats(List<NumericChoice> numbers) {
+        Map<String, List<NumericChoice>> byValue = numbers.stream().collect(Collectors.groupingBy(
+                n -> NumericAnswer.parse(n.value()).map(NumericAnswer::key).orElse(n.value()),
+                java.util.LinkedHashMap::new, Collectors.toList()));
+        return byValue.values().stream()
+                .sorted(Comparator.comparingInt((List<NumericChoice> same) -> same.size()).reversed())
+                .limit(NUMBERS_SHOWN)
+                .map(same -> new NumericStatDto(same.get(0).value(), same.size(), Boolean.TRUE.equals(same.get(0).correct())))
+                .toList();
     }
 
     private static List<OptionStatDto> optionStats(List<QuizOption> options, List<OptionChoice> choices) {

@@ -222,7 +222,7 @@ export function BaremDialog({ quizId, items, onClose, onApplied, pollMs = POLL_M
                         </select>
                         {proposal.taken && (
                           <span className="text-xs text-muted-foreground">
-                            Testul a fost dat deja: varianta corectă nu se mai schimbă.
+                            Testul a fost dat deja: varianta corectă se schimbă din Statistici, ca să se recalculeze notele.
                           </span>
                         )}
                       </div>

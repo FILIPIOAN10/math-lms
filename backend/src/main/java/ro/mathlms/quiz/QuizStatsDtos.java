@@ -16,6 +16,10 @@ public final class QuizStatsDtos {
     public record OptionStatDto(Long id, String letter, String text, boolean correct, int chosen, String mistake) {
     }
 
+    /** One number students typed, however they wrote it, and how many typed it. */
+    public record NumericStatDto(String value, int chosen, boolean correct) {
+    }
+
     /** The marked answer looks wrong: {@code chosen} of the {@code strong} strongest students agree on {@code letter}. */
     public record SuspectDto(String letter, int chosen, int strong) {
     }
@@ -27,9 +31,11 @@ public final class QuizStatsDtos {
      */
     public record ItemStatDto(Long itemId, int position, QuizItemType type, String statement, int points,
                               Double correctRate, Double averagePoints, String section,
-                              List<OptionStatDto> options, SuspectDto suspect) {
+                              List<OptionStatDto> options, SuspectDto suspect,
+                              String numericAnswer, List<NumericStatDto> numbers) {
         public ItemStatDto {
-            options = options == null ? List.of() : options; // a value cached before options existed has none
+            options = options == null ? List.of() : options; // a value cached before these existed has none
+            numbers = numbers == null ? List.of() : numbers;
         }
     }
 

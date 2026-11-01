@@ -127,7 +127,7 @@ R: $200 - 30 = 170$ lei (5p)
 ```
 
 Formatul importului: `*` marchează varianta corectă, `(Np)` dă punctajul, `R:` = rezolvare/barem, `I:` = indiciu (max 5),
-un subiect fără variante = subiect deschis (cu poză).
+`N:` = răspunsul unei întrebări numerice, un subiect fără variante = subiect deschis (cu poză).
 
 **Format Evaluare Națională (secțiuni, V24):** un rând `SUBIECTUL I` / `SUBIECTUL al II-lea` începe o secțiune, rândurile de sub el (până
 la primul subiect) sunt instrucțiunea, iar punctajul poate sta în față: `5p 1. Rezultatul calculului … este:`. Fiecare subiect rămâne separat
@@ -842,6 +842,56 @@ același proiect și aceeași cheie JSON ca importul din poze.
 | 11 | O lucrare predată înainte de pornirea funcției | Butonul **Cere propunere AI** (doar la răspunsurile cu poze și barem) |
 | 12 | **Corectează pe întrebare** | Aceeași propunere, pe fiecare lucrare |
 | 13 | Cu `AI_GRADING_ENABLED=false` | Nici butonul de barem, nici propunerile nu apar; corectura merge ca înainte |
+
+### 33. Diagnostic pe greșeli (V47) — ca profesor, apoi ca elev
+
+„Propune cu AI” apare doar cu `AI_IMPORT_ENABLED=true`. Cu `AI_PROVIDER=fake` textul e inventat, fără cost. Cu `gemini`
+trimite doar textul întrebării și al variantelor, niciodată ceva despre elevi.
+
+| # | Ce faci | Ce trebuie să vezi |
+|---|---|---|
+| 1 | **Teste → ⋯ → Statistici** pe un test cu grile notate | La fiecare grilă: câți elevi au ales fiecare variantă, ✓ la cea corectă, „Fără răspuns: n elevi” dacă e cazul |
+| 2 | La o variantă greșită: **Ce greșeală ascunde?** → scrie textul → **Salvează** | Textul apare sub variantă; merge și pe un test dat deja |
+| 3 | **Propune cu AI** în aceeași casetă | Caseta se umple, dar nu se salvează nimic până apeși **Salvează** |
+| 4 | O variantă greșită aleasă de cel puțin 2 elevi și o cincime din clasă | Sus, „Greșeli frecvente”, cu cele mai alese trei și explicația lor |
+| 5 | În editor: **Editează** întrebarea → **Mai multe opțiuni** | „Ce greșeală ascunde fiecare variantă greșită”, cu ce ai scris deja; se poate completa înainte să dea cineva testul |
+| 6 | Ca elev: dă testul, alege varianta explicată, predă | La rezultat, „De ce e greșit” cu textul tău; la o variantă fără text, doar răspunsul corect |
+| 7 | Capitolul testului are exerciții | Pe întrebarea greșită, butonul **Exerciții: <capitol> →**, care deschide direct capitolul în Conținut; pe o întrebare corectă nu apare |
+| 8 | **Exersează** același test și alege varianta explicată | Textul apare imediat, în caseta cu verdictul |
+| 9 | **Recapitulare**, la aceeași grilă, a doua zi | Textul apare după **Verifică** |
+| 10 | Ca părinte: rezultatul copilului | Aceeași casetă „De ce e greșit” |
+
+### 34. Întrebări suspecte și răspuns corect schimbat — ca profesor
+
+| # | Ce faci | Ce trebuie să vezi |
+|---|---|---|
+| 1 | Un test cu cel puțin 6 elevi notați, la care cei mai buni au ales aceeași variantă, alta decât cea marcată | Sus „De verificat întrebarea …”, iar pe întrebare „x din y elevi buni au ales varianta …”. „Buni” se calculează pe restul testului, fără întrebarea asta |
+| 2 | Sub 6 elevi notați | Nicio alarmă: prea puține răspunsuri |
+| 3 | La varianta care chiar e corectă: **Asta e varianta corectă** → **Schimbă și recalculează** | „Răspunsul corect e acum b). S-au schimbat n note.”; media și procentele se schimbă |
+| 4 | Ca elev cu nota schimbată | Pe Acasă, nota apare iar ca „Nou”, cu punctajul nou |
+| 5 | **Jurnal**, filtrul Corectură | „Răspuns corect schimbat · … · răspuns corect a) → b), n note schimbate” |
+
+### 35. Răspuns numeric (V48) — ca profesor, apoi ca elev
+
+Se acceptă: `12`, `0,5`, `0.5`, `1/2`, `1:2`, `1 1/2`, `-3/4` și periodicele `0,(3)`, `1,2(3)`. Se compară valoarea, deci
+la răspunsul `3/4` primesc puncte și `0,75`, și `6/8`. Radicalii și unitățile nu sunt numere aici: `2√3` sau `20 cm` rămân
+întrebări cu rezolvare. `0,33` nu e `1/3`.
+
+| # | Ce faci | Ce trebuie să vezi |
+|---|---|---|
+| 1 | **Adaugă întrebare → Tip: Răspuns numeric**, răspuns corect `20 cm` | „Scrie răspunsul corect ca număr…”; nu se salvează |
+| 2 | Răspuns corect `3/4` | În editor: „Răspuns numeric”, „✓ Răspuns corect: 3/4” |
+| 3 | **Importă din text** cu un rând `N: 3/4` sub enunț | Previzualizarea arată „răspuns numeric 3/4” |
+| 4 | **⋯ → Vezi ca elev** | Caseta de răspuns, dezactivată, fără răspunsul corect |
+| 5 | Ca elev: scrie `0,75` și iești din casetă | Punctul din bara de jos se umple; după reîncărcare numărul e tot acolo |
+| 6 | Scrie `20 cm` | „Nu pare un număr…”, cât mai poți corecta |
+| 7 | Pune DevTools → Network pe Offline și scrie un număr | Se comportă ca o grilă: răspunsul așteaptă și pleacă singur când revine conexiunea |
+| 8 | Predă un test doar cu grile și întrebări numerice | Se notează imediat, nu așteaptă profesorul |
+| 9 | Rezultatul | „Răspunsul tău: 0,75”, iar la unul greșit „Răspuns corect: 3/4” |
+| 10 | **Exersează**: scrie un număr, ieși din casetă | Nu se trimite nimic până la **Verifică**; apoi verdictul și rezolvarea |
+| 11 | **Corectură** pe lucrare | „Scris: 0,75 (5 p, corectat automat)”, fără formular de punctaj |
+| 12 | **Statistici** | „Răspuns corect: 3/4”; `3/4` și `0,75` numărate împreună; **Asta e varianta corectă** pe alt număr recalculează notele |
+| 13 | În editor, pe un test dat deja, schimbă răspunsul cu altă valoare | Refuzat, cu trimitere la Statistici; aceeași valoare scrisă altfel se salvează |
 
 ## E. Debugging — unde te uiți când pică ceva
 

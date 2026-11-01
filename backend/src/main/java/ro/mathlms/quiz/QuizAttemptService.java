@@ -245,7 +245,7 @@ public class QuizAttemptService {
         // A row that exists only because the student asked for a hint is not an answer: it must not come back as one
         // (its "feedback" would hand over the solution of a question they have not tried).
         List<SavedAnswerDto> answers = responses.stream()
-                .filter(response -> response.getSelectedOption() != null || response.hasPhotos())
+                .filter(ItemResponse::isAnswered)
                 .map(response -> attempt.getMode() == AttemptMode.PRACTICE
                         ? SavedAnswerDto.from(response, feedbackFor(response.getItem(), response))
                         : SavedAnswerDto.from(response))
@@ -346,6 +346,49 @@ public class QuizAttemptService {
         return attempt.getMode() == AttemptMode.PRACTICE
                 ? Optional.of(feedbackFor(item, response))
                 : Optional.empty();
+    }
+
+    /**
+     * Records (or, when blank, takes back) the number typed for a NUMERIC item, with the same queue rule and the same
+     * practice feedback as a choice. Whatever is typed is kept as written: only marking decides whether it is a number.
+     */
+    @Transactional
+    public Optional<AnswerFeedbackDto> saveNumericResponse(Long attemptId, Long itemId, String value,
+                                                           java.util.UUID clientId, Long clientSeq, String studentEmail) {
+        QuizAttempt attempt = requireOwnedInProgress(attemptId, studentEmail);
+        requireTimeLeft(attempt);
+        QuizItem item = itemRepository.findById(itemId)
+                .orElseThrow(() -> new QuizNotFoundException("QuizItem", itemId));
+        if (!item.getQuiz().getId().equals(attempt.getQuiz().getId())) {
+            throw new InvalidQuizException("Item does not belong to this quiz");
+        }
+        if (item.getType() != QuizItemType.NUMERIC) {
+            throw new InvalidQuizException("Only numeric items are answered with a number");
+        }
+        ItemResponse response = responseRepository.findByAttemptIdAndItemId(attemptId, itemId)
+                .orElseGet(() -> new ItemResponse(attempt, item));
+        boolean applied = response.answerNumeric(value, clientId, clientSeq);
+        if (applied && attempt.getMode() == AttemptMode.PRACTICE) {
+            boolean right = isRight(item, response);
+            response.gradeAuto(right, right ? item.getPoints() : 0);
+        }
+        if (applied) {
+            responseRepository.save(response);
+        }
+        return attempt.getMode() == AttemptMode.PRACTICE
+                ? Optional.of(feedbackFor(item, response))
+                : Optional.empty();
+    }
+
+    /** Whether an auto-graded answer is right; no answer never is. */
+    private static boolean isRight(QuizItem item, ItemResponse response) {
+        if (response == null) {
+            return false;
+        }
+        if (item.getType() == QuizItemType.NUMERIC) {
+            return NumericAnswer.same(item.getNumericAnswer(), response.getNumericAnswer());
+        }
+        return response.getSelectedOption() != null && response.getSelectedOption().isCorrect();
     }
 
     /**
@@ -487,14 +530,13 @@ public class QuizAttemptService {
         int autoMaxScore = 0;
         boolean hasOpenItems = false;
         for (QuizItem item : items) {
-            if (item.getType() != QuizItemType.SINGLE_CHOICE) {
+            if (item.getType() == QuizItemType.OPEN) {
                 hasOpenItems = true;
                 continue;
             }
             autoMaxScore += item.getPoints();
             ItemResponse response = byItem.get(item.getId());
-            boolean correct = response != null && response.getSelectedOption() != null
-                    && response.getSelectedOption().isCorrect();
+            boolean correct = isRight(item, response);
             int awarded = correct ? item.getPoints() : 0;
             if (response != null) {
                 response.gradeAuto(correct, awarded);
@@ -563,6 +605,9 @@ public class QuizAttemptService {
                     selectedText = response.getSelectedOption().getText();
                     selectedLetter = letterOf(options, response.getSelectedOption());
                 }
+            } else if (item.getType() == QuizItemType.NUMERIC) {
+                correctText = item.getNumericAnswer();
+                selectedText = response == null ? null : response.getNumericAnswer();
             } else {
                 photoUploaded = response != null && response.hasPhotos();
             }
@@ -692,6 +737,9 @@ public class QuizAttemptService {
 
     /** What a PRACTICE answer reveals: the verdict (SINGLE_CHOICE), the right option's id and the barem. */
     private AnswerFeedbackDto feedbackFor(QuizItem item, ItemResponse response) {
+        if (item.getType() == QuizItemType.NUMERIC) {
+            return new AnswerFeedbackDto(response.getCorrect(), null, item.getSolution(), null, item.getNumericAnswer());
+        }
         if (item.getType() != QuizItemType.SINGLE_CHOICE) {
             return new AnswerFeedbackDto(null, null, item.getSolution());
         }
@@ -699,7 +747,8 @@ public class QuizAttemptService {
                 .filter(QuizOption::isCorrect)
                 .map(QuizOption::getId)
                 .findFirst().orElse(null);
-        return new AnswerFeedbackDto(response.getCorrect(), correctOptionId, item.getSolution(), response.mistakeExplained());
+        return new AnswerFeedbackDto(response.getCorrect(), correctOptionId, item.getSolution(), response.mistakeExplained(),
+                null);
     }
 
     private void requireTimeLeft(QuizAttempt attempt) {
@@ -1025,6 +1074,9 @@ public class QuizAttemptService {
                     selectedText = response.getSelectedOption().getText();
                     selectedLetter = letterOf(options, response.getSelectedOption());
                 }
+            } else if (item.getType() == QuizItemType.NUMERIC) {
+                correctText = item.getNumericAnswer();
+                selectedText = response == null ? null : response.getNumericAnswer();
             }
             reviews.add(new AdminItemReviewDto(
                     item.getId(), item.getPosition(), item.getType(), item.getStatement(), item.getPoints(),

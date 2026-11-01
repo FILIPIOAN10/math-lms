@@ -18,6 +18,14 @@ describe('AnswerQueue', () => {
     ])
   })
 
+  it('holds a typed number like a choice, the newest replacing the older one', () => {
+    const q = new AnswerQueue(50)
+    q.enqueue(100, '1/2')
+    q.enqueue(100, '0,75')
+
+    expect(q.pending()).toEqual([{ itemId: 100, optionId: null, value: '0,75', seq: 2 }])
+  })
+
   it('survives a reload: same browser id, the counter goes on', () => {
     const first = new AnswerQueue(50)
     first.enqueue(100, 1000)
