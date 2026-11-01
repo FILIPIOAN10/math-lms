@@ -158,6 +158,22 @@ class AdminQuizAttemptControllerTest {
 
     @Test
     @WithMockUser(roles = "ADMIN")
+    void reopen_TakesTheGradeBack() throws Exception {
+        mockMvc.perform(post("/api/admin/quiz/attempts/1/reopen").with(csrf()))
+                .andExpect(status().isNoContent());
+
+        verify(service).reopenGrading(1L);
+    }
+
+    @Test
+    @WithMockUser(roles = "STUDENT")
+    void reopen_IsNotForStudents() throws Exception {
+        mockMvc.perform(post("/api/admin/quiz/attempts/1/reopen").with(csrf()))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
     void listDefaultsToSubmittedQueue() throws Exception {
         when(service.listForGrading(QuizAttemptStatus.SUBMITTED)).thenReturn(List.of(
                 new AdminAttemptSummaryDto(1L, 10L, "Simulare EN", 5L, "Ana", QuizAttemptStatus.SUBMITTED, null, null, 35)));

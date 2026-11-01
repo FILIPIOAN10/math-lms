@@ -624,6 +624,88 @@ class QuizAttemptServiceTest {
         verify(auditLog).record(new AuditEvent(AuditAction.PAPER_GRADED, 50L, "Simulare EN", "22 p din 30", 1L, null));
     }
 
+    private QuizAttempt gradedPaper(int score, QuizItem... items) {
+        QuizAttempt attempt = attempt(50L, student);
+        attempt.submit();
+        attempt.markGraded(score);
+        when(attemptRepository.findByIdForUpdate(50L)).thenReturn(Optional.of(attempt));
+        when(attemptRepository.findById(50L)).thenReturn(Optional.of(attempt));
+        when(itemRepository.findByQuizIdOrderByPosition(10L)).thenReturn(List.of(items));
+        return attempt;
+    }
+
+    @Test
+    void reopeningAPaperPutsItBackInTheQueueAndTheJournalKeepsTheGradeTakenBack() {
+        QuizAttempt attempt = gradedPaper(22, open(101L, 30));
+
+        service.reopenGrading(50L);
+
+        assertThat(attempt.getStatus()).isEqualTo(QuizAttemptStatus.SUBMITTED);
+        assertThat(attempt.getScore()).isNull();
+        verify(attemptRepository).save(attempt);
+        verify(auditLog).record(new AuditEvent(AuditAction.PAPER_REOPENED, 50L, "Simulare EN",
+                "nota retrasă: 22 p din 30", 1L, null));
+    }
+
+    @Test
+    void reopeningDropsTheCachedGradesWithoutTellingAnyoneOfANewResult() {
+        gradedPaper(22, open(101L, 30));
+
+        service.reopenGrading(50L);
+
+        verify(cacheEvictor).evict(CacheNames.PROGRESS, EMAIL);
+        verify(cacheEvictor).evict(CacheNames.QUIZ_STATS, 10L);
+        verify(resultNotifier, never()).resultGraded(any());
+    }
+
+    @Test
+    void aReopenedPaperGetsItsCorrectedGradeWhenFinalisedAgain() {
+        QuizItem deschis = open(101L, 30);
+        QuizAttempt attempt = gradedPaper(22, deschis);
+        ItemResponse response = new ItemResponse(attempt, deschis);
+        response.gradeManual(22);
+        when(itemRepository.findById(101L)).thenReturn(Optional.of(deschis));
+        when(responseRepository.findByAttemptIdAndItemId(50L, 101L)).thenReturn(Optional.of(response));
+        when(responseRepository.findByAttemptId(50L)).thenReturn(List.of(response));
+
+        service.reopenGrading(50L);
+        service.gradeOpenResponse(50L, 101L, 25, null);
+        service.finalizeGrading(50L);
+
+        assertThat(attempt.getStatus()).isEqualTo(QuizAttemptStatus.GRADED);
+        assertThat(attempt.getScore()).isEqualTo(25);
+        verify(resultNotifier).resultGraded(attempt);
+    }
+
+    @Test
+    void aTestOfGrileOnlyHasNothingToReopen() {
+        QuizAttempt attempt = gradedPaper(5, singleChoice(100L, 5));
+
+        assertThatThrownBy(() -> service.reopenGrading(50L))
+                .isInstanceOf(InvalidQuizException.class)
+                .hasMessageContaining("doar grile");
+        assertThat(attempt.getStatus()).isEqualTo(QuizAttemptStatus.GRADED);
+    }
+
+    @Test
+    void onlyAGradedPaperCanBeReopened() {
+        QuizAttempt attempt = attempt(50L, student);
+        attempt.submit();
+        when(attemptRepository.findByIdForUpdate(50L)).thenReturn(Optional.of(attempt));
+
+        assertThatThrownBy(() -> service.reopenGrading(50L))
+                .isInstanceOf(InvalidQuizException.class)
+                .hasMessageContaining("notată");
+        verify(auditLog, never()).record(any());
+    }
+
+    @Test
+    void reopeningAnUnknownPaperIsNotFound() {
+        when(attemptRepository.findByIdForUpdate(404L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.reopenGrading(404L)).isInstanceOf(QuizNotFoundException.class);
+    }
+
     @Test
     void theWholePaperCommentIsJournalledOnlyWhenItChanges() {
         submittedResponse(open(101L, 30));

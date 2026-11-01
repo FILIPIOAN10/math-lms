@@ -1696,6 +1696,11 @@ export async function finalizeGrading(attemptId: number): Promise<void> {
   await postJson(`/admin/quiz/attempts/${attemptId}/mark-graded`, {})
 }
 
+/** Takes a final grade back so it can be corrected; the journal keeps it. */
+export async function reopenGrading(attemptId: number): Promise<void> {
+  await postJson(`/admin/quiz/attempts/${attemptId}/reopen`, {})
+}
+
 /** A plain GET the browser makes itself for an <img>; the auth cookie rides along via the /api proxy. */
 export function attemptPhotoUrl(attemptId: number, itemId: number, photoId: number): string {
   return `/api/admin/quiz/attempts/${attemptId}/responses/${itemId}/photos/${photoId}`
@@ -1813,7 +1818,7 @@ export type AuditAction =
   | 'EN_EXAMPLE_ADDED' | 'EN_EXAMPLE_UPDATED' | 'EN_EXAMPLE_DELETED' | 'EN_CHAPTER_SLOTS_UPDATED'
   | 'QUIZ_CREATED' | 'QUIZ_UPDATED' | 'QUIZ_COPIED' | 'QUIZ_PUBLISHED' | 'QUIZ_UNPUBLISHED' | 'QUIZ_DELETED'
   | 'QUESTION_ADDED' | 'QUESTION_UPDATED' | 'QUESTION_DELETED' | 'QUESTION_IMAGE_SET' | 'QUESTION_IMAGE_REMOVED' | 'QUIZ_FROM_PHOTOS'
-  | 'ANSWER_GRADED' | 'PAPER_COMMENTED' | 'PAPER_GRADED'
+  | 'ANSWER_GRADED' | 'PAPER_COMMENTED' | 'PAPER_GRADED' | 'PAPER_REOPENED'
   | 'HOMEWORK_ASSIGNED' | 'HOMEWORK_RESCHEDULED' | 'HOMEWORK_DELETED'
   | 'ACCOUNT_APPROVED' | 'ACCOUNT_REJECTED' | 'PARENT_LINKED' | 'STUDENT_ENROLLED' | 'STUDENT_UNENROLLED'
   | 'INVITE_LINK_CREATED' | 'INVITE_LINK_REVOKED' | 'JOINED_BY_INVITE'

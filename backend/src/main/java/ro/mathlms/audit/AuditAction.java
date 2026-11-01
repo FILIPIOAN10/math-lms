@@ -49,6 +49,8 @@ public enum AuditAction {
     ANSWER_GRADED(AuditCategory.GRADING),
     PAPER_COMMENTED(AuditCategory.GRADING),
     PAPER_GRADED(AuditCategory.GRADING),
+    /** A final grade taken back to be corrected; finalising again writes a new PAPER_GRADED row. */
+    PAPER_REOPENED(AuditCategory.GRADING),
 
     HOMEWORK_ASSIGNED(AuditCategory.HOMEWORK),
     HOMEWORK_RESCHEDULED(AuditCategory.HOMEWORK),

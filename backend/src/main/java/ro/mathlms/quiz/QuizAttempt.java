@@ -167,4 +167,17 @@ public class QuizAttempt {
         this.score = score;
         this.status = QuizAttemptStatus.GRADED;
     }
+
+    /**
+     * The teacher takes a final grade back to correct it: the paper waits for them again, the student has no grade until
+     * it is finalised again, and that corrected grade is "Nou". The answers and their points stay as they are.
+     */
+    public void reopenGrading() {
+        if (mode != AttemptMode.TEST || status != QuizAttemptStatus.GRADED) {
+            throw new IllegalStateException("Only a graded test can be reopened, was " + mode + " " + status);
+        }
+        this.score = null;
+        this.status = QuizAttemptStatus.SUBMITTED;
+        this.resultSeenAt = null;
+    }
 }

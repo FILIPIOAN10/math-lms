@@ -377,7 +377,8 @@ Din bara de sus: **Corectură** (numărul roșu = lucrări de corectat).
   punctaj peste valoarea subiectului → eroare
 - **Comentariu pentru toată lucrarea (opțional)** → **Salvează comentariul** → „✓ Comentariu salvat”; merge și pe o lucrare deja
   notată (inclusiv una doar cu grile, notată automat la predare); gol = șterge comentariul; max 2000 de caractere
-- **Finalizează nota** se deblochează când toate subiectele deschise au punctaj → dialog „Finalizezi nota?” → lucrarea trece la „Notate”
+- **Finalizează nota** se deblochează când toate subiectele deschise au punctaj → nota se dă pe loc, fără dialog; sus rămâne „✓ Elev: punctaj” cu **Anulează** → lucrarea trece la „Notate”
+- la „Notate”, o lucrare cu subiecte deschise are **Redeschide lucrarea** (cere confirmare): nota dispare pentru elev, lucrarea revine la „De corectat” cu punctajele ei, iar finalizarea din nou dă nota corectată (ca „Nou” la elev). În **Jurnal** apare „Lucrare redeschisă” cu nota retrasă. Un test numai cu grile nu are ce să redeschidă
 - **Finalizează și treci la următoarea (n rămase)** (T4): aceeași confirmare, apoi se deschide direct următoarea lucrare din coadă (fără
   întoarcere la listă); pe ultima lucrare butonul lipsește, iar după ea apare „Gata — nu mai e nicio lucrare de corectat. 🎉”
 - **Corectează pe întrebare** (T4): în „De corectat”, câte un card per test („Simulare EN · 5 lucrări”) → filele „Întrebarea 3 (2/5)” (numărul

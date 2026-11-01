@@ -287,7 +287,7 @@ export function GradeByItem({
         onConfirm={() => void finalizeReady()}
         onCancel={() => setConfirming(false)}
       >
-        Doar lucrările cu toate întrebările notate. După asta punctajele lor nu se mai pot modifica.
+        Doar lucrările cu toate întrebările notate. Elevii le văd nota; o lucrare se poate redeschide din „Notate”.
       </ConfirmDialog>
     </div>
   )

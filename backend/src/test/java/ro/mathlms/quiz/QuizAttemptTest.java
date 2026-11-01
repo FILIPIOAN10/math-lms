@@ -76,6 +76,38 @@ class QuizAttemptTest {
     }
 
     @Test
+    void reopeningAGradedTestTakesTheGradeBackAndItWaitsForTheTeacherAgain() {
+        QuizAttempt attempt = new QuizAttempt(quiz, student);
+        attempt.submit();
+        attempt.markGraded(42);
+        attempt.markResultSeen(Instant.EPOCH);
+        Instant handedIn = attempt.getSubmittedAt();
+
+        attempt.reopenGrading();
+
+        assertThat(attempt.getStatus()).isEqualTo(QuizAttemptStatus.SUBMITTED);
+        assertThat(attempt.getScore()).isNull();
+        assertThat(attempt.getSubmittedAt()).isEqualTo(handedIn); // when it was handed in does not change
+
+        attempt.markGraded(44);
+        assertThat(attempt.hasUnseenResult()).isTrue(); // the corrected grade is news to the student
+    }
+
+    @Test
+    void onlyAGradedTestCanBeReopened() {
+        QuizAttempt writing = new QuizAttempt(quiz, student);
+        assertThatThrownBy(writing::reopenGrading).isInstanceOf(IllegalStateException.class);
+
+        writing.submit();
+        assertThatThrownBy(writing::reopenGrading).isInstanceOf(IllegalStateException.class);
+
+        QuizAttempt practice = new QuizAttempt(quiz, student, Instant.EPOCH, AttemptMode.PRACTICE);
+        practice.submit();
+        practice.completePractice();
+        assertThatThrownBy(practice::reopenGrading).isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
     void cannotGradeBeforeSubmit() {
         QuizAttempt attempt = new QuizAttempt(quiz, student);
 

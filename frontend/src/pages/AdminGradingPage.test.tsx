@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AdminGradingPage } from '@/pages/AdminGradingPage'
 import type { AdminAttemptDetail, AdminAttemptSummary } from '@/lib/api'
+import { NAV_COUNTS_CHANGED } from '@/lib/roles'
 
 const api = vi.hoisted(() => ({
   listAttemptsForGrading: vi.fn(),
@@ -12,6 +13,7 @@ const api = vi.hoisted(() => ({
   gradeOpenItemParts: vi.fn(),
   commentOnAttempt: vi.fn(),
   finalizeGrading: vi.fn(),
+  reopenGrading: vi.fn(),
   listCommentSnippets: vi.fn(),
   createCommentSnippet: vi.fn(),
   deleteCommentSnippet: vi.fn(),
@@ -58,6 +60,7 @@ describe('AdminGradingPage', () => {
     api.gradeOpenItem.mockResolvedValue(undefined)
     api.gradeOpenItemParts.mockResolvedValue(undefined)
     api.commentOnAttempt.mockResolvedValue(undefined)
+    api.reopenGrading.mockResolvedValue(undefined)
     api.listCommentSnippets.mockResolvedValue([])
     api.markCommentSnippetUsed.mockResolvedValue(undefined)
     api.getAiGradingSettings.mockResolvedValue({ enabled: false, baremMaxPages: 0, baremDailyPageLimit: 0, baremPagesUsedToday: 0 })
@@ -109,7 +112,7 @@ describe('AdminGradingPage', () => {
     await waitFor(() => expect(api.gradeOpenItem).toHaveBeenLastCalledWith(50, 101, 4, 'Perfect'))
   })
 
-  it('sends what is still being typed before asking to finalise', async () => {
+  it('sends what is still being typed before finalising', async () => {
     const d = detail()
     d.items[0] = { ...d.items[0], awardedPoints: 3 }
     api.finalizeGrading.mockResolvedValue(undefined)
@@ -118,8 +121,9 @@ describe('AdminGradingPage', () => {
     await userEvent.type(screen.getByLabelText('Comentariu pentru elev (opțional)'), 'Bine')
     await userEvent.click(screen.getByTestId('grade-finalize'))
 
-    await waitFor(() => expect(api.gradeOpenItem).toHaveBeenCalledWith(50, 101, 3, 'Bine'))
-    expect(await screen.findByRole('dialog', { name: 'Finalizezi nota?' })).toBeInTheDocument()
+    await waitFor(() => expect(api.finalizeGrading).toHaveBeenCalledWith(50))
+    expect(api.gradeOpenItem).toHaveBeenCalledWith(50, 101, 3, 'Bine')
+    expect(api.gradeOpenItem.mock.invocationCallOrder[0]).toBeLessThan(api.finalizeGrading.mock.invocationCallOrder[0])
   })
 
   it('keeps a failed save on screen and retries it', async () => {
@@ -181,17 +185,89 @@ describe('AdminGradingPage', () => {
     expect(box).toBeEnabled()
   })
 
-  it('asks in a dialog before finalising the grade', async () => {
+  it('finalises without a dialog and offers to take the grade back', async () => {
     const d = detail()
     d.items[0] = { ...d.items[0], awardedPoints: 3 }
     api.finalizeGrading.mockResolvedValue(undefined)
     await openAttempt(d)
 
     await userEvent.click(screen.getByTestId('grade-finalize'))
-    const dialog = await screen.findByRole('dialog', { name: 'Finalizezi nota?' })
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Finalizează' }))
 
-    await waitFor(() => expect(api.finalizeGrading).toHaveBeenCalledWith(50))
+    const undo = await screen.findByTestId('grade-undo')
+    expect(api.finalizeGrading).toHaveBeenCalledWith(50)
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(undo).toHaveTextContent('Ana: 3 / 11 p')
+    expect(screen.getByRole('heading', { name: 'Corectură' })).toBeInTheDocument()
+
+    await userEvent.click(within(undo).getByRole('button', { name: 'Anulează' }))
+
+    await waitFor(() => expect(api.reopenGrading).toHaveBeenCalledWith(50))
+    expect(await screen.findByText('Rezolvă')).toBeInTheDocument() // the paper is open again, to correct
+    expect(screen.queryByTestId('grade-undo')).not.toBeInTheDocument()
+  })
+
+  it('tells the menu the count changed when a grade is finalised and when it is taken back', async () => {
+    const d = detail()
+    d.items[0] = { ...d.items[0], awardedPoints: 3 }
+    api.finalizeGrading.mockResolvedValue(undefined)
+    const changed = vi.fn()
+    window.addEventListener(NAV_COUNTS_CHANGED, changed)
+    await openAttempt(d)
+
+    await userEvent.click(screen.getByTestId('grade-finalize'))
+    await userEvent.click(within(await screen.findByTestId('grade-undo')).getByRole('button', { name: 'Anulează' }))
+
+    await waitFor(() => expect(changed).toHaveBeenCalledTimes(2))
+    window.removeEventListener(NAV_COUNTS_CHANGED, changed)
+  })
+
+  it('reopens a graded paper only after asking, and says what that does', async () => {
+    api.listAttemptsForGrading.mockResolvedValue([row({ status: 'GRADED', score: 8 })])
+    const d = detail({ status: 'GRADED', score: 8 })
+    d.items[0] = { ...d.items[0], awardedPoints: 3 }
+    await openAttempt(d)
+
+    await userEvent.click(screen.getByTestId('grade-reopen'))
+    const dialog = await screen.findByRole('dialog', { name: 'Redeschizi lucrarea?' })
+    expect(dialog).toHaveTextContent('Nota dispare pentru elev')
+    expect(dialog).toHaveTextContent('Jurnal')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Anulează' }))
+    expect(api.reopenGrading).not.toHaveBeenCalled()
+
+    api.getAttemptForGrading.mockResolvedValue({ ...d, status: 'SUBMITTED', score: null })
+    await userEvent.click(screen.getByTestId('grade-reopen'))
+    await userEvent.click(within(await screen.findByRole('dialog', { name: 'Redeschizi lucrarea?' })).getByRole('button', { name: 'Redeschide' }))
+
+    await waitFor(() => expect(api.reopenGrading).toHaveBeenCalledWith(50))
+    expect(await screen.findByTestId('grade-finalize')).toBeEnabled() // grading again, its points still there
+    expect(screen.queryByTestId('grade-reopen')).not.toBeInTheDocument()
+  })
+
+  it('offers no reopening on a paper still to grade', async () => {
+    await openAttempt()
+    expect(screen.queryByTestId('grade-reopen')).not.toBeInTheDocument()
+  })
+
+  it('has nothing to reopen on a graded test of grile only, the server marked it', async () => {
+    api.listAttemptsForGrading.mockResolvedValue([row({ status: 'GRADED', score: 4 })])
+    const d = detail({ status: 'GRADED', score: 4 })
+    d.items[0] = { ...d.items[0], type: 'SINGLE_CHOICE', awardedPoints: 4, correct: true, selectedOptionText: 'x' }
+    await openAttempt(d)
+
+    expect(screen.queryByTestId('grade-reopen')).not.toBeInTheDocument()
+  })
+
+  it('shows why the grade could not be taken back', async () => {
+    api.listAttemptsForGrading.mockResolvedValue([row({ status: 'GRADED', score: 8 })])
+    const d = detail({ status: 'GRADED', score: 8 })
+    d.items[0] = { ...d.items[0], awardedPoints: 3 }
+    api.reopenGrading.mockRejectedValue(Object.assign(new Error('x'), { status: 400, body: 'Se poate redeschide doar o lucrare notată.' }))
+    await openAttempt(d)
+
+    await userEvent.click(screen.getByTestId('grade-reopen'))
+    await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Redeschide' }))
+
+    expect(await screen.findByText('Se poate redeschide doar o lucrare notată.')).toBeInTheDocument()
   })
 
   it("opens the paper named in the address (a link from a student's page)", async () => {
@@ -216,10 +292,9 @@ describe('AdminGradingPage', () => {
 
     api.listAttemptsForGrading.mockResolvedValue([row({ attemptId: 51, studentName: 'Radu' })])
     await userEvent.click(await screen.findByRole('button', { name: 'Finalizează și treci la următoarea (1 rămasă)' }))
-    const dialog = await screen.findByRole('dialog', { name: 'Finalizezi nota?' })
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Finalizează și treci mai departe' }))
 
     expect(await screen.findByRole('heading', { name: 'Radu — Simulare EN' })).toBeInTheDocument()
+    expect(screen.getByTestId('grade-undo')).toHaveTextContent('Ana') // still there, over the next paper
     expect(api.finalizeGrading).toHaveBeenCalledWith(50)
     expect(api.getAttemptForGrading).toHaveBeenLastCalledWith(51)
   })

@@ -3,12 +3,12 @@ import { useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
-import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { AttemptStatusBadge } from '@/components/AttemptStatusBadge'
 import { MathContent } from '@/components/MathContent'
 import { PhotoPages } from '@/components/PhotoPages'
 import { QuestionImage } from '@/components/QuestionImage'
 import { GradeByItem } from '@/components/GradeByItem'
+import { useConfirm } from '@/components/useConfirm'
 import { ItemGradeForm } from '@/components/grading/ItemGradeForm'
 import { SectionHeadingView } from '@/components/SectionHeadingView'
 import { numberItems } from '@/lib/sections'
@@ -23,6 +23,7 @@ import {
   gradeOpenItemParts,
   GRADED_PAGE,
   listAttemptsForGrading,
+  reopenGrading,
   requestAiProposal,
   type AdminAttemptDetail,
   type AiProposal,
@@ -33,6 +34,7 @@ import {
 import { errorMessage } from '@/lib/errors'
 import { scoreLine } from '@/lib/grades'
 import { roCount } from '@/lib/format'
+import { NAV_COUNTS_CHANGED } from '@/lib/roles'
 import { PageHeader } from '@/components/PageHeader'
 import { useAutosave, type SaveStatus } from '@/lib/useAutosave'
 import { gradedItem, hasParts, partsPayload } from '@/lib/grading'
@@ -216,8 +218,9 @@ export function AdminGradingPage({ aiPollMs = AI_POLL_MS }: { aiPollMs?: number 
   const [detail, setDetail] = useState<AdminAttemptDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [finalizing, setFinalizing] = useState(false)
-  // Which finalise button opened the confirmation: stay on the list, or go on to the next paper.
-  const [confirmingFinal, setConfirmingFinal] = useState<false | 'list' | 'next'>(false)
+  // The paper finalised last: "Anulează" stays on screen while the teacher moves on, instead of a question per paper.
+  const [undoable, setUndoable] = useState<{ attemptId: number; studentName: string; grade: string } | null>(null)
+  const { confirm, dialog: confirmDialog } = useConfirm()
   const [byItem, setByItem] = useState<{ quizTitle: string; attemptIds: number[] } | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const bank = useCommentSnippets()
@@ -247,14 +250,14 @@ export function AdminGradingPage({ aiPollMs = AI_POLL_MS }: { aiPollMs?: number 
     return results.every(Boolean)
   }
 
-  /** "Finalizează": first whatever is still being typed, then the confirmation. */
-  async function askToFinalize(then: 'list' | 'next') {
+  /** "Finalizează": first whatever is still being typed, then the grade itself. */
+  async function finish(then: 'list' | 'next') {
     setError(null)
     if (!(await flushAll())) {
       setError('Unele punctaje sau comentarii nu s-au salvat. Verifică întrebările marcate, apoi finalizează.')
       return
     }
-    setConfirmingFinal(then)
+    await finalize(then)
   }
 
   /** A grade the server accepted: shown on the page without fetching the paper again. */
@@ -341,11 +344,16 @@ export function AdminGradingPage({ aiPollMs = AI_POLL_MS }: { aiPollMs?: number 
 
   async function finalize(then: 'list' | 'next') {
     if (!detail) return
-    setConfirmingFinal(false)
     setFinalizing(true)
     setError(null)
     try {
       await finalizeGrading(detail.attemptId)
+      setUndoable({
+        attemptId: detail.attemptId,
+        studentName: detail.studentName,
+        grade: scoreLine(pointsSoFar, detail.maxScore),
+      })
+      window.dispatchEvent(new Event(NAV_COUNTS_CHANGED))
       const before = attempts.map((a) => a.attemptId)
       const remaining = filter === 'SUBMITTED' ? await reloadList() : await listAttemptsForGrading('SUBMITTED')
       // The paper after this one in the queue the teacher was looking at, else the first one still waiting.
@@ -362,6 +370,34 @@ export function AdminGradingPage({ aiPollMs = AI_POLL_MS }: { aiPollMs?: number 
     } finally {
       setFinalizing(false)
     }
+  }
+
+  /** Takes a final grade back: the paper opens again to correct it, and waits in the queue until it is finalised. */
+  async function reopen(attemptId: number) {
+    setError(null)
+    if (!(await flushAll())) {
+      setError('Unele punctaje sau comentarii nu s-au salvat. Verifică întrebările marcate, apoi redeschide lucrarea.')
+      return
+    }
+    try {
+      await reopenGrading(attemptId)
+      setUndoable(null)
+      window.dispatchEvent(new Event(NAV_COUNTS_CHANGED))
+      await reloadList()
+      await open(attemptId)
+    } catch (e) {
+      setError(errorMessage(e))
+    }
+  }
+
+  async function askToReopen(attemptId: number) {
+    const yes = await confirm({
+      title: 'Redeschizi lucrarea?',
+      body: 'Nota dispare pentru elev până o finalizezi din nou, iar lucrarea revine la „De corectat”, cu punctajele de '
+        + 'acum. Rămâne scris în Jurnal.',
+      confirmLabel: 'Redeschide',
+    })
+    if (yes) await reopen(attemptId)
   }
 
   const allOpenGraded = detail?.items.every((i) => i.type !== 'OPEN' || i.awardedPoints !== null) ?? false
@@ -440,6 +476,16 @@ export function AdminGradingPage({ aiPollMs = AI_POLL_MS }: { aiPollMs?: number 
 
         {error && <p className="text-sm text-destructive">{error}</p>}
         {notice && !detail && !byItem && <p role="status" className="text-sm text-emerald-700 dark:text-emerald-300">{notice}</p>}
+        {undoable && !byItem && (
+          <div
+            role="status"
+            data-testid="grade-undo"
+            className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-800 dark:text-emerald-200"
+          >
+            <span>✓ {undoable.studentName}: {undoable.grade}. Elevul vede nota.</span>
+            <Button size="sm" variant="outline" onClick={() => void reopen(undoable.attemptId)}>Anulează</Button>
+          </div>
+        )}
 
         {byItem ? (
           <GradeByItem
@@ -538,15 +584,14 @@ export function AdminGradingPage({ aiPollMs = AI_POLL_MS }: { aiPollMs?: number 
               onStatus={(st) => reportStatus('overall', st)}
             />
 
-            <ConfirmDialog
-              open={confirmingFinal !== false}
-              title="Finalizezi nota?"
-              confirmLabel={confirmingFinal === 'next' ? 'Finalizează și treci mai departe' : 'Finalizează'}
-              onConfirm={() => void finalize(confirmingFinal === 'next' ? 'next' : 'list')}
-              onCancel={() => setConfirmingFinal(false)}
-            >
-              După asta punctajele nu se mai pot modifica. Comentariul pentru toată lucrarea îl poți schimba și după.
-            </ConfirmDialog>
+            {/* A test of grile only has nothing to correct: the server marked it. */}
+            {detail.status === 'GRADED' && detail.items.some((i) => i.type === 'OPEN') && (
+              <div className="flex justify-end">
+                <Button variant="outline" onClick={() => void askToReopen(detail.attemptId)} data-testid="grade-reopen">
+                  Redeschide lucrarea
+                </Button>
+              </div>
+            )}
 
             {detail.status === 'SUBMITTED' && (
               <div className="space-y-2">
@@ -559,14 +604,14 @@ export function AdminGradingPage({ aiPollMs = AI_POLL_MS }: { aiPollMs?: number 
                 <div className="flex flex-wrap items-center justify-end gap-2">
                   <Button
                     variant={othersWaiting > 0 ? 'ghost' : 'default'}
-                    onClick={() => void askToFinalize('list')}
+                    onClick={() => void finish('list')}
                     disabled={!allOpenGraded || finalizing}
                     data-testid="grade-finalize"
                   >
                     {finalizing ? 'Se finalizează...' : othersWaiting > 0 ? 'Doar finalizează' : 'Finalizează nota'}
                   </Button>
                   {othersWaiting > 0 && (
-                    <Button onClick={() => void askToFinalize('next')} disabled={!allOpenGraded || finalizing} data-testid="grade-finalize-next">
+                    <Button onClick={() => void finish('next')} disabled={!allOpenGraded || finalizing} data-testid="grade-finalize-next">
                       Finalizează și treci la următoarea ({othersWaiting} {othersWaiting === 1 ? 'rămasă' : 'rămase'})
                     </Button>
                   )}
@@ -647,6 +692,7 @@ export function AdminGradingPage({ aiPollMs = AI_POLL_MS }: { aiPollMs?: number 
           </>
         )}
       </div>
+      {confirmDialog}
     </div>
   )
 }

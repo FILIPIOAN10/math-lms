@@ -859,14 +859,43 @@ public class QuizAttemptService {
     }
 
     /**
+     * Takes a final grade back so it can be corrected: the paper returns to the queue with its points, the student sees
+     * it as waiting, and finalising it again gives the corrected grade. A test of grile only has nothing to correct,
+     * the server marked it. An email already queued for the old grade is skipped, the paper no longer being graded.
+     */
+    @Transactional
+    public void reopenGrading(Long attemptId) {
+        QuizAttempt attempt = attemptRepository.findByIdForUpdate(attemptId)
+                .orElseThrow(() -> new QuizNotFoundException("QuizAttempt", attemptId));
+        if (attempt.getMode() != AttemptMode.TEST || attempt.getStatus() != QuizAttemptStatus.GRADED) {
+            throw new InvalidQuizException("Se poate redeschide doar o lucrare notată.");
+        }
+        List<QuizItem> items = itemRepository.findByQuizIdOrderByPosition(attempt.getQuiz().getId());
+        if (items.stream().noneMatch(item -> item.getType() == QuizItemType.OPEN)) {
+            throw new InvalidQuizException("Testul are doar grile, corectate automat: nu e nimic de corectat.");
+        }
+        int maxScore = items.stream().mapToInt(QuizItem::getPoints).sum();
+        String takenBack = attempt.getScore() + " p din " + maxScore;
+        attempt.reopenGrading();
+        attemptRepository.save(attempt);
+        dropGradeCaches(attempt);
+        auditLog.record(AuditEvent.of(AuditAction.PAPER_REOPENED, attemptId, attempt.getQuiz().getTitle())
+                .about(attempt.getStudent()).details("nota retrasă: " + takenBack));
+    }
+
+    /**
      * Everything that follows an attempt becoming GRADED, inside the grading transaction: the cached progress
      * and statistics are dropped (after the commit) and the "result is ready" emails are queued in the outbox
      * (committed atomically with the grade).
      */
     private void evictGradingCaches(QuizAttempt attempt) {
+        dropGradeCaches(attempt);
+        resultNotifier.resultGraded(attempt);
+    }
+
+    private void dropGradeCaches(QuizAttempt attempt) {
         cacheEvictor.evict(CacheNames.PROGRESS, attempt.getStudent().getEmail());
         cacheEvictor.evict(CacheNames.QUIZ_STATS, attempt.getQuiz().getId());
-        resultNotifier.resultGraded(attempt);
     }
 
     /** The most graded papers one page holds (the browser asks for the next one with "Mai vechi"). */

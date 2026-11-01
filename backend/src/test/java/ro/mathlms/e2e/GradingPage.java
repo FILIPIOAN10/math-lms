@@ -40,7 +40,6 @@ class GradingPage extends Page {
     /** "Finalizează nota" stays disabled until every open item has points — the click itself proves they were saved. */
     void finalizeGrade() {
         wait.until(ExpectedConditions.elementToBeClickable(testId("grade-finalize"))).click();
-        acceptConfirm();
         // after finalizing, the screen closes the detail and returns to the queue: the button vanishing = done
         wait.until(ExpectedConditions.invisibilityOfElementLocated(testId("grade-finalize")));
     }

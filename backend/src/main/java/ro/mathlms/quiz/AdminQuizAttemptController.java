@@ -105,4 +105,12 @@ public class AdminQuizAttemptController {
         service.finalizeGrading(attemptId);
         return ResponseEntity.noContent().build();
     }
+
+    /** Takes a final grade back so it can be corrected; the journal keeps it. */
+    @PostMapping("/{attemptId}/reopen")
+    public ResponseEntity<Void> reopen(@PathVariable Long attemptId) {
+        scope.requireAttempt(attemptId);
+        service.reopenGrading(attemptId);
+        return ResponseEntity.noContent().build();
+    }
 }
