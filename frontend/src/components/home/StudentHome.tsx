@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { buttonVariants } from '@/components/ui/button'
+import { ErrorState } from '@/components/ErrorState'
 import { Card, CardContent } from '@/components/ui/card'
 import { AssignmentsSection } from '@/components/AssignmentsSection'
 import { HomeColumns, HomeEmpty, HomeSection } from '@/components/home/HomeBits'
@@ -50,7 +51,7 @@ export function StudentHome() {
     }
   }, [])
 
-  if (error) return <p className="text-sm text-destructive">{error}</p>
+  if (error) return <ErrorState message={error} />
   if (!data) return <LoadingCards />
 
   const todo = todoAssignments(data.assignments)

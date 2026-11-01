@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { AttemptResultView } from '@/components/AttemptResultView'
+import { ErrorState } from '@/components/ErrorState'
 import { getChildAttemptResult, type AttemptResultViewDto } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
 import { usePageTitle } from '@/lib/usePageTitle'
@@ -35,7 +36,7 @@ export function ParentAttemptResultPage() {
           </Link>
         </div>
 
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        {error && <ErrorState message={error} />}
         {!result && !error && <LoadingCards />}
 
         {result && <AttemptResultView result={result} audience="parent" />}

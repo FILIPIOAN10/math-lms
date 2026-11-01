@@ -1,8 +1,10 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
+import { useState } from 'react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AppShell } from '@/components/AppShell'
+import { ErrorState } from '@/components/ErrorState'
 import type { User } from '@/lib/api'
 import { NAV_COUNTS_CHANGED } from '@/lib/roles'
 
@@ -32,6 +34,7 @@ function renderShell(path = '/') {
           <Route path="/admin/students/:id" element={<p>pagina elev</p>} />
           <Route path="/capitole" element={<p>pagina capitole</p>} />
           <Route path="/content" element={<p>pagina conținut</p>} />
+          <Route path="/reincarca" element={<FailsOnce />} />
         </Route>
       </Routes>
     </MemoryRouter>,
@@ -43,12 +46,29 @@ const navLabels = () => within(nav()).getAllByRole('link').map((l) => l.textCont
 const tabBar = () => screen.getByRole('navigation', { name: 'Meniu principal' })
 const tabLabels = () => within(tabBar()).getAllByRole('link').map((l) => l.textContent)
 
+function FailsOnce() {
+  const [failed] = useState(() => api.getMyAttempts.mock.calls.length < 2)
+  return failed ? <ErrorState message="Nu am putut încărca pagina." /> : <p>pagina încărcată</p>
+}
+
 describe('AppShell', () => {
   beforeEach(() => {
     auth.value = { user: null, loading: false, logout: vi.fn() }
     api.listPendingUsers.mockResolvedValue([])
     api.listAttemptsForGrading.mockResolvedValue([])
     api.getMyAttempts.mockResolvedValue([])
+  })
+
+  it('loads a page again from "Reîncearcă", without leaving it', async () => {
+    auth.value = { ...auth.value, user: user({}) }
+    renderShell('/reincarca')
+    await waitFor(() => expect(api.getMyAttempts).toHaveBeenCalled())
+
+    api.getMyAttempts.mock.calls.push([], []) // from here on the page finds what it needs
+    await userEvent.click(await screen.findByRole('button', { name: 'Reîncearcă' }))
+
+    expect(await screen.findByText('pagina încărcată')).toBeInTheDocument()
+    expect(screen.getByRole('banner')).toBeInTheDocument() // the app stayed: only the page was loaded again
   })
 
   it('renders only the page when nobody is signed in (the route guard decides where to go)', () => {

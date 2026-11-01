@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { buttonVariants } from '@/components/ui/button'
+import { ErrorState } from '@/components/ErrorState'
 import { Card, CardContent } from '@/components/ui/card'
 import { HomeEmpty } from '@/components/home/HomeBits'
 import { ReviewStatusLine } from '@/components/ReviewStatusLine'
@@ -67,7 +68,7 @@ export function ParentHome() {
     }
   }, [])
 
-  if (error) return <p className="text-sm text-destructive">{error}</p>
+  if (error) return <ErrorState message={error} />
   if (!overviews) return <LoadingCards />
 
   if (overviews.length === 0) {

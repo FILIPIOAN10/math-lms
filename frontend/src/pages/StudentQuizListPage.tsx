@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { buttonVariants } from '@/components/ui/button'
+import { ErrorState } from '@/components/ErrorState'
 import { Card, CardContent } from '@/components/ui/card'
 import { AttemptModeBadge } from '@/components/AttemptModeBadge'
 import { AttemptStatusBadge } from '@/components/AttemptStatusBadge'
@@ -201,7 +202,7 @@ export function StudentQuizListPage() {
             Am salvat ce ai lucrat la „{savedQuizTitle}”. Continui oricând cu „Continuă”.
           </p>
         )}
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        {error && <ErrorState message={error} />}
         {loading && <LoadingCards />}
 
         {!loading && (

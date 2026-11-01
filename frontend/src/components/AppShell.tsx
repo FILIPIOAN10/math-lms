@@ -8,6 +8,7 @@ import { roCount } from '@/lib/format'
 import { hasNavigation, isNavActive, NAV_COUNTS_CHANGED, navItems, roleLabel, tabBarItems, type NavCount, type NavItem } from '@/lib/roles'
 import { cn } from '@/lib/utils'
 import { LoadingCards } from '@/components/LoadingCards'
+import { PageRetryContext } from '@/lib/pageRetry'
 
 type Counts = Record<NavCount, number | null>
 
@@ -202,6 +203,8 @@ function TabBar({ role, counts, pathname }: { role: Role; counts: Counts; pathna
 export function AppShell() {
   const { user, logout } = useAuth()
   const { pathname } = useLocation()
+  // "Reîncearcă" on a page that could not load: a new key remounts it, and it fetches what it shows again.
+  const [retries, setRetries] = useState(0)
   const signedIn = user !== null && user.status === 'ACTIVE' && user.role !== null
   // F8: before two-step sign-in is set up every staff count would be a 403, so none are asked for.
   const counts = useNavCounts(signedIn && !user.twoFactorSetupRequired ? user.role : null, pathname)
@@ -267,7 +270,9 @@ export function AppShell() {
       <main className={cn(withNav && 'pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pb-0')}>
         {/* The header stays put while the next page's code downloads. */}
         <Suspense fallback={<div className="mx-auto max-w-3xl p-4"><LoadingCards /></div>}>
-          <Outlet />
+          <PageRetryContext.Provider value={() => setRetries((n) => n + 1)}>
+            <Outlet key={retries} />
+          </PageRetryContext.Provider>
         </Suspense>
       </main>
       {withNav && <TabBar role={user.role} counts={counts} pathname={pathname} />}

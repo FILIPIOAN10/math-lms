@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
+import { ErrorState } from '@/components/ErrorState'
 import { Card, CardContent } from '@/components/ui/card'
 import { Dialog } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -150,6 +151,7 @@ export function AdminAssignmentsPage() {
   const [status, setStatus] = useState<AssignmentStudentStatus[] | null>(null)
   const [now, setNow] = useState(() => Date.now()) // refreshed whenever the list is (re)loaded
   const [notice, setNotice] = useState<string | null>(null) // "✓ Tema … a fost dată …" after a change
+  const [loadError, setLoadError] = useState<string | null>(null)
   const preselectedQuiz = quizzes.find((q) => q.id === preselectedQuizId)
   const linkedId = Number(searchParams.get('open')) || null // a deadline on Acasă opens its hand-in list
 
@@ -166,12 +168,12 @@ export function AdminAssignmentsPage() {
             // A long list would leave the opened homework below the fold.
             requestAnimationFrame(() => document.getElementById(`assignment-${linked.id}`)?.scrollIntoView?.({ block: 'start' }))
           })
-          .catch((e) => setError(errorMessage(e)))
+          .catch((e) => setLoadError(errorMessage(e)))
       })
-      .catch((e) => setError(errorMessage(e)))
+      .catch((e) => setLoadError(errorMessage(e)))
       .finally(() => setLoading(false))
-    listQuizzes().then(setQuizzes).catch((e) => setError(errorMessage(e)))
-    listClasses().then(setClasses).catch((e) => setError(errorMessage(e)))
+    listQuizzes().then(setQuizzes).catch((e) => setLoadError(errorMessage(e)))
+    listClasses().then(setClasses).catch((e) => setLoadError(errorMessage(e)))
   }, [linkedId])
 
   const reload = () =>
@@ -241,6 +243,7 @@ export function AdminAssignmentsPage() {
             ✓ {notice}
           </p>
         )}
+        {loadError && <ErrorState message={loadError} />}
         {error && <p className="text-sm text-destructive">{error}</p>}
         {loading && <LoadingCards />}
         {!loading && assignments.length === 0 && (

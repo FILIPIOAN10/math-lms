@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Navigate, useParams, useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
+import { ErrorState } from '@/components/ErrorState'
 import { Card, CardContent } from '@/components/ui/card'
 import { MarkdownText } from '@/components/MarkdownText'
 import { MathContent } from '@/components/MathContent'
@@ -151,7 +152,7 @@ export function EnChapterPage() {
           title={page ? `${page.code} · ${page.title}` : 'Capitol EN'}
           breadcrumbs={[{ label: 'Capitole EN', to: '/capitole' }, ...(page ? [{ label: page.code }] : [])]}
         />
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        {error && <ErrorState message={error} />}
         {!page && !error && <LoadingCards />}
         {empty && <p className="text-muted-foreground">Profesorul n-a pus încă materia pentru acest capitol.</p>}
 

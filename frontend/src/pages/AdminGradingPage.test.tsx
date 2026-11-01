@@ -209,7 +209,7 @@ describe('AdminGradingPage', () => {
     expect(api.finalizeGrading).toHaveBeenCalledWith(50)
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(undo).toHaveTextContent('Ana: nota e finalizată')
-    expect(screen.getByRole('heading', { name: 'Corectură' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Corectură' })).toBeInTheDocument()
 
     await userEvent.click(within(undo).getByRole('button', { name: 'Anulează' }))
 
@@ -290,6 +290,21 @@ describe('AdminGradingPage', () => {
     expect(api.getAttemptForGrading).toHaveBeenCalledWith(50)
   })
 
+  it('offers to try again when the queue could not load', async () => {
+    api.listAttemptsForGrading.mockRejectedValue(new TypeError('Failed to fetch'))
+    renderPage()
+
+    expect(await screen.findByTestId('error-state')).toHaveTextContent('Nu ne putem conecta la server')
+    expect(screen.queryByText('Nicio lucrare de corectat. 🎉')).not.toBeInTheDocument()
+  })
+
+  it('offers to try again when the paper in the address could not load', async () => {
+    api.getAttemptForGrading.mockRejectedValue(Object.assign(new Error('x'), { status: 500 }))
+    renderPage('/admin/grading?attempt=50')
+
+    expect(await screen.findByTestId('error-state')).toBeInTheDocument()
+  })
+
   it('puts the open paper in the address, and Back returns to the queue', async () => {
     await openAttempt()
     expect(screen.getByTestId('address')).toHaveTextContent('/admin/grading?attempt=50')
@@ -328,7 +343,7 @@ describe('AdminGradingPage', () => {
     await userEvent.click(await screen.findByTestId('grade-finalize-next'))
     await screen.findByRole('heading', { name: 'Radu — Simulare EN' })
 
-    expect(screen.getByTestId('address')).toHaveTextContent('/admin/grading?attempt=51')
+    await waitFor(() => expect(screen.getByTestId('address')).toHaveTextContent('/admin/grading?attempt=51'))
     expect(api.getAttemptForGrading).toHaveBeenCalledTimes(1) // not fetched again when the address caught up
 
     await userEvent.click(screen.getByRole('button', { name: 'Back' }))

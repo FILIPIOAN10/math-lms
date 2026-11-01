@@ -322,6 +322,25 @@ describe('AdminQuizzesPage', () => {
     expect(items).toEqual(['Editează detaliile', 'Copiază', 'Depublică', 'Șterge'])
   })
 
+  it('offers to try again when the list could not load', async () => {
+    api.listQuizzes.mockRejectedValue(new TypeError('Failed to fetch'))
+    renderAt('/admin/quizzes')
+
+    expect(await screen.findByTestId('error-state')).toBeInTheDocument()
+    expect(screen.queryByText('Niciun test. Adaugă primul.')).not.toBeInTheDocument()
+  })
+
+  it('shows a refused action as a plain message: trying again would change nothing', async () => {
+    api.deleteQuiz.mockRejectedValue(Object.assign(new Error('x'), { status: 409, body: 'Testul nu poate fi șters.' }))
+    renderAt('/admin/quizzes')
+    await userEvent.click(within(await row('Simulare EN')).getByRole('button', { name: 'Mai multe acțiuni pentru Simulare EN' }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Șterge' }))
+    await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Șterge' }))
+
+    expect(await screen.findByText('Testul nu poate fi șters.')).toBeInTheDocument()
+    expect(screen.queryByTestId('error-state')).not.toBeInTheDocument()
+  })
+
   it('asks in a dialog before deleting, and deletes only on yes', async () => {
     api.deleteQuiz.mockResolvedValue(undefined)
     renderAt('/admin/quizzes')

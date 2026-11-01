@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { ErrorState } from '@/components/ErrorState'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { MathContent } from '@/components/MathContent'
 import { useAuth } from '@/context/AuthContext'
@@ -148,7 +149,7 @@ export function ContentBrowserPage() {
         />
 
         {loading && <LoadingCards />}
-        {!loading && error && <p className="text-sm text-destructive">{error}</p>}
+        {!loading && error && <ErrorState message={error} />}
 
         {/* Level: exercises (a chapter is open) */}
         {!loading && !error && chapter && (

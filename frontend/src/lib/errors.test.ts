@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { ApiError } from '@/lib/api'
-import { errorMessage, NOT_FOUND_MESSAGE } from '@/lib/errors'
+import { CONNECTION_MESSAGE, errorMessage, NOT_FOUND_MESSAGE } from '@/lib/errors'
 
 describe('errorMessage', () => {
   it("shows the server's Romanian sentence as is", () => {
@@ -26,6 +26,9 @@ describe('errorMessage', () => {
 
   it('hides JSON and anything unexpected behind a generic line', () => {
     expect(errorMessage(new ApiError(413, '{"status":413}'))).toBe('Operația a eșuat. Reîncearcă.')
-    expect(errorMessage(new TypeError('Failed to fetch'))).toBe('Operația a eșuat. Reîncearcă.')
+  })
+
+  it('says it plainly when the server could not be reached', () => {
+    expect(errorMessage(new TypeError('Failed to fetch'))).toBe(CONNECTION_MESSAGE)
   })
 })

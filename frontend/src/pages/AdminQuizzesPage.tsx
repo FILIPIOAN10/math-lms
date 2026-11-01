@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type ClipboardEvent, type FormEvent, type KeyboardEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Button, buttonVariants } from '@/components/ui/button'
+import { ErrorState } from '@/components/ErrorState'
 import { Card, CardContent } from '@/components/ui/card'
 import { Dialog } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -847,6 +848,7 @@ export function AdminQuizzesPage() {
   const [loadError, setLoadError] = useState<{ id: number; message: string } | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [listError, setListError] = useState<string | null>(null)
   const [quizDialog, setQuizDialog] = useState<{ item: QuizSummary | null } | null>(null)
   const [itemDialog, setItemDialog] = useState<{ item: QuizItemDto | null } | null>(null)
   const [importing, setImporting] = useState(false)
@@ -873,11 +875,11 @@ export function AdminQuizzesPage() {
     void loadSummaries()
     listQuizzes()
       .then(setQuizzes)
-      .catch((e) => setError(errorMessage(e)))
+      .catch((e) => setListError(errorMessage(e)))
       .finally(() => setLoading(false))
     listClasses()
       .then(setClasses)
-      .catch((e) => setError(errorMessage(e)))
+      .catch((e) => setListError(errorMessage(e)))
     listChapterOptions()
       .then(setChapters)
       .catch(() => undefined) // only the chapter choice is missing without it
@@ -1030,7 +1032,7 @@ export function AdminQuizzesPage() {
           quizError ? (
             <>
               <PageHeader title="Test" breadcrumbs={[{ label: 'Teste', to: '/admin/quizzes' }, { label: 'Test' }]} />
-              <p className="text-sm text-destructive">{quizError}</p>
+              <ErrorState message={quizError} />
               <Link to="/admin/quizzes" className={buttonVariants({ variant: 'outline', size: 'sm' })}>
                 Înapoi la teste
               </Link>
@@ -1188,9 +1190,10 @@ export function AdminQuizzesPage() {
             />
             <TestsTabs current="quizzes" />
             {notice && <PublishedNotice notice={notice} onClose={() => setNotice(null)} />}
+            {listError && <ErrorState message={listError} />}
             {error && <p className="text-sm text-destructive">{error}</p>}
             {loading && <LoadingCards />}
-            {!loading && quizzes.length === 0 && <p className="text-muted-foreground">Niciun test. Adaugă primul.</p>}
+            {!loading && !listError && quizzes.length === 0 && <p className="text-muted-foreground">Niciun test. Adaugă primul.</p>}
             {quizzes.length >= FILTER_FROM && (
               <FilterBar
                 label="Caută test sau clasă"

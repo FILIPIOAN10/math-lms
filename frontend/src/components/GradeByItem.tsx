@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { Button } from '@/components/ui/button'
+import { ErrorState } from '@/components/ErrorState'
 import { Card, CardContent } from '@/components/ui/card'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { MathContent } from '@/components/MathContent'
@@ -122,7 +123,7 @@ export function GradeByItem({
     }
   }, [aiOn, shownPaper, proposals, getAiProposals])
 
-  if (error && !papers) return <p className="text-sm text-destructive">{error}</p>
+  if (error && !papers) return <ErrorState message={error} />
   if (!papers) return <LoadingCards cards={1} />
 
   if (questions.length === 0) {

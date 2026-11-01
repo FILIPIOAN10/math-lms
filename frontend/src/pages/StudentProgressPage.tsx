@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
+import { ErrorState } from '@/components/ErrorState'
 import { ProgressChart } from '@/components/ProgressChart'
 import { getMyEnMastery, getMyMastery, getMyProgress, type ChapterMastery, type EnChapterMastery, type ProgressPointDto } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
@@ -56,7 +57,7 @@ export function StudentProgressPage() {
             </Card>
           </HomeSection>
         )}
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        {error && <ErrorState message={error} />}
         {!points && !error && <LoadingCards />}
         {points && (
           <HomeSection title="Testele notate">

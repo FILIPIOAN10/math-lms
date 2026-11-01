@@ -85,6 +85,15 @@ describe('StudentQuizListPage', () => {
     expect(within(history).getAllByRole('link', { name: 'Deschide' })[1]).toHaveAttribute('href', '/quizzes/attempts/3/result')
   })
 
+  it('offers to try again when the list could not load', async () => {
+    api.getStudentQuizzes.mockRejectedValue(new TypeError('Failed to fetch'))
+    api.getMyAttempts.mockResolvedValue([])
+    renderPage()
+
+    expect(await screen.findByTestId('error-state')).toHaveTextContent('Nu ne putem conecta la server')
+    expect(screen.getByRole('button', { name: 'Reîncearcă' })).toBeInTheDocument()
+  })
+
   it('lets the actions of a card wrap on a phone, instead of overflowing past its edge', async () => {
     api.getStudentQuizzes.mockResolvedValue([quiz(1, 'Fracții', { practiceAllowed: true })])
     api.getMyAttempts.mockResolvedValue([attempt({ attemptId: 9, quizId: 1 })])

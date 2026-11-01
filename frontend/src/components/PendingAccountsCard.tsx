@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { ErrorState } from '@/components/ErrorState'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { approveUser, listPendingUsers, rejectUser, type PendingUser, type Role } from '@/lib/api'
 import { roleLabel } from '@/lib/roles'
@@ -55,7 +56,7 @@ export function PendingAccountsCard({ onApproved }: { onApproved?: () => void })
     }
   }
 
-  if (error) return <p className="text-sm text-destructive">{error}</p>
+  if (error) return <ErrorState message={error} />
   if (!pending || pending.length === 0) return null
 
   return (

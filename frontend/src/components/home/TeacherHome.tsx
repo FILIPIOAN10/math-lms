@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { BookOpen, ClipboardList, History, PenLine, UserCheck } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { buttonVariants } from '@/components/ui/button'
+import { ErrorState } from '@/components/ErrorState'
 import { Card, CardContent } from '@/components/ui/card'
 import { FirstRunChecklist } from '@/components/home/FirstRunChecklist'
 import { HomeColumns, HomeEmpty, HomeSection, HomeShortcut, StatTile } from '@/components/home/HomeBits'
@@ -81,7 +82,7 @@ export function TeacherHome({ canApprove = true }: { canApprove?: boolean }) {
     }
   }, [canApprove, loadedAt])
 
-  if (error) return <p className="text-sm text-destructive">{error}</p>
+  if (error) return <ErrorState message={error} />
   if (!data) return <LoadingCards />
 
   const open = data.assignments.filter((a) => !a.overdue).length

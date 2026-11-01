@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { AttemptResultView } from '@/components/AttemptResultView'
+import { ErrorState } from '@/components/ErrorState'
 import { getAttemptResult, markResultSeen, type AttemptResultViewDto } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
 import { NAV_COUNTS_CHANGED } from '@/lib/roles'
@@ -42,7 +43,7 @@ export function AttemptResultPage() {
           </Link>
         </div>
 
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        {error && <ErrorState message={error} />}
         {!result && !error && <LoadingCards />}
 
         {result && <AttemptResultView result={result} />}

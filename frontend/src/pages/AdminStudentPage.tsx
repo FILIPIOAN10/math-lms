@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { buttonVariants } from '@/components/ui/button'
+import { ErrorState } from '@/components/ErrorState'
 import { Card, CardContent } from '@/components/ui/card'
 import { AssignmentsSection } from '@/components/AssignmentsSection'
 import { AttemptModeBadge } from '@/components/AttemptModeBadge'
@@ -93,7 +94,7 @@ export function AdminStudentPage() {
           }
         />
 
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        {error && <ErrorState message={error} />}
         {!data && !error && <LoadingCards />}
 
         {data && (

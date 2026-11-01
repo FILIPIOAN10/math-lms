@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { buttonVariants } from '@/components/ui/button'
+import { ErrorState } from '@/components/ErrorState'
 import { Card, CardContent } from '@/components/ui/card'
 import { AttemptStatusBadge } from '@/components/AttemptStatusBadge'
 import { ProgressChart } from '@/components/ProgressChart'
@@ -78,7 +79,7 @@ export function ParentChildPage() {
           breadcrumbs={[{ label: 'Acasă', to: '/' }, { label: childName ?? 'Copilul meu' }]}
         />
 
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        {error && <ErrorState message={error} />}
 
         {!error && (
           <>

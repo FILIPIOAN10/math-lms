@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
+import { ErrorState } from '@/components/ErrorState'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { CopyLinkField } from '@/components/CopyLinkField'
 import { FilterBar, FilterSelect, NoMatches } from '@/components/FilterBar'
@@ -160,7 +161,7 @@ export function AdminStudentsPage() {
           <CardContent className="space-y-4">
             {loading && <LoadingCards />}
 
-            {!loading && error && <p className="text-sm text-destructive">{error}</p>}
+            {!loading && error && <ErrorState message={error} />}
 
             {!loading && !error && students.length === 0 && (
               <p className="text-muted-foreground">

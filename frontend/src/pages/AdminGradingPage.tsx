@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
+import { ErrorState } from '@/components/ErrorState'
 import { Card, CardContent } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
 import { AttemptStatusBadge } from '@/components/AttemptStatusBadge'
@@ -265,6 +266,7 @@ export function AdminGradingPage({ aiPollMs = AI_POLL_MS }: { aiPollMs?: number 
     setDetail((d) => d && { ...d, items: d.items.map((i) => (i.itemId === updated.itemId ? updated : i)) })
   }, [])
   const [error, setError] = useState<string | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
   // `?attempt=12` opens that paper straight away (links from a student's page).
   const [searchParams, setSearchParams] = useSearchParams()
   const linkedAttempt = Number(searchParams.get('attempt')) || null
@@ -284,7 +286,7 @@ export function AdminGradingPage({ aiPollMs = AI_POLL_MS }: { aiPollMs?: number 
       setMore(status === 'GRADED' && list.length === GRADED_PAGE)
       return list
     } catch (e) {
-      setError(errorMessage(e))
+      setLoadError(errorMessage(e))
       return []
     } finally {
       setLoading(false)
@@ -299,7 +301,7 @@ export function AdminGradingPage({ aiPollMs = AI_POLL_MS }: { aiPollMs?: number 
         setAttempts(list)
         setMore(filter === 'GRADED' && list.length === GRADED_PAGE)
       })
-      .catch((e) => !cancelled && setError(errorMessage(e)))
+      .catch((e) => !cancelled && setLoadError(errorMessage(e)))
       .finally(() => !cancelled && setLoading(false))
     return () => {
       cancelled = true
@@ -340,6 +342,7 @@ export function AdminGradingPage({ aiPollMs = AI_POLL_MS }: { aiPollMs?: number 
 
   async function loadPaper(attemptId: number) {
     setError(null)
+    setLoadError(null)
     setNotice(null)
     const turn = ++loadTurn.current
     try {
@@ -348,7 +351,7 @@ export function AdminGradingPage({ aiPollMs = AI_POLL_MS }: { aiPollMs?: number 
       setStatuses({}) // the forms of the paper before are gone
       setDetail(paper)
     } catch (e) {
-      setError(errorMessage(e))
+      setLoadError(errorMessage(e))
     }
   }
 
@@ -493,6 +496,7 @@ export function AdminGradingPage({ aiPollMs = AI_POLL_MS }: { aiPollMs?: number 
           ] : undefined}
         />
 
+        {loadError && <ErrorState message={loadError} />}
         {error && <p className="text-sm text-destructive">{error}</p>}
         {notice && !detail && !byItem && <p role="status" className="text-sm text-emerald-700 dark:text-emerald-300">{notice}</p>}
         {undoable && !byItem && (
@@ -650,6 +654,7 @@ export function AdminGradingPage({ aiPollMs = AI_POLL_MS }: { aiPollMs?: number 
                 onChange={(e) => {
                   setLoading(true)
                   setError(null)
+                  setLoadError(null)
                   setFilter(e.target.value as QuizAttemptStatus)
                 }}
               >
@@ -679,7 +684,7 @@ export function AdminGradingPage({ aiPollMs = AI_POLL_MS }: { aiPollMs?: number 
                 <h3 className="pt-2 text-sm font-medium">Sau lucrare cu lucrare</h3>
               </section>
             )}
-            {!loading && attempts.length === 0 && (
+            {!loading && !loadError && attempts.length === 0 && (
               <p className="text-muted-foreground">
                 {filter === 'SUBMITTED' ? 'Nicio lucrare de corectat. 🎉' : 'Nicio lucrare notată încă.'}
               </p>

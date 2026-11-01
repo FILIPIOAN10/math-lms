@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Button, buttonVariants } from '@/components/ui/button'
+import { ErrorState } from '@/components/ErrorState'
 import { Card, CardContent } from '@/components/ui/card'
 import { EnChapterDialog } from '@/components/EnChapterDialogs'
 import { PageHeader } from '@/components/PageHeader'
@@ -29,6 +30,7 @@ import { LoadingCards } from '@/components/LoadingCards'
 export function AdminEnChaptersPage() {
   const [chapters, setChapters] = useState<EnChapterSummary[] | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
   // null = closed; 'new' = adding; otherwise the chapter being edited, with its current values.
   const [dialog, setDialog] = useState<'new' | { id: number; input: EnChapterInput } | null>(null)
   const [busy, setBusy] = useState(false)
@@ -38,7 +40,7 @@ export function AdminEnChaptersPage() {
   const load = useCallback(() => {
     return listEnChapters()
       .then(setChapters)
-      .catch((e) => setError(errorMessage(e)))
+      .catch((e) => setLoadError(errorMessage(e)))
   }, [])
 
   useEffect(() => {
@@ -104,8 +106,9 @@ export function AdminEnChaptersPage() {
             </>
           }
         />
+        {loadError && <ErrorState message={loadError} />}
         {error && <p className="text-sm text-destructive">{error}</p>}
-        {!chapters && !error && <LoadingCards />}
+        {!chapters && !loadError && <LoadingCards />}
 
         {chapters &&
           EN_AREAS.map((area) => {

@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
+import { ErrorState } from '@/components/ErrorState'
 import { MathContent } from '@/components/MathContent'
 import { SectionHeadingView } from '@/components/SectionHeadingView'
 import { numberItems } from '@/lib/sections'
@@ -60,7 +61,7 @@ export function AdminQuizStatsPage() {
           ]}
         />
 
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        {error && <ErrorState message={error} />}
         {!stats && !error && <LoadingCards />}
 
         {stats && (

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { ErrorState } from '@/components/ErrorState'
 import { Card, CardContent } from '@/components/ui/card'
 import { EnChapterSelect } from '@/components/EnChapterSelect'
 import { PageHeader } from '@/components/PageHeader'
@@ -38,6 +39,7 @@ export function AdminEnChapterSlotsPage() {
   const [saved, setSaved] = useState<Links | null>(null)
   const [links, setLinks] = useState<Links>({})
   const [error, setError] = useState<string | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -48,11 +50,11 @@ export function AdminEnChapterSlotsPage() {
         setSaved(next)
         setLinks(next)
       })
-      .catch((e) => setError(errorMessage(e)))
+      .catch((e) => setLoadError(errorMessage(e)))
   }, [])
 
   useEffect(() => {
-    listEnChapters().then(setChapters).catch((e) => setError(errorMessage(e)))
+    listEnChapters().then(setChapters).catch((e) => setLoadError(errorMessage(e)))
     void load()
   }, [load])
 
@@ -101,9 +103,10 @@ export function AdminEnChapterSlotsPage() {
             </>
           }
         />
+        {loadError && <ErrorState message={loadError} />}
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
         {notice && <p role="status" className="text-sm text-emerald-700 dark:text-emerald-300">{notice}</p>}
-        {!saved && !error && <LoadingCards />}
+        {!saved && !loadError && <LoadingCards />}
 
         {saved && SUBJECTS.map((subject) => (
           <HomeSection key={subject.roman} title={subject.title}>

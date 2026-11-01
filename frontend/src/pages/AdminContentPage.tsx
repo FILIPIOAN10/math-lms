@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { MathContent } from '@/components/MathContent'
+import { ErrorState } from '@/components/ErrorState'
 import { Link, useNavigate } from 'react-router-dom'
 import { ChapterQuizDialog } from '@/components/ChapterQuizDialog'
 import { ClassInviteDialog } from '@/components/ClassInviteDialog'
@@ -353,6 +354,7 @@ export function AdminContentPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [dialog, setDialog] = useState<Dialogs>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   const loadSummaries = () =>
     listClassSummaries()
@@ -362,7 +364,7 @@ export function AdminContentPage() {
   useEffect(() => {
     listClasses()
       .then(setClasses)
-      .catch((e) => setError(errorMessage(e)))
+      .catch((e) => setLoadError(errorMessage(e)))
       .finally(() => setLoading(false))
     void loadSummaries()
   }, [])
@@ -390,12 +392,12 @@ export function AdminContentPage() {
   const reloadExercises = () => (chapter ? listExercises(chapter.id).then(setExercises) : Promise.resolve())
 
   async function loadInto<T>(promise: Promise<T>, apply: (v: T) => void) {
-    setError(null)
+    setLoadError(null)
     setLoading(true)
     try {
       apply(await promise)
     } catch (e) {
-      setError(errorMessage(e))
+      setLoadError(errorMessage(e))
     } finally {
       setLoading(false)
     }
@@ -465,6 +467,7 @@ export function AdminContentPage() {
           }
         />
 
+        {loadError && <ErrorState message={loadError} />}
         {error && <p className="text-sm text-destructive">{error}</p>}
 
         {loading && <LoadingCards />}

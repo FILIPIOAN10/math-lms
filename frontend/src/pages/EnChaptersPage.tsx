@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
+import { ErrorState } from '@/components/ErrorState'
 import { PageHeader } from '@/components/PageHeader'
 import { HomeSection } from '@/components/home/HomeBits'
 import { listEnChapters, type EnChapterSummary } from '@/lib/api'
@@ -33,7 +34,7 @@ export function EnChaptersPage() {
           title="Capitole EN"
           description="Materia și modele rezolvate pentru fiecare tip de exercițiu de la Evaluarea Națională."
         />
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        {error && <ErrorState message={error} />}
         {!chapters && !error && <LoadingCards />}
         {chapters &&
           EN_AREAS.map((area) => {

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
+import { ErrorState } from '@/components/ErrorState'
 import { MasteryLegend } from '@/components/MasteryLegend'
 import { EnMasteryGrid } from '@/components/EnMasteryGrid'
 import { ClassAverageCell } from '@/components/ClassAverageCell'
@@ -67,7 +68,7 @@ export function AdminMasteryPage() {
           description="Nivelul fiecărui elev pe fiecare capitol: ultimul răspuns la fiecare întrebare legată de capitol, din teste și din practică."
           breadcrumbs={[{ label: 'Clase', to: '/admin/content' }, { label: className ?? 'Clasă' }, { label: 'Pe capitole' }]}
         />
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        {error && <ErrorState message={error} />}
         {!grid && !error && <LoadingCards />}
 
         {grid && grid.chapters.length === 0 && (
