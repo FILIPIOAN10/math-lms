@@ -15,10 +15,14 @@ const TWO_FACTOR_SETUP_MESSAGE =
  * those become a plain sentence instead, as does the code of the F8 two-step sign-in gate.
  */
 export function errorMessage(e: unknown): string {
-  if (e instanceof TypeError) {
-    return CONNECTION_MESSAGE // what fetch throws when there is no answer at all
-  }
   const { body, status } = (e ?? {}) as { body?: string; status?: number }
+  // What fetch throws with no answer at all, and what the proxy answers when the backend is down: its own HTML page
+  // would otherwise pass for a sentence meant for the user. The backend's own 503 is a sentence ("the tutor is not
+  // reachable") and stays one.
+  const gateway = status === 502 || status === 503 || status === 504
+  if (e instanceof TypeError || (gateway && (!body || body.trimStart().startsWith('<')))) {
+    return CONNECTION_MESSAGE
+  }
   if (status === 404 && (!body || /^No\b/.test(body))) {
     return NOT_FOUND_MESSAGE
   }

@@ -31,4 +31,14 @@ describe('errorMessage', () => {
   it('says it plainly when the server could not be reached', () => {
     expect(errorMessage(new TypeError('Failed to fetch'))).toBe(CONNECTION_MESSAGE)
   })
+
+  it.each([502, 503, 504])('says the same for a %i, never showing the proxy\'s own page', (status) => {
+    const page = '<html><head><title>502 Bad Gateway</title></head><body><center><h1>502 Bad Gateway</h1></center></body></html>'
+    expect(errorMessage(new ApiError(status, page))).toBe(CONNECTION_MESSAGE)
+    expect(errorMessage(new ApiError(status, ''))).toBe(CONNECTION_MESSAGE)
+  })
+
+  it('keeps a sentence the server wrote itself on a 503', () => {
+    expect(errorMessage(new ApiError(503, 'Tutorul nu răspunde acum.'))).toBe('Tutorul nu răspunde acum.')
+  })
 })
