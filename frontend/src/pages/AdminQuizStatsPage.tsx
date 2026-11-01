@@ -9,7 +9,7 @@ import { getQuizStats, type QuizStatsDto } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
 import { PageHeader } from '@/components/PageHeader'
 import { LoadingCards } from '@/components/LoadingCards'
-import { GRADE_FILL, gradeBand, romanianGrade } from '@/lib/grades'
+import { formatGrade, formatPoints, GRADE_FILL, GRADE_TEXT, gradeBand, romanianGrade, type GradeBand } from '@/lib/grades'
 import { cn } from '@/lib/utils'
 
 /** A horizontal bar: `fraction` (0..1) of the track is filled, in `fill` (the brand colour by default). */
@@ -21,10 +21,8 @@ function Bar({ fraction, fill = 'bg-primary' }: { fraction: number; fill?: strin
   )
 }
 
-/** The grade band of a distribution bucket (equal slices of 0–100%), taken at the middle of its slice. */
-function bucketBand(index: number, buckets: number) {
-  return gradeBand(romanianGrade(index + 0.5, buckets)!)
-}
+/** The colour of each grade group the server sends: under 5, 5 – 6,99, 7 – 8,99, 9 – 10. */
+const BUCKET_BANDS: GradeBand[] = ['low', 'mid', 'high', 'high']
 
 /** Teacher analytics for one quiz: average, score distribution, and which items were hardest. */
 export function AdminQuizStatsPage() {
@@ -46,13 +44,14 @@ export function AdminQuizStatsPage() {
   // The hardest single-choice item = the lowest correct rate (only meaningful once something is graded).
   const rated = stats?.items.filter((i) => i.correctRate !== null) ?? []
   const hardest = rated.length > 1 ? rated.reduce((a, b) => ((b.correctRate ?? 1) < (a.correctRate ?? 1) ? b : a)) : null
+  const averageGrade = stats?.averageScore != null ? romanianGrade(stats.averageScore, stats.maxScore) : null
 
   return (
     <div className="p-4">
       <div className="mx-auto max-w-3xl space-y-4">
         <PageHeader
           title={stats?.title ?? 'Statistici'}
-          description={stats ? 'Statisticile testului, din lucrările notate.' : undefined}
+          description={stats ? 'Din lucrările notate: fiecare elev o dată, cu cea mai mare notă.' : undefined}
           documentTitle={stats ? `Statistici · ${stats.title}` : 'Statistici'}
           breadcrumbs={[
             { label: 'Teste', to: '/admin/quizzes' },
@@ -80,11 +79,14 @@ export function AdminQuizStatsPage() {
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Media</p>
-                    <p className="text-2xl font-semibold" data-testid="stats-average">
-                      {stats.averageScore?.toFixed(1)} <span className="text-base text-muted-foreground">/ {stats.maxScore} p</span>
-                      {stats.averagePercent !== null && (
-                        <span className="ml-2 text-base text-muted-foreground">({stats.averagePercent}%)</span>
-                      )}
+                    {averageGrade !== null && (
+                      <p className={cn('text-2xl font-semibold', GRADE_TEXT[gradeBand(averageGrade)])} data-testid="stats-average">
+                        nota {formatGrade(averageGrade)}
+                      </p>
+                    )}
+                    <p className="text-sm text-muted-foreground" data-testid="stats-average-points">
+                      {stats.averageScore !== null && formatPoints(stats.averageScore)} / {stats.maxScore} p
+                      {stats.averagePercent !== null && ` · ${stats.averagePercent}%`}
                     </p>
                   </div>
                 </CardContent>
@@ -97,7 +99,7 @@ export function AdminQuizStatsPage() {
                 {stats.distribution.map((bucket, i) => (
                   <div key={bucket.label} className="grid grid-cols-[5rem_1fr_2rem] items-center gap-3 text-sm">
                     <span className="text-muted-foreground">{bucket.label}</span>
-                    <Bar fraction={bucket.count / maxBucket} fill={GRADE_FILL[bucketBand(i, stats.distribution.length)]} />
+                    <Bar fraction={bucket.count / maxBucket} fill={GRADE_FILL[BUCKET_BANDS[i]]} />
                     <span className="text-right">{bucket.count}</span>
                   </div>
                 ))}
@@ -131,7 +133,7 @@ export function AdminQuizStatsPage() {
                     {item.averagePoints !== null && (
                       <p className="text-xs text-muted-foreground">
                         {item.correctRate !== null ? 'răspuns corect · ' : ''}
-                        în medie {item.averagePoints.toFixed(1)} / {item.points} p
+                        în medie {formatPoints(item.averagePoints)} / {item.points} p
                       </p>
                     )}
                   </CardContent>

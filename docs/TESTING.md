@@ -302,6 +302,7 @@ Din bara de sus: **Testele mele**.
 - **Editorul de test**: ⋯ pe o întrebare are **Mută mai sus / jos** (doar în secțiunea ei) și **Duplică** (copia apare chiar sub original, cu variante, indicii, cerințe și figură); ⋯ din capul paginii are **Vezi ca elev** (testul fără răspunsuri și barem, nu se salvează nimic). Un test dat deja de elevi arată un banner cu **Copiază și editează**, iar adăugarea, importul și mutarea sunt oprite; textele rămân de corectat
 - **Încercări**: profesorul alege în dialogul testului câte încercări are elevul (un test nou pornește de la una, testele vechi au rămas nelimitate). Serverul refuză o încercare în plus („Ai folosit toate încercările…”, 400) și una nouă cât timp lucrarea se corectează („Lucrarea ta se corectează…”, 400); o încercare începută se reia mereu, iar practica nu se numără
 - **Tema** pornește numărătoarea din nou: ce a predat elevul înainte să primească testul ca temă nu se numără, deci o temă nu rămâne niciodată imposibil de început
+- **Statistici** (de pe rândul testului): media ca notă, cu punctele și procentul dedesubt, zecimale cu virgulă; distribuția pe grupe de note (sub 5, 5 – 6,99, 7 – 8,99, 9 – 10)
 - **Contează cea mai mare notă**: pe cardul elevului („cea mai mare din 2”), în media testului, în media clasei, în Statistici (fiecare elev o dată; „Elevi cu notă”) și pe temă (tot prima predare spune dacă a fost la timp)
 - pagina de start (nu creează nimic): numele testului, descrierea, „3 subiecte · 10 puncte · ⏱ 10 minute” (sau „Fără limită de timp”),
   la teme „Temă — termen: … (peste 2 ore)”

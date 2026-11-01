@@ -45,6 +45,11 @@ export function formatGrade(grade: number): string {
   return grade.toLocaleString('ro-RO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
+/** Points with at most one decimal and a Romanian comma: "20", "7,5". */
+export function formatPoints(points: number): string {
+  return points.toLocaleString('ro-RO', { maximumFractionDigits: 1 })
+}
+
 /** One line for a score wherever it is listed: "8 / 11 p · nota 7,55" (no grade for a quiz worth nothing). */
 export function scoreLine(score: number, maxScore: number): string {
   const grade = romanianGrade(score, maxScore)

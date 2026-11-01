@@ -16,13 +16,14 @@ import java.util.stream.Collectors;
 
 /**
  * Teacher analytics for one quiz, computed over the attempt that counts for each student (their highest grade), so a
- * student who retook it counts once: the average, a five-bucket score distribution and, per item, how often it was
+ * student who retook it counts once: the average, the distribution by grade groups and, per item, how often it was
  * answered right (single choice) and the average points. Two aggregate queries for the whole quiz — never one per attempt.
  */
 @Service
 public class QuizStatsService {
 
-    private static final String[] BUCKET_LABELS = {"0–20%", "20–40%", "40–60%", "60–80%", "80–100%"};
+    /** The groups a teacher reads a class by: the grades of the app, not percents of the points. */
+    private static final String[] BUCKET_LABELS = {"sub 5", "5 – 6,99", "7 – 8,99", "9 – 10"};
 
     private final QuizRepository quizRepository;
     private final QuizItemRepository itemRepository;
@@ -72,11 +73,25 @@ public class QuizStatsService {
                 distribution(scores, maxScore), itemStats);
     }
 
+    /** The 1–10 grade as the app shows it, to two decimals: a 6,996 reads 7 on screen and belongs with the 7s. */
+    private static double grade(int score, int maxScore) {
+        return maxScore == 0 ? 1 : Math.round((1 + 9.0 * score / maxScore) * 100) / 100.0;
+    }
+
+    private static int bucketOf(double grade) {
+        if (grade < 5) {
+            return 0;
+        }
+        if (grade < 7) {
+            return 1;
+        }
+        return grade < 9 ? 2 : 3;
+    }
+
     private static List<BucketDto> distribution(List<Integer> scores, int maxScore) {
         int[] counts = new int[BUCKET_LABELS.length];
         for (int score : scores) {
-            int percent = maxScore == 0 ? 0 : score * 100 / maxScore;
-            counts[Math.min(percent / 20, BUCKET_LABELS.length - 1)]++;
+            counts[bucketOf(grade(score, maxScore))]++;
         }
         List<BucketDto> buckets = new ArrayList<>();
         for (int i = 0; i < BUCKET_LABELS.length; i++) {

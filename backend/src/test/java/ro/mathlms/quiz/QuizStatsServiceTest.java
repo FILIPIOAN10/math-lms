@@ -76,7 +76,7 @@ class QuizStatsServiceTest {
         assertThat(stats.averageScore()).isNull();
         assertThat(stats.averagePercent()).isNull();
         assertThat(stats.maxScore()).isEqualTo(15);
-        assertThat(stats.distribution()).hasSize(5).allSatisfy(b -> assertThat(b.count()).isZero());
+        assertThat(stats.distribution()).hasSize(4).allSatisfy(b -> assertThat(b.count()).isZero());
         assertThat(stats.items()).hasSize(2).allSatisfy(i -> {
             assertThat(i.correctRate()).isNull();
             assertThat(i.averagePoints()).isNull();
@@ -85,7 +85,7 @@ class QuizStatsServiceTest {
 
     @Test
     void averageAndDistributionComeFromTheGradedScores() {
-        // max 15 -> 15 = 100 %, 12 = 80 %, 9 = 60 %, 3 = 20 %
+        // max 15 -> grades 10, 8,20, 6,40 and 2,80
         givenGradedScores(15, 12, 9, 3);
 
         QuizStatsDto stats = service.getStats(10L);
@@ -94,14 +94,26 @@ class QuizStatsServiceTest {
         assertThat(stats.averageScore()).isEqualTo(9.75);
         assertThat(stats.averagePercent()).isEqualTo(65);
         assertThat(stats.distribution()).extracting(QuizStatsDtos.BucketDto::count)
-                .containsExactly(0, 1, 0, 1, 2); // 0-20, 20-40 (3), 40-60, 60-80 (9), 80-100 (12, 15)
+                .containsExactly(1, 1, 1, 1); // sub 5 (3), 5 – 6,99 (9), 7 – 8,99 (12), 9 – 10 (15)
+    }
+
+    @Test
+    void eachGroupStartsAtItsGrade() {
+        when(quizRepository.findById(10L)).thenReturn(Optional.of(quiz));
+        QuizItem nine = withId(new QuizItem(quiz, 1, QuizItemType.OPEN, "d", 9, null), 102L);
+        when(itemRepository.findByQuizIdOrderByPosition(10L)).thenReturn(List.of(nine));
+        when(attemptRepository.findCountedAttempts(10L)).thenReturn(List.of(row(1, 3), row(2, 4), row(3, 6), row(4, 8)));
+        when(responseRepository.findItemStatsByAttemptIds(any())).thenReturn(List.of());
+
+        // max 9 -> grades 4, 5, 7 and 9: each of the last three opens its group
+        assertThat(service.getStats(10L).distribution()).extracting(QuizStatsDtos.BucketDto::count).containsExactly(1, 1, 1, 1);
     }
 
     @Test
     void aPerfectScoreLandsInTheTopBucket() {
         givenGradedScores(15);
 
-        assertThat(service.getStats(10L).distribution().get(4).count()).isEqualTo(1);
+        assertThat(service.getStats(10L).distribution().get(3).count()).isEqualTo(1);
     }
 
     @Test

@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { formatGrade, romanianGrade, scoreLine } from '@/lib/grades'
+import { formatGrade, romanianGrade, scoreLine, formatPoints } from '@/lib/grades'
+
+describe('formatPoints', () => {
+  it('keeps a whole number whole, and one decimal with a comma otherwise', () => {
+    expect(formatPoints(20)).toBe('20')
+    expect(formatPoints(7.5)).toBe('7,5')
+    expect(formatPoints(7.25)).toBe('7,3')
+  })
+})
 
 describe('romanianGrade (1 + 9 × procent)', () => {
   it('gives 1 for nothing, 10 for everything and 5.50 for half', () => {
