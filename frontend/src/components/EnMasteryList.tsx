@@ -9,10 +9,10 @@ import { MASTERY_BARS, MASTERY_LABELS, MASTERY_TONES, masteryLevel } from '@/lib
 const WEAKEST = 3
 
 /** A chapter's name, linked to its page when the page has something on it. */
-function ChapterName({ row }: { row: EnChapterMastery }) {
+function ChapterName({ row, showCode }: { row: EnChapterMastery; showCode: boolean }) {
   const name = (
     <>
-      <span className="mr-1 font-mono text-xs text-muted-foreground">{row.code}</span> {row.title}
+      {showCode && <span className="mr-1 font-mono text-xs text-muted-foreground">{row.code}</span>} {row.title}
     </>
   )
   return row.ready
@@ -23,8 +23,9 @@ function ChapterName({ row }: { row: EnChapterMastery }) {
 /**
  * One student's level in each EN chapter they have met (their own page, their parent's, the teacher's view of them):
  * first the weakest chapters to revise, then algebra and geometry with a bar each. Chapters not met yet are left out.
+ * `showCodes` is off for a parent: "A3" means something to whoever works with the EN paper, not to them.
  */
-export function EnMasteryList({ rows }: { rows: EnChapterMastery[] }) {
+export function EnMasteryList({ rows, showCodes = true }: { rows: EnChapterMastery[]; showCodes?: boolean }) {
   const met = rows.filter((r) => r.questions > 0 && r.percent !== null)
   if (met.length === 0) {
     return (
@@ -44,7 +45,7 @@ export function EnMasteryList({ rows }: { rows: EnChapterMastery[] }) {
           <ul className="mt-1 space-y-1">
             {weakest.map((row) => (
               <li key={row.chapterId} className="flex flex-wrap items-baseline gap-x-2">
-                <ChapterName row={row} />
+                <ChapterName row={row} showCode={showCodes} />
                 <span className="text-xs text-muted-foreground">{row.percent}%</span>
               </li>
             ))}
@@ -62,7 +63,7 @@ export function EnMasteryList({ rows }: { rows: EnChapterMastery[] }) {
                 const level = masteryLevel(row.percent)
                 return (
                   <li key={row.chapterId} className="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1 text-sm" data-testid="en-mastery-row">
-                    <ChapterName row={row} />
+                    <ChapterName row={row} showCode={showCodes} />
                     <span className={`rounded-md px-2 py-0.5 text-xs font-medium ${MASTERY_TONES[level]}`}>
                       {`${row.percent}% · ${MASTERY_LABELS[level]}`}
                     </span>

@@ -25,13 +25,43 @@ import {
 } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
 import { scoreLine } from '@/lib/grades'
-import { formatDate } from '@/lib/format'
+import { formatDate, roCount } from '@/lib/format'
+import { todoAssignments } from '@/lib/home'
+import { chaptersToRevise } from '@/lib/mastery'
 import { PageHeader } from '@/components/PageHeader'
 import { LoadingCards } from '@/components/LoadingCards'
 
+/** What a parent came for, in plain words: the homework still to hand in, and the chapters to go back to, by name. */
+function WorkOnNow({ homework, chapters }: { homework: StudentAssignment[]; chapters: string[] }) {
+  const todo = todoAssignments(homework)
+  const overdue = todo.filter((a) => a.overdue).length
+  const nothing = todo.length === 0 && chapters.length === 0
+
+  return (
+    <Card>
+      <CardContent data-testid="child-summary" className="space-y-1 py-4">
+        <h2 className="font-medium">De lucrat acum</h2>
+        {nothing ? (
+          <p className="text-sm text-muted-foreground">Nimic urgent: temele sunt predate și niciun capitol nu cere recapitulare.</p>
+        ) : (
+          <ul className="space-y-1 text-sm">
+            {todo.length > 0 && (
+              <li>
+                <span className="font-medium">{roCount(todo.length, 'temă', 'teme')} de predat</span>
+                {overdue > 0 && <span className="font-medium text-destructive"> · {overdue} cu termenul depășit</span>}
+              </li>
+            )}
+            {chapters.length > 0 && <li>De recapitulat: {chapters.join(', ')}</li>}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
 /**
- * One child, read-only: their homework (what is due, overdue, handed in), progress chart and attempts. A child that is
- * not yours answers 403, shown as the error.
+ * One child, read-only, in the order a parent reads it: what to work on now, how it is going over time, the homework,
+ * then the chapters folded away and the tests. A child that is not yours answers 403, shown as the error.
  */
 export function ParentChildPage() {
   const { childId } = useParams<{ childId: string }>()
@@ -84,6 +114,18 @@ export function ParentChildPage() {
         {!error && (
           <>
             {!attempts && <LoadingCards />}
+            {/* Only with everything in: "nothing urgent" must not flash up before the chapters arrive. */}
+            {assignments && mastery && enMastery && (
+              <WorkOnNow homework={assignments} chapters={chaptersToRevise(mastery, enMastery)} />
+            )}
+            {progress && (
+              <Card>
+                <CardContent className="space-y-2 py-4">
+                  <h2 className="font-medium">Progres în timp</h2>
+                  <ProgressChart points={progress} />
+                </CardContent>
+              </Card>
+            )}
             {assignments && (
               <AssignmentsSection
                 assignments={assignments}
@@ -94,30 +136,27 @@ export function ParentChildPage() {
               />
             )}
             {mastery && (
-              <HomeSection title="Pe capitole">
-                <Card>
-                  <CardContent className="py-4">
-                    <MasteryList rows={mastery} />
-                  </CardContent>
-                </Card>
-              </HomeSection>
-            )}
-            {enMastery && enMastery.some((r) => r.questions > 0) && (
-              <HomeSection title="Pe capitolele EN">
-                <Card>
-                  <CardContent className="py-4">
-                    <EnMasteryList rows={enMastery} />
-                  </CardContent>
-                </Card>
-              </HomeSection>
-            )}
-            {progress && (
-              <Card>
-                <CardContent className="space-y-2 py-4">
-                  <h2 className="font-medium">Progres în timp</h2>
-                  <ProgressChart points={progress} />
-                </CardContent>
-              </Card>
+              <details data-testid="child-chapters" className="space-y-4">
+                <summary className="cursor-pointer font-medium">Pe capitole, în detaliu</summary>
+                <div className="mt-3 space-y-4">
+                  <HomeSection title="Pe capitole">
+                    <Card>
+                      <CardContent className="py-4">
+                        <MasteryList rows={mastery} />
+                      </CardContent>
+                    </Card>
+                  </HomeSection>
+                  {enMastery && enMastery.some((r) => r.questions > 0) && (
+                    <HomeSection title="Pe capitolele EN">
+                      <Card>
+                        <CardContent className="py-4">
+                          <EnMasteryList rows={enMastery} showCodes={false} />
+                        </CardContent>
+                      </Card>
+                    </HomeSection>
+                  )}
+                </div>
+              </details>
             )}
             {attempts && attempts.length === 0 && (
               <p className="text-sm text-muted-foreground">Copilul nu a dat încă niciun test.</p>

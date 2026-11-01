@@ -10,6 +10,7 @@ const api = vi.hoisted(() => ({
   getChildAssignments: vi.fn(),
   listMyChildren: vi.fn(),
   getChildMastery: vi.fn(),
+  getChildEnMastery: vi.fn(),
 }))
 vi.mock('@/lib/api', async (original) => ({ ...(await original<typeof import('@/lib/api')>()), ...api }))
 
@@ -37,6 +38,58 @@ describe('ParentChildPage', () => {
     api.getChildAssignments.mockResolvedValue([])
     api.listMyChildren.mockResolvedValue([{ id: 4, fullName: 'Ana Student', email: 'ana@x.ro' }])
     api.getChildMastery.mockResolvedValue([])
+    api.getChildEnMastery.mockResolvedValue([])
+  })
+
+  const chapter = (chapterTitle: string, percent: number | null) => ({
+    chapterId: 1, chapterTitle, bookTitle: 'Algebra', schoolClassName: 'Clasa a 8-a', earned: 4, possible: 10, percent, questions: 4,
+  })
+  const enChapter = (code: string, title: string, percent: number) => ({
+    chapterId: 2, code, title, area: 'ALGEBRA', earned: 1, possible: 10, percent, questions: 2, ready: true,
+  })
+
+  describe('De lucrat acum', () => {
+    it('says what to do next in plain words, before anything else', async () => {
+      api.getChildAssignments.mockResolvedValue([homework(1, 'Fracții', { overdue: true }), homework(2, 'Ecuații')])
+      api.getChildMastery.mockResolvedValue([chapter('Fracții', 30)])
+      api.getChildEnMastery.mockResolvedValue([enChapter('A3', 'Procente și fracții', 10)])
+      renderPage()
+
+      const summary = await screen.findByTestId('child-summary')
+      expect(summary).toHaveTextContent('2 teme de predat · 1 cu termenul depășit')
+      expect(summary).toHaveTextContent('De recapitulat: Procente și fracții, Fracții')
+      expect(summary).not.toHaveTextContent('A3')
+      expect(summary.compareDocumentPosition(screen.getByRole('heading', { name: 'Teme' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    })
+
+    it('says so when nothing is urgent', async () => {
+      api.getChildMastery.mockResolvedValue([chapter('Fracții', 90)])
+      renderPage()
+
+      expect(await screen.findByTestId('child-summary')).toHaveTextContent('Nimic urgent')
+    })
+
+    it('waits for the chapters before it says nothing is urgent', async () => {
+      api.getChildEnMastery.mockReturnValue(new Promise(() => undefined))
+      renderPage()
+
+      await screen.findByRole('heading', { level: 1, name: 'Ana Student' })
+      await screen.findByRole('heading', { name: 'Teme' })
+      expect(screen.queryByTestId('child-summary')).not.toBeInTheDocument()
+    })
+  })
+
+  it('shows how it is going before the homework, and folds the chapters away without codes', async () => {
+    api.getChildProgress.mockResolvedValue([])
+    api.getChildEnMastery.mockResolvedValue([enChapter('A3', 'Procente și fracții', 60)])
+    renderPage()
+
+    const chart = await screen.findByRole('heading', { name: 'Progres în timp' })
+    expect(chart.compareDocumentPosition(await screen.findByRole('heading', { name: 'Teme' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    const folded = await screen.findByTestId('child-chapters')
+    expect(folded).not.toHaveAttribute('open')
+    expect(folded).toHaveTextContent('Procente și fracții')
+    expect(folded).not.toHaveTextContent('A3')
   })
 
   it("shows the child's level per chapter", async () => {

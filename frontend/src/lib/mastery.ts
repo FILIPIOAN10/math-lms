@@ -32,6 +32,22 @@ export const MASTERY_BARS: Record<MasteryLevel, string> = {
   none: 'bg-transparent',
 }
 
+/**
+ * The chapters to go back to first, weakest first, by name: a parent reads this, so no codes like "A3". A chapter of the
+ * class and an EN one can have the same name: it counts once.
+ */
+export function chaptersToRevise(
+  chapters: { chapterTitle: string; percent: number | null }[],
+  enChapters: { title: string; percent: number | null }[],
+  limit = 3,
+): string[] {
+  const weak = [
+    ...chapters.map((c) => ({ title: c.chapterTitle, percent: c.percent })),
+    ...enChapters.map((c) => ({ title: c.title, percent: c.percent })),
+  ].filter((c) => masteryLevel(c.percent) === 'low').sort((a, b) => (a.percent ?? 0) - (b.percent ?? 0))
+  return [...new Set(weak.map((c) => c.title))].slice(0, limit)
+}
+
 /** Below this many students with data, a "class average" is really one or two children: shown, but not coloured. */
 export const MIN_STUDENTS_FOR_AVERAGE = 3
 
