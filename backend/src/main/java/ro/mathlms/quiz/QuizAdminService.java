@@ -313,34 +313,92 @@ public class QuizAdminService {
         copy.ownedBy(scope.currentUserId()); // the copy belongs to whoever made it
         Quiz saved = quizRepository.save(copy);
         for (QuizItem item : itemRepository.findByQuizIdOrderByPosition(id)) {
-            QuizItem fresh = new QuizItem(saved, item.getPosition(), item.getType(),
-                    item.getStatement(), item.getPoints(), item.getSolution());
-            fresh.tagChapter(item.getChapter());
-            fresh.pointToEnChapter(item.getEnChapter());
-            fresh.placeInSection(item.getSection());
-            String imageCopy = imageService.copyOf(item.getImageKey()); // each question owns its own file
-            if (imageCopy != null) {
-                fresh.attachImage(imageCopy);
-            } else {
-                fresh.requireImage(item.isImageRequired());
-            }
-            QuizItem itemCopy = itemRepository.save(fresh);
-            for (QuizOption option : optionRepository.findByItemIdOrderByPosition(item.getId())) {
-                optionRepository.save(new QuizOption(itemCopy, option.getPosition(), option.getText(), option.isCorrect()));
-            }
-            for (QuizItemHint hint : hintRepository.findByItemIdOrderByPosition(item.getId())) {
-                hintRepository.save(new QuizItemHint(itemCopy, hint.getPosition(), hint.getText()));
-            }
-            for (QuizItemPart part : partRepository.findByItemIdOrderByPosition(item.getId())) {
-                QuizItemPart partCopy = new QuizItemPart(itemCopy, part.getPosition(), part.getStatement(), part.getPoints(),
-                        part.getSolution());
-                partCopy.pointToEnChapter(part.getEnChapter());
-                partRepository.save(partCopy);
-            }
+            copyItem(item, saved, item.getPosition());
         }
         auditLog.record(AuditEvent.of(AuditAction.QUIZ_COPIED, saved.getId(), saved.getTitle())
                 .details("copie după „" + source.getTitle() + "”"));
         return saved;
+    }
+
+    /** A question with everything it holds, as a new one in {@code target}. */
+    private QuizItem copyItem(QuizItem item, Quiz target, int position) {
+        QuizItem fresh = new QuizItem(target, position, item.getType(),
+                item.getStatement(), item.getPoints(), item.getSolution());
+        fresh.tagChapter(item.getChapter());
+        fresh.pointToEnChapter(item.getEnChapter());
+        fresh.placeInSection(item.getSection());
+        String imageCopy = imageService.copyOf(item.getImageKey()); // each question owns its own file
+        if (imageCopy != null) {
+            fresh.attachImage(imageCopy);
+        } else {
+            fresh.requireImage(item.isImageRequired());
+        }
+        QuizItem itemCopy = itemRepository.save(fresh);
+        for (QuizOption option : optionRepository.findByItemIdOrderByPosition(item.getId())) {
+            optionRepository.save(new QuizOption(itemCopy, option.getPosition(), option.getText(), option.isCorrect()));
+        }
+        for (QuizItemHint hint : hintRepository.findByItemIdOrderByPosition(item.getId())) {
+            hintRepository.save(new QuizItemHint(itemCopy, hint.getPosition(), hint.getText()));
+        }
+        for (QuizItemPart part : partRepository.findByItemIdOrderByPosition(item.getId())) {
+            QuizItemPart partCopy = new QuizItemPart(itemCopy, part.getPosition(), part.getStatement(), part.getPoints(),
+                    part.getSolution());
+            partCopy.pointToEnChapter(part.getEnChapter());
+            partRepository.save(partCopy);
+        }
+        return itemCopy;
+    }
+
+    /**
+     * Moves a question one place up or down inside its section: past a heading it would land under another subject. Not
+     * once students took the test, since the numbers on their papers would no longer match.
+     */
+    @Transactional
+    public void moveItem(Long itemId, boolean up) {
+        QuizItem item = getItem(itemId);
+        Quiz quiz = item.getQuiz();
+        if (quizRepository.countAttempts(quiz.getId()) > 0) {
+            throw new QuizInUseException("Testul „" + quiz.getTitle() + "” a fost deja dat de elevi: ordinea întrebărilor "
+                    + "nu se mai poate schimba, numerele din lucrările lor n-ar mai fi aceleași. "
+                    + "Apasă „Copiază” pe rândul testului și modifică copia.");
+        }
+        List<QuizItem> items = new java.util.ArrayList<>(itemRepository.findByQuizIdOrderByPosition(quiz.getId()));
+        int from = items.indexOf(item);
+        int to = up ? from - 1 : from + 1;
+        if (to < 0 || to >= items.size() || !java.util.Objects.equals(items.get(to).getSection(), item.getSection())) {
+            throw new InvalidQuizException("Întrebarea e deja la capătul secțiunii ei.");
+        }
+        java.util.Collections.swap(items, from, to);
+        renumber(items);
+        dropScoreCaches();
+        if (seenByStudents(quiz)) {
+            recordQuestion(AuditAction.QUESTION_UPDATED, item, QuestionNumbers.of(item, items),
+                    up ? "mutată mai sus" : "mutată mai jos");
+        }
+    }
+
+    /** A copy of a question, right under it: a variant is usually written next to the original. */
+    @Transactional
+    public void duplicateItem(Long itemId) {
+        QuizItem item = getItem(itemId);
+        Quiz quiz = item.getQuiz();
+        requireNotTaken(quiz, "nu mai poți adăuga întrebări");
+        List<QuizItem> items = new java.util.ArrayList<>(itemRepository.findByQuizIdOrderByPosition(quiz.getId()));
+        int at = items.indexOf(item) + 1;
+        QuizItem copy = copyItem(item, quiz, at);
+        items.add(at, copy);
+        renumber(items);
+        dropScoreCaches();
+        if (seenByStudents(quiz)) {
+            recordQuestion(AuditAction.QUESTION_ADDED, copy, QuestionNumbers.of(copy, items), copy.getPoints() + " p, copie");
+        }
+    }
+
+    /** Positions 0, 1, 2... in this order: older tests may have gaps or two questions on the same place. */
+    private static void renumber(List<QuizItem> items) {
+        for (int i = 0; i < items.size(); i++) {
+            items.get(i).moveTo(i);
+        }
     }
 
     /**

@@ -20,6 +20,7 @@ const PendingPage = lazy(() => import('@/pages/PendingPage').then((m) => ({ defa
 const AdminStudentsPage = lazy(() => import('@/pages/AdminStudentsPage').then((m) => ({ default: m.AdminStudentsPage })))
 const AdminContentPage = lazy(() => import('@/pages/AdminContentPage').then((m) => ({ default: m.AdminContentPage })))
 const AdminQuizzesPage = lazy(() => import('@/pages/AdminQuizzesPage').then((m) => ({ default: m.AdminQuizzesPage })))
+const AdminQuizPreviewPage = lazy(() => import('@/pages/AdminQuizPreviewPage').then((m) => ({ default: m.AdminQuizPreviewPage })))
 const AdminAssignmentsPage = lazy(() => import('@/pages/AdminAssignmentsPage').then((m) => ({ default: m.AdminAssignmentsPage })))
 const ContentBrowserPage = lazy(() => import('@/pages/ContentBrowserPage').then((m) => ({ default: m.ContentBrowserPage })))
 const StudentQuizListPage = lazy(() => import('@/pages/StudentQuizListPage').then((m) => ({ default: m.StudentQuizListPage })))
@@ -160,6 +161,14 @@ function App() {
               element={
                 <AdminRoute>
                   <AdminQuizzesPage />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/quizzes/:quizId/preview"
+              element={
+                <AdminRoute>
+                  <AdminQuizPreviewPage />
                 </AdminRoute>
               }
             />

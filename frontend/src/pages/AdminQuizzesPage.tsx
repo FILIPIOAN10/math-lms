@@ -27,6 +27,7 @@ import {
   createQuiz,
   deleteQuiz,
   deleteQuizItem,
+  duplicateQuizItem,
   getAiImportSettings,
   getAiGradingSettings,
   getTutorSettings,
@@ -36,6 +37,7 @@ import {
   listClasses,
   listQuizSummaries,
   listQuizzes,
+  moveQuizItem,
   questionImageUrl,
   removeQuestionImage,
   setQuizPublished,
@@ -84,6 +86,10 @@ export type ImageChange = 'keep' | 'remove' | File
 
 const selectClass =
   'h-9 rounded-lg border border-border bg-background px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50'
+
+/** Whether two questions sit under the same heading: one moves only inside its own section. */
+const sameSection = (a: QuizItemDto | undefined, b: QuizItemDto | undefined) =>
+  a !== undefined && b !== undefined && (a.section ?? null) === (b.section ?? null)
 
 /** The limits offered for a test; a new one starts at the first. */
 const ATTEMPT_CHOICES = [1, 2, 3, 5]
@@ -1024,6 +1030,28 @@ export function AdminQuizzesPage() {
     }
   }
 
+  async function moveItem(item: QuizItemDto, up: boolean) {
+    if (!quiz) return
+    setError(null)
+    try {
+      await moveQuizItem(item.id, up)
+      await reloadQuiz(quiz.id)
+    } catch (e) {
+      setError(errorMessage(e))
+    }
+  }
+
+  async function duplicateItem(item: QuizItemDto) {
+    if (!quiz) return
+    setError(null)
+    try {
+      await duplicateQuizItem(item.id)
+      await reloadQuiz(quiz.id)
+    } catch (e) {
+      setError(errorMessage(e))
+    }
+  }
+
   return (
     <div className="p-4">
       <div className="mx-auto max-w-3xl space-y-4">
@@ -1066,13 +1094,16 @@ export function AdminQuizzesPage() {
                     <Button size="sm" variant="outline" onClick={() => setImporting(true)} disabled={quiz.taken}>Importă din text</Button>
                     {aiTools.length > 0 && <RowMenu label="Instrumente AI" text="Instrumente AI" items={aiTools} />}
                     <Button size="sm" onClick={() => setItemDialog({ item: null })} disabled={quiz.taken}>Adaugă întrebare</Button>
-                    {/* It interrupts students: never the first button, and it asks before doing anything. */}
-                    {quiz.status === 'PUBLISHED' && (
-                      <RowMenu
-                        label={`Mai multe acțiuni pentru ${quiz.title}`}
-                        items={[{ label: 'Depublică', destructive: true, onClick: () => void unpublish(quiz) }]}
-                      />
-                    )}
+                    {/* Depublică interrupts students: never the first button, and it asks before doing anything. */}
+                    <RowMenu
+                      label={`Mai multe acțiuni pentru ${quiz.title}`}
+                      items={[
+                        { label: 'Vezi ca elev', to: `/admin/quizzes/${quiz.id}/preview` },
+                        ...(quiz.status === 'PUBLISHED'
+                          ? [{ label: 'Depublică', destructive: true, onClick: () => void unpublish(quiz) }]
+                          : []),
+                      ]}
+                    />
                   </>
                 }
               />
@@ -1106,7 +1137,7 @@ export function AdminQuizzesPage() {
                 <p className="text-muted-foreground">Nicio întrebare încă. Adaug-o pe prima.</p>
               ) : (
                 <div className="space-y-2">
-                  {numberItems(quiz.items).map(({ item, label, local, heading }) => (
+                  {numberItems(quiz.items).map(({ item, label, local, heading }, index) => (
                     <Fragment key={item.id}>
                     {heading && <SectionHeadingView heading={heading} />}
                     <Card>
@@ -1138,7 +1169,16 @@ export function AdminQuizzesPage() {
                             {!quiz.taken && (
                               <RowMenu
                                 label={`Mai multe acțiuni pentru întrebarea ${label}`}
-                                items={[{ label: 'Șterge întrebarea', destructive: true, onClick: () => void removeItem(item, label) }]}
+                                items={[
+                                  ...(sameSection(quiz.items[index - 1], item)
+                                    ? [{ label: 'Mută mai sus', onClick: () => void moveItem(item, true) }]
+                                    : []),
+                                  ...(sameSection(item, quiz.items[index + 1])
+                                    ? [{ label: 'Mută mai jos', onClick: () => void moveItem(item, false) }]
+                                    : []),
+                                  { label: 'Duplică', onClick: () => void duplicateItem(item) },
+                                  { label: 'Șterge întrebarea', destructive: true, onClick: () => void removeItem(item, label) },
+                                ]}
                               />
                             )}
                           </div>

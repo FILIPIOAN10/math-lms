@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import ro.mathlms.quiz.QuizDtos.ItemDto;
 import ro.mathlms.quiz.QuizDtos.QuizDetailDto;
@@ -123,6 +124,22 @@ public class QuizAdminController {
     public ResponseEntity<Void> assignEnChapters(@PathVariable Long id, @Valid @RequestBody EnChapterAssignments request) {
         scope.requireQuiz(id);
         service.assignEnChapters(id, request.items());
+        return ResponseEntity.noContent().build();
+    }
+
+    /** One place up or down, inside the question's section. */
+    @PostMapping("/api/admin/quiz-items/{itemId}/move")
+    public ResponseEntity<Void> moveItem(@PathVariable Long itemId, @RequestParam boolean up) {
+        scope.requireQuizItem(itemId);
+        service.moveItem(itemId, up);
+        return ResponseEntity.noContent().build();
+    }
+
+    /** A copy of the question, right under it. */
+    @PostMapping("/api/admin/quiz-items/{itemId}/copy")
+    public ResponseEntity<Void> duplicateItem(@PathVariable Long itemId) {
+        scope.requireQuizItem(itemId);
+        service.duplicateItem(itemId);
         return ResponseEntity.noContent().build();
     }
 

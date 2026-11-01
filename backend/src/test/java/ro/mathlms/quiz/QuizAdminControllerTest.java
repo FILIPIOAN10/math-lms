@@ -69,6 +69,18 @@ class QuizAdminControllerTest {
     }
 
     @Test
+    void moveItemDelegatesWithTheDirection() {
+        assertThat(controller.moveItem(7L, true).getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        verify(service).moveItem(7L, true);
+    }
+
+    @Test
+    void duplicateItemDelegates() {
+        assertThat(controller.duplicateItem(7L).getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        verify(service).duplicateItem(7L);
+    }
+
+    @Test
     void deleteItemReturns204() {
         ResponseEntity<Void> response = controller.deleteItem(7L);
 

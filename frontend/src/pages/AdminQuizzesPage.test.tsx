@@ -15,6 +15,8 @@ const api = vi.hoisted(() => ({
   copyQuiz: vi.fn(),
   deleteQuiz: vi.fn(),
   deleteQuizItem: vi.fn(),
+  moveQuizItem: vi.fn(),
+  duplicateQuizItem: vi.fn(),
   listChapterOptions: vi.fn(),
   createQuiz: vi.fn(),
   updateQuiz: vi.fn(),
@@ -47,6 +49,7 @@ function renderAt(path: string) {
         <Route path="/admin/quizzes" element={<><AdminQuizzesPage /><Where /></>} />
         <Route path="/admin/quizzes/:quizId" element={<><AdminQuizzesPage /><Where /></>} />
         <Route path="/admin/quizzes/:quizId/stats" element={<p>statistici</p>} />
+        <Route path="/admin/quizzes/:quizId/preview" element={<p>ca elev</p>} />
         <Route path="/admin/assignments" element={<p>teme</p>} />
       </Routes>
     </MemoryRouter>,
@@ -140,6 +143,81 @@ describe('AdminQuizzesPage', () => {
       expect(within(await row('Simulare EN')).getByTestId('quiz-audience')).toHaveTextContent('1 încercare')
       expect(within(await row('Fracții')).getByTestId('quiz-audience')).toHaveTextContent('încercări nelimitate')
     })
+  })
+
+  describe('ordinea întrebărilor', () => {
+    const item = (id: number, statement: string, section: string | null = null) => ({
+      ...detail().items[0], id, position: id, statement, section,
+    })
+    const menuOf = async (number: string) => {
+      await userEvent.click(await screen.findByRole('button', { name: `Mai multe acțiuni pentru întrebarea ${number}` }))
+      return (await screen.findAllByRole('menuitem')).map((i) => i.textContent)
+    }
+
+    it('offers only the moves there is room for', async () => {
+      api.getQuiz.mockResolvedValue(detail({ items: [item(1, 'prima'), item(2, 'a doua'), item(3, 'a treia')] }))
+      renderAt('/admin/quizzes/7')
+
+      expect(await menuOf('1')).toEqual(['Mută mai jos', 'Duplică', 'Șterge întrebarea'])
+      await userEvent.keyboard('{Escape}')
+      expect(await menuOf('2')).toEqual(['Mută mai sus', 'Mută mai jos', 'Duplică', 'Șterge întrebarea'])
+      await userEvent.keyboard('{Escape}')
+      expect(await menuOf('3')).toEqual(['Mută mai sus', 'Duplică', 'Șterge întrebarea'])
+    })
+
+    it('keeps a question inside its section', async () => {
+      api.getQuiz.mockResolvedValue(detail({ items: [item(1, 'prima', 'SUBIECTUL I'), item(2, 'a doua', 'SUBIECTUL al II-lea')] }))
+      renderAt('/admin/quizzes/7')
+
+      expect(await menuOf('I.1')).toEqual(['Duplică', 'Șterge întrebarea'])
+    })
+
+    it('moves a question and shows the new order', async () => {
+      api.getQuiz.mockResolvedValue(detail({ items: [item(1, 'prima'), item(2, 'a doua')] }))
+      api.moveQuizItem.mockResolvedValue(undefined)
+      renderAt('/admin/quizzes/7')
+      await menuOf('2')
+
+      api.getQuiz.mockResolvedValue(detail({ items: [item(2, 'a doua'), item(1, 'prima')] }))
+      await userEvent.click(await screen.findByRole('menuitem', { name: 'Mută mai sus' }))
+
+      await waitFor(() => expect(api.moveQuizItem).toHaveBeenCalledWith(2, true))
+      await waitFor(() => expect(api.getQuiz).toHaveBeenCalledTimes(2))
+    })
+
+    it('duplicates a question and shows the copy', async () => {
+      api.duplicateQuizItem.mockResolvedValue(undefined)
+      renderAt('/admin/quizzes/7')
+      await menuOf('1')
+
+      await userEvent.click(await screen.findByRole('menuitem', { name: 'Duplică' }))
+
+      await waitFor(() => expect(api.duplicateQuizItem).toHaveBeenCalledWith(70))
+      await waitFor(() => expect(api.getQuiz).toHaveBeenCalledTimes(2))
+    })
+
+    it('shows why a move was refused', async () => {
+      api.getQuiz.mockResolvedValue(detail({ items: [item(1, 'prima'), item(2, 'a doua')] }))
+      api.moveQuizItem.mockRejectedValue(Object.assign(new Error('x'), { status: 409, body: 'Ordinea nu se mai poate schimba.' }))
+      renderAt('/admin/quizzes/7')
+      await menuOf('2')
+
+      await userEvent.click(await screen.findByRole('menuitem', { name: 'Mută mai sus' }))
+
+      expect(await screen.findByText('Ordinea nu se mai poate schimba.')).toBeInTheDocument()
+    })
+  })
+
+  it('opens the test the way a student sees it, published or not', async () => {
+    api.getQuiz.mockResolvedValue(detail({ status: 'DRAFT' }))
+    renderAt('/admin/quizzes/7')
+    await screen.findByText('Cât face 2+2?')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Mai multe acțiuni pentru Simulare EN' }))
+
+    expect(await screen.findAllByRole('menuitem')).toHaveLength(1) // a draft has nothing to unpublish
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Vezi ca elev' }))
+    await waitFor(() => expect(screen.queryByText('Cât face 2+2?')).not.toBeInTheDocument())
   })
 
   describe('un test dat deja de elevi', () => {

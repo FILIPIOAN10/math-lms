@@ -107,6 +107,11 @@ public class QuizItem {
         this.solution = solution;
     }
 
+    /** A new place in the test, nothing else about the question changing. */
+    public void moveTo(int position) {
+        this.position = position;
+    }
+
     /** Tags this question with its own chapter, or ({@code null}) lets it inherit the quiz's. */
     public void tagChapter(Chapter chapter) {
         this.chapter = chapter;
