@@ -188,7 +188,7 @@ public class QuizAdminService {
                         "timp " + minutes(quiz.getTimeLimitMinutes()) + " → " + minutes(timeLimitMinutes))
                 .addIfDifferent(quiz.getMaxAttempts(), maxAttempts,
                         "încercări " + attempts(quiz.getMaxAttempts()) + " → " + attempts(maxAttempts))
-                .addIf(quiz.isPracticeAllowed() != practiceAllowed, practiceAllowed ? "practică permisă" : "practică oprită")
+                .addIf(quiz.isPracticeAllowed() != practiceAllowed, practiceAllowed ? "exersare permisă" : "exersare oprită")
                 .addIfDifferent(quiz.getChapter() == null ? null : quiz.getChapter().getId(), chapterId, "capitol");
         quiz.update(title, description);
         quiz.assignToClass(target);

@@ -223,7 +223,7 @@ public class QuizAttemptService {
         // 404 (not 403) for another class's quiz: a guessed id must not confirm it exists
         Quiz quiz = requireTakeable(quizId, student);
         if (mode == AttemptMode.PRACTICE && !quiz.isPracticeAllowed()) {
-            throw new InvalidQuizException("Acest test nu permite modul practică");
+            throw new InvalidQuizException("Acest test nu se poate exersa");
         }
         Optional<QuizAttempt> open = attemptRepository
                 .findByQuizIdAndStudentIdAndStatusAndMode(quizId, student.getId(), QuizAttemptStatus.IN_PROGRESS, mode);
@@ -627,7 +627,7 @@ public class QuizAttemptService {
     public HintDto revealHint(Long attemptId, Long itemId, int number, String studentEmail) {
         QuizAttempt attempt = requireOwnedInProgress(attemptId, studentEmail);
         if (attempt.getMode() != AttemptMode.PRACTICE) {
-            throw new InvalidQuizException("Indiciile sunt disponibile doar în modul practică");
+            throw new InvalidQuizException("Indiciile sunt disponibile doar la exersare");
         }
         QuizItem item = itemRepository.findById(itemId)
                 .orElseThrow(() -> new QuizNotFoundException("QuizItem", itemId));

@@ -176,7 +176,7 @@ class QuizAttemptHintServiceTest {
 
         assertThatThrownBy(() -> service.revealHint(50L, 100L, 1, EMAIL))
                 .isInstanceOf(InvalidQuizException.class)
-                .hasMessageContaining("practic");
+                .hasMessageContaining("exers");
 
         verify(responseRepository, never()).save(any());
     }

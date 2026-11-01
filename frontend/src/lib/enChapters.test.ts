@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { revisionLinks } from '@/lib/enChapters'
+import { revisionLinks, enPageForStudents } from '@/lib/enChapters'
 import type { EnChapterLink, GradedPart, ItemResultDto } from '@/lib/api'
 
 const A1: EnChapterLink = { id: 1, code: 'A1', title: 'Ordinea efectuării operațiilor', ready: true }
@@ -14,6 +14,14 @@ const grila = (over: Partial<ItemResultDto> = {}): ItemResultDto => ({
 
 const part = (label: string, points: number, awardedPoints: number | null, enChapter: EnChapterLink): GradedPart => ({
   id: label.charCodeAt(0), label, statement: label, points, barem: null, awardedPoints, enChapter,
+})
+
+describe('enPageForStudents', () => {
+  it('names what there is to read, and leaves out what there is not', () => {
+    expect(enPageForStudents({ photoCount: 2, exampleCount: 3 })).toBe('2 pagini de teorie · 3 modele rezolvate')
+    expect(enPageForStudents({ photoCount: 0, exampleCount: 5 })).toBe('5 modele rezolvate')
+    expect(enPageForStudents({ photoCount: 1, exampleCount: 0 })).toBe('1 pagină de teorie')
+  })
 })
 
 describe('revisionLinks', () => {

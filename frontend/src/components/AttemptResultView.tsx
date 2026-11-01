@@ -266,7 +266,7 @@ export function AttemptResultView({ result, audience = 'student' }: { result: At
           </div>
           {practice ? (
             <p data-testid="result-practice" className="text-sm text-muted-foreground">
-              Sesiune de practică — fără notă și fără efect asupra progresului.
+              Exersare — fără notă și fără efect asupra progresului.
               {choiceItems.length > 0 && ` Grile corecte: ${choiceCorrect} din ${choiceItems.length}.`}
               {hintsAvailable > 0 && ` Indicii folosite: ${hintsUsed} din ${hintsAvailable}.`}
             </p>

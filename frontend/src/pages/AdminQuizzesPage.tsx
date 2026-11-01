@@ -231,7 +231,7 @@ function QuizDialog({
           </select>
           <p className="text-xs text-muted-foreground">
             După fiecare încercare elevul vede răspunsurile corecte și baremul. Dacă dai mai multe, contează cea mai mare
-            notă. Practica nu se numără, iar când dai testul ca temă încercările pornesc din nou.
+            notă. Exersarea nu se numără, iar când dai testul ca temă încercările pornesc din nou.
           </p>
         </div>
         <div className="flex flex-col gap-1">
@@ -242,11 +242,11 @@ function QuizDialog({
               checked={practiceAllowed}
               onChange={(e) => setPracticeAllowed(e.target.checked)}
             />
-            Permite practică
+            Permite exersarea
           </label>
           <p className="text-xs text-muted-foreground">
             Elevii pot exersa testul fără notă, cu răspunsul corect afișat imediat după fiecare întrebare, fără cronometru
-            și fără efect asupra progresului sau statisticilor. Atenție: practica dezvăluie răspunsurile — bifeaz-o
+            și fără efect asupra progresului sau statisticilor. Atenție: exersarea dezvăluie răspunsurile — bifeaz-o
             doar pentru teste care pot servi ca material de exersare.
           </p>
         </div>
@@ -740,7 +740,7 @@ export function ItemDialog({
               </Label>
               <Textarea id="isolution" value={solution} onChange={(e) => setSolution(e.target.value)} />
               <p className="text-xs text-muted-foreground">
-                Elevul o vede după trimitere (în rezultat) și, în modul practică, imediat după ce răspunde.
+                Elevul o vede după trimitere (în rezultat) și, la exersare, imediat după ce răspunde.
               </p>
             </div>
 
@@ -771,7 +771,7 @@ export function ItemDialog({
                 Adaugă indiciu
               </Button>
               <p className="text-xs text-muted-foreground">
-                Apar doar în modul practică, unul câte unul, în ordinea de mai sus. Testul notat nu are indicii.
+                Apar doar la exersare, unul câte unul, în ordinea de mai sus. Testul notat nu are indicii.
               </p>
               {tutorOn && initial && (
                 <TutorHintsPanel
@@ -1286,7 +1286,7 @@ export function AdminQuizzesPage() {
                         {q.schoolClassName ? `Clasa: ${q.schoolClassName}` : 'Toți elevii'}
                         {q.timeLimitMinutes !== null && ` · ⏱ ${q.timeLimitMinutes} min`}
                         {` · ${attemptsLabel(q.maxAttempts)}`}
-                        {q.practiceAllowed && ' · practică permisă'}
+                        {q.practiceAllowed && ' · exersare permisă'}
                       </p>
                       {q.description && <p className="truncate text-sm text-muted-foreground">{q.description}</p>}
                       {summaries[q.id] && <QuizRowNumbers summary={summaries[q.id]} />}
@@ -1369,7 +1369,7 @@ export function AdminQuizzesPage() {
                   text: `„${publishing.title}” e publicat și dat ca temă clasei ${assigned.schoolClassName}, termen ${formatDate(assigned.dueAt)}.`,
                   homework: true,
                 }
-              : { text: `„${publishing.title}” e publicat — elevii îl văd la „Teste disponibile”.`, homework: false })
+              : { text: `„${publishing.title}” e publicat — elevii îl văd la „Testele mele”.`, homework: false })
             await reloadList()
             if (quiz && quiz.id === publishing.id) await reloadQuiz(quiz.id)
           }}

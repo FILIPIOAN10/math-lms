@@ -185,7 +185,7 @@ describe('API client', () => {
     })
 
     it('surfaces the server refusal, e.g. hints asked for in a graded test', async () => {
-      fetchMock.mockResolvedValueOnce(new Response('Indiciile sunt disponibile doar în modul practică', { status: 400 }))
+      fetchMock.mockResolvedValueOnce(new Response('Indiciile sunt disponibile doar la exersare', { status: 400 }))
 
       await expect(revealQuizHint(50, 100, 1)).rejects.toMatchObject({ status: 400 })
     })

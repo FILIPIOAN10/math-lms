@@ -88,7 +88,7 @@ export function PublishDialog({
       open={open}
       onOpenChange={(o) => !o && onClose()}
       title={`Publică „${quiz.title}”`}
-      description="După publicare, elevii îl văd la „Teste disponibile”."
+      description="După publicare, elevii îl văd la „Testele mele”."
     >
       <form className="flex flex-col gap-4" onSubmit={submit}>
         <label className="flex items-center gap-2 text-sm font-medium">

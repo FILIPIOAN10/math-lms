@@ -39,7 +39,7 @@ describe('ReviewPage', () => {
     expect(screen.getByTestId('review-stats')).toHaveTextContent('Seria: 3 zile')
     expect(screen.getByTestId('review-stats')).toHaveTextContent('Stăpânite: 1 din 8')
     expect(screen.getByText('Cât face 1+1?')).toBeInTheDocument()
-    expect(screen.getByText('Întrebarea 1 din 2 · cutia 1 din 5')).toBeInTheDocument()
+    expect(screen.getByText('Întrebarea 1 din 2')).toBeInTheDocument()
   })
 
   it('checks an answer, explains it, says where the question goes next, then moves on', async () => {
@@ -55,7 +55,7 @@ describe('ReviewPage', () => {
     const feedback = await screen.findByTestId('review-feedback')
     expect(feedback).toHaveTextContent('Greșit')
     expect(feedback).toHaveTextContent('Doi.')
-    expect(feedback).toHaveTextContent('Rămâne în cutia 1 · revine pe 12 oct.')
+    expect(feedback).toHaveTextContent('Revine pe 12 oct.')
     expect(screen.getByText('corect').closest('label')).toHaveTextContent('✓')
 
     await userEvent.click(screen.getByRole('button', { name: 'Următoarea' }))
@@ -73,7 +73,7 @@ describe('ReviewPage', () => {
 
     await userEvent.click(await screen.findByLabelText('a) corect'))
     await userEvent.click(screen.getByRole('button', { name: 'Verifică' }))
-    expect(await screen.findByTestId('review-feedback')).toHaveTextContent('Urcă în cutia 2')
+    expect(await screen.findByTestId('review-feedback')).toHaveTextContent('Revine pe')
     await userEvent.click(screen.getByRole('button', { name: 'Termină' }))
 
     expect(await screen.findByText(/Gata pe azi/)).toBeInTheDocument()

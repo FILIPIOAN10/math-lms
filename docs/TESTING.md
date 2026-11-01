@@ -86,7 +86,7 @@ Apoi, logat ca **admin**, construiește datele de mai jos (fiecare pas exerseaz�
 | D2 | Clasa a 8-a → **Elevi** | înscrie **Ana** și **Radu** (înscriere în masă) |
 | D3 | Clasa a 8-a → **Adaugă carte** | **Algebra 8** → capitolul **Fracții** → 2 exerciții cu LaTeX (`$\frac{3}{4}+\frac{1}{8}$`) |
 | D4 | **Elevi** | leagă **Maria Parinte → Ana** |
-| D5 | **Teste → Adaugă test** | **Fracții — exersare**: toți elevii, fără limită, **„Permite practică” bifat**, **Capitol: Fracții** (pentru harta pe capitole) |
+| D5 | **Teste → Adaugă test** | **Fracții — exersare**: toți elevii, fără limită, **„Permite exersarea” bifat**, **Capitol: Fracții** (pentru harta pe capitole) |
 | D6 | în editorul lui → **Importă din text** | lipește blocul **A** |
 | D7 | **Adaugă test** | **Simulare EN**: Clasa a 8-a, **10 minute**, fără practică, **Capitol: Fracții** → importă blocul **B**; apoi la subiectul 3 alege **Capitol** = un al doilea capitol (ex. adaugă „Procente” în Algebra 8) |
 | D8 | **Adaugă test** | **Ciornă goală** — fără întrebări |
@@ -297,7 +297,7 @@ Buton pe Dashboard: **Conținut**. Read-only.
 
 ### 11. Elev — dă un test (`/quizzes`, ca `student.activ@mathlms.local`)
 Din bara de sus: **Testele mele**.
-- temele nepredate apar DOAR la „Teme”, nu și a doua oară la „Teste disponibile”
+- temele nepredate apar DOAR la „Teme”, nu și a doua oară la „Testele mele”
 - un test deja dat arată „✓ Dat · 8 / 11 p · nota 7,55” (sau „Predat — în corectare”), cu **Vezi rezultatul** (principal) și **Dă din nou** doar dacă mai are voie
 - **Editorul de test**: ⋯ pe o întrebare are **Mută mai sus / jos** (doar în secțiunea ei) și **Duplică** (copia apare chiar sub original, cu variante, indicii, cerințe și figură); ⋯ din capul paginii are **Vezi ca elev** (testul fără răspunsuri și barem, nu se salvează nimic). Un test dat deja de elevi arată un banner cu **Copiază și editează**, iar adăugarea, importul și mutarea sunt oprite; textele rămân de corectat
 - **Încercări**: profesorul alege în dialogul testului câte încercări are elevul (un test nou pornește de la una, testele vechi au rămas nelimitate). Serverul refuză o încercare în plus („Ai folosit toate încercările…”, 400) și una nouă cât timp lucrarea se corectează („Lucrarea ta se corectează…”, 400); o încercare începută se reia mereu, iar practica nu se numără
@@ -309,7 +309,7 @@ Din bara de sus: **Testele mele**.
 - în timpul testului: bara de jos numerotează subiectele (umplute = cu răspuns), click = sari la subiect;
   „Trimite lucrarea” deschide dialogul: cu subiecte goale → „Ai 2 întrebări fără răspuns — Întrebările 2, 3…” + **Mergi la întrebarea 2** / **Trimite oricum**
 - subiect deschis: butonul „📷 Încarcă poza rezolvării” → miniatura pozei + „✓ Poză încărcată”; altă poză → „Înlocuiește poza”, miniatura se schimbă
-- „Teste disponibile” → **Începe** (sau **Continuă** dacă ai unul în lucru) → **Începe testul**
+- „Testele mele” → **Începe** (sau **Continuă** dacă ai unul în lucru) → **Începe testul**
 - bifează o variantă → „x / n răspunsuri salvate” crește; **reîncarcă pagina** → Continuă → variantele și poza revin
 - subiect deschis → alege o poză (una mare de pe telefon e micșorată automat la ≤2000 px înainte de upload)
 - **Trimite lucrarea** (avertizează dacă ai subiecte fără răspuns) → pagina de rezultat: grile ✓/✗ cu răspunsul
@@ -318,7 +318,7 @@ Din bara de sus: **Testele mele**.
 
 ### 11a. Quiz cronometrat — timer pe server (`/admin/quizzes`, apoi `/quizzes`)
 **Ca admin:** la „Adaugă test” / „Editează” completează **Limită de timp (minute)** (1–600; gol = fără limită). Lista arată „⏱ 45 min”.
-**Ca elev:** în „Teste disponibile” apare „⏱ 45 minute”; pe pagina testului scrie că cronometrul pornește la „Începe testul”.
+**Ca elev:** în „Testele mele” apare „⏱ 45 minute”; pe pagina testului scrie că cronometrul pornește la „Începe testul”.
 - bară sus „⏱ Timp rămas: mm:ss” — **chihlimbar** în ultimele 5 minute, **roșie** în ultimul minut (cititorul de ecran anunță o dată la fiecare prag);
   la **0:00** lucrarea se trimite singură cu ce era salvat → pagina de rezultat
 - serverul e sursa adevărului: după termen + 30 s grație, orice răspuns/poză e respins cu **409** („Timpul pentru acest test a expirat”);
@@ -333,14 +333,14 @@ Verificare rapidă fără să aștepți: pornește o încercare, apoi
 Config (opțional): `app.quiz.expiry-job.enabled` (true), `.interval-ms` (30000), `.initial-delay-ms` (20000).
 
 ### 11b. Mod practică (E2) — `/admin/quizzes`, apoi `/quizzes`
-**Ca admin:** în dialogul quiz-ului bifează **Permite practică** (implicit nebifat). Lista arată „· practică permisă”. Practica *dezvăluie* răspunsurile,
+**Ca admin:** în dialogul quiz-ului bifează **Permite exersarea** (implicit nebifat). Lista arată „· exersare permisă”. Practica *dezvăluie* răspunsurile,
 de aceea e opt-in per quiz: bifeaz-o doar pentru materiale de exersare, nu pentru un test care trebuie să rămână corect.
-**Ca elev:** pe quiz-urile bifate apare lângă **Începe** butonul **Exersează** (sau **Continuă practica**).
+**Ca elev:** pe quiz-urile bifate apare lângă **Începe** butonul **Exersează** (sau **Continuă exersarea**).
 - pagina de start: „Mod practică … nu se acordă notă, nu există cronometru”; bandă violet „Mod practică” sus; **niciun cronometru**, chiar dacă quiz-ul are limită
 - bifezi o variantă → imediat „✓ Corect!” / „✗ Greșit”, varianta corectă conturată verde **și marcată ✓**, greșeala roșie **și marcată ✗** (nu doar prin culoare), plus **Rezolvarea** (baremul) randată cu KaTeX; poți schimba răspunsul și feedback-ul se actualizează
 - subiect deschis → după poză apare baremul „compară-l cu rezolvarea ta” (nu există verdict automat)
-- **Termină practica** → pagina de rezultat: insigna „Practică”, „fără notă”, „Grile corecte: n din m” — fără scor
-- reîncarci pagina → „Continuă practica” → răspunsurile și feedback-ul revin
+- **Termină exersarea** → pagina de rezultat: insigna „Practică”, „fără notă”, „Grile corecte: n din m” — fără scor
+- reîncarci pagina → „Continuă exersarea” → răspunsurile și feedback-ul revin
 - un test cronometrat și o practică pot fi deschise simultan pe același quiz; fiecare mod își reia propria încercare
 - practica **nu apare** în graficul de progres (elev/părinte), în statisticile profesorului, în coada de corectură și nu trimite emailuri
 - în **testul** notat nimic nu s-a schimbat: răspunsul se salvează (204, fără corp), niciun feedback până la trimitere
@@ -352,7 +352,7 @@ test → `204` fără corp.
 ### 11c. Indicii progresive + rezolvare explicată (E3) — `/admin/quizzes`, apoi practică
 **Ca admin:** în dialogul unui subiect (grilă sau deschis): **Indicii progresive** — până la 5 casete, „Adaugă indiciu”, × ca să ștergi; ordinea e cea afișată
 (de la vag la concret, LaTeX între `$…$`). Casetele goale se ignoră. Câmpul **Rezolvare explicată / Barem** există acum și pe grile (înainte doar pe cele deschise).
-**Ca elev, în practică** (`/quizzes/:id/take?mode=practice`, quiz cu „Permite practică”):
+**Ca elev, în practică** (`/quizzes/:id/take?mode=practice`, quiz cu „Permite exersarea”):
 - sub subiect: butonul **Vrei un indiciu? (0/3)** → apare „Indiciul 1 din 3”; apoi **Încă un indiciu (1/3)**…; la ultimul butonul dispare
 - indiciile vin **pe rând** (serverul refuză sărirea peste: `PUT …/items/{item}/hints/{n}` cu n > folosite+1 → 400 „Indiciile se dezvăluie pe rând”), nu costă puncte
 - reîncarci pagina → indiciile deja dezvăluite revin; **nu** apare niciun „răspuns” sau rezolvare doar pentru că ai cerut un indiciu
@@ -366,7 +366,7 @@ test → `204` fără corp.
 - reguli: quiz-ul trebuie publicat; un quiz destinat altei clase nu poate fi dat acestei clase; termenul trebuie să fie în viitor (altfel 400); același quiz nu se dă de două ori aceleiași clase (409 — modifică termenul)
 - **Termenul e „moale”**: după el elevul poate preda în continuare, dar predarea apare „cu întârziere”; nu se blochează nimic
 - progresul **nu se stochează**, e dedus din încercările elevului: contează doar un **test** (nu o practică) pornit după crearea temei; prima predare e cea care contează (o reluare ulterioară nu face o predare la timp „întârziată”)
-- **Ca elev** (înscris în clasa respectivă): pe `/quizzes`, secțiunea **Teme** deasupra „Teste disponibile”, cele nepredate întâi, după termen: insigna „De făcut / În lucru / Termen depășit / Predată / Predată cu întârziere”, „Termen: … (peste 3 zile)”, butonul **Începe / Continuă / Vezi rezultatul**
+- **Ca elev** (înscris în clasa respectivă): pe `/quizzes`, secțiunea **Teme** deasupra „Testele mele”, cele nepredate întâi, după termen: insigna „De făcut / În lucru / Termen depășit / Predată / Predată cu întârziere”, „Termen: … (peste 3 zile)”, butonul **Începe / Continuă / Vezi rezultatul**
 - ștergerea quiz-ului sau a clasei șterge și temele lui (CASCADE)
 - **Reamintire pe email** (implicit OPRITĂ: `NOTIFY_ASSIGNMENT_REMINDER=true`, cere SMTP real): cu ≤ 24 h înainte de termen, **o singură dată per temă**, fiecare elev care n-a predat primește un email cu linkul testului; mutarea termenului reîarmează reamintirea.
   **Părintele legat de elev primește și el o copie** („Ana are de predat tema …”, cu linkul spre pagina copilului), doar dacă copilul n-a predat
@@ -638,7 +638,7 @@ de oprire/expirare își termină intrarea. Linkurile vechi „pe rol” (§4a) 
   (cele goale nu, n-au răspuns de reluat); dacă testul e publicat și are **practica permisă**, butonul **Exersează doar ce ai greșit** →
   practica arată doar acele subiecte, cu numerele din test, plus „Exersează tot testul”. Lucrare perfectă / părinte / test în corectare →
   fără card
-- Verificare rapidă: ca profesor, un test cu 2 grile, practică permisă, publicat; ca elev îl dai cu una greșită → pe Acasă „Ai o notă
+- Verificare rapidă: ca profesor, un test cu 2 grile, exersare permisă, publicat; ca elev îl dai cu una greșită → pe Acasă „Ai o notă
   nouă” + numărul de lângă Testele mele → deschizi rezultatul → numărul dispare, cardul arată „Subiectul 2…” și butonul de practică
 - API: `GET /api/quiz/attempts` are `newResult`; `PUT /api/quiz/attempts/{id}/result-seen` → 204 (altcineva / inexistent → 404);
   rezultatul are `quizId` + `practiceAllowed`

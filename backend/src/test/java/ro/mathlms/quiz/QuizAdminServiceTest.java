@@ -569,7 +569,7 @@ class QuizAdminServiceTest {
         service.updateQuiz(1L, "Teză", null, null, 50, true);
 
         verify(auditLog).record(new AuditEvent(AuditAction.QUIZ_UPDATED, 1L, "Teză",
-                "fost „Simulare EN”; timp fără limită → 50 min, practică permisă", null, null));
+                "fost „Simulare EN”; timp fără limită → 50 min, exersare permisă", null, null));
     }
 
     // --- M4: an empty quiz cannot reach the students ---

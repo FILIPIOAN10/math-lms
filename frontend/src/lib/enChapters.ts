@@ -12,6 +12,14 @@ export function enPageContents(chapter: Pick<EnChapterSummary, 'photoCount' | 'e
   return `${roCount(chapter.photoCount, 'poză', 'poze')} · ${roCount(chapter.exampleCount, 'model', 'modele')}`
 }
 
+/** The same for a student, who has no use for "0 poze": what there is to read, in words. */
+export function enPageForStudents(chapter: Pick<EnChapterSummary, 'photoCount' | 'exampleCount'>): string {
+  return [
+    chapter.photoCount > 0 ? roCount(chapter.photoCount, 'pagină de teorie', 'pagini de teorie') : null,
+    chapter.exampleCount > 0 ? roCount(chapter.exampleCount, 'model rezolvat', 'modele rezolvate') : null,
+  ].filter(Boolean).join(' · ')
+}
+
 /** Whether a student has anything to read on the page. */
 export function hasEnContent(chapter: Pick<EnChapterSummary, 'photoCount' | 'exampleCount'>): boolean {
   return chapter.photoCount > 0 || chapter.exampleCount > 0

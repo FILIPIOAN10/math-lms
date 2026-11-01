@@ -51,7 +51,7 @@ class NewGradeAndMistakesE2eTest extends E2eBase {
 
         // The practice shows only that question, under its heading, with its figure
         wait.until(ExpectedConditions.elementToBeClickable(By.xpath(
-                "//button[contains(normalize-space(.), 'Începe practica')]"))).click();
+                "//button[contains(normalize-space(.), 'Începe exersarea')]"))).click();
         assertThat(byTestId("practice-only").getText()).contains("1 întrebare");
         assertThat(byTestId("section-heading").getText()).contains("SUBIECTUL I");
         waitForText("Aria pătratului din figură este:");

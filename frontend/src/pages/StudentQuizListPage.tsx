@@ -42,7 +42,7 @@ function statePill(card: QuizCard) {
     case 'todo': return <StatePill tone="info">De făcut</StatePill>
     case 'waiting': return <StatePill tone="info">În corectare</StatePill>
     case 'graded': return <StatePill tone="success">Notat</StatePill>
-    case 'practised': return <StatePill tone="info">Practică</StatePill>
+    case 'practised': return <StatePill tone="info">Exersat</StatePill>
   }
 }
 
@@ -126,7 +126,7 @@ function QuizCardView({ card, now, showClass }: { card: QuizCard; now: number; s
               data-testid="quiz-practice"
               className={buttonVariants({ size: 'sm', variant: 'outline' })}
             >
-              {card.practiceOpen ? 'Continuă practica' : 'Exersează'}
+              {card.practiceOpen ? 'Continuă exersarea' : 'Exersează'}
             </Link>
           )}
           {open ? (

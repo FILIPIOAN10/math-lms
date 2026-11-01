@@ -159,7 +159,7 @@ describe('AttemptResultView', () => {
     expect(screen.queryByTestId('result-score')).not.toBeInTheDocument()
     expect(screen.getByTestId('result-practice')).toHaveTextContent('fără notă')
     expect(screen.getByTestId('result-practice')).toHaveTextContent('Grile corecte: 1 din 1')
-    expect(screen.getByTestId('mode-badge')).toHaveTextContent('Practică')
+    expect(screen.getByTestId('mode-badge')).toHaveTextContent('Exersare')
   })
 
   it('shows no practice badge on a graded test', () => {

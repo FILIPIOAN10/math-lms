@@ -104,7 +104,7 @@ class QuizAttemptPracticeServiceTest {
 
         assertThatThrownBy(() -> service.startAttempt(10L, EMAIL, AttemptMode.PRACTICE))
                 .isInstanceOf(InvalidQuizException.class)
-                .hasMessageContaining("practic");
+                .hasMessageContaining("exers");
 
         verify(attemptRepository, never()).save(any());
     }

@@ -47,7 +47,7 @@ describe('EnChaptersPage', () => {
     const algebra = await screen.findByRole('region', { name: 'Algebră' })
     const geometry = screen.getByRole('region', { name: 'Geometrie' })
     expect(within(algebra).getByRole('link', { name: /A1 Ordinea efectuării operațiilor/ })).toHaveAttribute('href', '/capitole/1')
-    expect(within(algebra).getByText('2 poze · 3 modele')).toBeInTheDocument()
+    expect(within(algebra).getByText('2 pagini de teorie · 3 modele rezolvate')).toBeInTheDocument()
     // Nothing on the page yet: shown, but not a dead end.
     expect(within(algebra).queryByRole('link', { name: /Rapoarte/ })).not.toBeInTheDocument()
     expect(within(algebra).getByText('în pregătire')).toBeInTheDocument()

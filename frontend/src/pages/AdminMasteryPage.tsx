@@ -65,7 +65,7 @@ export function AdminMasteryPage() {
       <div className="mx-auto max-w-6xl space-y-4">
         <PageHeader
           title={title}
-          description="Nivelul fiecărui elev pe fiecare capitol: ultimul răspuns la fiecare întrebare legată de capitol, din teste și din practică."
+          description="Nivelul fiecărui elev pe fiecare capitol: ultimul răspuns la fiecare întrebare legată de capitol, din teste și din exersare."
           breadcrumbs={[{ label: 'Clase', to: '/admin/content' }, { label: className ?? 'Clasă' }, { label: 'Pe capitole' }]}
         />
         {error && <ErrorState message={error} />}

@@ -218,7 +218,7 @@ describe('StudentQuizListPage', () => {
     const c = await card('Fracții')
     expect(within(c).getByTestId('quiz-state')).toHaveTextContent('În lucru')
     expect(within(c).getByRole('link', { name: 'Continuă' })).toHaveAttribute('href', '/quizzes/1/take')
-    expect(within(c).getByRole('link', { name: 'Continuă practica' })).toHaveAttribute('href', '/quizzes/1/take?mode=practice')
+    expect(within(c).getByRole('link', { name: 'Continuă exersarea' })).toHaveAttribute('href', '/quizzes/1/take?mode=practice')
   })
 
   it('shows the deadline of homework still to do and flags it when overdue', async () => {

@@ -13,8 +13,6 @@ import { roCount } from '@/lib/format'
 import { OptionLetter } from '@/components/OptionLetter'
 import { LoadingCards } from '@/components/LoadingCards'
 
-const BOXES = 5
-
 /** "12 oct." from the server's "2026-10-12" (a calendar day, not an instant: no time-zone shift). */
 function shortDay(isoDay: string): string {
   const [y, m, d] = isoDay.split('-').map(Number)
@@ -22,12 +20,7 @@ function shortDay(isoDay: string): string {
 }
 
 function whereNext(result: ReviewResult): string {
-  const move = result.boxAfter > result.boxBefore
-    ? `Urcă în cutia ${result.boxAfter}`
-    : result.boxAfter < result.boxBefore
-      ? `Coboară în cutia ${result.boxAfter}`
-      : `Rămâne în cutia ${result.boxAfter}`
-  return `${move} · revine pe ${shortDay(result.nextDueOn)}`
+  return `Revine pe ${shortDay(result.nextDueOn)}`
 }
 
 /**
@@ -143,7 +136,7 @@ export function ReviewPage() {
           <Card data-testid="review-card">
             <CardContent className={cn('space-y-4 py-5', readingTextClass)}>
               <p className="text-xs font-medium text-muted-foreground">
-                Întrebarea {index + 1} din {today.questions.length} · cutia {question.box} din {BOXES}
+                Întrebarea {index + 1} din {today.questions.length}
               </p>
               <p className="text-xs text-muted-foreground">{question.quizTitle}</p>
               <MathContent>{question.statement}</MathContent>

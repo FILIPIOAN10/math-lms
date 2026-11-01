@@ -5,7 +5,7 @@ import { ErrorState } from '@/components/ErrorState'
 import { PageHeader } from '@/components/PageHeader'
 import { HomeSection } from '@/components/home/HomeBits'
 import { listEnChapters, type EnChapterSummary } from '@/lib/api'
-import { EN_AREAS, enPageContents, hasEnContent, inArea, rootsOf } from '@/lib/enChapters'
+import { EN_AREAS, enPageForStudents, hasEnContent, inArea, rootsOf } from '@/lib/enChapters'
 import { errorMessage } from '@/lib/errors'
 import { LoadingCards } from '@/components/LoadingCards'
 
@@ -57,7 +57,7 @@ export function EnChaptersPage() {
                             {c.title}
                           </span>
                         )}
-                        <span className="text-xs text-muted-foreground">{hasEnContent(c) ? enPageContents(c) : 'în pregătire'}</span>
+                        <span className="text-xs text-muted-foreground">{hasEnContent(c) ? enPageForStudents(c) : 'în pregătire'}</span>
                       </div>
                     ))}
                   </CardContent>

@@ -117,7 +117,7 @@ describe('TakeQuizPage', () => {
     it('S4: with ?only shows just the questions got wrong, keeping the numbers of the test', async () => {
       api.startQuizAttempt.mockResolvedValue({ ...startedThree(), mode: 'PRACTICE' })
       renderPage('?mode=practice&only=101,102')
-      await userEvent.click(await screen.findByRole('button', { name: 'Începe practica' }))
+      await userEvent.click(await screen.findByRole('button', { name: 'Începe exersarea' }))
 
       expect(await screen.findByText('Al doilea subiect')).toBeInTheDocument()
       expect(screen.getByText('Al treilea subiect')).toBeInTheDocument()
@@ -142,12 +142,12 @@ describe('TakeQuizPage', () => {
       renderPage('?mode=practice')
 
       expect(await screen.findByTestId('quiz-practice-note')).toHaveTextContent('Nu se acordă notă')
-      await begin('Începe practica')
+      await begin('Începe exersarea')
 
       expect(api.startQuizAttempt).toHaveBeenCalledWith(7, 'PRACTICE')
       expect(screen.getByTestId('quiz-practice-banner')).toBeInTheDocument()
       expect(screen.queryByTestId('quiz-timer')).not.toBeInTheDocument()
-      expect(screen.getByRole('button', { name: 'Termină practica' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Termină exersarea' })).toBeInTheDocument()
     })
 
     it('shows the verdict and the right option as soon as an answer is given', async () => {
@@ -155,7 +155,7 @@ describe('TakeQuizPage', () => {
       const wrong: AnswerFeedback = { correct: false, correctOptionId: 1000, solution: 'Rezolvare: A' }
       api.saveQuizAnswer.mockResolvedValue(wrong)
       renderPage('?mode=practice')
-      await begin('Începe practica')
+      await begin('Începe exersarea')
 
       await userEvent.click(screen.getByLabelText('b) Varianta B'))
 
@@ -173,7 +173,7 @@ describe('TakeQuizPage', () => {
       api.startQuizAttempt.mockResolvedValue(started('PRACTICE'))
       api.saveQuizAnswer.mockResolvedValue({ correct: true, correctOptionId: 1000, solution: null })
       renderPage('?mode=practice')
-      await begin('Începe practica')
+      await begin('Începe exersarea')
 
       await userEvent.click(screen.getByLabelText('a) Varianta A'))
 
@@ -187,7 +187,7 @@ describe('TakeQuizPage', () => {
       ]))
       renderPage('?mode=practice')
 
-      await begin('Începe practica')
+      await begin('Începe exersarea')
 
       expect(screen.getByTestId('item-feedback')).toHaveTextContent('Greșit')
     })
@@ -196,13 +196,13 @@ describe('TakeQuizPage', () => {
       api.startQuizAttempt.mockResolvedValue(started('PRACTICE'))
       api.submitQuizAttempt.mockResolvedValue({})
       renderPage('?mode=practice')
-      await begin('Începe practica')
+      await begin('Începe exersarea')
 
-      await userEvent.click(screen.getByRole('button', { name: 'Termină practica' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Termină exersarea' }))
 
-      const dialog = await screen.findByRole('dialog', { name: 'Închei sesiunea de practică?' })
+      const dialog = await screen.findByRole('dialog', { name: 'Termini exersarea?' })
       expect(dialog).not.toHaveTextContent('fără răspuns')
-      await userEvent.click(within(dialog).getByRole('button', { name: 'Termină practica' }))
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Termină exersarea' }))
       await waitFor(() => expect(api.submitQuizAttempt).toHaveBeenCalledWith(50))
     })
 
@@ -210,7 +210,7 @@ describe('TakeQuizPage', () => {
       api.startQuizAttempt.mockResolvedValue(started('PRACTICE'))
       api.saveQuizAnswer.mockResolvedValue({ correct: false, correctOptionId: 1000, solution: null })
       renderPage('?mode=practice')
-      await begin('Începe practica')
+      await begin('Începe exersarea')
 
       await userEvent.click(screen.getByLabelText('b) Varianta B'))
 
@@ -260,7 +260,7 @@ describe('TakeQuizPage', () => {
       api.startQuizAttempt.mockResolvedValue(started('PRACTICE', [], { hintCount: 2 }))
       api.revealQuizHint.mockResolvedValueOnce(hint(1, 'Muta termenii')).mockResolvedValueOnce(hint(2, 'Imparte la coeficient'))
       renderPage('?mode=practice')
-      await begin('Începe practica')
+      await begin('Începe exersarea')
       expect(screen.queryAllByTestId('hint')).toHaveLength(0)
       expect(screen.getByTestId('hint-button')).toHaveTextContent('Vrei un indiciu? (0/2)')
 
@@ -282,7 +282,7 @@ describe('TakeQuizPage', () => {
       api.startQuizAttempt.mockResolvedValue(started('PRACTICE', [], { hintCount: 2, revealed: ['Muta termenii'] }))
       renderPage('?mode=practice')
 
-      await begin('Începe practica')
+      await begin('Începe exersarea')
 
       expect(screen.getByText('Muta termenii')).toBeInTheDocument()
       expect(screen.getByTestId('hint-button')).toHaveTextContent('Încă un indiciu (1/2)')
@@ -292,7 +292,7 @@ describe('TakeQuizPage', () => {
       api.startQuizAttempt.mockResolvedValue(started('PRACTICE', [], { hintCount: 0 }))
       renderPage('?mode=practice')
 
-      await begin('Începe practica')
+      await begin('Începe exersarea')
 
       expect(screen.queryByTestId('item-hints')).not.toBeInTheDocument()
     })
@@ -301,7 +301,7 @@ describe('TakeQuizPage', () => {
       api.startQuizAttempt.mockResolvedValue(started('PRACTICE', [], { hintCount: 2 }))
       api.revealQuizHint.mockRejectedValue(new ApiError(400, 'Indiciile se dezvăluie pe rând'))
       renderPage('?mode=practice')
-      await begin('Începe practica')
+      await begin('Începe exersarea')
 
       await userEvent.click(screen.getByTestId('hint-button'))
 
@@ -740,7 +740,7 @@ describe('TakeQuizPage', () => {
     it('is there in a practice too', async () => {
       api.startQuizAttempt.mockResolvedValue(started('PRACTICE'))
       renderPage('?mode=practice')
-      await begin('Începe practica')
+      await begin('Începe exersarea')
 
       await userEvent.click(screen.getByRole('button', { name: 'Salvează și ieși' }))
 

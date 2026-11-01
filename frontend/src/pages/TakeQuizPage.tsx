@@ -525,7 +525,7 @@ export function TakeQuizPage() {
               </p>
               {practice && (
                 <p className="text-sm font-medium" data-testid="quiz-practice-note">
-                  Mod practică: vezi imediat dacă ai răspuns corect și cum se rezolvă. Nu se acordă notă, nu există
+                  Exersare: vezi imediat dacă ai răspuns corect și cum se rezolvă. Nu se acordă notă, nu există
                   cronometru și nu afectează progresul — poți relua cât vrei.
                 </p>
               )}
@@ -540,7 +540,7 @@ export function TakeQuizPage() {
                 <Link to="/quizzes" className={buttonVariants({ variant: 'outline' })}>Înapoi</Link>
                 {!blocked && (
                   <Button onClick={start} disabled={starting} data-testid="quiz-start">
-                    {starting ? 'Se pregătește...' : practice ? 'Începe practica' : 'Începe testul'}
+                    {starting ? 'Se pregătește...' : practice ? 'Începe exersarea' : 'Începe testul'}
                   </Button>
                 )}
               </div>
@@ -573,14 +573,14 @@ export function TakeQuizPage() {
   const uploading = Object.values(saving).some(Boolean)
 
   const dialogTitle = practice
-    ? 'Închei sesiunea de practică?'
+    ? 'Termini exersarea?'
     : timeUp
       ? 'Timpul a expirat'
       : askAboutUnanswered
         ? `Ai ${roCount(unanswered.length, 'întrebare', 'întrebări')} fără răspuns`
         : 'Trimiți lucrarea?'
   const dialogBody = practice
-    ? 'Poți relua practica oricând.'
+    ? 'Poți relua exersarea oricând.'
     : timeUp
       ? 'Se trimit răspunsurile salvate la timp.'
       : askAboutUnanswered
@@ -611,7 +611,7 @@ export function TakeQuizPage() {
           data-testid="quiz-practice-banner"
           className="fixed inset-x-0 top-0 z-10 border-b bg-violet-500/15 p-2 text-center text-sm font-semibold text-violet-800 dark:text-violet-200"
         >
-          Mod practică — răspunsurile se verifică pe loc, fără notă
+          Exersare — răspunsurile se verifică pe loc, fără notă
         </div>
       )}
       <div className={`mx-auto max-w-3xl space-y-4 ${timeLeft !== null || practice ? 'pt-10' : ''}`}>
@@ -897,7 +897,7 @@ export function TakeQuizPage() {
                 {leaving ? 'Se salvează...' : 'Salvează și ieși'}
               </Button>
               <Button onClick={() => setConfirming(true)} disabled={submitting || leaving} data-testid="quiz-submit" className="h-11 sm:h-8">
-                {submitting ? 'Se trimite...' : practice ? 'Termină practica' : 'Trimite lucrarea'}
+                {submitting ? 'Se trimite...' : practice ? 'Termină exersarea' : 'Trimite lucrarea'}
               </Button>
             </div>
           </div>
@@ -907,7 +907,7 @@ export function TakeQuizPage() {
       <ConfirmDialog
         open={confirming}
         title={dialogTitle}
-        confirmLabel={practice ? 'Termină practica' : askAboutUnanswered ? 'Trimite oricum' : 'Trimite'}
+        confirmLabel={practice ? 'Termină exersarea' : askAboutUnanswered ? 'Trimite oricum' : 'Trimite'}
         onConfirm={() => void submit()}
         onCancel={() => setConfirming(false)}
         finalFocus={() => jumpTarget.current ?? true}
