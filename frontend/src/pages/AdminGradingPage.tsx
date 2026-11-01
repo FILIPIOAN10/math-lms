@@ -219,7 +219,7 @@ export function AdminGradingPage({ aiPollMs = AI_POLL_MS }: { aiPollMs?: number 
   const [loading, setLoading] = useState(true)
   const [finalizing, setFinalizing] = useState(false)
   // The paper finalised last: "Anulează" stays on screen while the teacher moves on, instead of a question per paper.
-  const [undoable, setUndoable] = useState<{ attemptId: number; studentName: string; grade: string } | null>(null)
+  const [undoable, setUndoable] = useState<{ attemptId: number; studentName: string } | null>(null)
   const { confirm, dialog: confirmDialog } = useConfirm()
   const [byItem, setByItem] = useState<{ quizTitle: string; attemptIds: number[] } | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
@@ -348,11 +348,7 @@ export function AdminGradingPage({ aiPollMs = AI_POLL_MS }: { aiPollMs?: number 
     setError(null)
     try {
       await finalizeGrading(detail.attemptId)
-      setUndoable({
-        attemptId: detail.attemptId,
-        studentName: detail.studentName,
-        grade: scoreLine(pointsSoFar, detail.maxScore),
-      })
+      setUndoable({ attemptId: detail.attemptId, studentName: detail.studentName })
       window.dispatchEvent(new Event(NAV_COUNTS_CHANGED))
       const before = attempts.map((a) => a.attemptId)
       const remaining = filter === 'SUBMITTED' ? await reloadList() : await listAttemptsForGrading('SUBMITTED')
@@ -482,7 +478,7 @@ export function AdminGradingPage({ aiPollMs = AI_POLL_MS }: { aiPollMs?: number 
             data-testid="grade-undo"
             className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-800 dark:text-emerald-200"
           >
-            <span>✓ {undoable.studentName}: {undoable.grade}. Elevul vede nota.</span>
+            <span>✓ {undoable.studentName}: nota e finalizată, elevul o vede.</span>
             <Button size="sm" variant="outline" onClick={() => void reopen(undoable.attemptId)}>Anulează</Button>
           </div>
         )}

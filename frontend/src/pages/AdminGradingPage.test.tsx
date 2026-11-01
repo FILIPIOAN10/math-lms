@@ -196,7 +196,7 @@ describe('AdminGradingPage', () => {
     const undo = await screen.findByTestId('grade-undo')
     expect(api.finalizeGrading).toHaveBeenCalledWith(50)
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    expect(undo).toHaveTextContent('Ana: 3 / 11 p')
+    expect(undo).toHaveTextContent('Ana: nota e finalizată')
     expect(screen.getByRole('heading', { name: 'Corectură' })).toBeInTheDocument()
 
     await userEvent.click(within(undo).getByRole('button', { name: 'Anulează' }))
