@@ -1,4 +1,4 @@
-import { type ItemResultDto } from '@/lib/api'
+import { type ChapterLink, type ItemResultDto } from '@/lib/api'
 import { numberItems } from '@/lib/sections'
 
 /** S4: what a graded test says the student should go back to. */
@@ -11,7 +11,7 @@ export interface Mistakes {
 }
 
 /** A grilă not answered right (wrong or empty), or a graded open question that did not get all its points. */
-function missed(item: ItemResultDto): boolean {
+export function missed(item: ItemResultDto): boolean {
   if (item.type === 'SINGLE_CHOICE') return item.correct !== true
   return item.awardedPoints !== null && item.awardedPoints < item.points
 }
@@ -23,6 +23,11 @@ export function mistakesOf(items: ItemResultDto[]): Mistakes {
     itemIds: numbered.map((n) => n.item.itemId),
     wrongChoices: items.filter((i) => i.type === 'SINGLE_CHOICE' && i.correct === false).length,
   }
+}
+
+/** The exercises of a chapter, opened straight from a result. */
+export function chapterExercisesHref({ id, bookId, classId }: ChapterLink): string {
+  return `/content?class=${classId}&book=${bookId}&chapter=${id}`
 }
 
 /** A practice of the quiz showing only these questions (the practice page reads `only`). */

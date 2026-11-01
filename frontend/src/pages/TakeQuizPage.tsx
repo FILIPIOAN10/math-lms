@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { OptionLetter } from '@/components/OptionLetter'
 import { MathContent } from '@/components/MathContent'
+import { MistakeNote } from '@/components/MistakeNote'
 import { QuestionImage } from '@/components/QuestionImage'
 import { SectionHeadingView } from '@/components/SectionHeadingView'
 import { PartsView } from '@/components/PartsView'
@@ -715,6 +716,7 @@ export function TakeQuizPage() {
                               item.options.findIndex((o) => o.id === feedback[item.id]?.correctOptionId),
                             )}), marcat cu ✓.`}
                       </p>
+                      {feedback[item.id]?.mistake && <MistakeNote text={feedback[item.id]!.mistake!} />}
                       {feedback[item.id]?.solution && (
                         <div>
                           <p className="text-xs font-medium text-muted-foreground">Rezolvare</p>

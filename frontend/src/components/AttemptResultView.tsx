@@ -17,7 +17,8 @@ import { cn } from '@/lib/utils'
 import { Confetti } from '@/components/Confetti'
 import { GradeFigure } from '@/components/GradeFigure'
 import { celebrateFirstTen } from '@/lib/celebrate'
-import { mistakesOf, practiceMistakesHref } from '@/lib/mistakes'
+import { chapterExercisesHref, missed, mistakesOf, practiceMistakesHref } from '@/lib/mistakes'
+import { MistakeNote } from '@/components/MistakeNote'
 import { revisionLinks } from '@/lib/enChapters'
 
 /** The teacher's words, set apart from the app's own text so they read as a note from a person. */
@@ -127,6 +128,7 @@ function ItemResult({
 }) {
   const [showBarem, setShowBarem] = useState(false)
   const own = audience === 'student'
+  const exercises = missed(item) ? item.chapter ?? null : null
   // An unanswered grilă has no response row at all, so null there means 0 — only OPEN waits for the teacher.
   const points =
     item.type === 'OPEN' && item.awardedPoints === null
@@ -201,7 +203,9 @@ function ItemResult({
           <TeacherNote text={item.teacherComment} testId="item-teacher-comment" title="Comentariul profesorului" />
         )}
 
-        {revisionLinks(item).length > 0 && (
+        {item.mistake && <MistakeNote text={item.mistake} />}
+
+        {(revisionLinks(item).length > 0 || exercises) && (
           <div className="flex flex-wrap gap-2" data-testid="revision-links">
             {revisionLinks(item).map(({ chapter, parts }) => (
               <Link
@@ -213,6 +217,11 @@ function ItemResult({
                 Vezi modele: {chapter.code} {chapter.title} →
               </Link>
             ))}
+            {exercises && (
+              <Link to={chapterExercisesHref(exercises)} className={buttonVariants({ size: 'sm', variant: 'secondary' })}>
+                Exerciții: {exercises.title} →
+              </Link>
+            )}
           </div>
         )}
 

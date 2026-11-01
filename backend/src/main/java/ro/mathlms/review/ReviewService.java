@@ -121,7 +121,7 @@ public class ReviewService {
         Long correctOptionId = optionRepository.findByItemIdOrderByPosition(itemId).stream()
                 .filter(QuizOption::isCorrect).map(QuizOption::getId).findFirst().orElse(null);
         return new ReviewResultDto(chosen.isCorrect(), correctOptionId, item.getSolution(), before.box(), after.box(),
-                after.dueOn());
+                after.dueOn(), chosen.isCorrect() ? null : chosen.getMistake());
     }
 
     // ---------------------------------------------------------------- parent and teacher

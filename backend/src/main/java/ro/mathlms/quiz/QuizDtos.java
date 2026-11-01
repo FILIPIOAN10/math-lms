@@ -29,9 +29,10 @@ public final class QuizDtos {
     }
 
     /** One answer choice. {@code correct} is exposed here because this is the ADMIN view. */
-    public record OptionDto(Long id, int position, String text, boolean correct) {
+    public record OptionDto(Long id, int position, String text, boolean correct, String mistake) {
         public static OptionDto from(QuizOption option) {
-            return new OptionDto(option.getId(), option.getPosition(), option.getText(), option.isCorrect());
+            return new OptionDto(option.getId(), option.getPosition(), option.getText(), option.isCorrect(),
+                    option.getMistake());
         }
     }
 

@@ -152,7 +152,7 @@ describe('TakeQuizPage', () => {
 
     it('shows the verdict and the right option as soon as an answer is given', async () => {
       api.startQuizAttempt.mockResolvedValue(started('PRACTICE'))
-      const wrong: AnswerFeedback = { correct: false, correctOptionId: 1000, solution: 'Rezolvare: A' }
+      const wrong: AnswerFeedback = { correct: false, correctOptionId: 1000, solution: 'Rezolvare: A', mistake: 'Ai adunat numitorii.' }
       api.saveQuizAnswer.mockResolvedValue(wrong)
       renderPage('?mode=practice')
       await begin('Începe exersarea')
@@ -161,6 +161,7 @@ describe('TakeQuizPage', () => {
 
       expect(await screen.findByTestId('item-feedback')).toHaveTextContent('Greșit')
       expect(screen.getByTestId('item-feedback')).toHaveTextContent('Rezolvare: A')
+      expect(screen.getByTestId('item-mistake')).toHaveTextContent('Ai adunat numitorii.')
       expect(api.saveQuizAnswer).toHaveBeenCalledWith(50, 100, 1001, { clientId: expect.any(String), clientSeq: 1 })
       // the right option is outlined green, the wrong pick red
       expect(screen.getByText('Varianta A').closest('label')).toHaveClass('border-emerald-500')

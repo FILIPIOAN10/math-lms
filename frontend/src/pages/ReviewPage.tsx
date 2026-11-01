@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { MathContent } from '@/components/MathContent'
+import { MistakeNote } from '@/components/MistakeNote'
 import { QuestionImage } from '@/components/QuestionImage'
 import { PageHeader } from '@/components/PageHeader'
 import { answerReview, getReviewToday, type ReviewResult, type ReviewToday } from '@/lib/api'
@@ -187,6 +188,7 @@ export function ReviewPage() {
                   <p className={`font-medium ${result.correct ? 'text-emerald-700 dark:text-emerald-300' : 'text-destructive'}`}>
                     {result.correct ? '✓ Corect!' : '✗ Greșit — răspunsul corect e marcat cu ✓.'}
                   </p>
+                  {result.mistake && <MistakeNote text={result.mistake} />}
                   {result.solution && (
                     <div>
                       <p className="text-xs font-medium text-muted-foreground">Rezolvare</p>

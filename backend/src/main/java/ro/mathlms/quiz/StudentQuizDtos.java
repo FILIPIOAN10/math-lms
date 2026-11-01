@@ -113,9 +113,17 @@ public final class StudentQuizDtos {
 
     /**
      * What a PRACTICE answer reveals at once: whether it was right ({@code null} for an open item, which a teacher
-     * would mark), the id of the right option, and the barem. Never produced for a graded TEST.
+     * would mark), the id of the right option, the barem, and the teacher's words about the wrong option chosen (null =
+     * none). Never produced for a graded TEST.
      */
-    public record AnswerFeedbackDto(Boolean correct, Long correctOptionId, String solution) {
+    public record AnswerFeedbackDto(Boolean correct, Long correctOptionId, String solution, String mistake) {
+        public AnswerFeedbackDto(Boolean correct, Long correctOptionId, String solution) {
+            this(correct, correctOptionId, solution, null);
+        }
+    }
+
+    /** The class chapter a question belongs to, with what a link to its exercises needs. */
+    public record ChapterLinkDto(Long id, String title, Long bookId, Long classId) {
     }
 
     /** One revealed hint: its number (1-based), its text, and how many hints the item has in all. */
@@ -235,7 +243,9 @@ public final class StudentQuizDtos {
             List<PartDtos.GradedPartDto> parts, // requirements a), b)... with their barem and points; empty = none
             String selectedOptionLetter, // "a", "b"... as on the paper test; null = no answer / not a grilă
             String correctOptionLetter,
-            EnChapterLinkDto enChapter // the EN chapter page to open when points were lost; null = none
+            EnChapterLinkDto enChapter, // the EN chapter page to open when points were lost; null = none
+            String mistake, // the teacher's words about the wrong option chosen; null = right, or none written
+            ChapterLinkDto chapter // the class chapter with exercises to practise; null = none
     ) {}
 
     /** The student's graded attempt: the score plus a per-item breakdown. */

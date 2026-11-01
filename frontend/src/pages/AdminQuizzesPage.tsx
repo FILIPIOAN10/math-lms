@@ -19,6 +19,7 @@ import { PublishDialog } from '@/components/PublishDialog'
 import { SectionHeadingView } from '@/components/SectionHeadingView'
 import { PartsView } from '@/components/PartsView'
 import { numberItems } from '@/lib/sections'
+import { MAX_MISTAKE } from '@/lib/quizStats'
 import { hasVariantsInStatement } from '@/lib/importItems'
 import { useConfirm } from '@/components/useConfirm'
 import {
@@ -298,14 +299,15 @@ const MAX_HINTS = 5 // matches QuizItem.MAX_HINTS on the server
 interface OptionDraft {
   text: string
   correct: boolean
+  mistake: string
 }
 
 /** Four boxes, the first marked right: most multiple-choice items have four options. */
 const emptyOptions = (): OptionDraft[] => [
-  { text: '', correct: true },
-  { text: '', correct: false },
-  { text: '', correct: false },
-  { text: '', correct: false },
+  { text: '', correct: true, mistake: '' },
+  { text: '', correct: false, mistake: '' },
+  { text: '', correct: false, mistake: '' },
+  { text: '', correct: false, mistake: '' },
 ]
 
 export function ItemDialog({
@@ -345,7 +347,7 @@ export function ItemDialog({
   const [section, setSection] = useState(initial ? initial.section ?? '' : defaultSection ?? '')
   const [options, setOptions] = useState<OptionDraft[]>(
     initial && initial.options.length > 0
-      ? initial.options.map((o) => ({ text: o.text, correct: o.correct }))
+      ? initial.options.map((o) => ({ text: o.text, correct: o.correct, mistake: o.mistake ?? '' }))
       : emptyOptions(),
   )
   // EN Subiectul III: requirements a), b)... each with its points and barem; the question's points are their sum.
@@ -378,6 +380,7 @@ export function ItemDialog({
     enChapterId ? 'capitol EN' : null,
     solution.trim() ? (type === 'OPEN' ? 'barem' : 'rezolvare') : null,
     hints.some((h) => h.trim()) ? roCount(hints.filter((h) => h.trim()).length, 'indiciu', 'indicii') : null,
+    type === 'SINGLE_CHOICE' && options.some((o) => !o.correct && o.mistake.trim()) ? 'explicații greșeli' : null,
   ].filter((x): x is string => x !== null)
 
   function pickImage(file: File | undefined) {
@@ -407,8 +410,11 @@ export function ItemDialog({
   function setOptionText(index: number, text: string) {
     setOptions((prev) => prev.map((o, i) => (i === index ? { ...o, text } : o)))
   }
+  function setOptionMistake(index: number, mistake: string) {
+    setOptions((prev) => prev.map((o, i) => (i === index ? { ...o, mistake } : o)))
+  }
   function addOption() {
-    setOptions((prev) => [...prev, { text: '', correct: false }])
+    setOptions((prev) => [...prev, { text: '', correct: false, mistake: '' }])
   }
   function setHintText(index: number, text: string) {
     setHints((prev) => prev.map((h, i) => (i === index ? text : h)))
@@ -465,7 +471,9 @@ export function ItemDialog({
       solution: solution.trim() || null,
       options:
         type === 'SINGLE_CHOICE'
-          ? options.map((o, i) => ({ position: i, text: o.text.trim(), correct: o.correct }))
+          ? options.map((o, i) => ({
+              position: i, text: o.text.trim(), correct: o.correct, mistake: o.correct ? null : o.mistake.trim() || null,
+            }))
           : null,
       hints: hints.map((h) => h.trim()).filter((h) => h !== ''), // an empty box is just dropped
       chapterId: chapterId === '' ? null : Number(chapterId),
@@ -732,6 +740,27 @@ export function ItemDialog({
                 <Label htmlFor="ienchapter">Capitol EN (unde ajunge elevul dacă greșește)</Label>
                 <EnChapterSelect id="ienchapter" value={enChapterId} onChange={setEnChapterId} chapters={enChapters}
                                  autoId={initial?.enChapterAuto} />
+              </div>
+            )}
+            {type === 'SINGLE_CHOICE' && (
+              <div className="flex flex-col gap-2" data-testid="item-mistakes">
+                <Label>Ce greșeală ascunde fiecare variantă greșită (opțional)</Label>
+                {options.map((o, i) => !o.correct && (
+                  <div key={i} className="flex items-start gap-2">
+                    <span aria-hidden="true" className="mt-2 w-4 shrink-0 text-sm font-semibold">{optionLetter(i)})</span>
+                    <Textarea
+                      value={o.mistake}
+                      onChange={(e) => setOptionMistake(i, e.target.value)}
+                      maxLength={MAX_MISTAKE}
+                      aria-label={`Greșeala din spatele variantei ${optionLetter(i)})`}
+                      placeholder="Ai adunat numitorii. Aduci întâi la același numitor."
+                      className="min-h-12"
+                    />
+                  </div>
+                ))}
+                <p className="text-xs text-muted-foreground">
+                  Elevul care alege varianta citește textul ăsta la rezultat și la exersare.
+                </p>
               </div>
             )}
             <div className="flex flex-col gap-2">

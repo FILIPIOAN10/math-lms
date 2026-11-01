@@ -6,11 +6,13 @@ import { ErrorState } from '@/components/ErrorState'
 import { MathContent } from '@/components/MathContent'
 import { SectionHeadingView } from '@/components/SectionHeadingView'
 import { numberItems } from '@/lib/sections'
-import { correctAnswerKey, getQuizStats, type OptionStat, type QuizItemStat, type QuizStatsDto } from '@/lib/api'
+import { correctAnswerKey, getAiImportSettings, getQuizStats, type OptionStat, type QuizItemStat, type QuizStatsDto } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
 import { PageHeader } from '@/components/PageHeader'
 import { LoadingCards } from '@/components/LoadingCards'
+import { MistakeEditor } from '@/components/MistakeEditor'
 import { useConfirm } from '@/components/useConfirm'
+import { commonMistakes } from '@/lib/quizStats'
 import { roCount } from '@/lib/format'
 import { formatGrade, formatPoints, GRADE_FILL, GRADE_TEXT, gradeBand, romanianGrade, type GradeBand } from '@/lib/grades'
 import { cn } from '@/lib/utils'
@@ -28,10 +30,12 @@ function Bar({ fraction, fill = 'bg-primary' }: { fraction: number; fill?: strin
 const BUCKET_BANDS: GradeBand[] = ['low', 'mid', 'high', 'high']
 
 /** What each option of a grilă drew, so the teacher sees which mistake the class made, not just how many went wrong. */
-function OptionCounts({ item, graded, onMakeCorrect }: {
+function OptionCounts({ item, graded, aiOn, onMakeCorrect, onMistakeSaved }: {
   item: QuizItemStat
   graded: number
+  aiOn: boolean
   onMakeCorrect: (option: OptionStat) => void
+  onMistakeSaved: () => void
 }) {
   const blank = Math.max(0, graded - item.options.reduce((sum, o) => sum + o.chosen, 0))
   return (
@@ -52,9 +56,12 @@ function OptionCounts({ item, graded, onMakeCorrect }: {
           </div>
           <Bar fraction={graded === 0 ? 0 : option.chosen / graded} fill={GRADE_FILL[option.correct ? 'high' : 'low']} />
           {!option.correct && (
-            <Button type="button" size="xs" variant="ghost" onClick={() => onMakeCorrect(option)}>
-              Asta e varianta corectă
-            </Button>
+            <div className="flex flex-wrap items-start gap-1">
+              <MistakeEditor option={option} aiOn={aiOn} onSaved={onMistakeSaved} />
+              <Button type="button" size="xs" variant="ghost" onClick={() => onMakeCorrect(option)}>
+                Asta e varianta corectă
+              </Button>
+            </div>
           )}
         </li>
       ))}
@@ -72,8 +79,15 @@ export function AdminQuizStatsPage() {
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const { confirm, dialog: confirmDialog } = useConfirm()
+  const [aiOn, setAiOn] = useState(false) // "Propune cu AI" only where the server has the AI switched on
 
   const load = useCallback(() => getQuizStats(Number(quizId)), [quizId])
+
+  useEffect(() => {
+    getAiImportSettings()
+      .then((s) => setAiOn(s.enabled))
+      .catch(() => undefined) // the button just stays hidden
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -112,6 +126,7 @@ export function AdminQuizStatsPage() {
   const averageGrade = stats?.averageScore != null ? romanianGrade(stats.averageScore, stats.maxScore) : null
   const numbered = stats ? numberItems(stats.items) : []
   const suspects = numbered.filter(({ item }) => item.suspect !== null)
+  const common = stats ? commonMistakes(numbered, stats.gradedAttempts) : []
 
   return (
     <div className="p-4">
@@ -140,6 +155,25 @@ export function AdminQuizStatsPage() {
                 {suspects.length === 1 ? 'De verificat întrebarea ' : 'De verificat întrebările '}
                 {suspects.map((s) => s.label).join(', ')}: elevii cei mai buni au ales altă variantă decât cea marcată corectă.
               </p>
+            )}
+
+            {common.length > 0 && (
+              <Card>
+                <CardContent className="space-y-2 py-4" data-testid="stats-common">
+                  <h2 className="font-medium">Greșeli frecvente</h2>
+                  <ul className="space-y-1 text-sm">
+                    {common.map(({ label, option }) => (
+                      <li key={option.id}>
+                        <span className="font-medium">Întrebarea {label}, varianta {option.letter}):</span>{' '}
+                        {roCount(option.chosen, 'elev', 'elevi')}
+                        {option.mistake
+                          ? <> · <MathContent inline>{option.mistake}</MathContent></>
+                          : <span className="text-muted-foreground"> · fără explicație încă</span>}
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+              </Card>
             )}
 
             {stats.gradedAttempts === 0 ? (
@@ -216,7 +250,9 @@ export function AdminQuizStatsPage() {
                       <OptionCounts
                         item={item}
                         graded={stats.gradedAttempts}
+                        aiOn={aiOn}
                         onMakeCorrect={(option) => void makeCorrect(item, label, option)}
+                        onMistakeSaved={() => void load().then(setStats).catch((e) => setError(errorMessage(e)))}
                       />
                     )}
                     {item.averagePoints !== null && (

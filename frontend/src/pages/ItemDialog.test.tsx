@@ -22,6 +22,28 @@ async function submitted(onSubmit: ReturnType<typeof vi.fn>): Promise<ItemInput>
   return onSubmit.mock.calls[0][0]
 }
 
+describe('ItemDialog explanations of wrong options', () => {
+  const grila: QuizItemDto = {
+    id: 8, position: 0, type: 'SINGLE_CHOICE', statement: '1/2 + 1/4 =', points: 5, solution: null, hints: [], chapterId: null,
+    options: [
+      { id: 1, position: 0, text: '3/4', correct: true, mistake: null },
+      { id: 2, position: 1, text: '2/6', correct: false, mistake: 'Ai adunat numitorii.' },
+      { id: 3, position: 2, text: '1/8', correct: false, mistake: null },
+    ],
+  }
+
+  it('keeps what was written and sends what is typed, never one for the right option', async () => {
+    const onSubmit = renderDialog(grila)
+
+    expect(screen.getByTestId('item-more-summary')).toHaveTextContent('explicații greșeli')
+    await userEvent.click(screen.getByText('Mai multe opțiuni'))
+    await userEvent.type(screen.getByLabelText('Greșeala din spatele variantei c)'), 'Ai înmulțit.')
+    await userEvent.click(screen.getByRole('button', { name: 'Salvează' }))
+
+    expect((await submitted(onSubmit)).options?.map((o) => o.mistake)).toEqual([null, 'Ai adunat numitorii.', 'Ai înmulțit.'])
+  })
+})
+
 describe('ItemDialog picture under the statement', () => {
   const png = () => new File([new Uint8Array([137, 80, 78, 71])], 'figura.png', { type: 'image/png' })
 

@@ -140,6 +140,7 @@ class QuizStatsServiceTest {
         givenGradedScores(15, 10, 5);
         QuizOption right = withId(new QuizOption(grila, 0, "4", true), 200L);
         QuizOption wrong = withId(new QuizOption(grila, 1, "5", false), 201L);
+        wrong.explainMistake("A adunat numărătorii.");
         when(optionRepository.findByItemIdInOrderByItemIdAscPositionAsc(List.of(100L, 101L))).thenReturn(List.of(right, wrong));
         when(responseRepository.findChoicesByAttemptIds(List.of(1L, 2L, 3L))).thenReturn(List.of(
                 new OptionChoice(1L, 100L, 200L, true),
@@ -148,8 +149,8 @@ class QuizStatsServiceTest {
         ItemStatDto stat = service.getStats(10L).items().get(0);
 
         assertThat(stat.options()).containsExactly(
-                new QuizStatsDtos.OptionStatDto(200L, "a", "4", true, 1),
-                new QuizStatsDtos.OptionStatDto(201L, "b", "5", false, 1));
+                new QuizStatsDtos.OptionStatDto(200L, "a", "4", true, 1, null),
+                new QuizStatsDtos.OptionStatDto(201L, "b", "5", false, 1, "A adunat numărătorii."));
         assertThat(stat.suspect()).isNull(); // three students prove nothing
         assertThat(service.getStats(10L).items().get(1).options()).isEmpty();
     }

@@ -91,7 +91,7 @@ public class QuizStatsService {
         Map<Long, Long> chosen = choices.stream().collect(Collectors.groupingBy(OptionChoice::optionId, Collectors.counting()));
         return options.stream()
                 .map(o -> new OptionStatDto(o.getId(), QuizAttemptService.letterOf(options, o), o.getText(), o.isCorrect(),
-                        chosen.getOrDefault(o.getId(), 0L).intValue()))
+                        chosen.getOrDefault(o.getId(), 0L).intValue(), o.getMistake()))
                 .toList();
     }
 

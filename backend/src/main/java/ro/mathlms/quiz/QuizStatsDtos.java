@@ -12,8 +12,8 @@ public final class QuizStatsDtos {
     public record BucketDto(String label, int count) {
     }
 
-    /** How many students chose one option of a grilă. {@code letter} is the one on the paper. */
-    public record OptionStatDto(Long id, String letter, String text, boolean correct, int chosen) {
+    /** How many students chose one option of a grilă, and what mistake it stands for ({@code mistake} null = not written). */
+    public record OptionStatDto(Long id, String letter, String text, boolean correct, int chosen, String mistake) {
     }
 
     /** The marked answer looks wrong: {@code chosen} of the {@code strong} strongest students agree on {@code letter}. */

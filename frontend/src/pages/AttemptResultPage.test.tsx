@@ -2,7 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AttemptResultPage } from '@/pages/AttemptResultPage'
-import { type AttemptResultViewDto } from '@/lib/api'
+import { type AttemptResultViewDto, type ItemResultDto } from '@/lib/api'
 import { NAV_COUNTS_CHANGED } from '@/lib/roles'
 
 const api = vi.hoisted(() => ({
@@ -26,6 +26,12 @@ function renderPage() {
   )
 }
 
+const wrongGrila = (over: Partial<ItemResultDto> = {}): ItemResultDto => ({
+  itemId: 1, position: 0, type: 'SINGLE_CHOICE', statement: '1/2 + 1/4 =', points: 5, awardedPoints: 0, correct: false,
+  selectedOptionText: '2/6', correctOptionText: '3/4', barem: null, photoUploaded: false, photoIds: [], hintsUsed: 0,
+  hintsAvailable: 0, teacherComment: null, selectedOptionLetter: 'b', correctOptionLetter: 'a', ...over,
+})
+
 describe('AttemptResultPage', () => {
   beforeEach(() => {
     Object.values(api).forEach((fn) => fn.mockReset())
@@ -42,6 +48,28 @@ describe('AttemptResultPage', () => {
     await waitFor(() => expect(counted).toHaveBeenCalled())
     expect(api.markResultSeen).toHaveBeenCalledWith(50)
     window.removeEventListener(NAV_COUNTS_CHANGED, counted)
+  })
+
+  it('tells a student why their option was wrong and where to practise', async () => {
+    api.getAttemptResult.mockResolvedValue(result({ items: [wrongGrila({
+      mistake: 'Ai adunat numitorii.',
+      chapter: { id: 3, title: 'Fracții', bookId: 2, classId: 1 },
+    })] }))
+    renderPage()
+
+    expect(await screen.findByTestId('item-mistake')).toHaveTextContent('Ai adunat numitorii.')
+    expect(screen.getByRole('link', { name: /Exerciții: Fracții/ })).toHaveAttribute('href', '/content?class=1&book=2&chapter=3')
+  })
+
+  it('sends nobody to more exercises for a question they got right', async () => {
+    api.getAttemptResult.mockResolvedValue(result({ items: [wrongGrila({
+      correct: true, awardedPoints: 5, chapter: { id: 3, title: 'Fracții', bookId: 2, classId: 1 },
+    })] }))
+    renderPage()
+
+    await screen.findByTestId('result-score')
+    expect(screen.queryByRole('link', { name: /Exerciții/ })).not.toBeInTheDocument()
+    expect(screen.queryByTestId('item-mistake')).not.toBeInTheDocument()
   })
 
   it('does not mark a result still waiting for the teacher, nor a practice', async () => {

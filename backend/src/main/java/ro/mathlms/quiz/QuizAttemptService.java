@@ -16,6 +16,7 @@ import ro.mathlms.audit.AuditLog;
 import ro.mathlms.audit.AuditText;
 import ro.mathlms.cache.AfterCommitCacheEvictor;
 import ro.mathlms.cache.CacheNames;
+import ro.mathlms.content.Chapter;
 import ro.mathlms.content.EnrollmentRepository;
 import ro.mathlms.content.RoCount;
 import ro.mathlms.quiz.AdminAttemptDtos.AdminAttemptDetailDto;
@@ -24,6 +25,7 @@ import ro.mathlms.quiz.AdminAttemptDtos.AdminItemReviewDto;
 import ro.mathlms.quiz.StudentQuizDtos.AnswerFeedbackDto;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultDto;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultViewDto;
+import ro.mathlms.quiz.StudentQuizDtos.ChapterLinkDto;
 import ro.mathlms.quiz.StudentQuizDtos.HintDto;
 import ro.mathlms.quiz.StudentQuizDtos.ItemResultDto;
 import ro.mathlms.quiz.StudentQuizDtos.MyAttemptDto;
@@ -539,6 +541,7 @@ public class QuizAttemptService {
                 ? hintCounts(attempt.getQuiz().getId()) : Map.of();
         Map<Long, List<QuizItemPart>> partsByItem = partsOf(items);
         EnChapterLinks.Resolved links = enChapterLinks.resolve(items);
+        Set<Long> withExercises = chaptersWithExercises(attempt.getQuiz(), items);
         int maxScore = 0;
         List<ItemResultDto> itemResults = new ArrayList<>();
         for (QuizItem item : items) {
@@ -575,12 +578,34 @@ public class QuizAttemptService {
                     item.getImageKey(),
                     response == null ? List.of() : response.photoIds(),
                     PartDtos.GradedPartDto.of(partsByItem.getOrDefault(item.getId(), List.of()), response, links),
-                    selectedLetter, correctLetter, links.linkOf(item)));
+                    selectedLetter, correctLetter, links.linkOf(item),
+                    response == null ? null : response.mistakeExplained(),
+                    chapterLink(chapterOf(attempt.getQuiz(), item), withExercises)));
         }
         return new AttemptResultViewDto(attempt.getId(), attempt.getQuiz().getTitle(),
                 attempt.getStatus(), attempt.getScore(), maxScore, itemResults, attempt.getMode(),
                 attempt.getTeacherComment(), attempt.getQuiz().getId(),
                 attempt.getQuiz().isPracticeAllowed() && attempt.getQuiz().getStatus() == QuizStatus.PUBLISHED);
+    }
+
+    /** A question's own chapter, or the quiz's. */
+    private static Chapter chapterOf(Quiz quiz, QuizItem item) {
+        return item.getChapter() != null ? item.getChapter() : quiz.getChapter();
+    }
+
+    private Set<Long> chaptersWithExercises(Quiz quiz, List<QuizItem> items) {
+        Set<Long> chapters = items.stream().map(item -> chapterOf(quiz, item)).filter(Objects::nonNull)
+                .map(Chapter::getId).collect(Collectors.toSet());
+        return chapters.isEmpty() ? Set.of() : itemRepository.findChaptersWithExercises(chapters);
+    }
+
+    /** Only a chapter with exercises in it is worth a link. */
+    private static ChapterLinkDto chapterLink(Chapter chapter, Set<Long> withExercises) {
+        if (chapter == null || !withExercises.contains(chapter.getId())) {
+            return null;
+        }
+        return new ChapterLinkDto(chapter.getId(), chapter.getTitle(), chapter.getBook().getId(),
+                chapter.getBook().getSchoolClass().getId());
     }
 
     /**
@@ -674,7 +699,7 @@ public class QuizAttemptService {
                 .filter(QuizOption::isCorrect)
                 .map(QuizOption::getId)
                 .findFirst().orElse(null);
-        return new AnswerFeedbackDto(response.getCorrect(), correctOptionId, item.getSolution());
+        return new AnswerFeedbackDto(response.getCorrect(), correctOptionId, item.getSolution(), response.mistakeExplained());
     }
 
     private void requireTimeLeft(QuizAttempt attempt) {

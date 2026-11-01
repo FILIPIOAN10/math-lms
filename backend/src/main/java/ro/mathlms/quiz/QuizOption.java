@@ -43,6 +43,13 @@ public class QuizOption {
     @Column(nullable = false)
     private boolean correct;
 
+    /** The mistake behind this option, in the teacher's words, for the student who chose it; null = not written. */
+    @Column(length = MAX_MISTAKE)
+    private String mistake;
+
+    /** The most characters an explanation may have - the column's length. */
+    public static final int MAX_MISTAKE = 500;
+
     public QuizOption(QuizItem item, int position, String text, boolean correct) {
         this.item = Objects.requireNonNull(item, "item");
         this.position = position;
@@ -58,6 +65,15 @@ public class QuizOption {
     /** Fixes a typo in the choice without touching which one is correct (safe on a quiz students already took). */
     public void changeText(String text) {
         this.text = requireNonBlank(text, "text");
+    }
+
+    /** Says what mistake leads to this option; blank takes it away. Safe on a quiz students already took. */
+    public void explainMistake(String mistake) {
+        String trimmed = mistake == null ? null : mistake.strip();
+        if (trimmed != null && trimmed.length() > MAX_MISTAKE) {
+            throw new IllegalArgumentException("mistake must be at most " + MAX_MISTAKE + " characters");
+        }
+        this.mistake = trimmed == null || trimmed.isEmpty() ? null : trimmed;
     }
 
     private static String requireNonBlank(String value, String field) {

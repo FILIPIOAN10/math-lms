@@ -136,6 +136,11 @@ public class ItemResponse {
         return true;
     }
 
+    /** The teacher's words about the wrong option chosen here; null when right, unanswered, or not written. */
+    public String mistakeExplained() {
+        return selectedOption == null || selectedOption.isCorrect() ? null : selectedOption.getMistake();
+    }
+
     /** Adds one page of the rezolvare to an OPEN item's answer; refused once it has {@link #MAX_PHOTOS}. */
     public ResponsePhoto addPhoto(String imageKey, Instant at) {
         requireType(QuizItemType.OPEN);

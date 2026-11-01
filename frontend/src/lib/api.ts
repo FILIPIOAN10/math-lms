@@ -605,6 +605,8 @@ export interface QuizOptionDto {
   position: number
   text: string
   correct: boolean
+  /** What a wrong option gives away, in the teacher's words; null = not written. */
+  mistake?: string | null
 }
 
 export interface QuizItemDto {
@@ -685,6 +687,7 @@ export interface OptionInput {
   position: number
   text: string
   correct: boolean
+  mistake?: string | null
 }
 
 export interface ItemInput {
@@ -785,10 +788,20 @@ export interface ReviewToday {
   questions: ReviewQuestion[]
 }
 
+/** A class chapter, with what a link to its exercises needs. */
+export interface ChapterLink {
+  id: number
+  title: string
+  bookId: number
+  classId: number
+}
+
 export interface ReviewResult {
   correct: boolean
   correctOptionId: number | null
   solution: string | null
+  /** The teacher's words about the wrong option chosen; null/absent = none. */
+  mistake?: string | null
   boxBefore: number
   boxAfter: number
   /** A calendar day, "2026-10-14". */
@@ -884,6 +897,8 @@ export interface OptionStat {
   text: string
   correct: boolean
   chosen: number
+  /** The mistake behind a wrong option, in the teacher's words; null = not written. */
+  mistake: string | null
 }
 
 /** The marked answer looks wrong: `chosen` of the `strong` strongest students agree on `letter`. */
@@ -925,6 +940,17 @@ export interface QuizStatsDto {
 export async function getQuizStats(quizId: number): Promise<QuizStatsDto> {
   const response = await apiFetch(`/admin/quizzes/${quizId}/stats`)
   return response.json()
+}
+
+/** What a wrong option gives away; blank takes it away. Allowed on a test already taken. */
+export async function saveOptionMistake(optionId: number, mistake: string): Promise<void> {
+  await putJson(`/admin/quiz-options/${optionId}/mistake`, { mistake })
+}
+
+/** The AI's proposal for the teacher's box; nothing is saved. */
+export async function suggestOptionMistake(optionId: number): Promise<string> {
+  const response = await postJson(`/admin/quiz-options/${optionId}/mistake-suggestion`, {})
+  return ((await response.json()) as { text: string }).text
 }
 
 /** The marked answer of a grilă was wrong: changes it and marks every paper again. */
@@ -1265,6 +1291,8 @@ export interface AnswerFeedback {
   correct: boolean | null
   correctOptionId: number | null
   solution: string | null
+  /** The teacher's words about the wrong option chosen; null/absent = none. */
+  mistake?: string | null
 }
 
 /** What the student already saved on a resumed attempt. */
@@ -1368,6 +1396,10 @@ export interface ItemResultDto {
   image?: string | null
   /** Requirements a), b)... with their barem and points; empty/absent = none. */
   parts?: GradedPart[]
+  /** The teacher's words about the wrong option chosen; null/absent = right, or none written. */
+  mistake?: string | null
+  /** The class chapter with exercises to practise; null/absent = none. */
+  chapter?: ChapterLink | null
   /** The EN chapter page to open when points were lost; null/absent = none. */
   enChapter?: EnChapterLink | null
 }

@@ -143,6 +143,14 @@ public class QuizAdminController {
         return ResponseEntity.noContent().build();
     }
 
+    /** What a wrong option gives away, in the teacher's words; allowed on a test already taken. */
+    @PutMapping("/api/admin/quiz-options/{optionId}/mistake")
+    public ResponseEntity<Void> explainMistake(@PathVariable Long optionId, @Valid @RequestBody MistakeRequest request) {
+        scope.requireQuizItem(service.itemIdOfOption(optionId));
+        service.explainMistake(optionId, request.mistake());
+        return ResponseEntity.noContent().build();
+    }
+
     @DeleteMapping("/api/admin/quiz-items/{itemId}")
     public ResponseEntity<Void> deleteItem(@PathVariable Long itemId) {
         scope.requireQuizItem(itemId);

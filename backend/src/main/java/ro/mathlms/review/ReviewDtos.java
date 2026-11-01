@@ -28,7 +28,9 @@ public final class ReviewDtos {
 
     /** One answered review question: the verdict, the right option, the explanation and where the card moved. */
     public record ReviewResultDto(boolean correct, Long correctOptionId, String solution, int boxBefore, int boxAfter,
-                                  LocalDate nextDueOn) {
+                                  LocalDate nextDueOn,
+                                  String mistake // the teacher's words about the wrong option chosen; null = none
+    ) {
     }
 
     /** How a student keeps up, for the parent. */

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { ErrorState } from '@/components/ErrorState'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -74,13 +75,43 @@ export function ContentBrowserPage() {
   const [exercises, setExercises] = useState<Exercise[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [searchParams] = useSearchParams()
+  const linked = {
+    classId: Number(searchParams.get('class')),
+    bookId: Number(searchParams.get('book')),
+    chapterId: Number(searchParams.get('chapter')),
+  }
+
+  /** A result links straight to a chapter's exercises. A class, book or chapter this reader cannot see stays on the list. */
+  async function openLinked(list: SchoolClass[]) {
+    const linkedClass = list.find((c) => c.id === linked.classId)
+    if (!linkedClass) return
+    const linkedBooks = await listBooks(linkedClass.id)
+    const linkedBook = linkedBooks.find((b) => b.id === linked.bookId)
+    if (!linkedBook) return
+    const linkedChapters = await listChapters(linkedBook.id)
+    const linkedChapter = linkedChapters.find((c) => c.id === linked.chapterId)
+    if (!linkedChapter) return
+    const linkedExercises = await listExercises(linkedChapter.id)
+    setCls(linkedClass)
+    setBooks(linkedBooks)
+    setBook(linkedBook)
+    setChapters(linkedChapters)
+    setChapter(linkedChapter)
+    setExercises(linkedExercises)
+  }
 
   useEffect(() => {
     // Students see their own classes, parents their children's (the server filters /classes by role); admins see all.
     ;(isStudent ? listMyClasses() : listClasses())
-      .then(setClasses)
+      .then(async (list) => {
+        setClasses(list)
+        if (linked.chapterId) await openLinked(list)
+      })
       .catch(() => setError('Nu am putut încărca lista de clase.'))
       .finally(() => setLoading(false))
+    // Read once: the links inside the page do not touch the address.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isStudent])
 
   async function load<T>(promise: Promise<T>, apply: (value: T) => void) {

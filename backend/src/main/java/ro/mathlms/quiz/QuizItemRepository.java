@@ -11,6 +11,10 @@ public interface QuizItemRepository extends JpaRepository<QuizItem, Long> {
 
     long countByQuizId(Long quizId);
 
+    /** Which of these chapters have exercises: only those are worth a link from a result. */
+    @Query("select distinct e.chapter.id from Exercise e where e.chapter.id in :chapterIds")
+    java.util.Set<Long> findChaptersWithExercises(@Param("chapterIds") Collection<Long> chapterIds);
+
     List<QuizItem> findByQuizIdOrderByPosition(Long quizId);
 
     /**

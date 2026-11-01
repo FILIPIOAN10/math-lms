@@ -21,8 +21,8 @@ const grila = (suspect: QuizStatsDto['items'][number]['suspect'] = null): QuizSt
   itemId: 2, position: 0, type: 'SINGLE_CHOICE', statement: 'Cât face 1/2 + 1/4?', points: 5, correctRate: 0.25, averagePoints: 1.3,
   suspect,
   options: [
-    { id: 20, letter: 'a', text: '2/6', correct: true, chosen: 1 },
-    { id: 21, letter: 'b', text: '3/4', correct: false, chosen: 2 },
+    { id: 20, letter: 'a', text: '2/6', correct: true, chosen: 1, mistake: null },
+    { id: 21, letter: 'b', text: '3/4', correct: false, chosen: 2, mistake: null },
   ],
 })
 

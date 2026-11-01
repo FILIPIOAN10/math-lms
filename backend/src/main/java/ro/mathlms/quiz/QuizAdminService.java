@@ -335,7 +335,9 @@ public class QuizAdminService {
         }
         QuizItem itemCopy = itemRepository.save(fresh);
         for (QuizOption option : optionRepository.findByItemIdOrderByPosition(item.getId())) {
-            optionRepository.save(new QuizOption(itemCopy, option.getPosition(), option.getText(), option.isCorrect()));
+            QuizOption optionCopy = new QuizOption(itemCopy, option.getPosition(), option.getText(), option.isCorrect());
+            optionCopy.explainMistake(option.getMistake());
+            optionRepository.save(optionCopy);
         }
         for (QuizItemHint hint : hintRepository.findByItemIdOrderByPosition(item.getId())) {
             hintRepository.save(new QuizItemHint(itemCopy, hint.getPosition(), hint.getText()));
@@ -717,7 +719,7 @@ public class QuizAdminService {
     /** What a question looked like, to word what an edit changed ("punctaj 3 → 5, răspuns corect"). */
     private record ItemSnapshot(String number, String statement, int points, String solution, List<String> options,
                                 int correctOption, List<String> hints, String section, Long chapterId,
-                                List<String> parts, Long enChapterId) {
+                                List<String> parts, Long enChapterId, List<String> mistakes) {
 
         String changesTo(ItemSnapshot after) {
             return new AuditText.Changes()
@@ -732,6 +734,7 @@ public class QuizAdminService {
                     .addIfDifferent(chapterId, after.chapterId, "capitol")
                     .addIfDifferent(parts, after.parts, "cerințe")
                     .addIfDifferent(enChapterId, after.enChapterId, "capitol EN")
+                    .addIfDifferent(mistakes, after.mistakes, "explicații greșeli")
                     .joined();
         }
     }
@@ -759,7 +762,41 @@ public class QuizAdminService {
                 item.getChapter() == null ? null : item.getChapter().getId(),
                 parts.stream().map(p -> p.label() + ") " + p.getPoints() + "p " + p.getStatement() + " | " + p.getSolution()
                         + " | " + (p.getEnChapter() == null ? "" : p.getEnChapter().getCode())).toList(),
-                item.getEnChapter() == null ? null : item.getEnChapter().getId());
+                item.getEnChapter() == null ? null : item.getEnChapter().getId(),
+                ordered.stream().map(o -> String.valueOf(o.getMistake())).toList());
+    }
+
+    /** The question an option belongs to: 404 for an option that does not exist. */
+    public Long itemIdOfOption(Long optionId) {
+        return option(optionId).getItem().getId();
+    }
+
+    private QuizOption option(Long optionId) {
+        return optionRepository.findById(optionId)
+                .orElseThrow(() -> new QuizNotFoundException("QuizOption", optionId));
+    }
+
+    /**
+     * Says what mistake leads to a wrong option; blank takes it away. Only words for the student who chose it, so it may
+     * change on a test already taken, and it reaches papers already handed in.
+     */
+    @Transactional
+    public void explainMistake(Long optionId, String mistake) {
+        QuizOption option = option(optionId);
+        if (option.isCorrect()) {
+            throw new InvalidQuizException("Varianta corectă nu are o greșeală de explicat.");
+        }
+        QuizItem item = option.getItem();
+        String before = option.getMistake();
+        option.explainMistake(mistake);
+        optionRepository.save(option);
+        cacheEvictor.evict(CacheNames.QUIZ_STATS, item.getQuiz().getId());
+        if (!java.util.Objects.equals(before, option.getMistake()) && seenByStudents(item.getQuiz())) {
+            List<QuizItem> items = itemRepository.findByQuizIdOrderByPosition(item.getQuiz().getId());
+            String letter = QuizAttemptService.letterOf(optionRepository.findByItemIdOrderByPosition(item.getId()), option);
+            recordQuestion(AuditAction.QUESTION_UPDATED, item, QuestionNumbers.of(item, items),
+                    "explicație la varianta " + letter + ")");
+        }
     }
 
     @Transactional
@@ -821,6 +858,7 @@ public class QuizAdminService {
         }
         for (int i = 0; i < existing.size(); i++) {
             existing.get(i).changeText(requested.get(i).text());
+            existing.get(i).explainMistake(requested.get(i).mistake());
             optionRepository.save(existing.get(i));
         }
         return existing;
@@ -927,7 +965,11 @@ public class QuizAdminService {
             throw new InvalidQuizException("O grilă are un singur răspuns corect.");
         }
         return options.stream()
-                .map(o -> optionRepository.save(new QuizOption(item, o.position(), o.text(), o.correct())))
+                .map(o -> {
+                    QuizOption option = new QuizOption(item, o.position(), o.text(), o.correct());
+                    option.explainMistake(o.mistake());
+                    return optionRepository.save(option);
+                })
                 .toList();
     }
 }
