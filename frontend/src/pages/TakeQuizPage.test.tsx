@@ -58,6 +58,7 @@ function started(
 }
 
 const preview = (over: Partial<QuizPreview> = {}): QuizPreview => ({
+  maxAttempts: null, attemptsUsed: 0, blockedBy: null,
   id: 7, title: 'Simulare EN', description: 'Recapitulare pentru examen', timeLimitMinutes: null, practiceAllowed: true,
   itemCount: 3, maxScore: 11, ...over,
 })
@@ -345,6 +346,52 @@ describe('TakeQuizPage', () => {
       api.getQuizPreview.mockResolvedValue(preview({ timeLimitMinutes: 30 }))
       renderPage('')
       expect(await screen.findByTestId('quiz-limit-note')).toHaveTextContent('30 minute')
+    })
+
+    it('says how many tries the student has and which grade counts', async () => {
+      api.getQuizPreview.mockResolvedValue(preview({ maxAttempts: 3, attemptsUsed: 1 }))
+      renderPage('')
+      expect(await screen.findByTestId('quiz-attempt-rule')).toHaveTextContent('Încercarea 2 din 3. Contează cea mai mare notă.')
+    })
+
+    it('says plainly when there is one try', async () => {
+      api.getQuizPreview.mockResolvedValue(preview({ maxAttempts: 1 }))
+      renderPage('')
+      expect(await screen.findByTestId('quiz-attempt-rule')).toHaveTextContent('Ai o singură încercare.')
+    })
+
+    it('offers no start on a test with no attempt left, and says why', async () => {
+      api.getQuizPreview.mockResolvedValue(preview({ maxAttempts: 1, attemptsUsed: 1, blockedBy: 'NO_ATTEMPTS_LEFT' }))
+      renderPage('')
+
+      expect(await screen.findByTestId('quiz-blocked')).toHaveTextContent('Ai folosit toate încercările la acest test.')
+      expect(screen.queryByTestId('quiz-start')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('quiz-attempt-rule')).not.toBeInTheDocument()
+    })
+
+    it('says a retake waits for the grade', async () => {
+      api.getQuizPreview.mockResolvedValue(preview({ blockedBy: 'WAITING_FOR_GRADE' }))
+      renderPage('')
+
+      expect(await screen.findByTestId('quiz-blocked')).toHaveTextContent('Lucrarea ta se corectează.')
+      expect(screen.queryByTestId('quiz-start')).not.toBeInTheDocument()
+    })
+
+    it('shows the refusal when the limit is reached between opening the page and pressing "Începe"', async () => {
+      api.startQuizAttempt.mockRejectedValue(new ApiError(400, 'Ai folosit toate încercările la acest test.'))
+      renderPage('')
+
+      await userEvent.click(await screen.findByTestId('quiz-start'))
+
+      expect(await screen.findByText('Ai folosit toate încercările la acest test.')).toBeInTheDocument()
+    })
+
+    it('leaves a practice open whatever happened to the test', async () => {
+      api.getQuizPreview.mockResolvedValue(preview({ maxAttempts: 1, attemptsUsed: 1, blockedBy: 'NO_ATTEMPTS_LEFT' }))
+      renderPage('?mode=practice')
+
+      expect(await screen.findByTestId('quiz-start')).toBeEnabled()
+      expect(screen.queryByTestId('quiz-blocked')).not.toBeInTheDocument()
     })
 
     it('shows the homework deadline when the quiz is homework still to hand in', async () => {

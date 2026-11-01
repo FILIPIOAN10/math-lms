@@ -62,7 +62,7 @@ class QuizAttemptSecurityTest {
     @Test
     @WithMockUser(authorities = {"STATUS_ACTIVE", "ROLE_STUDENT"})
     void activeStudentCanListQuizzes() throws Exception {
-        when(service.listPublished(any())).thenReturn(List.of());
+        when(service.listOffered(any())).thenReturn(List.of());
         mockMvc.perform(get("/api/quiz/quizzes")).andExpect(status().isOk());
     }
 }

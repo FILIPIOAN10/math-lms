@@ -10,7 +10,7 @@ import {
   getMyAttempts,
   getStudentQuizzes,
   type MyAttemptDto,
-  type QuizSummary,
+  type OfferedQuiz,
   type StudentAssignment,
 } from '@/lib/api'
 import { assignmentBadge, BADGE_TONES, dueCountdown, type BadgeTone } from '@/lib/assignments'
@@ -76,9 +76,9 @@ function AttemptHistory({ attempts }: { attempts: MyAttemptDto[] }) {
 
 /** One quiz, whatever it is to the student (homework, a free test, something already graded), and what to do next. */
 function QuizCardView({ card, now }: { card: QuizCard; now: number }) {
-  const { assignment, shown } = card
+  const { assignment, shown, counted } = card
   const open = card.state === 'todo' || card.state === 'in-progress'
-  const grade = card.state === 'graded' && shown?.score != null ? romanianGrade(shown.score, shown.maxScore) : null
+  const grade = card.state === 'graded' && counted?.score != null ? romanianGrade(counted.score, counted.maxScore) : null
   const takeUrl = `/quizzes/${card.quizId}/take`
   const onlyAttempt = card.attempts.length === 1 && card.attempts[0] === shown
 
@@ -98,7 +98,10 @@ function QuizCardView({ card, now }: { card: QuizCard; now: number }) {
               <span>Termen: {formatDate(assignment.dueAt)} ({dueCountdown(assignment.dueAt, now)})</span>
             )}
             {!open && shown?.submittedAt && <span>{formatDate(shown.submittedAt)}</span>}
-            {card.state === 'graded' && shown?.score != null && <span>{shown.score} / {shown.maxScore} p</span>}
+            {card.state === 'graded' && counted?.score != null && <span>{counted.score} / {counted.maxScore} p</span>}
+            {card.maxAttempts !== null && card.maxAttempts > 1 && card.attemptsUsed > 0 && (
+              <span data-testid="quiz-attempts">{card.attemptsUsed} din {card.maxAttempts} încercări</span>
+            )}
             {open && card.timeLimitMinutes !== null && (
               <span data-testid="quiz-time-limit" className="text-xs font-medium">⏱ {formatMinutes(card.timeLimitMinutes)}</span>
             )}
@@ -108,6 +111,7 @@ function QuizCardView({ card, now }: { card: QuizCard; now: number }) {
           {grade !== null && (
             <span data-testid="quiz-grade" className="mr-1 text-sm text-muted-foreground">
               nota <span className={cn('text-lg font-semibold tabular-nums', GRADE_TEXT[gradeBand(grade)])}>{formatGrade(grade)}</span>
+              {card.gradedCount > 1 && <span className="ml-1 text-xs">cea mai mare din {card.gradedCount}</span>}
             </span>
           )}
           {card.practiceAllowed && (
@@ -125,7 +129,7 @@ function QuizCardView({ card, now }: { card: QuizCard; now: number }) {
             </Link>
           ) : (
             <>
-              {card.available && (
+              {card.available && card.state !== 'waiting' && card.blockedBy === null && (
                 <Link to={takeUrl} data-testid="quiz-open" className={buttonVariants({ size: 'sm', variant: 'outline' })}>
                   Dă din nou
                 </Link>
@@ -149,7 +153,7 @@ function QuizCardView({ card, now }: { card: QuizCard; now: number }) {
  * attempts. "De făcut" comes first, then what they already handed in; older attempts fold away inside each card.
  */
 export function StudentQuizListPage() {
-  const [quizzes, setQuizzes] = useState<QuizSummary[]>([])
+  const [quizzes, setQuizzes] = useState<OfferedQuiz[]>([])
   const [attempts, setAttempts] = useState<MyAttemptDto[]>([])
   const [assignments, setAssignments] = useState<StudentAssignment[]>([])
   const [loading, setLoading] = useState(true)

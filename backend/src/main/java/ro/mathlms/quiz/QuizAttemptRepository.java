@@ -28,10 +28,23 @@ public interface QuizAttemptRepository extends JpaRepository<QuizAttempt, Long> 
 
     List<QuizAttempt> findByQuizIdAndStatus(Long quizId, QuizAttemptStatus status);
 
-    /** Final scores of a quiz's GRADED attempts — the input of the teacher's average and distribution. */
-    @Query("select a.score from QuizAttempt a where a.quiz.id = :quizId and a.status = ro.mathlms.quiz.QuizAttemptStatus.GRADED"
-            + " and a.mode = ro.mathlms.quiz.AttemptMode.TEST") // a practice has no score and is never part of the statistics
-    List<Integer> findGradedScoresByQuizId(@Param("quizId") Long quizId);
+    /**
+     * The attempt that counts for each student of a quiz: their highest grade, the earlier one on a tie - the input of the
+     * teacher's average and distribution. A practice has no score and is never part of the statistics.
+     */
+    @Query(nativeQuery = true, value = """
+            select distinct on (a.student_id) a.id as attemptId, a.score as score
+              from quiz_attempts a
+             where a.quiz_id = :quizId and a.status = 'GRADED' and a.mode = 'TEST' and a.score is not null
+             order by a.student_id, a.score desc, a.id
+            """)
+    List<CountedAttemptRow> findCountedAttempts(@Param("quizId") Long quizId);
+
+    interface CountedAttemptRow {
+        Long getAttemptId();
+
+        Integer getScore();
+    }
 
     Optional<QuizAttempt> findByQuizIdAndStudentIdAndStatusAndMode(
             Long quizId, Long studentId, QuizAttemptStatus status, AttemptMode mode);

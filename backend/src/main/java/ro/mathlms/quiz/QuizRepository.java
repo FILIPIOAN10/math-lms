@@ -47,6 +47,11 @@ public interface QuizRepository extends JpaRepository<Quiz, Long> {
     @Query("select count(a) from Assignment a where a.quiz.id = :quizId")
     long countHomeworkClasses(@Param("quizId") Long quizId);
 
+    /** When each quiz was last given as homework to one of these classes (not an empty list, see below). */
+    @Query("select new ro.mathlms.quiz.HomeworkGiven(a.quiz.id, max(a.createdAt)) from Assignment a"
+            + " where a.schoolClass.id in :classIds group by a.quiz.id")
+    List<HomeworkGiven> findHomeworkGiven(@Param("classIds") Collection<Long> classIds);
+
     /** Classes this quiz is homework for, other than {@code classId}: moving the quiz there would strand them. */
     @Query("select a.schoolClass.name from Assignment a where a.quiz.id = :quizId and a.schoolClass.id <> :classId"
             + " order by a.schoolClass.name")
@@ -68,19 +73,21 @@ public interface QuizRepository extends JpaRepository<Quiz, Long> {
                                     @Param("classIds") Collection<Long> classIds);
 
     /**
-     * One row per quiz for the teacher's list: its questions, the papers handed in, the mean 1–10 grade of those graded
-     * (practice has no grade; a test worth no points is skipped) and the homework deadline - the next one still to come,
-     * else the last one that passed.
+     * One row per quiz for the teacher's list: its questions, the papers handed in, the mean 1–10 grade of its students -
+     * each counted once, with their highest grade - (practice has no grade; a test worth no points is skipped) and the
+     * homework deadline - the next one still to come, else the last one that passed.
      */
     @Query(nativeQuery = true, value = """
             select q.id as quizId,
                    (select count(*) from quiz_items i where i.quiz_id = q.id) as questions,
                    (select count(*) from quiz_attempts a
                      where a.quiz_id = q.id and a.mode = 'TEST' and a.status <> 'IN_PROGRESS') as papers,
-                   (select avg(1 + 9.0 * a.score
+                   (select avg(1 + 9.0 * best.score
                                / nullif((select sum(i.points) from quiz_items i where i.quiz_id = q.id), 0))
-                      from quiz_attempts a
-                     where a.quiz_id = q.id and a.mode = 'TEST' and a.status = 'GRADED' and a.score is not null) as average,
+                      from (select max(a.score) as score
+                              from quiz_attempts a
+                             where a.quiz_id = q.id and a.mode = 'TEST' and a.status = 'GRADED' and a.score is not null
+                             group by a.student_id) best) as average,
                    (select coalesce(min(h.due_at) filter (where h.due_at >= now()), max(h.due_at))
                       from assignments h where h.quiz_id = q.id) as dueAt
               from quizzes q

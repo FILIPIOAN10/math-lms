@@ -2,7 +2,7 @@ import { render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { StudentQuizListPage } from '@/pages/StudentQuizListPage'
-import type { MyAttemptDto, QuizSummary, StudentAssignment } from '@/lib/api'
+import type { MyAttemptDto, OfferedQuiz, StudentAssignment } from '@/lib/api'
 
 const api = vi.hoisted(() => ({
   getStudentQuizzes: vi.fn(),
@@ -11,9 +11,9 @@ const api = vi.hoisted(() => ({
 }))
 vi.mock('@/lib/api', async (original) => ({ ...(await original<typeof import('@/lib/api')>()), ...api }))
 
-const quiz = (id: number, title: string, over: Partial<QuizSummary> = {}): QuizSummary => ({
+const quiz = (id: number, title: string, over: Partial<OfferedQuiz> = {}): OfferedQuiz => ({
   id, title, description: null, status: 'PUBLISHED', schoolClassId: null, schoolClassName: null,
-  timeLimitMinutes: null, practiceAllowed: false, chapterId: null, ...over,
+  timeLimitMinutes: null, practiceAllowed: false, chapterId: null, maxAttempts: null, attemptsUsed: 0, blockedBy: null, ...over,
 })
 const attempt = (over: Partial<MyAttemptDto>): MyAttemptDto => ({
   attemptId: 1, quizId: 1, quizTitle: 'Q', status: 'GRADED', startedAt: '2026-10-01T10:00:00Z',
@@ -96,14 +96,58 @@ describe('StudentQuizListPage', () => {
     expect(actions).toHaveClass('flex-wrap', 'max-w-full')
   })
 
-  it('says a handed-in test waits for the teacher', async () => {
-    api.getStudentQuizzes.mockResolvedValue([quiz(1, 'Fracții')])
+  it('says a handed-in test waits for the teacher, and offers no retake until it has its grade', async () => {
+    api.getStudentQuizzes.mockResolvedValue([quiz(1, 'Fracții', { blockedBy: 'WAITING_FOR_GRADE' })])
     api.getMyAttempts.mockResolvedValue([attempt({ attemptId: 9, quizId: 1, status: 'SUBMITTED', score: null })])
     renderPage()
 
     const c = await card('Fracții')
     expect(within(c).getByTestId('quiz-state')).toHaveTextContent('În corectare')
     expect(within(c).queryByTestId('quiz-grade')).not.toBeInTheDocument()
+    expect(within(c).queryByRole('link', { name: 'Dă din nou' })).not.toBeInTheDocument()
+    expect(within(c).getByRole('link', { name: 'Vezi rezultatul' })).toBeInTheDocument()
+  })
+
+  it('offers no retake once the attempts are used up', async () => {
+    api.getStudentQuizzes.mockResolvedValue([quiz(1, 'Fracții', { maxAttempts: 1, attemptsUsed: 1, blockedBy: 'NO_ATTEMPTS_LEFT' })])
+    api.getMyAttempts.mockResolvedValue([attempt({ attemptId: 9, quizId: 1 })])
+    renderPage()
+
+    const c = await card('Fracții')
+    expect(within(c).queryByRole('link', { name: 'Dă din nou' })).not.toBeInTheDocument()
+    expect(within(c).queryByTestId('quiz-attempts')).not.toBeInTheDocument() // one attempt: nothing to count
+  })
+
+  it('counts the attempts of a test with a limit above one', async () => {
+    api.getStudentQuizzes.mockResolvedValue([quiz(1, 'Fracții', { maxAttempts: 3, attemptsUsed: 1 })])
+    api.getMyAttempts.mockResolvedValue([attempt({ attemptId: 9, quizId: 1 })])
+    renderPage()
+
+    const c = await card('Fracții')
+    expect(within(c).getByTestId('quiz-attempts')).toHaveTextContent('1 din 3 încercări')
+    expect(within(c).getByRole('link', { name: 'Dă din nou' })).toBeInTheDocument()
+  })
+
+  it('shows the highest grade, not the latest, and says that is the one that counts', async () => {
+    api.getStudentQuizzes.mockResolvedValue([quiz(1, 'Fracții')])
+    api.getMyAttempts.mockResolvedValue([ // newest first
+      attempt({ attemptId: 9, quizId: 1, score: 2, maxScore: 11 }),
+      attempt({ attemptId: 3, quizId: 1, score: 8, maxScore: 11 }),
+    ])
+    renderPage()
+
+    const c = await card('Fracții')
+    expect(within(c).getByTestId('quiz-grade')).toHaveTextContent('nota 7,55')
+    expect(within(c).getByTestId('quiz-grade')).toHaveTextContent('cea mai mare din 2')
+    expect(c).toHaveTextContent('8 / 11 p')
+  })
+
+  it('says nothing about "the highest" with a single grade', async () => {
+    api.getStudentQuizzes.mockResolvedValue([quiz(1, 'Fracții')])
+    api.getMyAttempts.mockResolvedValue([attempt({ attemptId: 9, quizId: 1 })])
+    renderPage()
+
+    expect(within(await card('Fracții')).getByTestId('quiz-grade')).not.toHaveTextContent('cea mai mare')
   })
 
   it('offers "Continuă" for a test in progress; a practice session changes only its own button', async () => {

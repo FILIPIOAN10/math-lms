@@ -130,6 +130,29 @@ class AssignmentProgressTest {
     }
 
     @Test
+    void aRetakeOnHomeworkShowsTheHighestGradeButStaysOnTimeByTheFirstHandIn() {
+        QuizAttempt first = graded(18L, due.minus(Duration.ofDays(1)), 7);
+        QuizAttempt better = graded(19L, due.plus(Duration.ofDays(1)), 12);
+        QuizAttempt worse = graded(20L, due.plus(Duration.ofDays(2)), 3);
+
+        AssignmentProgress progress = AssignmentProgress.of(assignment, List.of(worse, better, first));
+
+        assertThat(progress.state()).isEqualTo(State.GRADED);
+        assertThat(progress.score()).isEqualTo(12);
+        assertThat(progress.attemptId()).isEqualTo(19L);
+        assertThat(progress.submittedAt()).isEqualTo(first.getSubmittedAt());
+        assertThat(progress.late()).isFalse();
+    }
+
+    @Test
+    void aTieOnTheHighestGradeShowsTheEarlierAttempt() {
+        QuizAttempt first = graded(21L, due.minus(Duration.ofDays(1)), 9);
+        QuizAttempt same = graded(22L, due, 9);
+
+        assertThat(AssignmentProgress.of(assignment, List.of(same, first)).attemptId()).isEqualTo(21L);
+    }
+
+    @Test
     void aHandedInAttemptBeatsAnOpenRetake() {
         QuizAttempt done = submitted(16L, due.minus(Duration.ofHours(3)));
         QuizAttempt retake = attempt(17L, AttemptMode.TEST, created.plus(Duration.ofDays(1)));

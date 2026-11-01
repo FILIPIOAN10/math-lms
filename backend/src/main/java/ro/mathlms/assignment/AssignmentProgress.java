@@ -7,11 +7,13 @@ import ro.mathlms.quiz.QuizAttemptStatus;
 import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * How far one student got on one assignment, derived (never stored) from their attempts at the quiz. Only graded
  * TESTs started since the assignment was created count - a practice never does, nor an attempt from before. The
- * earliest handed-in attempt is the one that counts, so a later retake cannot turn an on-time hand-in into a late one.
+ * earliest hand-in says whether it was on time, so a later retake cannot turn an on-time hand-in into a late one; the
+ * highest grade is the one shown, as everywhere a student has retaken a test.
  */
 public record AssignmentProgress(State state, Instant submittedAt, boolean late, Integer score, Long attemptId) {
 
@@ -30,15 +32,23 @@ public record AssignmentProgress(State state, Instant submittedAt, boolean late,
                 .filter(a -> !a.getStartedAt().isBefore(assignment.getCreatedAt()))
                 .toList();
 
-        return counted.stream()
+        List<QuizAttempt> handedIn = counted.stream()
                 .filter(a -> a.getStatus() != QuizAttemptStatus.IN_PROGRESS)
+                .toList();
+        // Highest score first, then the earlier one: that attempt is the grade this homework shows.
+        Optional<QuizAttempt> best = handedIn.stream()
+                .filter(a -> a.getStatus() == QuizAttemptStatus.GRADED)
+                .max(Comparator.comparing(QuizAttempt::getScore)
+                        .thenComparing(QuizAttempt::getSubmittedAt, Comparator.reverseOrder()));
+
+        return handedIn.stream()
                 .min(Comparator.comparing(QuizAttempt::getSubmittedAt))
-                .map(done -> new AssignmentProgress(
-                        done.getStatus() == QuizAttemptStatus.GRADED ? State.GRADED : State.SUBMITTED,
-                        done.getSubmittedAt(),
-                        done.getSubmittedAt().isAfter(assignment.getDueAt()),
-                        done.getScore(),
-                        done.getId()))
+                .map(first -> new AssignmentProgress(
+                        best.isPresent() ? State.GRADED : State.SUBMITTED,
+                        first.getSubmittedAt(),
+                        first.getSubmittedAt().isAfter(assignment.getDueAt()),
+                        best.map(QuizAttempt::getScore).orElse(null),
+                        best.orElse(first).getId()))
                 .orElseGet(() -> counted.stream()
                         .filter(a -> a.getStatus() == QuizAttemptStatus.IN_PROGRESS)
                         .findFirst()

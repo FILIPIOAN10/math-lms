@@ -237,14 +237,47 @@ class QuizAttemptRepositoryTest {
         gradedAttempt(quiz, student("dan@scoala.ro"), grila, wrong, deschis, 4, 4);
         quizAttemptRepository.saveAndFlush(new QuizAttempt(quiz, student("inprogress@scoala.ro"))); // ignored
 
-        assertThat(quizAttemptRepository.findGradedScoresByQuizId(quiz.getId())).containsExactlyInAnyOrder(13, 4);
+        assertThat(scoresThatCount(quiz)).containsExactlyInAnyOrder(13, 4);
 
-        List<ItemStat> stats = itemResponseRepository.findItemStatsByQuizId(quiz.getId());
+        List<ItemStat> stats = itemResponseRepository.findItemStatsByAttemptIds(attemptsThatCount(quiz));
         ItemStat grilaStat = stats.stream().filter(s -> s.itemId().equals(grila.getId())).findFirst().orElseThrow();
         ItemStat deschisStat = stats.stream().filter(s -> s.itemId().equals(deschis.getId())).findFirst().orElseThrow();
         assertThat(grilaStat.answered()).isEqualTo(2L);
         assertThat(grilaStat.correct()).isEqualTo(1L);
         assertThat(deschisStat.totalPoints()).isEqualTo(12L); // 8 + 4
+    }
+
+    private List<Integer> scoresThatCount(Quiz quiz) {
+        return quizAttemptRepository.findCountedAttempts(quiz.getId()).stream()
+                .map(QuizAttemptRepository.CountedAttemptRow::getScore).toList();
+    }
+
+    private List<Long> attemptsThatCount(Quiz quiz) {
+        return quizAttemptRepository.findCountedAttempts(quiz.getId()).stream()
+                .map(QuizAttemptRepository.CountedAttemptRow::getAttemptId).toList();
+    }
+
+    @Test
+    void aStudentWhoRetookATestCountsOnceWithTheirHighestGrade() {
+        Quiz quiz = quizRepository.save(new Quiz("Simulare EN", null));
+        QuizItem grila = quizItemRepository.save(new QuizItem(quiz, 1, QuizItemType.SINGLE_CHOICE, "g", 5, null));
+        QuizOption right = quizOptionRepository.save(new QuizOption(grila, 0, "4", true));
+        QuizOption wrong = quizOptionRepository.save(new QuizOption(grila, 1, "5", false));
+        QuizItem deschis = quizItemRepository.save(new QuizItem(quiz, 2, QuizItemType.OPEN, "d", 10, "barem"));
+        User ana = student("ana.reface@scoala.ro");
+
+        gradedAttempt(quiz, ana, grila, wrong, deschis, 4, 4);
+        gradedAttempt(quiz, ana, grila, right, deschis, 8, 13);
+        gradedAttempt(quiz, ana, grila, wrong, deschis, 6, 6);
+        gradedAttempt(quiz, student("dan.reface@scoala.ro"), grila, wrong, deschis, 5, 5);
+
+        assertThat(scoresThatCount(quiz)).containsExactlyInAnyOrder(13, 5);
+        assertThat(itemResponseRepository.findItemStatsByAttemptIds(attemptsThatCount(quiz)))
+                .filteredOn(stat -> stat.itemId().equals(grila.getId()))
+                .singleElement().satisfies(stat -> {
+                    assertThat(stat.answered()).isEqualTo(2L); // one answer per student, not four
+                    assertThat(stat.correct()).isEqualTo(1L);
+                });
     }
 
     private void gradedAttempt(Quiz quiz, User student, QuizItem grila, QuizOption chosen, QuizItem deschis,
@@ -341,9 +374,9 @@ class QuizAttemptRepositoryTest {
         quizAttemptRepository.flush();
 
         // the teacher's statistics: one graded TEST, no null score from the practice
-        assertThat(quizAttemptRepository.findGradedScoresByQuizId(quiz.getId())).containsExactly(5);
+        assertThat(scoresThatCount(quiz)).containsExactly(5);
         // per-item stats count the test's answer only
-        assertThat(itemResponseRepository.findItemStatsByQuizId(quiz.getId()))
+        assertThat(itemResponseRepository.findItemStatsByAttemptIds(attemptsThatCount(quiz)))
                 .singleElement().satisfies(stat -> assertThat(stat.answered()).isEqualTo(1L));
         // the student's progress chart
         assertThat(quizAttemptRepository.findByStudentIdAndStatusAndModeOrderBySubmittedAtAsc(

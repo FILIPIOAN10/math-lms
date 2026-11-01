@@ -14,13 +14,11 @@ public interface ItemResponseRepository extends JpaRepository<ItemResponse, Long
 
     Optional<ItemResponse> findByAttemptIdAndItemId(Long attemptId, Long itemId);
 
-    /** Per-item aggregates over the GRADED attempts of a quiz, in one query (see {@link ItemStat}). */
+    /** Per-item aggregates over the attempts that count, in one query (see {@link ItemStat}); not an empty list. */
     @Query("select new ro.mathlms.quiz.ItemStat(r.item.id, count(r),"
             + " sum(case when r.correct = true then 1L else 0L end), sum(r.awardedPoints))"
-            + " from ItemResponse r where r.attempt.quiz.id = :quizId"
-            + " and r.attempt.status = ro.mathlms.quiz.QuizAttemptStatus.GRADED"
-            + " and r.attempt.mode = ro.mathlms.quiz.AttemptMode.TEST group by r.item.id")
-    List<ItemStat> findItemStatsByQuizId(@Param("quizId") Long quizId);
+            + " from ItemResponse r where r.attempt.id in :attemptIds group by r.item.id")
+    List<ItemStat> findItemStatsByAttemptIds(@Param("attemptIds") java.util.Collection<Long> attemptIds);
 
     /** GDPR erasure: the teacher's comments are free text about the student - they go, the points stay. */
     @Modifying(flushAutomatically = true, clearAutomatically = true)

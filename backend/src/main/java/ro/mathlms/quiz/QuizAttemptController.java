@@ -20,13 +20,13 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import ro.mathlms.idempotency.IdempotencyService;
-import ro.mathlms.quiz.QuizDtos.QuizSummaryDto;
 import ro.mathlms.quiz.StudentQuizDtos.AnswerFeedbackDto;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultDto;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultViewDto;
 import ro.mathlms.quiz.StudentQuizDtos.HintDto;
 import ro.mathlms.quiz.StudentQuizDtos.MyAttemptDto;
 import ro.mathlms.quiz.StudentQuizDtos.PhotosDto;
+import ro.mathlms.quiz.StudentQuizDtos.OfferedQuizDto;
 import ro.mathlms.quiz.StudentQuizDtos.ProgressPointDto;
 import ro.mathlms.quiz.StudentQuizDtos.QuizPreviewDto;
 import ro.mathlms.quiz.StudentQuizDtos.StartedAttemptDto;
@@ -56,8 +56,8 @@ public class QuizAttemptController {
     }
 
     @GetMapping("/api/quiz/quizzes")
-    public List<QuizSummaryDto> list(Authentication auth) {
-        return service.listPublished(auth.getName()).stream().map(QuizSummaryDto::from).toList();
+    public List<OfferedQuizDto> list(Authentication auth) {
+        return service.listOffered(auth.getName());
     }
 
     /** What the student sees before pressing "Începe": item count, total points, time limit. Starts nothing. */

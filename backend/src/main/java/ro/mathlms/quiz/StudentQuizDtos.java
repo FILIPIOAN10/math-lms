@@ -68,8 +68,35 @@ public final class StudentQuizDtos {
             Integer timeLimitMinutes, // null = untimed
             boolean practiceAllowed,
             int itemCount,
-            int maxScore
+            int maxScore,
+            Integer maxAttempts, // null = no limit
+            int attemptsUsed,
+            RetakeBlock blockedBy // null = the student may start it
     ) {}
+
+    /** A quiz on the student's list, with what they may still do with it (see {@link AttemptAllowance}). */
+    public record OfferedQuizDto(
+            Long id,
+            String title,
+            String description,
+            QuizStatus status,
+            Long schoolClassId,
+            String schoolClassName,
+            Integer timeLimitMinutes,
+            boolean practiceAllowed,
+            Long chapterId,
+            Integer maxAttempts,
+            int attemptsUsed,
+            RetakeBlock blockedBy
+    ) {
+        public static OfferedQuizDto of(Quiz quiz, AttemptAllowance allowance) {
+            QuizDtos.QuizSummaryDto summary = QuizDtos.QuizSummaryDto.from(quiz);
+            return new OfferedQuizDto(summary.id(), summary.title(), summary.description(), summary.status(),
+                    summary.schoolClassId(), summary.schoolClassName(), summary.timeLimitMinutes(),
+                    summary.practiceAllowed(), summary.chapterId(), summary.maxAttempts(),
+                    allowance.used(), allowance.blockedBy());
+        }
+    }
 
     public record StudentQuizDto(
             Long id,

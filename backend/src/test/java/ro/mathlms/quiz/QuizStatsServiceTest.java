@@ -10,7 +10,10 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class QuizStatsServiceTest {
@@ -34,7 +37,25 @@ class QuizStatsServiceTest {
     private void givenGradedScores(Integer... scores) {
         when(quizRepository.findById(10L)).thenReturn(Optional.of(quiz));
         when(itemRepository.findByQuizIdOrderByPosition(10L)).thenReturn(List.of(grila, deschis));
-        when(attemptRepository.findGradedScoresByQuizId(10L)).thenReturn(List.of(scores));
+        java.util.concurrent.atomic.AtomicLong ids = new java.util.concurrent.atomic.AtomicLong();
+        List<QuizAttemptRepository.CountedAttemptRow> rows = java.util.Arrays.stream(scores)
+                .map(score -> row(ids.incrementAndGet(), score)).toList();
+        when(attemptRepository.findCountedAttempts(10L)).thenReturn(rows);
+        when(responseRepository.findItemStatsByAttemptIds(any())).thenReturn(List.of());
+    }
+
+    private static QuizAttemptRepository.CountedAttemptRow row(long attemptId, int score) {
+        return new QuizAttemptRepository.CountedAttemptRow() {
+            @Override
+            public Long getAttemptId() {
+                return attemptId;
+            }
+
+            @Override
+            public Integer getScore() {
+                return score;
+            }
+        };
     }
 
     @Test
@@ -47,11 +68,11 @@ class QuizStatsServiceTest {
     @Test
     void aQuizNobodyFinishedHasEmptyStats() {
         givenGradedScores();
-        when(responseRepository.findItemStatsByQuizId(10L)).thenReturn(List.of());
 
         QuizStatsDto stats = service.getStats(10L);
 
         assertThat(stats.gradedAttempts()).isZero();
+        verify(responseRepository, never()).findItemStatsByAttemptIds(any()); // an empty IN list is not portable
         assertThat(stats.averageScore()).isNull();
         assertThat(stats.averagePercent()).isNull();
         assertThat(stats.maxScore()).isEqualTo(15);
@@ -66,7 +87,6 @@ class QuizStatsServiceTest {
     void averageAndDistributionComeFromTheGradedScores() {
         // max 15 -> 15 = 100 %, 12 = 80 %, 9 = 60 %, 3 = 20 %
         givenGradedScores(15, 12, 9, 3);
-        when(responseRepository.findItemStatsByQuizId(10L)).thenReturn(List.of());
 
         QuizStatsDto stats = service.getStats(10L);
 
@@ -80,7 +100,6 @@ class QuizStatsServiceTest {
     @Test
     void aPerfectScoreLandsInTheTopBucket() {
         givenGradedScores(15);
-        when(responseRepository.findItemStatsByQuizId(10L)).thenReturn(List.of());
 
         assertThat(service.getStats(10L).distribution().get(4).count()).isEqualTo(1);
     }
@@ -90,7 +109,7 @@ class QuizStatsServiceTest {
         givenGradedScores(15, 5, 0, 10);
         // grila: answered by 3 of the 4 students, 2 right (the 4th left it blank = counts as wrong)
         // deschis: 4 responses, 30 points awarded in total
-        when(responseRepository.findItemStatsByQuizId(10L)).thenReturn(List.of(
+        when(responseRepository.findItemStatsByAttemptIds(List.of(1L, 2L, 3L, 4L))).thenReturn(List.of(
                 new ItemStat(100L, 3L, 2L, 10L),
                 new ItemStat(101L, 4L, 0L, 30L)));
 

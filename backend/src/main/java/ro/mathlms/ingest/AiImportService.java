@@ -312,7 +312,7 @@ public class AiImportService {
         List<FigureCrop> figures = request.figures() == null ? List.of() : request.figures();
         checkFigures(figures, request.items().size(), pages.size());
         Quiz quiz = quizAdminService.createQuiz(request.title(), null, request.schoolClassId(), null, false,
-                request.chapterId());
+                request.chapterId(), Quiz.DEFAULT_ATTEMPTS);
         List<ItemRequest> items = new ArrayList<>();
         int position = 0;
         for (ItemRequest item : request.items()) {

@@ -11,7 +11,6 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.multipart.MultipartFile;
-import ro.mathlms.quiz.QuizDtos.QuizSummaryDto;
 import ro.mathlms.quiz.StudentQuizDtos.AttemptResultDto;
 import ro.mathlms.quiz.StudentQuizDtos.AnswerFeedbackDto;
 import ro.mathlms.quiz.StudentQuizDtos.HintDto;
@@ -40,13 +39,15 @@ class QuizAttemptControllerTest {
     void listMapsPublishedToSummaries() {
         Quiz published = new Quiz("Simulare EN", "d");
         published.publish();
-        when(service.listPublished("elev@scoala.ro")).thenReturn(List.of(published));
+        when(service.listOffered("elev@scoala.ro")).thenReturn(List.of(
+                StudentQuizDtos.OfferedQuizDto.of(published, new AttemptAllowance(2, 1, null))));
 
-        List<QuizSummaryDto> result = controller.list(auth);
+        List<StudentQuizDtos.OfferedQuizDto> result = controller.list(auth);
 
         assertThat(result).singleElement().satisfies(dto -> {
             assertThat(dto.title()).isEqualTo("Simulare EN");
             assertThat(dto.status()).isEqualTo(QuizStatus.PUBLISHED);
+            assertThat(dto.attemptsUsed()).isEqualTo(1);
         });
     }
 
@@ -127,7 +128,7 @@ class QuizAttemptControllerTest {
 
     @Test
     void previewDelegatesWithPrincipalEmail() {
-        QuizPreviewDto preview = new QuizPreviewDto(10L, "Simulare EN", null, 30, false, 3, 11);
+        QuizPreviewDto preview = new QuizPreviewDto(10L, "Simulare EN", null, 30, false, 3, 11, 1, 0, null);
         when(service.getPreview(10L, "elev@scoala.ro")).thenReturn(preview);
 
         assertThat(controller.preview(10L, auth)).isEqualTo(preview);

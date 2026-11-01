@@ -117,12 +117,20 @@ public class QuizAdminService {
     @Transactional
     public Quiz createQuiz(String title, String description, Long schoolClassId, Integer timeLimitMinutes,
                            boolean practiceAllowed, Long chapterId) {
+        return createQuiz(title, description, schoolClassId, timeLimitMinutes, practiceAllowed, chapterId, null);
+    }
+
+    /** ...and how many times a student may hand it in ({@code null} = no limit). */
+    @Transactional
+    public Quiz createQuiz(String title, String description, Long schoolClassId, Integer timeLimitMinutes,
+                           boolean practiceAllowed, Long chapterId, Integer maxAttempts) {
         Quiz quiz = new Quiz(title, description);
         SchoolClass target = findClass(schoolClassId);
         quiz.assignToClass(target);
         quiz.tagChapter(chapterFitting(chapterId, target));
         quiz.changeTimeLimit(timeLimitMinutes);
         quiz.allowPractice(practiceAllowed);
+        quiz.limitAttempts(maxAttempts);
         quiz.ownedBy(scope.currentUserId());
         Quiz saved = quizRepository.save(quiz);
         auditLog.record(AuditEvent.of(AuditAction.QUIZ_CREATED, saved.getId(), saved.getTitle())
@@ -154,6 +162,13 @@ public class QuizAdminService {
     @Transactional
     public Quiz updateQuiz(Long id, String title, String description, Long schoolClassId, Integer timeLimitMinutes,
                            boolean practiceAllowed, Long chapterId) {
+        return updateQuiz(id, title, description, schoolClassId, timeLimitMinutes, practiceAllowed, chapterId,
+                getQuiz(id).getMaxAttempts());
+    }
+
+    @Transactional
+    public Quiz updateQuiz(Long id, String title, String description, Long schoolClassId, Integer timeLimitMinutes,
+                           boolean practiceAllowed, Long chapterId, Integer maxAttempts) {
         Quiz quiz = getQuiz(id);
         SchoolClass target = findClass(schoolClassId);
         Chapter chapter = chapterFitting(chapterId, target);
@@ -171,6 +186,8 @@ public class QuizAdminService {
                 .addIfDifferent(classId(quiz.getSchoolClass()), schoolClassId, "elevi: " + audience(target))
                 .addIfDifferent(quiz.getTimeLimitMinutes(), timeLimitMinutes,
                         "timp " + minutes(quiz.getTimeLimitMinutes()) + " → " + minutes(timeLimitMinutes))
+                .addIfDifferent(quiz.getMaxAttempts(), maxAttempts,
+                        "încercări " + attempts(quiz.getMaxAttempts()) + " → " + attempts(maxAttempts))
                 .addIf(quiz.isPracticeAllowed() != practiceAllowed, practiceAllowed ? "practică permisă" : "practică oprită")
                 .addIfDifferent(quiz.getChapter() == null ? null : quiz.getChapter().getId(), chapterId, "capitol");
         quiz.update(title, description);
@@ -178,6 +195,7 @@ public class QuizAdminService {
         quiz.changeTimeLimit(timeLimitMinutes); // attempts already running keep their own deadline
         quiz.allowPractice(practiceAllowed);    // practice already in progress simply finishes; no new one can start
         quiz.tagChapter(chapter);               // only bookkeeping for the mastery map: allowed even once taken
+        quiz.limitAttempts(maxAttempts);        // decides only the next start: what was handed in stays handed in
         Quiz saved = quizRepository.save(quiz);
         String renamed = AuditText.renamedFrom(oldTitle, quiz.getTitle());
         String details = renamed == null ? changes.joined()
@@ -192,6 +210,10 @@ public class QuizAdminService {
 
     private static Long classId(SchoolClass schoolClass) {
         return schoolClass == null ? null : schoolClass.getId();
+    }
+
+    private static String attempts(Integer limit) {
+        return limit == null ? "nelimitate" : String.valueOf(limit);
     }
 
     private static String minutes(Integer limit) {
@@ -286,6 +308,7 @@ public class QuizAdminService {
         copy.assignToClass(source.getSchoolClass());
         copy.changeTimeLimit(source.getTimeLimitMinutes());
         copy.allowPractice(source.isPracticeAllowed());
+        copy.limitAttempts(source.getMaxAttempts());
         copy.tagChapter(source.getChapter());
         copy.ownedBy(scope.currentUserId()); // the copy belongs to whoever made it
         Quiz saved = quizRepository.save(copy);
@@ -341,6 +364,7 @@ public class QuizAdminService {
         // Loaded (not the lazy proxy) so the summary returned after the transaction can still read its name.
         quiz.assignToClass(findClass(chapter.getBook().getSchoolClass().getId()));
         quiz.tagChapter(chapter);
+        quiz.limitAttempts(Quiz.DEFAULT_ATTEMPTS);
         quiz.ownedBy(scope.currentUserId());
         Quiz saved = quizRepository.save(quiz);
         int position = 0; // 0-based, like the builder and the text import

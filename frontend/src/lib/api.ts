@@ -586,6 +586,18 @@ export interface QuizSummary {
   practiceAllowed: boolean
   /** The chapter its questions practise (E6 mastery map); null = untagged. */
   chapterId: number | null
+  /** How many times a student may hand it in; null = no limit. */
+  maxAttempts: number | null
+}
+
+/** Why a student may not start another graded attempt. */
+export type RetakeBlock = 'NO_ATTEMPTS_LEFT' | 'WAITING_FOR_GRADE'
+
+/** A quiz on the student's list, with what they may still do with it. */
+export interface OfferedQuiz extends QuizSummary {
+  attemptsUsed: number
+  /** null = the student may start it. */
+  blockedBy: RetakeBlock | null
 }
 
 export interface QuizOptionDto {
@@ -898,6 +910,8 @@ export interface QuizInput {
   practiceAllowed: boolean
   /** The chapter its questions practise; null = untagged. */
   chapterId?: number | null
+  /** How many times a student may hand it in; null = no limit. */
+  maxAttempts: number | null
 }
 
 /** T2: a draft quiz of OPEN questions made from the chapter's ticked exercises, for the chapter's class. */
@@ -1423,6 +1437,11 @@ export interface QuizPreview {
   practiceAllowed: boolean
   itemCount: number
   maxScore: number
+  /** null = no limit */
+  maxAttempts: number | null
+  attemptsUsed: number
+  /** null = the student may start it. */
+  blockedBy: RetakeBlock | null
 }
 
 export async function getQuizPreview(quizId: number): Promise<QuizPreview> {
@@ -1435,7 +1454,7 @@ export function ownPhotoUrl(attemptId: number, itemId: number, photoId: number):
   return `/api/quiz/attempts/${attemptId}/responses/${itemId}/photos/${photoId}`
 }
 
-export async function getStudentQuizzes(): Promise<QuizSummary[]> {
+export async function getStudentQuizzes(): Promise<OfferedQuiz[]> {
   const response = await apiFetch('/quiz/quizzes')
   return response.json()
 }

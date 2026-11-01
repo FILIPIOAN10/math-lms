@@ -15,9 +15,9 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * Teacher analytics for one quiz, computed over its GRADED attempts only: the average, a five-bucket
- * score distribution and, per item, how often it was answered right (single choice) and the average
- * points. Two aggregate queries for the whole quiz — never one per attempt.
+ * Teacher analytics for one quiz, computed over the attempt that counts for each student (their highest grade), so a
+ * student who retook it counts once: the average, a five-bucket score distribution and, per item, how often it was
+ * answered right (single choice) and the average points. Two aggregate queries for the whole quiz — never one per attempt.
  */
 @Service
 public class QuizStatsService {
@@ -45,15 +45,18 @@ public class QuizStatsService {
                 .orElseThrow(() -> new QuizNotFoundException("Quiz", quizId));
         List<QuizItem> items = itemRepository.findByQuizIdOrderByPosition(quizId);
         int maxScore = items.stream().mapToInt(QuizItem::getPoints).sum();
-        List<Integer> scores = attemptRepository.findGradedScoresByQuizId(quizId);
+        List<QuizAttemptRepository.CountedAttemptRow> counted = attemptRepository.findCountedAttempts(quizId);
+        List<Integer> scores = counted.stream().map(QuizAttemptRepository.CountedAttemptRow::getScore).toList();
         int graded = scores.size();
 
         Double averageScore = graded == 0 ? null : scores.stream().mapToInt(Integer::intValue).average().orElse(0);
         Integer averagePercent = averageScore == null || maxScore == 0
                 ? null : (int) Math.round(averageScore * 100 / maxScore);
 
-        Map<Long, ItemStat> byItem = responseRepository.findItemStatsByQuizId(quizId).stream()
-                .collect(Collectors.toMap(ItemStat::itemId, Function.identity()));
+        List<Long> attemptIds = counted.stream().map(QuizAttemptRepository.CountedAttemptRow::getAttemptId).toList();
+        Map<Long, ItemStat> byItem = attemptIds.isEmpty() ? Map.of()
+                : responseRepository.findItemStatsByAttemptIds(attemptIds).stream()
+                        .collect(Collectors.toMap(ItemStat::itemId, Function.identity()));
         List<ItemStatDto> itemStats = new ArrayList<>();
         for (QuizItem item : items) {
             ItemStat stat = byItem.get(item.getId());

@@ -62,7 +62,7 @@ describe('API client', () => {
       document.cookie = 'XSRF-TOKEN=token-123'
       fetchMock.mockResolvedValueOnce(json({ id: 1, title: 't', description: null, status: 'DRAFT' }))
 
-      await createQuiz({ title: 'Test', description: null, schoolClassId: null, timeLimitMinutes: null, practiceAllowed: false })
+      await createQuiz({ title: 'Test', description: null, schoolClassId: null, timeLimitMinutes: null, practiceAllowed: false, maxAttempts: null })
 
       const headers = fetchMock.mock.calls[0][1].headers as Headers
       expect(headers.get('X-XSRF-TOKEN')).toBe('token-123')

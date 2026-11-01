@@ -29,6 +29,7 @@ import {
   type StudentItemDto,
 } from '@/lib/api'
 import { dueCountdown } from '@/lib/assignments'
+import { attemptRule, RETAKE_BLOCK_TEXT } from '@/lib/attempts'
 import { formatClock, secondsLeft } from '@/lib/countdown'
 import { errorMessage } from '@/lib/errors'
 import { formatDate, formatMinutes, optionLetter, roCount } from '@/lib/format'
@@ -483,6 +484,8 @@ export function TakeQuizPage() {
   // ----- Before start -----
   if (!attempt) {
     const limitMinutes = preview?.timeLimitMinutes ?? null
+    // A practice is never limited; a link to a test with no attempt left says so instead of offering to start.
+    const blocked = !practice ? preview?.blockedBy ?? null : null
     return (
       <div className="min-h-screen bg-muted p-4">
         <div className="mx-auto max-w-xl space-y-4 pt-12">
@@ -503,6 +506,12 @@ export function TakeQuizPage() {
                   {!practice && ` · ${limitMinutes !== null ? `⏱ ${formatMinutes(limitMinutes)}` : 'Fără limită de timp'}`}
                 </p>
               )}
+              {preview && !practice && !blocked && (
+                <p data-testid="quiz-attempt-rule" className="text-sm font-medium">
+                  {attemptRule(preview.maxAttempts, preview.attemptsUsed)}
+                </p>
+              )}
+              {blocked && <p data-testid="quiz-blocked" className="text-sm font-medium">{RETAKE_BLOCK_TEXT[blocked]}</p>}
               {homeworkDue && (
                 <p data-testid="quiz-homework-due" className="text-sm">
                   Temă — termen: {formatDate(homeworkDue)} ({dueCountdown(homeworkDue, Date.now())})
@@ -528,9 +537,11 @@ export function TakeQuizPage() {
               {error && <p className="text-sm text-destructive">{error}</p>}
               <div className="flex justify-center gap-2">
                 <Link to="/quizzes" className={buttonVariants({ variant: 'outline' })}>Înapoi</Link>
-                <Button onClick={start} disabled={starting} data-testid="quiz-start">
-                  {starting ? 'Se pregătește...' : practice ? 'Începe practica' : 'Începe testul'}
-                </Button>
+                {!blocked && (
+                  <Button onClick={start} disabled={starting} data-testid="quiz-start">
+                    {starting ? 'Se pregătește...' : practice ? 'Începe practica' : 'Începe testul'}
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>

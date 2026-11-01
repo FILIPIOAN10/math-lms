@@ -1,4 +1,4 @@
-import { type MyAttemptDto, type QuizSummary, type StudentAssignment } from '@/lib/api'
+import { type MyAttemptDto, type OfferedQuiz, type RetakeBlock, type StudentAssignment } from '@/lib/api'
 import { todoAssignments } from '@/lib/home'
 
 /**
@@ -16,6 +16,15 @@ export interface QuizCard {
   practiceAllowed: boolean
   /** Still offered, so it can be retaken. Homework and history can outlive the offer. */
   available: boolean
+  /** How many times it may be handed in, null = no limit, and how many of those are used. */
+  maxAttempts: number | null
+  attemptsUsed: number
+  /** Why no new attempt can start; null = one can. */
+  blockedBy: RetakeBlock | null
+  /** The grade that counts: the highest one, the earlier attempt on a tie. */
+  counted: MyAttemptDto | null
+  /** How many graded attempts it was chosen from. */
+  gradedCount: number
   assignment: StudentAssignment | null
   state: QuizCardState
   /** The handed-in test the card shows: a grade not opened yet, else the latest one. */
@@ -49,7 +58,7 @@ const handedInAt = (card: QuizCard) => Date.parse(card.shown?.submittedAt ?? car
  * A quiz in any of the lists gets a card, so a test the teacher withdrew keeps its history.
  */
 export function buildQuizCards(
-  quizzes: QuizSummary[],
+  quizzes: OfferedQuiz[],
   assignments: StudentAssignment[],
   attempts: MyAttemptDto[],
 ): { todo: QuizCard[]; done: QuizCard[] } {
@@ -62,6 +71,9 @@ export function buildQuizCards(
     const own = attempts.filter((a) => a.quizId === quizId)
     const handedIn = own.filter((a) => a.mode === 'TEST' && a.status !== 'IN_PROGRESS')
     const shown = handedIn.find((a) => a.newResult) ?? handedIn[0] ?? null
+    const graded = handedIn.filter((a) => a.status === 'GRADED' && a.score !== null)
+    // The attempts come newest first, so ">=" keeps the earlier of two equal grades.
+    const counted = graded.reduce<MyAttemptDto | null>((best, a) => (best === null || a.score! >= best.score! ? a : best), null)
     return {
       quizId,
       title: quiz?.title ?? assignment?.quizTitle ?? own[0].quizTitle,
@@ -69,6 +81,11 @@ export function buildQuizCards(
       timeLimitMinutes: quiz?.timeLimitMinutes ?? assignment?.timeLimitMinutes ?? null,
       practiceAllowed: quiz?.practiceAllowed ?? false,
       available: quiz !== null,
+      maxAttempts: quiz?.maxAttempts ?? null,
+      attemptsUsed: quiz?.attemptsUsed ?? 0,
+      blockedBy: quiz?.blockedBy ?? null,
+      counted,
+      gradedCount: graded.length,
       assignment,
       state: stateOf(own, homeworkToDo.has(quizId), quiz !== null, shown),
       shown,

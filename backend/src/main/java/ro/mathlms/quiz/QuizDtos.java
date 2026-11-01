@@ -13,13 +13,14 @@ public final class QuizDtos {
     /** A quiz in a list (no items). */
     public record QuizSummaryDto(Long id, String title, String description, QuizStatus status,
                                  Long schoolClassId, String schoolClassName, Integer timeLimitMinutes,
-                                 boolean practiceAllowed, Long chapterId) {
+                                 boolean practiceAllowed, Long chapterId, Integer maxAttempts) {
         public static QuizSummaryDto from(Quiz quiz) {
             SchoolClass schoolClass = quiz.getSchoolClass(); // null = for every student
             return new QuizSummaryDto(quiz.getId(), quiz.getTitle(), quiz.getDescription(), quiz.getStatus(),
                     schoolClass == null ? null : schoolClass.getId(),
                     schoolClass == null ? null : schoolClass.getName(), quiz.getTimeLimitMinutes(),
-                    quiz.isPracticeAllowed(), quiz.getChapter() == null ? null : quiz.getChapter().getId());
+                    quiz.isPracticeAllowed(), quiz.getChapter() == null ? null : quiz.getChapter().getId(),
+                    quiz.getMaxAttempts());
         }
     }
 

@@ -17,6 +17,7 @@ const api = vi.hoisted(() => ({
   deleteQuizItem: vi.fn(),
   listChapterOptions: vi.fn(),
   createQuiz: vi.fn(),
+  updateQuiz: vi.fn(),
   getAiImportSettings: vi.fn(),
   getAiGradingSettings: vi.fn(),
 }))
@@ -24,7 +25,7 @@ vi.mock('@/lib/api', async (original) => ({ ...(await original<typeof import('@/
 
 const summary = (id: number, title: string, status: QuizSummary['status'] = 'PUBLISHED'): QuizSummary => ({
   id, title, description: null, status, schoolClassId: null, schoolClassName: null, timeLimitMinutes: null,
-  practiceAllowed: false, chapterId: null,
+  practiceAllowed: false, chapterId: null, maxAttempts: null,
 })
 const detail = (over: Partial<QuizDetail> = {}): QuizDetail => ({
   ...summary(7, 'Simulare EN'),
@@ -73,6 +74,72 @@ describe('AdminQuizzesPage', () => {
     api.getAiGradingSettings.mockResolvedValue({ enabled: false, baremMaxPages: 0, baremDailyPageLimit: 0, baremPagesUsedToday: 0 })
     api.getQuizActivity.mockResolvedValue({ studentsWriting: 0, homeworkClasses: 0 })
     api.setQuizPublished.mockResolvedValue(summary(7, 'Simulare EN', 'DRAFT'))
+  })
+
+  describe('încercări', () => {
+    it('starts a new test at one attempt and sends the choice', async () => {
+      api.createQuiz.mockResolvedValue(summary(9, 'Test nou', 'DRAFT'))
+      renderAt('/admin/quizzes')
+      await userEvent.click(await screen.findByRole('button', { name: 'Adaugă test' }))
+      const dialog = await screen.findByRole('dialog', { name: 'Adaugă test' })
+
+      await userEvent.type(within(dialog).getByLabelText('Titlu'), 'Test nou')
+      const attempts = within(dialog).getByLabelText('Câte încercări are elevul')
+      expect(attempts).toHaveValue('1')
+      await userEvent.selectOptions(attempts, '3')
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Salvează' }))
+
+      await waitFor(() => expect(api.createQuiz).toHaveBeenCalledWith(expect.objectContaining({ maxAttempts: 3 })))
+    })
+
+    it('tells the teacher what more attempts mean', async () => {
+      renderAt('/admin/quizzes')
+      await userEvent.click(await screen.findByRole('button', { name: 'Adaugă test' }))
+
+      const dialog = await screen.findByRole('dialog', { name: 'Adaugă test' })
+      expect(dialog).toHaveTextContent('vede răspunsurile corecte și baremul')
+      expect(dialog).toHaveTextContent('contează cea mai mare notă')
+    })
+
+    const editRow = async () => {
+      await userEvent.click(within(await row('Simulare EN')).getByRole('button', { name: 'Mai multe acțiuni pentru Simulare EN' }))
+      await userEvent.click(await screen.findByRole('menuitem', { name: 'Editează detaliile' }))
+      return screen.findByRole('dialog', { name: 'Editează testul' })
+    }
+
+    it('keeps a test without a limit unlimited when it is edited', async () => {
+      api.updateQuiz.mockResolvedValue(summary(7, 'Simulare EN'))
+      renderAt('/admin/quizzes')
+      const dialog = await editRow()
+
+      expect(within(dialog).getByLabelText('Câte încercări are elevul')).toHaveValue('')
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Salvează' }))
+
+      await waitFor(() => expect(api.updateQuiz).toHaveBeenCalledWith(7, expect.objectContaining({ maxAttempts: null })))
+    })
+
+    it('keeps a limit that is not among the choices', async () => {
+      api.listQuizzes.mockResolvedValue([{ ...summary(7, 'Simulare EN'), maxAttempts: 4 }])
+      api.updateQuiz.mockResolvedValue(summary(7, 'Simulare EN'))
+      renderAt('/admin/quizzes')
+      const dialog = await editRow()
+
+      expect(within(dialog).getByLabelText('Câte încercări are elevul')).toHaveValue('4')
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Salvează' }))
+
+      await waitFor(() => expect(api.updateQuiz).toHaveBeenCalledWith(7, expect.objectContaining({ maxAttempts: 4 })))
+    })
+
+    it('shows the limit on each row', async () => {
+      api.listQuizzes.mockResolvedValue([
+        { ...summary(7, 'Simulare EN'), maxAttempts: 1 },
+        summary(8, 'Fracții'),
+      ])
+      renderAt('/admin/quizzes')
+
+      expect(within(await row('Simulare EN')).getByTestId('quiz-audience')).toHaveTextContent('1 încercare')
+      expect(within(await row('Fracții')).getByTestId('quiz-audience')).toHaveTextContent('încercări nelimitate')
+    })
   })
 
   describe('Depublică', () => {

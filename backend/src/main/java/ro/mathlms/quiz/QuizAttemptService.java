@@ -27,6 +27,7 @@ import ro.mathlms.quiz.StudentQuizDtos.AttemptResultViewDto;
 import ro.mathlms.quiz.StudentQuizDtos.HintDto;
 import ro.mathlms.quiz.StudentQuizDtos.ItemResultDto;
 import ro.mathlms.quiz.StudentQuizDtos.MyAttemptDto;
+import ro.mathlms.quiz.StudentQuizDtos.OfferedQuizDto;
 import ro.mathlms.quiz.StudentQuizDtos.PhotosDto;
 import ro.mathlms.quiz.StudentQuizDtos.ProgressPointDto;
 import ro.mathlms.quiz.StudentQuizDtos.QuizPreviewDto;
@@ -144,6 +145,35 @@ public class QuizAttemptService {
         return quizRepository.findVisibleToClasses(QuizStatus.PUBLISHED, classIds);
     }
 
+    /** The quizzes on the student's list, each with the attempts used and whether another one may start. */
+    @Transactional(readOnly = true)
+    public List<OfferedQuizDto> listOffered(String studentEmail) {
+        User student = requireUser(studentEmail);
+        Map<Long, List<QuizAttempt>> attempts = attemptRepository.findByStudentIdOrderByStartedAtDesc(student.getId()).stream()
+                .collect(Collectors.groupingBy(a -> a.getQuiz().getId()));
+        Map<Long, Instant> homework = homeworkGivenAt(student);
+        return listPublished(studentEmail).stream()
+                .map(quiz -> OfferedQuizDto.of(quiz, AttemptAllowance.of(quiz.getMaxAttempts(),
+                        attempts.getOrDefault(quiz.getId(), List.of()), homework.get(quiz.getId()))))
+                .toList();
+    }
+
+    private AttemptAllowance allowanceFor(Quiz quiz, User student) {
+        return AttemptAllowance.of(quiz.getMaxAttempts(),
+                attemptRepository.findByStudentIdAndQuizIdIn(student.getId(), List.of(quiz.getId())),
+                homeworkGivenAt(student).get(quiz.getId()));
+    }
+
+    /** When each quiz was last given as homework to one of the student's classes. */
+    private Map<Long, Instant> homeworkGivenAt(User student) {
+        List<Long> classIds = enrollmentRepository.findClassIdsByStudentId(student.getId());
+        if (classIds.isEmpty()) {
+            return Map.of();
+        }
+        return quizRepository.findHomeworkGiven(classIds).stream()
+                .collect(Collectors.toMap(HomeworkGiven::quizId, HomeworkGiven::givenAt));
+    }
+
     /** A quiz is open to everyone unless assigned to a class — then only to that class's students. */
     private boolean isVisibleTo(Quiz quiz, User student) {
         return quiz.getSchoolClass() == null
@@ -156,11 +186,14 @@ public class QuizAttemptService {
      */
     @Transactional(readOnly = true)
     public QuizPreviewDto getPreview(Long quizId, String studentEmail) {
-        Quiz quiz = requireTakeable(quizId, requireUser(studentEmail));
+        User student = requireUser(studentEmail);
+        Quiz quiz = requireTakeable(quizId, student);
         int maxScore = itemRepository.sumPointsByQuiz(List.of(quizId)).stream()
                 .findFirst().map(m -> m.maxScore().intValue()).orElse(0);
+        AttemptAllowance allowance = allowanceFor(quiz, student);
         return new QuizPreviewDto(quiz.getId(), quiz.getTitle(), quiz.getDescription(), quiz.getTimeLimitMinutes(),
-                quiz.isPracticeAllowed(), (int) itemRepository.countByQuizId(quizId), maxScore);
+                quiz.isPracticeAllowed(), (int) itemRepository.countByQuizId(quizId), maxScore,
+                allowance.maxAttempts(), allowance.used(), allowance.blockedBy());
     }
 
     private Quiz requireTakeable(Long quizId, User student) {
@@ -174,16 +207,17 @@ public class QuizAttemptService {
      * Starts a fresh attempt at a published quiz, or resumes the student's existing in-progress one,
      * and returns the answer-hidden quiz to fill in.
      */
-    @Transactional
+    @Transactional(noRollbackFor = AttemptLimitException.class)
     public StartedAttemptDto startAttempt(Long quizId, String studentEmail) {
         return startAttempt(quizId, studentEmail, AttemptMode.TEST);
     }
 
     /**
      * {@link AttemptMode#PRACTICE} needs the quiz to allow it (the teacher's opt-in) and never has a deadline; a
-     * student may have one open practice next to one open test, but resumes the one of the mode asked for.
+     * student may have one open practice next to one open test, but resumes the one of the mode asked for. A new graded
+     * attempt needs one left ({@link AttemptAllowance}); the refusal keeps an overdue attempt handed in on the way here.
      */
-    @Transactional
+    @Transactional(noRollbackFor = AttemptLimitException.class)
     public StartedAttemptDto startAttempt(Long quizId, String studentEmail, AttemptMode mode) {
         User student = requireUser(studentEmail);
         // 404 (not 403) for another class's quiz: a guessed id must not confirm it exists
@@ -197,6 +231,12 @@ public class QuizAttemptService {
             // Time ran out before the expiry job got to it: hand it in now (its saved answers count), then start fresh.
             autoSubmitIfOverdue(open.get().getId());
             open = Optional.empty();
+        }
+        if (open.isEmpty() && mode == AttemptMode.TEST) {
+            RetakeBlock blocked = allowanceFor(quiz, student).blockedBy();
+            if (blocked != null) {
+                throw new AttemptLimitException(blocked);
+            }
         }
         QuizAttempt attempt = open.orElseGet(() -> attemptRepository.save(new QuizAttempt(quiz, student, Instant.now(clock), mode)));
         List<ItemResponse> responses = responseRepository.findByAttemptId(attempt.getId());

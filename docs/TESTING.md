@@ -298,7 +298,10 @@ Buton pe Dashboard: **Conținut**. Read-only.
 ### 11. Elev — dă un test (`/quizzes`, ca `student.activ@mathlms.local`)
 Din bara de sus: **Testele mele**.
 - temele nepredate apar DOAR la „Teme”, nu și a doua oară la „Teste disponibile”
-- un test deja dat arată „✓ Dat · 8 / 11 p · nota 7,55” (sau „Predat — în corectare”), cu **Vezi rezultatul** (principal) și **Dă din nou**
+- un test deja dat arată „✓ Dat · 8 / 11 p · nota 7,55” (sau „Predat — în corectare”), cu **Vezi rezultatul** (principal) și **Dă din nou** doar dacă mai are voie
+- **Încercări**: profesorul alege în dialogul testului câte încercări are elevul (un test nou pornește de la una, testele vechi au rămas nelimitate). Serverul refuză o încercare în plus („Ai folosit toate încercările…”, 400) și una nouă cât timp lucrarea se corectează („Lucrarea ta se corectează…”, 400); o încercare începută se reia mereu, iar practica nu se numără
+- **Tema** pornește numărătoarea din nou: ce a predat elevul înainte să primească testul ca temă nu se numără, deci o temă nu rămâne niciodată imposibil de început
+- **Contează cea mai mare notă**: pe cardul elevului („cea mai mare din 2”), în media testului, în media clasei, în Statistici (fiecare elev o dată; „Elevi cu notă”) și pe temă (tot prima predare spune dacă a fost la timp)
 - pagina de start (nu creează nimic): numele testului, descrierea, „3 subiecte · 10 puncte · ⏱ 10 minute” (sau „Fără limită de timp”),
   la teme „Temă — termen: … (peste 2 ore)”
 - în timpul testului: bara de jos numerotează subiectele (umplute = cu răspuns), click = sari la subiect;
@@ -377,7 +380,7 @@ Din bara de sus: **Corectură** (numărul roșu = lucrări de corectat).
   punctaj peste valoarea subiectului → eroare
 - **Comentariu pentru toată lucrarea (opțional)** → **Salvează comentariul** → „✓ Comentariu salvat”; merge și pe o lucrare deja
   notată (inclusiv una doar cu grile, notată automat la predare); gol = șterge comentariul; max 2000 de caractere
-- **Finalizează nota** se deblochează când toate subiectele deschise au punctaj → nota se dă pe loc, fără dialog; sus rămâne „✓ Elev: punctaj” cu **Anulează** → lucrarea trece la „Notate”
+- **Finalizează nota** se deblochează când toate subiectele deschise au punctaj → nota se dă pe loc, fără dialog; sus rămâne „✓ Elev: nota e finalizată” cu **Anulează** → lucrarea trece la „Notate”
 - la „Notate”, o lucrare cu subiecte deschise are **Redeschide lucrarea** (cere confirmare): nota dispare pentru elev, lucrarea revine la „De corectat” cu punctajele ei, iar finalizarea din nou dă nota corectată (ca „Nou” la elev). În **Jurnal** apare „Lucrare redeschisă” cu nota retrasă. Un test numai cu grile nu are ce să redeschidă
 - **Finalizează și treci la următoarea (n rămase)** (T4): aceeași confirmare, apoi se deschide direct următoarea lucrare din coadă (fără
   întoarcere la listă); pe ultima lucrare butonul lipsește, iar după ea apare „Gata — nu mai e nicio lucrare de corectat. 🎉”

@@ -74,7 +74,7 @@ export function AdminQuizStatsPage() {
               <Card>
                 <CardContent className="flex flex-wrap gap-8 py-4">
                   <div>
-                    <p className="text-sm text-muted-foreground">Lucrări notate</p>
+                    <p className="text-sm text-muted-foreground">Elevi cu notă</p>
                     <p className="text-2xl font-semibold" data-testid="stats-graded">{stats.gradedAttempts}</p>
                   </div>
                   <div>

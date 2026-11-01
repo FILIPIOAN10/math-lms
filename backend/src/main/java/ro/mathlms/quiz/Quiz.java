@@ -63,6 +63,18 @@ public class Quiz {
     @Column(name = "practice_allowed", nullable = false)
     private boolean practiceAllowed;
 
+    /**
+     * How many times a student may hand it in; {@code null} = no limit. See {@link AttemptAllowance}. The result shows
+     * the answers and the barem, so anything above one is the teacher's choice, and the highest grade is the one that counts.
+     */
+    @Column(name = "max_attempts")
+    private Integer maxAttempts;
+
+    public static final int MAX_ATTEMPTS = 20;
+
+    /** What a test made without the dialog starts with (from photos, from a chapter's exercises). */
+    public static final int DEFAULT_ATTEMPTS = 1;
+
     /** The teacher who made the test (sees and changes it); null = only ADMINs see it. */
     @Column(name = "teacher_id")
     private Long teacherId;
@@ -94,6 +106,14 @@ public class Quiz {
                     "timeLimitMinutes must be between 1 and " + MAX_TIME_LIMIT_MINUTES + ", was " + minutes);
         }
         this.timeLimitMinutes = minutes;
+    }
+
+    /** Sets how many times a student may hand it in (1–{@value #MAX_ATTEMPTS}), or {@code null} for no limit. */
+    public void limitAttempts(Integer attempts) {
+        if (attempts != null && (attempts < 1 || attempts > MAX_ATTEMPTS)) {
+            throw new IllegalArgumentException("maxAttempts must be between 1 and " + MAX_ATTEMPTS + ", was " + attempts);
+        }
+        this.maxAttempts = attempts;
     }
 
     public void allowPractice(boolean allowed) {

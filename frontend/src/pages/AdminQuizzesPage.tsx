@@ -57,6 +57,7 @@ import { EnChapterSelect } from '@/components/EnChapterSelect'
 import { EnChapterSuggestionsDialog } from '@/components/EnChapterSuggestionsDialog'
 import { TutorHintsPanel } from '@/components/TutorHintsPanel'
 import { BaremDialog } from '@/components/BaremDialog'
+import { attemptsLabel } from '@/lib/attempts'
 import { formatDate, optionLetter, roCount } from '@/lib/format'
 import { errorMessage } from '@/lib/errors'
 import { formatGrade, GRADE_TEXT, gradeBand } from '@/lib/grades'
@@ -83,6 +84,8 @@ export type ImageChange = 'keep' | 'remove' | File
 const selectClass =
   'h-9 rounded-lg border border-border bg-background px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50'
 
+/** The limits offered for a test; a new one starts at the first. */
+const ATTEMPT_CHOICES = [1, 2, 3, 5]
 
 // ---------- Quiz create/edit dialog ----------
 
@@ -94,6 +97,7 @@ function QuizDialog({
   initialClassId,
   initialTimeLimit,
   initialPracticeAllowed,
+  initialMaxAttempts,
   initialChapterId = null,
   classes,
   chapters = [],
@@ -106,6 +110,8 @@ function QuizDialog({
   initialClassId: number | null
   initialTimeLimit: number | null
   initialPracticeAllowed: boolean
+  /** null = no limit */
+  initialMaxAttempts: number | null
   initialChapterId?: number | null
   classes: SchoolClass[]
   chapters?: ChapterOption[]
@@ -116,6 +122,11 @@ function QuizDialog({
   const [classId, setClassId] = useState(initialClassId === null ? '' : String(initialClassId))
   const [timeLimit, setTimeLimit] = useState(initialTimeLimit === null ? '' : String(initialTimeLimit))
   const [practiceAllowed, setPracticeAllowed] = useState(initialPracticeAllowed)
+  const [maxAttempts, setMaxAttempts] = useState(initialMaxAttempts === null ? '' : String(initialMaxAttempts))
+  // A limit set through the API may not be one of the choices: it stays on the list, so saving does not change it.
+  const attemptChoices = initialMaxAttempts === null || ATTEMPT_CHOICES.includes(initialMaxAttempts)
+    ? ATTEMPT_CHOICES
+    : [...ATTEMPT_CHOICES, initialMaxAttempts].sort((a, b) => a - b)
   const [chapterId, setChapterId] = useState(initialChapterId === null ? '' : String(initialChapterId))
   // A quiz for one class may only use that class's chapters (the server checks it too).
   const offered = classId === '' ? chapters : chapters.filter((c) => String(c.schoolClassId) === classId)
@@ -134,6 +145,7 @@ function QuizDialog({
         timeLimitMinutes: timeLimit.trim() === '' ? null : Number(timeLimit),
         practiceAllowed,
         chapterId: chapterId === '' ? null : Number(chapterId),
+        maxAttempts: maxAttempts === '' ? null : Number(maxAttempts),
       })
       onClose()
     } catch (err) {
@@ -202,6 +214,19 @@ function QuizDialog({
           <p className="text-xs text-muted-foreground">
             Cronometrul pornește când elevul începe testul, iar serverul respinge răspunsurile după expirare.
             Încercările deja începute își păstrează timpul inițial.
+          </p>
+        </div>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="qattempts">Câte încercări are elevul</Label>
+          <select id="qattempts" className={selectClass} value={maxAttempts} onChange={(e) => setMaxAttempts(e.target.value)}>
+            {attemptChoices.map((n) => (
+              <option key={n} value={n}>{attemptsLabel(n)}</option>
+            ))}
+            <option value="">Oricâte</option>
+          </select>
+          <p className="text-xs text-muted-foreground">
+            După fiecare încercare elevul vede răspunsurile corecte și baremul. Dacă dai mai multe, contează cea mai mare
+            notă. Practica nu se numără, iar când dai testul ca temă încercările pornesc din nou.
           </p>
         </div>
         <div className="flex flex-col gap-1">
@@ -1207,6 +1232,7 @@ export function AdminQuizzesPage() {
                       <p className="truncate text-xs text-muted-foreground" data-testid="quiz-audience">
                         {q.schoolClassName ? `Clasa: ${q.schoolClassName}` : 'Toți elevii'}
                         {q.timeLimitMinutes !== null && ` · ⏱ ${q.timeLimitMinutes} min`}
+                        {` · ${attemptsLabel(q.maxAttempts)}`}
                         {q.practiceAllowed && ' · practică permisă'}
                       </p>
                       {q.description && <p className="truncate text-sm text-muted-foreground">{q.description}</p>}
@@ -1260,6 +1286,7 @@ export function AdminQuizzesPage() {
           initialClassId={quizDialog.item?.schoolClassId ?? null}
           initialTimeLimit={quizDialog.item?.timeLimitMinutes ?? null}
           initialPracticeAllowed={quizDialog.item?.practiceAllowed ?? false}
+          initialMaxAttempts={quizDialog.item ? quizDialog.item.maxAttempts : ATTEMPT_CHOICES[0]}
           initialChapterId={quizDialog.item?.chapterId ?? null}
           classes={classes}
           chapters={chapters}
