@@ -38,6 +38,15 @@ public interface QuizRepository extends JpaRepository<Quiz, Long> {
             + " and a.status <> ro.mathlms.quiz.QuizAttemptStatus.IN_PROGRESS")
     long countHandedInAttempts(@Param("quizId") Long quizId);
 
+    /** Students writing this quiz now, as a test or a practice: once it is unpublished, whoever leaves cannot come back. */
+    @Query("select count(distinct a.student.id) from QuizAttempt a where a.quiz.id = :quizId"
+            + " and a.status = ro.mathlms.quiz.QuizAttemptStatus.IN_PROGRESS")
+    long countStudentsWriting(@Param("quizId") Long quizId);
+
+    /** How many classes have this quiz as homework. */
+    @Query("select count(a) from Assignment a where a.quiz.id = :quizId")
+    long countHomeworkClasses(@Param("quizId") Long quizId);
+
     /** Classes this quiz is homework for, other than {@code classId}: moving the quiz there would strand them. */
     @Query("select a.schoolClass.name from Assignment a where a.quiz.id = :quizId and a.schoolClass.id <> :classId"
             + " order by a.schoolClass.name")

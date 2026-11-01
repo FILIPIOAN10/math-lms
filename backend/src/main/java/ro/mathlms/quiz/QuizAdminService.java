@@ -232,6 +232,12 @@ public class QuizAdminService {
                 .orElseThrow(() -> new QuizNotFoundException("SchoolClass", schoolClassId));
     }
 
+    /** What the teacher is told before unpublishing: counted at that moment, never remembered from the list. */
+    public QuizDtos.QuizActivityDto getActivity(Long id) {
+        getQuiz(id);
+        return new QuizDtos.QuizActivityDto(quizRepository.countStudentsWriting(id), quizRepository.countHomeworkClasses(id));
+    }
+
     @Transactional
     public Quiz setPublished(Long id, boolean published) {
         Quiz quiz = getQuiz(id);

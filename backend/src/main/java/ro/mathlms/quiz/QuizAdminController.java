@@ -84,6 +84,13 @@ public class QuizAdminController {
         return QuizSummaryDto.from(service.setPublished(id, true));
     }
 
+    /** Who is writing the test now and the classes it is homework for: asked just before unpublishing it. */
+    @GetMapping("/api/admin/quizzes/{id}/activity")
+    public QuizDtos.QuizActivityDto activity(@PathVariable Long id) {
+        scope.requireQuiz(id);
+        return service.getActivity(id);
+    }
+
     @PostMapping("/api/admin/quizzes/{id}/unpublish")
     public QuizSummaryDto unpublish(@PathVariable Long id) {
         scope.requireQuiz(id);

@@ -30,6 +30,7 @@ import {
   getAiGradingSettings,
   getTutorSettings,
   getQuiz,
+  getQuizActivity,
   listChapterOptions,
   listClasses,
   listQuizSummaries,
@@ -920,10 +921,32 @@ export function AdminQuizzesPage() {
   const reloadQuiz = (id: number) => getQuiz(id).then(setQuiz)
   const openBuilder = (id: number) => navigate(`/admin/quizzes/${id}`)
 
-  async function togglePublish(q: QuizSummary | QuizDetail) {
+  /** Asks first, with what it interrupts counted now; without the count the question is still asked. */
+  async function unpublish(q: QuizSummary | QuizDetail) {
     setError(null)
+    const activity = await getQuizActivity(q.id).catch(() => null)
+    const yes = await confirm({
+      title: `Depublici „${q.title}”?`,
+      body: (
+        <span className="block space-y-2">
+          <span className="block">Elevii nu îl mai pot începe și nu îl mai văd în listă.</span>
+          {activity !== null && activity.studentsWriting > 0 && (
+            <span className="block font-medium">
+              {roCount(activity.studentsWriting, 'elev lucrează', 'elevi lucrează')} acum la el: cine are pagina deschisă
+              poate preda, dar cine iese nu mai poate reveni până îl publici din nou.
+            </span>
+          )}
+          {activity !== null && activity.homeworkClasses > 0 && (
+            <span className="block">Tema dată pe acest test dispare de la elevi până îl publici din nou.</span>
+          )}
+        </span>
+      ),
+      confirmLabel: 'Depublică',
+      destructive: true,
+    })
+    if (!yes) return
     try {
-      await setQuizPublished(q.id, q.status !== 'PUBLISHED')
+      await setQuizPublished(q.id, false)
       await reloadList()
       if (quiz && quiz.id === q.id) await reloadQuiz(q.id)
     } catch (e) {
@@ -1005,17 +1028,24 @@ export function AdminQuizzesPage() {
                 }
                 actions={
                   <>
-                    <Button size="sm" variant="outline"
-                            onClick={() => quiz.status === 'PUBLISHED'
-                              ? void togglePublish(quiz)
-                              : setPublishing({ id: quiz.id, title: quiz.title, classId: quizClassId })}
-                            disabled={quiz.status !== 'PUBLISHED' && quiz.items.length === 0}
-                            title={quiz.items.length === 0 ? 'Adaugă cel puțin o întrebare înainte să publici' : undefined}>
-                      {quiz.status === 'PUBLISHED' ? 'Depublică' : 'Publică'}
-                    </Button>
+                    {quiz.status !== 'PUBLISHED' && (
+                      <Button size="sm" variant="outline"
+                              onClick={() => setPublishing({ id: quiz.id, title: quiz.title, classId: quizClassId })}
+                              disabled={quiz.items.length === 0}
+                              title={quiz.items.length === 0 ? 'Adaugă cel puțin o întrebare înainte să publici' : undefined}>
+                        Publică
+                      </Button>
+                    )}
                     <Button size="sm" variant="outline" onClick={() => setImporting(true)}>Importă din text</Button>
                     {aiTools.length > 0 && <RowMenu label="Instrumente AI" text="Instrumente AI" items={aiTools} />}
                     <Button size="sm" onClick={() => setItemDialog({ item: null })}>Adaugă întrebare</Button>
+                    {/* It interrupts students: never the first button, and it asks before doing anything. */}
+                    {quiz.status === 'PUBLISHED' && (
+                      <RowMenu
+                        label={`Mai multe acțiuni pentru ${quiz.title}`}
+                        items={[{ label: 'Depublică', destructive: true, onClick: () => void unpublish(quiz) }]}
+                      />
+                    )}
                   </>
                 }
               />
@@ -1206,7 +1236,7 @@ export function AdminQuizzesPage() {
                         items={[
                           { label: 'Editează detaliile', onClick: () => setQuizDialog({ item: q }) },
                           { label: 'Copiază', onClick: () => void duplicate(q) },
-                          ...(q.status === 'PUBLISHED' ? [{ label: 'Depublică', onClick: () => void togglePublish(q) }] : []),
+                          ...(q.status === 'PUBLISHED' ? [{ label: 'Depublică', onClick: () => void unpublish(q) }] : []),
                           { label: 'Șterge', onClick: () => void removeQuiz(q), destructive: true },
                         ]}
                       />

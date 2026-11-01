@@ -97,6 +97,22 @@ class QuizAdminServiceTest {
     }
 
     @Test
+    void activityCountsWhoIsWritingAndTheHomeworkClasses() {
+        when(quizRepository.findById(1L)).thenReturn(Optional.of(quiz));
+        when(quizRepository.countStudentsWriting(1L)).thenReturn(3L);
+        when(quizRepository.countHomeworkClasses(1L)).thenReturn(2L);
+
+        assertThat(service.getActivity(1L)).isEqualTo(new QuizDtos.QuizActivityDto(3, 2));
+    }
+
+    @Test
+    void activityOfAnUnknownQuizIsNotFound() {
+        when(quizRepository.findById(404L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.getActivity(404L)).isInstanceOf(QuizNotFoundException.class);
+    }
+
+    @Test
     void getQuizThrowsWhenMissing() {
         when(quizRepository.findById(404L)).thenReturn(Optional.empty());
 

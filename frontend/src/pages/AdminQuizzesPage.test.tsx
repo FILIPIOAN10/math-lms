@@ -11,6 +11,7 @@ const api = vi.hoisted(() => ({
   listClasses: vi.fn(),
   getQuiz: vi.fn(),
   setQuizPublished: vi.fn(),
+  getQuizActivity: vi.fn(),
   copyQuiz: vi.fn(),
   deleteQuiz: vi.fn(),
   deleteQuizItem: vi.fn(),
@@ -70,6 +71,59 @@ describe('AdminQuizzesPage', () => {
     ])
     api.getAiImportSettings.mockResolvedValue({ enabled: false, maxPages: 0, dailyPageLimit: 0, pagesUsedToday: 0 })
     api.getAiGradingSettings.mockResolvedValue({ enabled: false, baremMaxPages: 0, baremDailyPageLimit: 0, baremPagesUsedToday: 0 })
+    api.getQuizActivity.mockResolvedValue({ studentsWriting: 0, homeworkClasses: 0 })
+    api.setQuizPublished.mockResolvedValue(summary(7, 'Simulare EN', 'DRAFT'))
+  })
+
+  describe('Depublică', () => {
+    const askFromList = async () => {
+      renderAt('/admin/quizzes')
+      await userEvent.click(within(await row('Simulare EN')).getByRole('button', { name: 'Mai multe acțiuni pentru Simulare EN' }))
+      await userEvent.click(await screen.findByRole('menuitem', { name: 'Depublică' }))
+      return screen.findByRole('dialog', { name: 'Depublici „Simulare EN”?' })
+    }
+
+    it('says who is writing the test and what happens to its homework, and does nothing on "Anulează"', async () => {
+      api.getQuizActivity.mockResolvedValue({ studentsWriting: 3, homeworkClasses: 1 })
+
+      const dialog = await askFromList()
+
+      expect(api.getQuizActivity).toHaveBeenCalledWith(7)
+      expect(dialog).toHaveTextContent('3 elevi lucrează acum la el')
+      expect(dialog).toHaveTextContent('cine iese nu mai poate reveni')
+      expect(dialog).toHaveTextContent('Tema dată pe acest test dispare de la elevi')
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Anulează' }))
+      expect(api.setQuizPublished).not.toHaveBeenCalled()
+    })
+
+    it('unpublishes only on yes', async () => {
+      const dialog = await askFromList()
+
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Depublică' }))
+
+      await waitFor(() => expect(api.setQuizPublished).toHaveBeenCalledWith(7, false))
+    })
+
+    it('still asks when the count cannot be read', async () => {
+      api.getQuizActivity.mockRejectedValue(new Error('offline'))
+
+      const dialog = await askFromList()
+
+      expect(dialog).toHaveTextContent('Elevii nu îl mai pot începe')
+      expect(api.setQuizPublished).not.toHaveBeenCalled()
+    })
+
+    it('in the editor sits behind the last menu, away from the first place', async () => {
+      renderAt('/admin/quizzes/7')
+      await screen.findByText('Cât face 2+2?')
+
+      expect(screen.queryByRole('button', { name: 'Depublică' })).not.toBeInTheDocument()
+      await userEvent.click(screen.getByRole('button', { name: 'Mai multe acțiuni pentru Simulare EN' }))
+      await userEvent.click(await screen.findByRole('menuitem', { name: 'Depublică' }))
+
+      expect(await screen.findByRole('dialog', { name: 'Depublici „Simulare EN”?' })).toBeInTheDocument()
+      expect(api.setQuizPublished).not.toHaveBeenCalled()
+    })
   })
 
   it('says which grile still wait for their answer, and where it comes from', async () => {

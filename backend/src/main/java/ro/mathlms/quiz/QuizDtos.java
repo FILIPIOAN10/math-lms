@@ -23,6 +23,10 @@ public final class QuizDtos {
         }
     }
 
+    /** What unpublishing a quiz would interrupt: the students writing it now and the classes it is homework for. */
+    public record QuizActivityDto(long studentsWriting, long homeworkClasses) {
+    }
+
     /** One answer choice. {@code correct} is exposed here because this is the ADMIN view. */
     public record OptionDto(Long id, int position, String text, boolean correct) {
         public static OptionDto from(QuizOption option) {

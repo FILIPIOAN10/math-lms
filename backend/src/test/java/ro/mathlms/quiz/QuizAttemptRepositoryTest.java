@@ -199,6 +199,33 @@ class QuizAttemptRepositoryTest {
     }
 
     @Test
+    void countsEachStudentWritingAQuizOnceAndNobodyWhoHandedIn() {
+        Quiz quiz = quizRepository.save(new Quiz("Simulare EN", null));
+        Quiz other = quizRepository.save(new Quiz("Alt test", null));
+        User ana = student("ana.scrie@scoala.ro");
+        quizAttemptRepository.saveAndFlush(new QuizAttempt(quiz, ana));
+        quizAttemptRepository.saveAndFlush(new QuizAttempt(quiz, ana, java.time.Instant.now(), AttemptMode.PRACTICE)); // same student
+        quizAttemptRepository.saveAndFlush(new QuizAttempt(quiz, student("dan.scrie@scoala.ro")));
+        quizAttemptRepository.saveAndFlush(new QuizAttempt(other, student("eva.scrie@scoala.ro"))); // another test
+        QuizAttempt handedIn = new QuizAttempt(quiz, student("ion.scrie@scoala.ro"));
+        handedIn.submit();
+        quizAttemptRepository.saveAndFlush(handedIn);
+
+        assertThat(quizRepository.countStudentsWriting(quiz.getId())).isEqualTo(2);
+    }
+
+    @Test
+    void countsTheClassesAQuizIsHomeworkFor() {
+        Quiz quiz = quizRepository.save(new Quiz("Simulare EN", null));
+        jdbc.update("insert into school_classes (name) values ('Clasa pentru temă')");
+        Long classId = jdbc.queryForObject("select id from school_classes where name = 'Clasa pentru temă'", Long.class);
+        jdbc.update("insert into assignments (quiz_id, school_class_id, due_at, created_at) values (?, ?, now(), now())",
+                quiz.getId(), classId);
+
+        assertThat(quizRepository.countHomeworkClasses(quiz.getId())).isEqualTo(1);
+    }
+
+    @Test
     void gradedScoresAndPerItemStatsOfAQuiz() {
         Quiz quiz = quizRepository.save(new Quiz("Simulare EN", null));
         QuizItem grila = quizItemRepository.save(new QuizItem(quiz, 1, QuizItemType.SINGLE_CHOICE, "g", 5, null));

@@ -835,6 +835,17 @@ export async function listQuizzes(): Promise<QuizSummary[]> {
   return response.json()
 }
 
+/** What unpublishing a quiz would interrupt, counted now. */
+export interface QuizActivity {
+  studentsWriting: number
+  homeworkClasses: number
+}
+
+export async function getQuizActivity(quizId: number): Promise<QuizActivity> {
+  const response = await apiFetch(`/admin/quizzes/${quizId}/activity`)
+  return response.json()
+}
+
 // ----- Teacher analytics (Phase 5.4) -----
 
 export interface QuizStatsBucket {
