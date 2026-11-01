@@ -268,6 +268,9 @@ export function AdminGradingPage({ aiPollMs = AI_POLL_MS }: { aiPollMs?: number 
   // `?attempt=12` opens that paper straight away (links from a student's page).
   const [searchParams, setSearchParams] = useSearchParams()
   const linkedAttempt = Number(searchParams.get('attempt')) || null
+  // A paper already on screen when the address catches up with it: not fetched a second time.
+  const shownAlready = useRef<number | undefined>(undefined)
+  const loadTurn = useRef(0)
 
   /** Whether "Mai vechi" may bring more graded papers (the last page came back full). */
   const [more, setMore] = useState(false)
@@ -303,8 +306,14 @@ export function AdminGradingPage({ aiPollMs = AI_POLL_MS }: { aiPollMs?: number 
     }
   }, [filter])
 
+  // The address says which paper is open, so Back returns to the queue and a refresh stays on the paper.
   useEffect(() => {
-    if (linkedAttempt !== null) void open(linkedAttempt)
+    if (shownAlready.current === linkedAttempt) {
+      shownAlready.current = undefined
+      return
+    }
+    if (linkedAttempt === null) setDetail(null)
+    else void loadPaper(linkedAttempt)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only when the address names another paper
   }, [linkedAttempt])
 
@@ -324,22 +333,36 @@ export function AdminGradingPage({ aiPollMs = AI_POLL_MS }: { aiPollMs?: number 
     }
   }
 
-  /** Back to the queue; also forgets a paper named in the address, so a refresh does not reopen it. */
-  function closeDetail() {
-    setDetail(null)
-    if (linkedAttempt !== null) setSearchParams({}, { replace: true })
+  /** Back to the queue. `replace`: the paper is finished with, so Back does not lead to it again. */
+  function closeDetail(replace = false) {
+    setSearchParams({}, { replace })
   }
 
-  async function open(attemptId: number) {
+  async function loadPaper(attemptId: number) {
     setError(null)
     setNotice(null)
+    const turn = ++loadTurn.current
     try {
       const paper = await getAttemptForGrading(attemptId)
+      if (turn !== loadTurn.current) return // the address moved on while this one was on its way
       setStatuses({}) // the forms of the paper before are gone
       setDetail(paper)
     } catch (e) {
       setError(errorMessage(e))
     }
+  }
+
+  /** Opens a paper from the list: the address changes, and the effect above loads it. */
+  function open(attemptId: number) {
+    setSearchParams({ attempt: String(attemptId) })
+  }
+
+  /** The next paper, or one taken back: loaded first, so the queue never flashes up and the buttons stay busy. */
+  async function goToPaper(attemptId: number, replace = false) {
+    await loadPaper(attemptId)
+    if (attemptId === linkedAttempt) return
+    shownAlready.current = attemptId
+    setSearchParams({ attempt: String(attemptId) }, { replace })
   }
 
   async function finalize(then: 'list' | 'next') {
@@ -356,9 +379,9 @@ export function AdminGradingPage({ aiPollMs = AI_POLL_MS }: { aiPollMs?: number 
       const after = before.slice(before.indexOf(detail.attemptId) + 1)
       const next = remaining.find((a) => after.includes(a.attemptId)) ?? remaining[0]
       if (then === 'next' && next) {
-        await open(next.attemptId)
+        await goToPaper(next.attemptId, true)
       } else {
-        closeDetail()
+        closeDetail(true)
         if (then === 'next') setNotice('Gata — nu mai e nicio lucrare de corectat. 🎉')
       }
     } catch (e) {
@@ -380,7 +403,7 @@ export function AdminGradingPage({ aiPollMs = AI_POLL_MS }: { aiPollMs?: number 
       setUndoable(null)
       window.dispatchEvent(new Event(NAV_COUNTS_CHANGED))
       await reloadList()
-      await open(attemptId)
+      await goToPaper(attemptId)
     } catch (e) {
       setError(errorMessage(e))
     }
@@ -465,7 +488,7 @@ export function AdminGradingPage({ aiPollMs = AI_POLL_MS }: { aiPollMs?: number 
             { label: 'Corectură', onClick: () => { setByItem(null); void reloadList() } },
             { label: `${byItem.quizTitle} — pe întrebare` },
           ] : detail ? [
-            { label: 'Corectură', onClick: closeDetail },
+            { label: 'Corectură', onClick: () => closeDetail() },
             { label: `${detail.studentName} — ${detail.quizTitle}` },
           ] : undefined}
         />

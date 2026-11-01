@@ -5,6 +5,7 @@ import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { AdminRoute } from '@/components/AdminRoute'
 import { AppShell } from '@/components/AppShell'
 import { RoleRoute } from '@/components/RoleRoute'
+import { ScrollToTop } from '@/components/ScrollToTop'
 import { LoginPage } from '@/pages/LoginPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
@@ -57,6 +58,7 @@ function LoginRoute() {
 function App() {
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <AuthProvider>
         <Suspense fallback={<p className="p-4 text-muted-foreground">Se încarcă...</p>}>
           <Routes>

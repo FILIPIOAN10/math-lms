@@ -1,6 +1,6 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, useLocation, useNavigate } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AdminGradingPage } from '@/pages/AdminGradingPage'
 import type { AdminAttemptDetail, AdminAttemptSummary } from '@/lib/api'
@@ -38,10 +38,22 @@ const detail = (over: Partial<AdminAttemptDetail> = {}): AdminAttemptDetail => (
   ...over,
 })
 
+function Address() {
+  const { pathname, search } = useLocation()
+  const navigate = useNavigate()
+  return (
+    <>
+      <p data-testid="address">{pathname + search}</p>
+      <button onClick={() => navigate(-1)}>Back</button>
+    </>
+  )
+}
+
 function renderPage(path = '/admin/grading') {
   return render(
-    <MemoryRouter initialEntries={[path]}>
+    <MemoryRouter initialEntries={['/', path]} initialIndex={1}>
       <AdminGradingPage />
+      <Address />
     </MemoryRouter>,
   )
 }
@@ -276,6 +288,70 @@ describe('AdminGradingPage', () => {
 
     expect(await screen.findByText('Rezolvă')).toBeInTheDocument()
     expect(api.getAttemptForGrading).toHaveBeenCalledWith(50)
+  })
+
+  it('puts the open paper in the address, and Back returns to the queue', async () => {
+    await openAttempt()
+    expect(screen.getByTestId('address')).toHaveTextContent('/admin/grading?attempt=50')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Back' }))
+
+    expect(await screen.findByRole('heading', { name: 'Corectură' })).toBeInTheDocument()
+    expect(screen.getByTestId('address')).toHaveTextContent(/^\/admin\/grading$/)
+    expect(screen.queryByText('Rezolvă')).not.toBeInTheDocument()
+  })
+
+  it('goes back to the queue from the breadcrumb, leaving the address clean', async () => {
+    await openAttempt()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Corectură' }))
+
+    expect(await screen.findByRole('heading', { name: 'Corectură' })).toBeInTheDocument()
+    expect(screen.getByTestId('address')).toHaveTextContent(/^\/admin\/grading$/)
+  })
+
+  it('keeps the address on the next paper, so a refresh stays on it, and Back goes to the queue', async () => {
+    const graded = (id: number, name: string) => {
+      const d = detail({ attemptId: id, studentName: name })
+      d.items[0] = { ...d.items[0], awardedPoints: 3 }
+      return d
+    }
+    api.listAttemptsForGrading.mockResolvedValue([row({ attemptId: 50 }), row({ attemptId: 51, studentName: 'Radu' })])
+    api.getAttemptForGrading.mockImplementation((id: number) => Promise.resolve(graded(id, id === 50 ? 'Ana' : 'Radu')))
+    api.finalizeGrading.mockResolvedValue(undefined)
+    renderPage()
+    await userEvent.click((await screen.findAllByTestId('attempt-open'))[0])
+    await screen.findByRole('heading', { name: 'Ana — Simulare EN' })
+
+    api.listAttemptsForGrading.mockResolvedValue([row({ attemptId: 51, studentName: 'Radu' })])
+    api.getAttemptForGrading.mockClear()
+    await userEvent.click(await screen.findByTestId('grade-finalize-next'))
+    await screen.findByRole('heading', { name: 'Radu — Simulare EN' })
+
+    expect(screen.getByTestId('address')).toHaveTextContent('/admin/grading?attempt=51')
+    expect(api.getAttemptForGrading).toHaveBeenCalledTimes(1) // not fetched again when the address caught up
+
+    await userEvent.click(screen.getByRole('button', { name: 'Back' }))
+    expect(await screen.findByRole('heading', { name: 'Corectură' })).toBeInTheDocument()
+  })
+
+  it('keeps the older paper off screen when a slow answer arrives after the address moved on', async () => {
+    let answerOld: (d: AdminAttemptDetail) => void = () => undefined
+    api.getAttemptForGrading.mockImplementation((id: number) => (id === 50
+      ? new Promise((resolve) => { answerOld = resolve })
+      : Promise.resolve(detail({ attemptId: 51, studentName: 'Radu' }))))
+    api.listAttemptsForGrading.mockResolvedValue([row({ attemptId: 50 }), row({ attemptId: 51, studentName: 'Radu' })])
+    renderPage()
+
+    const [first, second] = await screen.findAllByTestId('attempt-open')
+    await userEvent.click(first)
+    await userEvent.click(second)
+    await screen.findByRole('heading', { name: 'Radu — Simulare EN' })
+
+    answerOld(detail({ attemptId: 50, studentName: 'Ana' }))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(screen.getByRole('heading', { name: 'Radu — Simulare EN' })).toBeInTheDocument()
   })
 
   it('goes straight on to the next paper waiting, without the list', async () => {
