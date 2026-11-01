@@ -1,5 +1,6 @@
 package ro.mathlms.quiz;
 
+import ro.mathlms.content.SchoolClass;
 import java.time.Instant;
 import java.util.List;
 
@@ -22,9 +23,11 @@ public final class AdminAttemptDtos {
             QuizAttemptStatus status,
             Instant submittedAt,
             Integer score,
-            int maxScore
+            int maxScore,
+            String schoolClassName // the class the test is for; null = a test for every student
     ) {
         public static AdminAttemptSummaryDto from(QuizAttempt attempt, int maxScore) {
+            SchoolClass schoolClass = attempt.getQuiz().getSchoolClass();
             return new AdminAttemptSummaryDto(
                     attempt.getId(),
                     attempt.getQuiz().getId(),
@@ -34,7 +37,8 @@ public final class AdminAttemptDtos {
                     attempt.getStatus(),
                     attempt.getSubmittedAt(),
                     attempt.getScore(),
-                    maxScore);
+                    maxScore,
+                    schoolClass == null ? null : schoolClass.getName());
         }
     }
 

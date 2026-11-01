@@ -26,7 +26,7 @@ vi.mock('@/lib/api', async (original) => ({ ...(await original<typeof import('@/
 
 const row = (over: Partial<AdminAttemptSummary> = {}): AdminAttemptSummary => ({
   attemptId: 50, quizId: 1, quizTitle: 'Simulare EN', studentId: 4, studentName: 'Ana', status: 'SUBMITTED',
-  submittedAt: '2026-10-09T10:00:00Z', score: null, maxScore: 11, ...over,
+  submittedAt: '2026-10-09T10:00:00Z', score: null, maxScore: 11, schoolClassName: 'Clasa a 8-a A', ...over,
 })
 const detail = (over: Partial<AdminAttemptDetail> = {}): AdminAttemptDetail => ({
   attemptId: 50, quizTitle: 'Simulare EN', studentName: 'Ana', status: 'SUBMITTED', submittedAt: '2026-10-09T10:00:00Z',
@@ -333,6 +333,75 @@ describe('AdminGradingPage', () => {
     await openAttempt(d)
 
     expect(screen.queryByTestId('grade-zero')).not.toBeInTheDocument()
+  })
+
+  describe('căutare în lucrări', () => {
+    const papers = () => [
+      row({ attemptId: 1, studentName: 'Ana Pop', quizTitle: 'Simulare EN', quizId: 1 }),
+      row({ attemptId: 2, studentName: 'Ștefan Rus', quizTitle: 'Simulare EN', quizId: 1 }),
+      row({ attemptId: 3, studentName: 'Radu Ene', quizTitle: 'Fracții', quizId: 2, schoolClassName: 'Clasa a 7-a B' }),
+      row({ attemptId: 4, studentName: 'Mara Ilie', quizTitle: 'Fracții', quizId: 2, schoolClassName: 'Clasa a 7-a B' }),
+      row({ attemptId: 5, studentName: 'Dan Toma', quizTitle: 'Procente', quizId: 3, schoolClassName: null }),
+    ]
+
+    it('names the class of each paper', async () => {
+      renderPage()
+      expect(await screen.findByTestId('attempt-class')).toHaveTextContent('Clasa a 8-a A')
+    })
+
+    it('finds a student, even typed without diacritics', async () => {
+      api.listAttemptsForGrading.mockResolvedValue(papers())
+      renderPage()
+
+      await userEvent.type(await screen.findByRole('searchbox', { name: 'Caută elev, test sau clasă' }), 'stefan')
+
+      expect(screen.getAllByTestId('attempt-row')).toHaveLength(1)
+      expect(screen.getByTestId('attempt-row')).toHaveTextContent('Ștefan Rus')
+      expect(within(screen.getByTestId('filter-bar')).getByRole('status')).toHaveTextContent('1 din 5')
+    })
+
+    it('narrows the queue to a class, and what "pe întrebare" grades with it', async () => {
+      api.listAttemptsForGrading.mockResolvedValue(papers())
+      renderPage()
+
+      await userEvent.selectOptions(await screen.findByRole('combobox', { name: 'Clasa' }), 'Clasa a 7-a B')
+
+      expect(screen.getAllByTestId('attempt-row')).toHaveLength(2)
+      expect(screen.getByTestId('quiz-group')).toHaveTextContent('Fracții')
+    })
+
+    it('says when nothing matches, and clears from there', async () => {
+      api.listAttemptsForGrading.mockResolvedValue(papers())
+      renderPage()
+
+      await userEvent.type(await screen.findByRole('searchbox', { name: 'Caută elev, test sau clasă' }), 'nimeni')
+      expect(screen.getByTestId('no-matches')).toBeInTheDocument()
+
+      await userEvent.click(within(screen.getByTestId('no-matches')).getByRole('button', { name: 'Șterge filtrele' }))
+      expect(screen.getAllByTestId('attempt-row')).toHaveLength(5)
+    })
+
+    it('offers no search on a short queue', async () => {
+      renderPage()
+      await screen.findByTestId('attempt-row')
+      expect(screen.queryByTestId('filter-bar')).not.toBeInTheDocument()
+    })
+
+    it('still goes on to the next paper of the whole queue while it is filtered', async () => {
+      api.listAttemptsForGrading.mockResolvedValue(papers())
+      const paper = (id: number) => {
+        const d = detail({ attemptId: id, studentName: `Elev ${id}` })
+        d.items[0] = { ...d.items[0], awardedPoints: 3 }
+        return d
+      }
+      api.getAttemptForGrading.mockImplementation((id: number) => Promise.resolve(paper(id)))
+      api.finalizeGrading.mockResolvedValue(undefined)
+      renderPage()
+      await userEvent.type(await screen.findByRole('searchbox', { name: 'Caută elev, test sau clasă' }), 'ana')
+      await userEvent.click(screen.getByTestId('attempt-open'))
+
+      expect(await screen.findByTestId('grade-finalize-next')).toHaveTextContent('(4 rămase)')
+    })
   })
 
   it('offers to try again when the queue could not load', async () => {

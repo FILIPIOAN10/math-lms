@@ -91,7 +91,7 @@ public interface QuizAttemptRepository extends JpaRepository<QuizAttempt, Long> 
     boolean existsByStudentIdInAndQuizId(java.util.Collection<Long> studentIds, Long quizId);
 
     /** The teacher's grading queue: attempts in one status, with quiz + student fetched up front. */
-    @Query("select a from QuizAttempt a join fetch a.quiz join fetch a.student "
+    @Query("select a from QuizAttempt a join fetch a.quiz q left join fetch q.schoolClass join fetch a.student "
             + "where a.status = :status and a.mode = ro.mathlms.quiz.AttemptMode.TEST order by a.submittedAt asc")
     List<QuizAttempt> findByStatusForGrading(@Param("status") QuizAttemptStatus status);
 
@@ -100,7 +100,7 @@ public interface QuizAttemptRepository extends JpaRepository<QuizAttempt, Long> 
      * last id of the page before, null for the first page), so a page never shifts while grades come in. A teacher's
      * own tests only ({@code teacherId}), filtered here so every page is full; null = every test (an ADMIN).
      */
-    @Query("select a from QuizAttempt a join fetch a.quiz q join fetch a.student "
+    @Query("select a from QuizAttempt a join fetch a.quiz q left join fetch q.schoolClass join fetch a.student "
             + "where a.status = ro.mathlms.quiz.QuizAttemptStatus.GRADED and a.mode = ro.mathlms.quiz.AttemptMode.TEST "
             + "and (:teacherId is null or q.teacherId = :teacherId) and (:beforeId is null or a.id < :beforeId) "
             + "order by a.id desc")

@@ -849,6 +849,16 @@ export async function listQuizzes(): Promise<QuizSummary[]> {
   return response.json()
 }
 
+/** One place up or down, inside the question's section. */
+export async function moveQuizItem(itemId: number, up: boolean): Promise<void> {
+  await postJson(`/admin/quiz-items/${itemId}/move?up=${up}`, {})
+}
+
+/** A copy of the question, right under it. */
+export async function duplicateQuizItem(itemId: number): Promise<void> {
+  await postJson(`/admin/quiz-items/${itemId}/copy`, {})
+}
+
 /** What unpublishing a quiz would interrupt, counted now. */
 export interface QuizActivity {
   studentsWriting: number
@@ -1576,6 +1586,8 @@ export interface AdminAttemptSummary {
   submittedAt: string | null
   score: number | null
   maxScore: number
+  /** The class the test is for; null = a test for every student. */
+  schoolClassName: string | null
 }
 
 export interface AdminItemReview {

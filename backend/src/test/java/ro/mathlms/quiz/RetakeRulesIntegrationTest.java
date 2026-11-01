@@ -184,6 +184,18 @@ class RetakeRulesIntegrationTest {
     }
 
     @Test
+    void theGradingQueueNamesTheClassOfTheTest() {
+        grileTest(null);
+        itemRepository.save(new QuizItem(quiz, 3, QuizItemType.OPEN, "d", 5, null));
+        Long attempt = attemptService.startAttempt(quiz.getId(), ana.getEmail()).attemptId();
+        attemptService.submit(attempt, ana.getEmail());
+
+        assertThat(attemptService.listForGrading(QuizAttemptStatus.SUBMITTED))
+                .filteredOn(row -> row.attemptId().equals(attempt))
+                .singleElement().satisfies(row -> assertThat(row.schoolClassName()).isEqualTo(schoolClass.getName()));
+    }
+
+    @Test
     void everyAverageCountsAStudentOnceWithTheirHighestGrade() {
         grileTest(null);
         take(ana, true, false); // 5 of 10

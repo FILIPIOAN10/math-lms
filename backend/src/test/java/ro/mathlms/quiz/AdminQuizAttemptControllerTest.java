@@ -176,7 +176,7 @@ class AdminQuizAttemptControllerTest {
     @WithMockUser(roles = "ADMIN")
     void listDefaultsToSubmittedQueue() throws Exception {
         when(service.listForGrading(QuizAttemptStatus.SUBMITTED)).thenReturn(List.of(
-                new AdminAttemptSummaryDto(1L, 10L, "Simulare EN", 5L, "Ana", QuizAttemptStatus.SUBMITTED, null, null, 35)));
+                new AdminAttemptSummaryDto(1L, 10L, "Simulare EN", 5L, "Ana", QuizAttemptStatus.SUBMITTED, null, null, 35, "Clasa a 8-a")));
 
         mockMvc.perform(get("/api/admin/quiz/attempts"))
                 .andExpect(status().isOk())

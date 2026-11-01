@@ -193,7 +193,7 @@ describe('DashboardPage — teacher', () => {
   })
   const submitted = (id: number, studentName: string): AdminAttemptSummary => ({
     attemptId: id, quizId: 1, quizTitle: 'Simulare EN', studentId: id, studentName, status: 'SUBMITTED',
-    submittedAt: inDays(-1), score: null, maxScore: 11,
+    submittedAt: inDays(-1), score: null, maxScore: 11, schoolClassName: null,
   })
 
   beforeEach(() => {

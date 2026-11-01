@@ -8,6 +8,7 @@ import { AttemptStatusBadge } from '@/components/AttemptStatusBadge'
 import { MathContent } from '@/components/MathContent'
 import { PhotoPages } from '@/components/PhotoPages'
 import { QuestionImage } from '@/components/QuestionImage'
+import { FilterBar, FilterSelect, NoMatches } from '@/components/FilterBar'
 import { GradeByItem } from '@/components/GradeByItem'
 import { useConfirm } from '@/components/useConfirm'
 import { ItemGradeForm } from '@/components/grading/ItemGradeForm'
@@ -35,6 +36,7 @@ import {
 import { errorMessage } from '@/lib/errors'
 import { scoreLine } from '@/lib/grades'
 import { roCount } from '@/lib/format'
+import { FILTER_FROM, matchesQuery } from '@/lib/search'
 import { NAV_COUNTS_CHANGED } from '@/lib/roles'
 import { PageHeader } from '@/components/PageHeader'
 import { useAutosave, type SaveStatus } from '@/lib/useAutosave'
@@ -216,6 +218,8 @@ function groupByQuiz(attempts: AdminAttemptSummary[]): { quizId: number; quizTit
 export function AdminGradingPage({ aiPollMs = AI_POLL_MS }: { aiPollMs?: number } = {}) {
   const [filter, setFilter] = useState<QuizAttemptStatus>('SUBMITTED')
   const [attempts, setAttempts] = useState<AdminAttemptSummary[]>([])
+  const [query, setQuery] = useState('')
+  const [classFilter, setClassFilter] = useState('')
   const [detail, setDetail] = useState<AdminAttemptDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [finalizing, setFinalizing] = useState(false)
@@ -420,6 +424,17 @@ export function AdminGradingPage({ aiPollMs = AI_POLL_MS }: { aiPollMs?: number 
       confirmLabel: 'Redeschide',
     })
     if (yes) await reopen(attemptId)
+  }
+
+  const filtering = query.trim() !== '' || classFilter !== ''
+  const classNames = [...new Set(attempts.map((a) => a.schoolClassName).filter((n): n is string => n !== null))]
+    .sort((a, b) => a.localeCompare(b, 'ro', { numeric: true }))
+  const visibleAttempts = attempts.filter((a) =>
+    matchesQuery(query, a.studentName, a.quizTitle, a.schoolClassName)
+    && (classFilter === '' || a.schoolClassName === classFilter))
+  const clearFilters = () => {
+    setQuery('')
+    setClassFilter('')
   }
 
   const allOpenGraded = detail?.items.every((i) => i.type !== 'OPEN' || i.awardedPoints !== null) ?? false
@@ -663,12 +678,33 @@ export function AdminGradingPage({ aiPollMs = AI_POLL_MS }: { aiPollMs?: number 
               </select>
             </div>
             {loading && <LoadingCards />}
-            {!loading && filter === 'SUBMITTED' && attempts.length > 0 && (
+            {!loading && attempts.length >= FILTER_FROM && (
+              <FilterBar
+                label="Caută elev, test sau clasă"
+                search={query}
+                onSearch={setQuery}
+                active={filtering}
+                onClear={clearFilters}
+                shown={visibleAttempts.length}
+                total={attempts.length}
+              >
+                {classNames.length > 1 && (
+                  <FilterSelect
+                    label="Clasa"
+                    value={classFilter}
+                    onChange={setClassFilter}
+                    options={[{ value: '', label: 'Toate clasele' }, ...classNames.map((name) => ({ value: name, label: name }))]}
+                  />
+                )}
+              </FilterBar>
+            )}
+            {!loading && attempts.length > 0 && visibleAttempts.length === 0 && <NoMatches onClear={clearFilters} />}
+            {!loading && filter === 'SUBMITTED' && visibleAttempts.length > 0 && (
               <section aria-label="Pe întrebare" className="space-y-2">
                 <p className="text-sm text-muted-foreground">
                   Mai repede și mai unitar: aceeași întrebare la toate lucrările unui test, una după alta.
                 </p>
-                {groupByQuiz(attempts).map((g) => (
+                {groupByQuiz(visibleAttempts).map((g) => (
                   <Card key={g.quizId}>
                     <CardContent data-testid="quiz-group" className="flex flex-wrap items-center justify-between gap-3 py-3">
                       <p className="font-medium">
@@ -690,13 +726,14 @@ export function AdminGradingPage({ aiPollMs = AI_POLL_MS }: { aiPollMs?: number 
               </p>
             )}
             <div className="space-y-2">
-              {attempts.map((a) => (
+              {visibleAttempts.map((a) => (
                 <Card key={a.attemptId}>
                   <CardContent data-testid="attempt-row" className="flex items-center justify-between gap-3 py-3">
                     <div className="min-w-0 space-y-1">
                       <p className="truncate font-medium">{a.studentName} — {a.quizTitle}</p>
                       <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                         <AttemptStatusBadge status={a.status} />
+                        {a.schoolClassName && <span data-testid="attempt-class">{a.schoolClassName}</span>}
                         <span>{formatDate(a.submittedAt)}</span>
                         {a.score !== null && <span className="text-foreground">{scoreLine(a.score, a.maxScore)}</span>}
                       </p>
