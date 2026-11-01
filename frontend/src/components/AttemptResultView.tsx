@@ -12,6 +12,8 @@ import { SectionHeadingView } from '@/components/SectionHeadingView'
 import { numberItems } from '@/lib/sections'
 import { ownPhotoUrl, type AttemptResultViewDto, type ItemResultDto } from '@/lib/api'
 import { roCount } from '@/lib/format'
+import { readingTextClass } from '@/lib/formClasses'
+import { cn } from '@/lib/utils'
 import { Confetti } from '@/components/Confetti'
 import { GradeFigure } from '@/components/GradeFigure'
 import { celebrateFirstTen } from '@/lib/celebrate'
@@ -133,7 +135,7 @@ function ItemResult({
 
   return (
     <Card>
-      <CardContent className="space-y-3 py-4">
+      <CardContent className={cn('space-y-3 py-4', readingTextClass)}>
         <div className="flex items-center justify-between gap-2">
           <p id={itemTitleId(item.itemId)} tabIndex={-1} className="scroll-mt-4 text-sm font-medium outline-none">{title}</p>
           <span className="text-sm text-muted-foreground">{points}</span>
@@ -156,7 +158,7 @@ function ItemResult({
         )}
 
         {item.type === 'SINGLE_CHOICE' ? (
-          <div className="space-y-1 text-sm">
+          <div className="space-y-1 text-sm max-sm:text-base">
             <p className={item.correct ? 'text-emerald-700 dark:text-emerald-300' : 'text-destructive'}>
               {item.correct ? '✓ ' : '✗ '}
               {own ? 'Răspunsul tău:' : 'Răspunsul elevului:'}{' '}
@@ -165,14 +167,14 @@ function ItemResult({
               ) : (
                 <>
                   {item.selectedOptionLetter && `${item.selectedOptionLetter}) `}
-                  <MathContent inline>{item.selectedOptionText}</MathContent>
+                  <MathContent inline large>{item.selectedOptionText}</MathContent>
                 </>
               )}
             </p>
             {!item.correct && item.correctOptionText !== null && (
               <p>
                 Răspuns corect: {item.correctOptionLetter && `${item.correctOptionLetter}) `}
-                <MathContent inline>{item.correctOptionText}</MathContent>
+                <MathContent inline large>{item.correctOptionText}</MathContent>
               </p>
             )}
           </div>

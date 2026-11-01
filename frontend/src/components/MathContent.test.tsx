@@ -2,6 +2,21 @@ import { render } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { MathContent } from '@/components/MathContent'
 
+describe('MathContent large', () => {
+  const fraction = '$\\frac{3}{4}$'
+
+  it('shrinks a fraction inside a line, as KaTeX does by default', () => {
+    const { container } = render(<MathContent inline>{fraction}</MathContent>)
+    expect(container.querySelector('.mfrac .mtight')).not.toBeNull()
+  })
+
+  it('sets the digits of a fraction at full size in an answer', () => {
+    const { container } = render(<MathContent inline large>{fraction}</MathContent>)
+    expect(container.querySelector('.mfrac')).not.toBeNull()
+    expect(container.querySelector('.mfrac .mtight')).toBeNull()
+  })
+})
+
 describe('MathContent', () => {
   it('is a block (a div) by default and renders the math with KaTeX', () => {
     const { container } = render(<MathContent>{'Rezolvă $x^2 = 4$.'}</MathContent>)

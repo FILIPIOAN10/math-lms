@@ -11,6 +11,8 @@ import { QuestionImage } from '@/components/QuestionImage'
 import { SectionHeadingView } from '@/components/SectionHeadingView'
 import { getQuiz, type QuizDetail } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
+import { optionRadioClass, optionRowClass, readingTextClass } from '@/lib/formClasses'
+import { cn } from '@/lib/utils'
 import { numberItems } from '@/lib/sections'
 import { usePageTitle } from '@/lib/usePageTitle'
 
@@ -61,7 +63,7 @@ export function AdminQuizPreviewPage() {
               <Fragment key={item.id}>
                 {heading && <SectionHeadingView heading={heading} />}
                 <Card data-testid="preview-item">
-                  <CardContent className="space-y-3 py-4">
+                  <CardContent className={cn('space-y-3 py-4', readingTextClass)}>
                     <h2 className="text-sm font-medium">
                       {label.includes('.') ? `${local}. (${item.points} p)` : `Întrebarea ${label} · ${item.points} p`}
                     </h2>
@@ -71,10 +73,10 @@ export function AdminQuizPreviewPage() {
                     {item.type === 'SINGLE_CHOICE' ? (
                       <div className="space-y-2">
                         {item.options.map((option, index) => (
-                          <label key={option.id} className="flex items-center gap-3 rounded-lg border border-border p-2 text-sm">
-                            <input type="radio" name={`item-${item.id}`} className="size-4 shrink-0" disabled />
+                          <label key={option.id} className={cn(optionRowClass, 'border-border')}>
+                            <input type="radio" name={`item-${item.id}`} className={optionRadioClass} disabled />
                             <OptionLetter index={index} />
-                            <MathContent inline>{option.text}</MathContent>
+                            <MathContent inline large>{option.text}</MathContent>
                           </label>
                         ))}
                       </div>

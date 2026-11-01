@@ -39,6 +39,7 @@ import { storedPending } from '@/lib/answerQueue'
 import { useAnswerSync } from '@/lib/useAnswerSync'
 import { cn } from '@/lib/utils'
 import { usePageTitle } from '@/lib/usePageTitle'
+import { optionRadioClass, optionRowClass, readingTextClass } from '@/lib/formClasses'
 
 const MAX_UPLOAD_BYTES = 8 * 1024 * 1024 // matches spring.servlet.multipart.max-file-size
 
@@ -648,7 +649,7 @@ export function TakeQuizPage() {
           <Fragment key={item.id}>
           {heading && <SectionHeadingView heading={heading} />}
           <Card className="scroll-mt-14" data-item-id={item.id}>
-            <CardContent className="space-y-3 py-4">
+            <CardContent className={cn('space-y-3 py-4', readingTextClass)}>
               <h2 id={headingId(item.id)} tabIndex={-1} className="scroll-mt-14 text-sm font-medium outline-none">
                 {label.includes('.') ? `${local}. (${item.points} p)` : `Întrebarea ${label} · ${item.points} p`}
               </h2>
@@ -665,7 +666,7 @@ export function TakeQuizPage() {
                     return (
                     <label
                       key={option.id}
-                      className={`flex cursor-pointer items-center gap-3 rounded-lg border p-2 text-sm ${
+                      className={`${optionRowClass} cursor-pointer ${
                         isRight
                           ? 'border-emerald-500 bg-emerald-500/10'
                           : isWrongPick
@@ -678,13 +679,13 @@ export function TakeQuizPage() {
                       <input
                         type="radio"
                         name={`item-${item.id}`}
-                        className="size-4 shrink-0"
+                        className={optionRadioClass}
                         checked={selected[item.id] === option.id}
                         disabled={timeUp}
                         onChange={() => choose(item.id, option.id)}
                       />
                       <OptionLetter index={optionIndex} />
-                      <MathContent inline>{option.text}</MathContent>
+                      <MathContent inline large>{option.text}</MathContent>
                       {/* A sign as well as a colour: the verdict must not depend on telling green from red. */}
                       {isRight && (
                         <span className="ml-auto font-semibold text-emerald-700 dark:text-emerald-300">

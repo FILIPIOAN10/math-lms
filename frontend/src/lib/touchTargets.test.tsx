@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { selectClass } from '@/lib/formClasses'
+import { optionRowClass, readingTextClass, selectClass } from '@/lib/formClasses'
 
 /* On a phone every button and box is at least 44 px tall (Apple / WCAG AAA target size); from 640 px up the compact
  * desktop sizes stay. A box's text is 16 px there, or iPhone zooms the page in when it gets focus. */
@@ -12,6 +12,12 @@ describe('touch targets on a phone', () => {
     for (const size of ['default', 'xs', 'sm', 'lg', 'icon', 'icon-xs', 'icon-sm', 'icon-lg'] as const) {
       expect(buttonVariants({ size })).toMatch(/max-sm:(h|size)-11/)
     }
+  })
+
+  it('makes an answer row at least 44 px tall with 16 px text below 640 px', () => {
+    expect(optionRowClass).toMatch(/min-h-11/)
+    expect(optionRowClass).toMatch(/max-sm:text-base/)
+    expect(readingTextClass).toMatch(/max-sm:text-base/)
   })
 
   it('makes dropdowns 44 px tall with 16 px text below 640 px', () => {

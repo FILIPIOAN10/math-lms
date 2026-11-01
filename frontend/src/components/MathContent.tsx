@@ -10,10 +10,18 @@ import renderMathInElement from 'katex/contrib/auto-render'
  * {@code inline} renders a <span> instead of a <div>, for math inside running text (a <p>, a
  * <label>, a list item's sentence), where a <div> is not valid HTML.
  *
+ * {@code large} sets the math at full size even inside a line: KaTeX shrinks a fraction in running text, which leaves
+ * its digits at 70% - too small for an answer the student has to tell apart on a phone.
+ *
  * The text goes in before the browser paints (a layout effect): with a plain effect the element was briefly empty -
  * a blank flash on screen, and tests looking for the text right after a render found nothing under load.
  */
-export function MathContent({ children, className, inline = false }: { children: string; className?: string; inline?: boolean }) {
+export function MathContent({ children, className, inline = false, large = false }: {
+  children: string
+  className?: string
+  inline?: boolean
+  large?: boolean
+}) {
   const ref = useRef<HTMLElement | null>(null)
 
   useLayoutEffect(() => {
@@ -30,8 +38,9 @@ export function MathContent({ children, className, inline = false }: { children:
         { left: '\\(', right: '\\)', display: false },
       ],
       throwOnError: false,
+      preProcess: large ? (math) => `\\displaystyle ${math}` : undefined,
     })
-  }, [children])
+  }, [children, large])
 
   const attach = (el: HTMLElement | null) => {
     ref.current = el

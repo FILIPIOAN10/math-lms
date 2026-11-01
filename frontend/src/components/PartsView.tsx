@@ -21,7 +21,7 @@ export function PartsView({ parts, className }: { parts: PartLike[]; className?:
     <ol className={cn('space-y-2', className)} data-testid="item-parts">
       {parts.map((part) => (
         <li key={part.label} className="space-y-1">
-          <div className="flex gap-2 text-sm">
+          <div className="flex gap-2 text-sm max-sm:text-base">
             <span className="shrink-0 font-medium text-muted-foreground tabular-nums">({part.points}p)</span>
             <span className="shrink-0 font-semibold">{part.label})</span>
             <MathContent className="min-w-0 flex-1">{part.statement}</MathContent>

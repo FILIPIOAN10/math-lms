@@ -7,6 +7,8 @@ import { QuestionImage } from '@/components/QuestionImage'
 import { PageHeader } from '@/components/PageHeader'
 import { answerReview, getReviewToday, type ReviewResult, type ReviewToday } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
+import { optionRadioClass, optionRowClass, readingTextClass } from '@/lib/formClasses'
+import { cn } from '@/lib/utils'
 import { roCount } from '@/lib/format'
 import { OptionLetter } from '@/components/OptionLetter'
 import { LoadingCards } from '@/components/LoadingCards'
@@ -139,7 +141,7 @@ export function ReviewPage() {
 
         {today && question && (
           <Card data-testid="review-card">
-            <CardContent className="space-y-4 py-5">
+            <CardContent className={cn('space-y-4 py-5', readingTextClass)}>
               <p className="text-xs font-medium text-muted-foreground">
                 Întrebarea {index + 1} din {today.questions.length} · cutia {question.box} din {BOXES}
               </p>
@@ -154,7 +156,7 @@ export function ReviewPage() {
                   return (
                     <label
                       key={option.id}
-                      className={`flex cursor-pointer items-center gap-3 rounded-lg border p-2 text-sm ${
+                      className={`${optionRowClass} cursor-pointer ${
                         isRight ? 'border-emerald-500 bg-emerald-500/10'
                           : isWrongPick ? 'border-destructive bg-destructive/10'
                             : selected === option.id ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted'
@@ -163,13 +165,13 @@ export function ReviewPage() {
                       <input
                         type="radio"
                         name={`review-${question.itemId}`}
-                        className="size-4 shrink-0"
+                        className={optionRadioClass}
                         checked={selected === option.id}
                         disabled={result !== null || busy}
                         onChange={() => setSelected(option.id)}
                       />
                       <OptionLetter index={optionIndex} />
-                      <MathContent inline>{option.text}</MathContent>
+                      <MathContent inline large>{option.text}</MathContent>
                       {isRight && (
                         <span className="ml-auto font-semibold text-emerald-700 dark:text-emerald-300">
                           <span aria-hidden="true">✓</span>
