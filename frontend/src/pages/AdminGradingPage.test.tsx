@@ -290,6 +290,51 @@ describe('AdminGradingPage', () => {
     expect(api.getAttemptForGrading).toHaveBeenCalledWith(50)
   })
 
+  it('gives 0 with one tap to an answer with no photo', async () => {
+    await openAttempt()
+
+    await userEvent.click(screen.getByTestId('grade-zero'))
+
+    await waitFor(() => expect(api.gradeOpenItem).toHaveBeenCalledWith(50, 101, 0, null))
+    expect(await screen.findByText('Salvat ✓')).toBeInTheDocument()
+    expect(screen.getByTestId('grade-finalize')).toBeEnabled()
+  })
+
+  it('gives 0 to every requirement of a problem with no photo, in one tap', async () => {
+    const d = detail()
+    d.items[0] = {
+      ...d.items[0],
+      parts: [
+        { id: 1, label: 'a', statement: 'Arată', points: 2, barem: null, awardedPoints: null },
+        { id: 2, label: 'b', statement: 'Calculează', points: 3, barem: null, awardedPoints: null },
+      ],
+    }
+    await openAttempt(d)
+
+    await userEvent.click(screen.getByTestId('grade-zero'))
+
+    await waitFor(() => expect(api.gradeOpenItemParts).toHaveBeenCalledWith(50, 101, [
+      { partId: 1, points: 0 }, { partId: 2, points: 0 },
+    ], null))
+    expect(await screen.findByTestId('part-total')).toHaveTextContent('Total: 0 / 4 p')
+  })
+
+  it('keeps that shortcut off an answer with a photo', async () => {
+    const withPhoto = detail()
+    withPhoto.items[0] = { ...withPhoto.items[0], photoIds: [7], photoUploaded: true }
+    await openAttempt(withPhoto)
+    expect(screen.queryByTestId('grade-zero')).not.toBeInTheDocument()
+  })
+
+  it('has no such shortcut on a graded paper', async () => {
+    api.listAttemptsForGrading.mockResolvedValue([row({ status: 'GRADED', score: 0 })])
+    const d = detail({ status: 'GRADED', score: 0 })
+    d.items[0] = { ...d.items[0], awardedPoints: 0 }
+    await openAttempt(d)
+
+    expect(screen.queryByTestId('grade-zero')).not.toBeInTheDocument()
+  })
+
   it('offers to try again when the queue could not load', async () => {
     api.listAttemptsForGrading.mockRejectedValue(new TypeError('Failed to fetch'))
     renderPage()

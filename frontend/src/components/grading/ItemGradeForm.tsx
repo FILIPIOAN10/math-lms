@@ -92,6 +92,16 @@ export function ItemGradeForm({
     void flush()
   }
 
+  /** No page was sent: nothing to read, so one tap gives 0 for all of it instead of one per requirement. */
+  function giveZero() {
+    if (parted) {
+      setValue({ ...value, parts: Object.fromEntries((item.parts ?? []).map((p) => [p.id, 0])) })
+    } else {
+      setValue({ ...value, points: 0 })
+    }
+    void flush()
+  }
+
   const statusLine = (
     <SaveLine status={status} error={autosave.error} awarded={item.awardedPoints} max={item.points} onRetry={() => void flush()} />
   )
@@ -173,6 +183,11 @@ export function ItemGradeForm({
           />
           {statusLine}
         </div>
+      )}
+      {!readOnly && item.photoIds.length === 0 && (
+        <Button type="button" size="sm" variant="outline" onClick={giveZero} data-testid="grade-zero">
+          0, fără rezolvare
+        </Button>
       )}
       <div className="space-y-1">
         <label htmlFor={commentId} className="text-sm font-medium">Comentariu pentru elev (opțional)</label>
