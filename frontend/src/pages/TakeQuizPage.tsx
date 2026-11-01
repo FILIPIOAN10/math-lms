@@ -843,8 +843,9 @@ export function TakeQuizPage() {
         {error && <p className="text-sm text-destructive">{error}</p>}
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 border-t bg-background p-3">
-        <div className="mx-auto max-w-3xl space-y-2">
+      {/* Stays out of the way of the iPhone's home bar: viewport-fit=cover lets the page run under it. */}
+      <div data-testid="quiz-bar" className="fixed inset-x-0 bottom-0 border-t bg-background px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+        <div className="mx-auto max-w-3xl space-y-1.5">
           <nav aria-label="Întrebări" className="flex gap-1.5 overflow-x-auto p-1">
             {numbered.map(({ item, label }) => {
               const done = isAnswered(item)
@@ -877,9 +878,11 @@ export function TakeQuizPage() {
             })}
           </nav>
           <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-            <p className="text-sm text-muted-foreground">
-              {answeredCount} / {items.length} {practice ? 'întrebări rezolvate' : 'răspunsuri'}
-              {sync.pendingCount > 0 && ` · ${sync.pendingCount} netrimise încă`}
+            <p data-testid="quiz-answered" className="text-sm text-muted-foreground">
+              {answeredCount} / {items.length}
+              {/* On a phone the words would push the two buttons onto a row of their own: a screen reader still has them. */}
+              <span className="max-sm:sr-only"> {practice ? 'întrebări rezolvate' : 'răspunsuri'}</span>
+              {sync.pendingCount > 0 && <span className="max-sm:sr-only"> · {sync.pendingCount} netrimise încă</span>}
             </p>
             <div className="ml-auto flex gap-2">
               {/* The only way out of the test: the app header is hidden here, and an installed app may have no Back. */}

@@ -342,6 +342,16 @@ describe('TakeQuizPage', () => {
       expect(api.startQuizAttempt).not.toHaveBeenCalled()
     })
 
+    it('keeps the bottom bar clear of the iPhone home bar, and short on a phone', async () => {
+      api.startQuizAttempt.mockResolvedValue(startedThree())
+      renderPage('')
+      await userEvent.click(await screen.findByTestId('quiz-start'))
+
+      expect(await screen.findByTestId('quiz-bar')).toHaveClass('pb-[max(0.5rem,env(safe-area-inset-bottom))]')
+      expect(screen.getByTestId('quiz-answered')).toHaveTextContent('0 / 3 răspunsuri')
+      expect(within(screen.getByTestId('quiz-answered')).getByText('răspunsuri')).toHaveClass('max-sm:sr-only')
+    })
+
     it('warns about the clock of a timed quiz', async () => {
       api.getQuizPreview.mockResolvedValue(preview({ timeLimitMinutes: 30 }))
       renderPage('')
