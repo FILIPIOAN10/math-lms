@@ -1,14 +1,17 @@
-import { Fragment, useEffect, useState } from 'react'
+import { Fragment, useCallback, useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { ErrorState } from '@/components/ErrorState'
 import { MathContent } from '@/components/MathContent'
 import { SectionHeadingView } from '@/components/SectionHeadingView'
 import { numberItems } from '@/lib/sections'
-import { getQuizStats, type QuizStatsDto } from '@/lib/api'
+import { correctAnswerKey, getQuizStats, type OptionStat, type QuizItemStat, type QuizStatsDto } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
 import { PageHeader } from '@/components/PageHeader'
 import { LoadingCards } from '@/components/LoadingCards'
+import { useConfirm } from '@/components/useConfirm'
+import { roCount } from '@/lib/format'
 import { formatGrade, formatPoints, GRADE_FILL, GRADE_TEXT, gradeBand, romanianGrade, type GradeBand } from '@/lib/grades'
 import { cn } from '@/lib/utils'
 
@@ -24,30 +27,95 @@ function Bar({ fraction, fill = 'bg-primary' }: { fraction: number; fill?: strin
 /** The colour of each grade group the server sends: under 5, 5 – 6,99, 7 – 8,99, 9 – 10. */
 const BUCKET_BANDS: GradeBand[] = ['low', 'mid', 'high', 'high']
 
+/** What each option of a grilă drew, so the teacher sees which mistake the class made, not just how many went wrong. */
+function OptionCounts({ item, graded, onMakeCorrect }: {
+  item: QuizItemStat
+  graded: number
+  onMakeCorrect: (option: OptionStat) => void
+}) {
+  const blank = Math.max(0, graded - item.options.reduce((sum, o) => sum + o.chosen, 0))
+  return (
+    <ul className="space-y-2" data-testid="stats-options">
+      {item.options.map((option) => (
+        <li key={option.id} className="space-y-1 text-sm" data-testid="stats-option">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+            <span className="min-w-0">
+              {option.letter}) <MathContent inline>{option.text}</MathContent>
+              {option.correct && (
+                <span className="ml-1 font-semibold text-emerald-700 dark:text-emerald-300">
+                  <span aria-hidden="true">✓</span>
+                  <span className="sr-only"> (răspunsul marcat corect)</span>
+                </span>
+              )}
+            </span>
+            <span className="shrink-0 tabular-nums text-muted-foreground">{roCount(option.chosen, 'elev', 'elevi')}</span>
+          </div>
+          <Bar fraction={graded === 0 ? 0 : option.chosen / graded} fill={GRADE_FILL[option.correct ? 'high' : 'low']} />
+          {!option.correct && (
+            <Button type="button" size="xs" variant="ghost" onClick={() => onMakeCorrect(option)}>
+              Asta e varianta corectă
+            </Button>
+          )}
+        </li>
+      ))}
+      {blank > 0 && (
+        <li className="text-sm text-muted-foreground" data-testid="stats-blank">Fără răspuns: {roCount(blank, 'elev', 'elevi')}</li>
+      )}
+    </ul>
+  )
+}
+
 /** Teacher analytics for one quiz: average, score distribution, and which items were hardest. */
 export function AdminQuizStatsPage() {
   const { quizId } = useParams<{ quizId: string }>()
   const [stats, setStats] = useState<QuizStatsDto | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
+  const { confirm, dialog: confirmDialog } = useConfirm()
+
+  const load = useCallback(() => getQuizStats(Number(quizId)), [quizId])
 
   useEffect(() => {
     let cancelled = false
-    getQuizStats(Number(quizId))
+    load()
       .then((s) => !cancelled && setStats(s))
       .catch((e) => !cancelled && setError(errorMessage(e)))
     return () => {
       cancelled = true
     }
-  }, [quizId])
+  }, [load])
+
+  /** A taken question keeps its answer everywhere else: this is the one place that changes it, and it says what follows. */
+  async function makeCorrect(item: QuizItemStat, label: string, option: OptionStat) {
+    const yes = await confirm({
+      title: `Schimbi răspunsul corect la întrebarea ${label}?`,
+      body: `Varianta ${option.letter}) devine cea corectă și toate lucrările se notează din nou. Elevii cărora li se schimbă nota o văd ca notă nouă.`,
+      confirmLabel: 'Schimbă și recalculează',
+    })
+    if (!yes) return
+    setError(null)
+    setNotice(null)
+    try {
+      const { changedGrades } = await correctAnswerKey(item.itemId, option.id)
+      setStats(await load())
+      setNotice(`✓ Răspunsul corect e acum ${option.letter}). ${changedGrades === 0
+        ? 'Nicio notă nu s-a schimbat.' : `S-au schimbat ${roCount(changedGrades, 'notă', 'note')}.`}`)
+    } catch (e) {
+      setError(errorMessage(e))
+    }
+  }
 
   const maxBucket = stats ? Math.max(1, ...stats.distribution.map((b) => b.count)) : 1
   // The hardest single-choice item = the lowest correct rate (only meaningful once something is graded).
   const rated = stats?.items.filter((i) => i.correctRate !== null) ?? []
   const hardest = rated.length > 1 ? rated.reduce((a, b) => ((b.correctRate ?? 1) < (a.correctRate ?? 1) ? b : a)) : null
   const averageGrade = stats?.averageScore != null ? romanianGrade(stats.averageScore, stats.maxScore) : null
+  const numbered = stats ? numberItems(stats.items) : []
+  const suspects = numbered.filter(({ item }) => item.suspect !== null)
 
   return (
     <div className="p-4">
+      {confirmDialog}
       <div className="mx-auto max-w-3xl space-y-4">
         <PageHeader
           title={stats?.title ?? 'Statistici'}
@@ -62,9 +130,17 @@ export function AdminQuizStatsPage() {
 
         {error && <ErrorState message={error} />}
         {!stats && !error && <LoadingCards />}
+        {notice && <p role="status" data-testid="stats-notice" className="text-sm text-emerald-700 dark:text-emerald-300">{notice}</p>}
 
         {stats && (
           <>
+            {suspects.length > 0 && (
+              <p role="status" data-testid="stats-suspects"
+                 className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+                {suspects.length === 1 ? 'De verificat întrebarea ' : 'De verificat întrebările '}
+                {suspects.map((s) => s.label).join(', ')}: elevii cei mai buni au ales altă variantă decât cea marcată corectă.
+              </p>
+            )}
 
             {stats.gradedAttempts === 0 ? (
               <p className="text-sm text-muted-foreground" data-testid="stats-empty">
@@ -108,7 +184,7 @@ export function AdminQuizStatsPage() {
 
             <section className="space-y-2">
               <h2 className="font-medium">Pe întrebări</h2>
-              {numberItems(stats.items).map(({ item, label, heading }) => (
+              {numbered.map(({ item, label, heading }) => (
                 <Fragment key={item.itemId}>
                 {heading && <SectionHeadingView heading={heading} />}
                 <Card>
@@ -124,11 +200,24 @@ export function AdminQuizStatsPage() {
                       )}
                     </div>
                     <MathContent className="text-sm">{item.statement}</MathContent>
+                    {item.suspect && (
+                      <p data-testid="stats-suspect" className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-2 text-sm">
+                        Verifică răspunsul marcat: {item.suspect.chosen} din {item.suspect.strong} elevi buni au ales{' '}
+                        varianta {item.suspect.letter}). Dacă ei au dreptate, apasă „Asta e varianta corectă” la {item.suspect.letter}).
+                      </p>
+                    )}
                     {item.correctRate !== null && (
                       <div className="grid grid-cols-[1fr_3rem] items-center gap-3 text-sm">
                         <Bar fraction={item.correctRate} />
                         <span className="text-right">{Math.round(item.correctRate * 100)}%</span>
                       </div>
+                    )}
+                    {item.options.length > 0 && stats.gradedAttempts > 0 && (
+                      <OptionCounts
+                        item={item}
+                        graded={stats.gradedAttempts}
+                        onMakeCorrect={(option) => void makeCorrect(item, label, option)}
+                      />
                     )}
                     {item.averagePoints !== null && (
                       <p className="text-xs text-muted-foreground">

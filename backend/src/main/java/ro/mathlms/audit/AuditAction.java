@@ -51,6 +51,8 @@ public enum AuditAction {
     PAPER_GRADED(AuditCategory.GRADING),
     /** A final grade taken back to be corrected; finalising again writes a new PAPER_GRADED row. */
     PAPER_REOPENED(AuditCategory.GRADING),
+    /** A grilă's right answer changed after the fact, every paper marked again. */
+    ANSWER_KEY_CORRECTED(AuditCategory.GRADING),
 
     HOMEWORK_ASSIGNED(AuditCategory.HOMEWORK),
     HOMEWORK_RESCHEDULED(AuditCategory.HOMEWORK),

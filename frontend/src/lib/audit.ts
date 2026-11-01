@@ -48,6 +48,7 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   PAPER_COMMENTED: 'Comentariu pe lucrare',
   PAPER_GRADED: 'Lucrare notată',
   PAPER_REOPENED: 'Lucrare redeschisă',
+  ANSWER_KEY_CORRECTED: 'Răspuns corect schimbat',
   HOMEWORK_ASSIGNED: 'Temă dată',
   HOMEWORK_RESCHEDULED: 'Termen mutat',
   HOMEWORK_DELETED: 'Temă ștearsă',

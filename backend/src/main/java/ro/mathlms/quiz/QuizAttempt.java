@@ -168,6 +168,18 @@ public class QuizAttempt {
         this.status = QuizAttemptStatus.GRADED;
     }
 
+    /** The answer key was wrong, so a final grade moves after the fact; a grade that moved is news again. */
+    public void correctScore(int score) {
+        if (mode != AttemptMode.TEST || status != QuizAttemptStatus.GRADED) {
+            throw new IllegalStateException("Only a graded test has a score to correct, was " + mode + " " + status);
+        }
+        if (score < 0) {
+            throw new IllegalArgumentException("score must not be negative");
+        }
+        this.score = score;
+        this.resultSeenAt = null;
+    }
+
     /**
      * The teacher takes a final grade back to correct it: the paper waits for them again, the student has no grade until
      * it is finalised again, and that corrected grade is "Nou". The answers and their points stay as they are.

@@ -877,6 +877,22 @@ export interface QuizStatsBucket {
   count: number
 }
 
+/** How many students chose one option of a grilă. */
+export interface OptionStat {
+  id: number
+  letter: string
+  text: string
+  correct: boolean
+  chosen: number
+}
+
+/** The marked answer looks wrong: `chosen` of the `strong` strongest students agree on `letter`. */
+export interface SuspectAnswer {
+  letter: string
+  chosen: number
+  strong: number
+}
+
 export interface QuizItemStat {
   itemId: number
   position: number
@@ -890,6 +906,9 @@ export interface QuizItemStat {
   section?: string | null
   /** The picture under the statement: a version token for questionImageUrl(), or null/absent = none. */
   image?: string | null
+  /** The options of a grilă with how many chose each; empty for an open question. */
+  options: OptionStat[]
+  suspect: SuspectAnswer | null
 }
 
 export interface QuizStatsDto {
@@ -905,6 +924,12 @@ export interface QuizStatsDto {
 
 export async function getQuizStats(quizId: number): Promise<QuizStatsDto> {
   const response = await apiFetch(`/admin/quizzes/${quizId}/stats`)
+  return response.json()
+}
+
+/** The marked answer of a grilă was wrong: changes it and marks every paper again. */
+export async function correctAnswerKey(itemId: number, optionId: number): Promise<{ changedGrades: number }> {
+  const response = await putJson(`/admin/quiz-items/${itemId}/correct-option`, { optionId })
   return response.json()
 }
 
@@ -1851,7 +1876,7 @@ export type AuditAction =
   | 'EN_EXAMPLE_ADDED' | 'EN_EXAMPLE_UPDATED' | 'EN_EXAMPLE_DELETED' | 'EN_CHAPTER_SLOTS_UPDATED'
   | 'QUIZ_CREATED' | 'QUIZ_UPDATED' | 'QUIZ_COPIED' | 'QUIZ_PUBLISHED' | 'QUIZ_UNPUBLISHED' | 'QUIZ_DELETED'
   | 'QUESTION_ADDED' | 'QUESTION_UPDATED' | 'QUESTION_DELETED' | 'QUESTION_IMAGE_SET' | 'QUESTION_IMAGE_REMOVED' | 'QUIZ_FROM_PHOTOS'
-  | 'ANSWER_GRADED' | 'PAPER_COMMENTED' | 'PAPER_GRADED' | 'PAPER_REOPENED'
+  | 'ANSWER_GRADED' | 'PAPER_COMMENTED' | 'PAPER_GRADED' | 'PAPER_REOPENED' | 'ANSWER_KEY_CORRECTED'
   | 'HOMEWORK_ASSIGNED' | 'HOMEWORK_RESCHEDULED' | 'HOMEWORK_DELETED'
   | 'ACCOUNT_APPROVED' | 'ACCOUNT_REJECTED' | 'PARENT_LINKED' | 'STUDENT_ENROLLED' | 'STUDENT_UNENROLLED'
   | 'INVITE_LINK_CREATED' | 'INVITE_LINK_REVOKED' | 'JOINED_BY_INVITE'

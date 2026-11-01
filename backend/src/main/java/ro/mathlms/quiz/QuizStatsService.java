@@ -6,6 +6,7 @@ import org.springframework.transaction.annotation.Transactional;
 import ro.mathlms.cache.CacheNames;
 import ro.mathlms.quiz.QuizStatsDtos.BucketDto;
 import ro.mathlms.quiz.QuizStatsDtos.ItemStatDto;
+import ro.mathlms.quiz.QuizStatsDtos.OptionStatDto;
 import ro.mathlms.quiz.QuizStatsDtos.QuizStatsDto;
 
 import java.util.ArrayList;
@@ -17,7 +18,8 @@ import java.util.stream.Collectors;
 /**
  * Teacher analytics for one quiz, computed over the attempt that counts for each student (their highest grade), so a
  * student who retook it counts once: the average, the distribution by grade groups and, per item, how often it was
- * answered right (single choice) and the average points. Two aggregate queries for the whole quiz — never one per attempt.
+ * answered right (single choice), who chose which option, whether the marked answer looks wrong, and the average points.
+ * A few queries for the whole quiz — never one per attempt.
  */
 @Service
 public class QuizStatsService {
@@ -29,9 +31,12 @@ public class QuizStatsService {
     private final QuizItemRepository itemRepository;
     private final QuizAttemptRepository attemptRepository;
     private final ItemResponseRepository responseRepository;
+    private final QuizOptionRepository optionRepository;
 
     public QuizStatsService(QuizRepository quizRepository, QuizItemRepository itemRepository,
-                            QuizAttemptRepository attemptRepository, ItemResponseRepository responseRepository) {
+                            QuizAttemptRepository attemptRepository, ItemResponseRepository responseRepository,
+                            QuizOptionRepository optionRepository) {
+        this.optionRepository = optionRepository;
         this.quizRepository = quizRepository;
         this.itemRepository = itemRepository;
         this.attemptRepository = attemptRepository;
@@ -58,6 +63,12 @@ public class QuizStatsService {
         Map<Long, ItemStat> byItem = attemptIds.isEmpty() ? Map.of()
                 : responseRepository.findItemStatsByAttemptIds(attemptIds).stream()
                         .collect(Collectors.toMap(ItemStat::itemId, Function.identity()));
+        Map<Long, List<OptionChoice>> choices = attemptIds.isEmpty() ? Map.of()
+                : responseRepository.findChoicesByAttemptIds(attemptIds).stream()
+                        .collect(Collectors.groupingBy(OptionChoice::itemId));
+        Map<Long, List<QuizOption>> options = items.isEmpty() ? Map.of()
+                : optionRepository.findByItemIdInOrderByItemIdAscPositionAsc(items.stream().map(QuizItem::getId).toList())
+                        .stream().collect(Collectors.groupingBy(o -> o.getItem().getId()));
         List<ItemStatDto> itemStats = new ArrayList<>();
         for (QuizItem item : items) {
             ItemStat stat = byItem.get(item.getId());
@@ -66,11 +77,22 @@ public class QuizStatsService {
             Double correctRate = graded == 0 || item.getType() != QuizItemType.SINGLE_CHOICE
                     ? null : (double) correct / graded;
             Double averagePoints = graded == 0 ? null : (double) totalPoints / graded;
+            List<QuizOption> itemOptions = options.getOrDefault(item.getId(), List.of());
+            List<OptionChoice> itemChoices = choices.getOrDefault(item.getId(), List.of());
             itemStats.add(new ItemStatDto(item.getId(), item.getPosition(), item.getType(), item.getStatement(),
-                    item.getPoints(), correctRate, averagePoints, item.getSection()));
+                    item.getPoints(), correctRate, averagePoints, item.getSection(), optionStats(itemOptions, itemChoices),
+                    SuspectAnswer.find(itemOptions, itemChoices, counted, item.getPoints()).orElse(null)));
         }
         return new QuizStatsDto(quiz.getId(), quiz.getTitle(), graded, maxScore, averageScore, averagePercent,
                 distribution(scores, maxScore), itemStats);
+    }
+
+    private static List<OptionStatDto> optionStats(List<QuizOption> options, List<OptionChoice> choices) {
+        Map<Long, Long> chosen = choices.stream().collect(Collectors.groupingBy(OptionChoice::optionId, Collectors.counting()));
+        return options.stream()
+                .map(o -> new OptionStatDto(o.getId(), QuizAttemptService.letterOf(options, o), o.getText(), o.isCorrect(),
+                        chosen.getOrDefault(o.getId(), 0L).intValue()))
+                .toList();
     }
 
     /** The 1–10 grade as the app shows it, to two decimals: a 6,996 reads 7 on screen and belongs with the 7s. */

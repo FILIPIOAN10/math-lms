@@ -22,8 +22,9 @@ class QuizStatsServiceTest {
     private final QuizItemRepository itemRepository = mock(QuizItemRepository.class);
     private final QuizAttemptRepository attemptRepository = mock(QuizAttemptRepository.class);
     private final ItemResponseRepository responseRepository = mock(ItemResponseRepository.class);
+    private final QuizOptionRepository optionRepository = mock(QuizOptionRepository.class);
     private final QuizStatsService service =
-            new QuizStatsService(quizRepository, itemRepository, attemptRepository, responseRepository);
+            new QuizStatsService(quizRepository, itemRepository, attemptRepository, responseRepository, optionRepository);
 
     private final Quiz quiz = withId(new Quiz("Simulare EN", null), 10L);
     private final QuizItem grila = withId(new QuizItem(quiz, 1, QuizItemType.SINGLE_CHOICE, "g", 5, null), 100L);
@@ -132,5 +133,24 @@ class QuizStatsServiceTest {
         assertThat(items.get(0).averagePoints()).isEqualTo(2.5);    // 10 / 4
         assertThat(items.get(1).correctRate()).isNull();            // open items have no right/wrong
         assertThat(items.get(1).averagePoints()).isEqualTo(7.5);    // 30 / 4
+    }
+
+    @Test
+    void everyOptionSaysHowManyStudentsChoseIt() {
+        givenGradedScores(15, 10, 5);
+        QuizOption right = withId(new QuizOption(grila, 0, "4", true), 200L);
+        QuizOption wrong = withId(new QuizOption(grila, 1, "5", false), 201L);
+        when(optionRepository.findByItemIdInOrderByItemIdAscPositionAsc(List.of(100L, 101L))).thenReturn(List.of(right, wrong));
+        when(responseRepository.findChoicesByAttemptIds(List.of(1L, 2L, 3L))).thenReturn(List.of(
+                new OptionChoice(1L, 100L, 200L, true),
+                new OptionChoice(2L, 100L, 201L, false))); // the third left it blank
+
+        ItemStatDto stat = service.getStats(10L).items().get(0);
+
+        assertThat(stat.options()).containsExactly(
+                new QuizStatsDtos.OptionStatDto(200L, "a", "4", true, 1),
+                new QuizStatsDtos.OptionStatDto(201L, "b", "5", false, 1));
+        assertThat(stat.suspect()).isNull(); // three students prove nothing
+        assertThat(service.getStats(10L).items().get(1).options()).isEmpty();
     }
 }
