@@ -214,6 +214,39 @@ describe('TakeQuizPage', () => {
 
       expect(await screen.findByTestId('item-feedback')).toHaveTextContent('Greșit — răspunsul corect e 3/4')
       expect(screen.getByTestId('item-feedback')).toHaveTextContent('Numitorul comun e 4.')
+      expect(screen.queryByTestId('revision-note')).not.toBeInTheDocument()
+    })
+
+    it('after a wrong practice answer says what to revise and opens the lesson in another tab', async () => {
+      api.saveQuizAnswer.mockResolvedValue({
+        correct: false, correctOptionId: null, solution: 'Numitorul comun e 4.', correctNumber: '3/4',
+        enChapter: { id: 16, code: 'G1', title: 'Segmente', ready: true, revisionTopic: 'simetrie și segmente' },
+      })
+      renderPage('?mode=practice')
+      const box = await beginNumeric(startedNumeric('PRACTICE'), 'Începe exersarea')
+
+      await userEvent.type(box, '1')
+      await userEvent.click(screen.getByTestId('item-number-check'))
+
+      expect(await screen.findByTestId('revision-note')).toHaveTextContent('Dacă vrei să recapitulezi noțiunile despre simetrie și segmente:')
+      const lesson = screen.getByRole('link', { name: /Vezi lecția: G1 Segmente/ })
+      expect(lesson).toHaveAttribute('href', '/capitole/16')
+      expect(lesson).toHaveAttribute('target', '_blank')
+    })
+
+    it('has no lesson to send a student to while its page is empty', async () => {
+      api.saveQuizAnswer.mockResolvedValue({
+        correct: false, correctOptionId: null, solution: 'Numitorul comun e 4.', correctNumber: '3/4',
+        enChapter: { id: 16, code: 'G1', title: 'Segmente', ready: false, revisionTopic: 'simetrie și segmente' },
+      })
+      renderPage('?mode=practice')
+      const box = await beginNumeric(startedNumeric('PRACTICE'), 'Începe exersarea')
+
+      await userEvent.type(box, '1')
+      await userEvent.click(screen.getByTestId('item-number-check'))
+
+      expect(await screen.findByTestId('item-feedback')).toBeInTheDocument()
+      expect(screen.queryByTestId('revision-note')).not.toBeInTheDocument()
     })
   })
 

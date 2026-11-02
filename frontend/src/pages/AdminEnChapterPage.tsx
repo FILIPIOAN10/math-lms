@@ -343,7 +343,7 @@ export function AdminEnChapterPage() {
           onClose={() => setEditingChapter(false)}
           initial={{
             code: page.code, title: page.title, area: page.area, notes: page.notes,
-            parentId: page.parentId, bookPage: page.bookPage,
+            parentId: page.parentId, bookPage: page.bookPage, revisionTopic: page.revisionTopic,
           }}
           onSubmit={async (input) => {
             await updateEnChapter(page.id, input)

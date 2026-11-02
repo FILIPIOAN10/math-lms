@@ -33,7 +33,7 @@ const chapter = (id: number, over: Partial<EnChapterSummary> = {}): EnChapterSum
 
 const page = (over: Partial<EnChapterPage> = {}): EnChapterPage => ({
   id: 1, code: 'A1', title: 'Ordinea efectuării operațiilor', area: 'ALGEBRA', notes: null, parentId: null, rootId: 1,
-  bookPage: null, sections: [], photos: [], examples: [],
+  bookPage: null, sections: [], photos: [], examples: [], revisionTopic: null,
   ...over,
 })
 
@@ -77,7 +77,7 @@ describe('AdminEnChaptersPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Salvează' }))
 
     await waitFor(() => expect(api.createEnChapter).toHaveBeenCalledWith({
-      code: 'a12', title: 'Puteri', area: 'GEOMETRY', notes: null, parentId: null, bookPage: null,
+      code: 'a12', title: 'Puteri', area: 'GEOMETRY', notes: null, parentId: null, bookPage: null, revisionTopic: null,
     }))
     await waitFor(() => expect(api.listEnChapters).toHaveBeenCalledTimes(2))
   })
@@ -133,7 +133,7 @@ describe('AdminEnChaptersPage', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Salvează' }))
 
       await waitFor(() => expect(api.createEnChapter).toHaveBeenCalledWith({
-        code: 'AIS6', title: 'Scrierea în baza 10', area: 'ALGEBRA', notes: null, parentId: 1, bookPage: 15,
+        code: 'AIS6', title: 'Scrierea în baza 10', area: 'ALGEBRA', notes: null, parentId: 1, bookPage: 15, revisionTopic: null,
       }))
     })
 
@@ -152,8 +152,10 @@ describe('AdminEnChaptersPage', () => {
       expect(offered.some((text) => text.includes('AII ·'))).toBe(false) // not under itself
     })
 
-    it('keeps the place in the book when a chapter is edited', async () => {
-      api.getEnChapter.mockResolvedValue(page({ id: 2, code: 'AIS5', title: 'Puterea unui număr natural', parentId: 1, rootId: 1, bookPage: 12 }))
+    it('keeps the place in the book and what to revise when a chapter is edited', async () => {
+      api.getEnChapter.mockResolvedValue(page({
+        id: 2, code: 'AIS5', title: 'Puterea unui număr natural', parentId: 1, rootId: 1, bookPage: 12, revisionTopic: 'puteri',
+      }))
       api.updateEnChapter.mockResolvedValue(chapter(2))
       renderAt('/admin/en-chapters')
       await screen.findByTestId('en-chapter-row-1')
@@ -164,9 +166,22 @@ describe('AdminEnChaptersPage', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Salvează' }))
 
       await waitFor(() => expect(api.updateEnChapter).toHaveBeenCalledWith(2, {
-        code: 'AIS5', title: 'Puteri', area: 'ALGEBRA', notes: null, parentId: 1, bookPage: 12,
+        code: 'AIS5', title: 'Puteri', area: 'ALGEBRA', notes: null, parentId: 1, bookPage: 12, revisionTopic: 'puteri',
       }))
     })
+  })
+
+  it('lets the teacher write what a wrong answer sends the student to revise, and shows the sentence', async () => {
+    api.getEnChapter.mockResolvedValue(page({ id: 16, code: 'G1', title: 'Segmente', area: 'GEOMETRY', rootId: 16 }))
+    api.updateEnChapter.mockResolvedValue(chapter(16))
+    renderAt('/admin/en-chapters/16')
+    fireEvent.click(await screen.findByRole('button', { name: 'Editează capitolul' }))
+
+    fireEvent.change(await screen.findByLabelText('Ce recapitulează elevul (opțional)'), { target: { value: ' simetrie și segmente ' } })
+    expect(screen.getByTestId('en-revision-preview')).toHaveTextContent('noțiunile despre simetrie și segmente:')
+    fireEvent.click(screen.getByRole('button', { name: 'Salvează' }))
+
+    await waitFor(() => expect(api.updateEnChapter).toHaveBeenCalledWith(16, expect.objectContaining({ revisionTopic: 'simetrie și segmente' })))
   })
 
   it('moves a chapter up and refreshes the list', async () => {

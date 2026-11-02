@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { MathContent } from '@/components/MathContent'
 import { MistakeNote } from '@/components/MistakeNote'
 import { QuestionImage } from '@/components/QuestionImage'
+import { RevisionNote } from '@/components/RevisionNote'
 import { PageHeader } from '@/components/PageHeader'
 import { answerReview, getReviewToday, type ReviewResult, type ReviewToday } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
@@ -195,6 +196,7 @@ export function ReviewPage() {
                       <MathContent>{result.solution}</MathContent>
                     </div>
                   )}
+                  {result.enChapter?.ready && <RevisionNote chapter={result.enChapter} newTab />}
                   <p className="text-xs text-muted-foreground">{whereNext(result)}</p>
                 </div>
               )}

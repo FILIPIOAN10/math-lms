@@ -35,6 +35,7 @@ export function EnChapterDialog({
   const [title, setTitle] = useState(initial?.title ?? '')
   const [area, setArea] = useState<EnArea>(initial?.area ?? 'ALGEBRA')
   const [notes, setNotes] = useState(initial?.notes ?? '')
+  const [revisionTopic, setRevisionTopic] = useState(initial?.revisionTopic ?? '')
   const [parentId, setParentId] = useState<number | null>(initial?.parentId ?? null)
   const [bookPage, setBookPage] = useState(initial?.bookPage != null ? String(initial.bookPage) : '')
   const [busy, setBusy] = useState(false)
@@ -60,6 +61,7 @@ export function EnChapterDialog({
         notes: notes.trim() || null,
         parentId,
         bookPage: bookPage.trim() === '' ? null : Number(bookPage),
+        revisionTopic: revisionTopic.trim() || null,
       })
       onClose()
     } catch (err) {
@@ -126,6 +128,20 @@ export function EnChapterDialog({
             Un subcapitol nu are poze proprii: elevul îl deschide în capitolul lui, la pagina din carte unde începe.
           </p>
         )}
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="en-revision-topic">Ce recapitulează elevul (opțional)</Label>
+          <Input
+            id="en-revision-topic"
+            value={revisionTopic}
+            onChange={(e) => setRevisionTopic(e.target.value)}
+            maxLength={200}
+            placeholder="simetrie și segmente"
+          />
+          <p className="text-xs text-muted-foreground" data-testid="en-revision-preview">
+            După un răspuns greșit, elevul citește: „Dacă vrei să recapitulezi noțiunile despre {revisionTopic.trim() || '…'}:”,
+            cu linkul către această pagină.
+          </p>
+        </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="en-notes">Text pe pagină (opțional)</Label>
           <Textarea

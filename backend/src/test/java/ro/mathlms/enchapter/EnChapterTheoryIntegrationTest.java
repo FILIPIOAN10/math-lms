@@ -26,7 +26,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 
 /**
  * V35 and V49: every seeded EN chapter page starts with theory and worked examples, which a student can read at once
- * (so the "Vezi modele" button shows on a result) and the teacher can edit like anything they wrote.
+ * (so the "Vezi lecția" link shows on a result) and the teacher can edit like anything they wrote.
  */
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
@@ -71,6 +71,25 @@ class EnChapterTheoryIntegrationTest {
         assertThat(a1.get("notes").asString()).startsWith("Ordinea efectuării operațiilor");
         assertThat(a1.get("examples").get(0).get("statement").asString()).isEqualTo("Calculează $30 - 18 : 3$.");
         assertThat(a1.get("examples").get(0).get("solution").asString()).contains("Rezultat: $24$");
+    }
+
+    /** V50: a wrong answer can say what to revise from the first day, for every question already written. */
+    @Test
+    void everySeededChapterSaysWhatAWrongAnswerSendsTheStudentToRevise() throws Exception {
+        Map<String, Long> ids = ids();
+        for (String code : SEEDED) {
+            assertThat(read("/api/en-chapters/" + ids.get(code)).get("revisionTopic").asString()).as(code).isNotBlank();
+        }
+
+        assertThat(read("/api/en-chapters/" + ids.get("G1")).get("revisionTopic").asString())
+                .isEqualTo("simetrie și segmente");
+    }
+
+    /** V50: S II.6 asks how many vertices, edges and faces a solid has. */
+    @Test
+    void theSolidsPageCountsVerticesEdgesAndFaces() throws Exception {
+        assertThat(read("/api/en-chapters/" + ids().get("G8")).get("notes").asString())
+                .contains("\n\nVârfuri, muchii și fețe\n", "$3n$ muchii").endsWith("$4$ fețe.");
     }
 
     /** V49: what the EN programme asks for comes after what a page already had, in the order it was written. */

@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { revisionLinks, enPageForStudents } from '@/lib/enChapters'
+import { revisionLinks, revisionSentence, enPageForStudents } from '@/lib/enChapters'
 import type { EnChapterLink, GradedPart, ItemResultDto } from '@/lib/api'
 
-const A1: EnChapterLink = { id: 1, code: 'A1', title: 'Ordinea efectuării operațiilor', ready: true }
-const G8: EnChapterLink = { id: 19, code: 'G8', title: 'Corpuri geometrice: arii și volume', ready: true }
-const G9: EnChapterLink = { id: 20, code: 'G9', title: 'Drepte și plane', ready: true }
+const A1: EnChapterLink = { id: 1, code: 'A1', title: 'Ordinea efectuării operațiilor', ready: true, revisionTopic: null }
+const G8: EnChapterLink = { id: 19, code: 'G8', title: 'Corpuri geometrice: arii și volume', ready: true, revisionTopic: null }
+const G9: EnChapterLink = { id: 20, code: 'G9', title: 'Drepte și plane', ready: true, revisionTopic: null }
 
 const grila = (over: Partial<ItemResultDto> = {}): ItemResultDto => ({
   itemId: 1, position: 0, type: 'SINGLE_CHOICE', statement: '36 : 4 - 4 · 2', points: 5, awardedPoints: 0, correct: false,
@@ -21,6 +21,22 @@ describe('enPageForStudents', () => {
     expect(enPageForStudents({ photoCount: 2, exampleCount: 3 })).toBe('2 pagini de teorie · 3 modele rezolvate')
     expect(enPageForStudents({ photoCount: 0, exampleCount: 5 })).toBe('5 modele rezolvate')
     expect(enPageForStudents({ photoCount: 1, exampleCount: 0 })).toBe('1 pagină de teorie')
+  })
+})
+
+describe('revisionSentence', () => {
+  const G1: EnChapterLink = { id: 16, code: 'G1', title: 'Segmente', ready: true, revisionTopic: 'simetrie și segmente' }
+
+  it('says what to revise', () => {
+    expect(revisionSentence(G1)).toBe('Dacă vrei să recapitulezi noțiunile despre simetrie și segmente:')
+  })
+
+  it('says which requirements it is about', () => {
+    expect(revisionSentence(G1, ['a', 'b'])).toBe('La a), b), dacă vrei să recapitulezi noțiunile despre simetrie și segmente:')
+  })
+
+  it('stands without a phrase, on a page a teacher added and did not describe', () => {
+    expect(revisionSentence({ ...G1, revisionTopic: null })).toBe('Dacă vrei să recapitulezi noțiunile din acest capitol:')
   })
 })
 

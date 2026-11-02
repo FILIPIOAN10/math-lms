@@ -11,7 +11,10 @@ import ro.mathlms.content.Enrollment;
 import ro.mathlms.content.EnrollmentRepository;
 import ro.mathlms.content.SchoolClass;
 import ro.mathlms.content.SchoolClassRepository;
+import ro.mathlms.enchapter.EnChapter;
+import ro.mathlms.enchapter.EnChapterRepository;
 import ro.mathlms.quiz.AttemptMode;
+import ro.mathlms.quiz.EnChapterLinks;
 import ro.mathlms.quiz.ItemResponse;
 import ro.mathlms.quiz.ItemResponseRepository;
 import ro.mathlms.quiz.Quiz;
@@ -60,6 +63,8 @@ class ReviewServiceIntegrationTest {
     @Autowired private QuizAttemptRepository attemptRepository;
     @Autowired private ItemResponseRepository responseRepository;
     @Autowired private ReviewAnswerRepository reviewAnswerRepository;
+    @Autowired private EnChapterLinks enChapterLinks;
+    @Autowired private EnChapterRepository enChapterRepository;
 
     @Autowired private TransactionTemplate tx;
 
@@ -70,7 +75,7 @@ class ReviewServiceIntegrationTest {
     private At at(LocalDate day) {
         Clock clock = Clock.fixed(day.atTime(10, 0).atZone(ZONE).toInstant(), ZONE);
         return new At(new ReviewService(userRepository, enrollmentRepository, quizRepository, attemptRepository,
-                itemRepository, optionRepository, responseRepository, reviewAnswerRepository, clock));
+                itemRepository, optionRepository, responseRepository, reviewAnswerRepository, enChapterLinks, clock));
     }
 
     private final class At {
@@ -179,6 +184,30 @@ class ReviewServiceIntegrationTest {
         assertThat(after.questions()).isEmpty();
         assertThat(after.doneToday()).isEqualTo(1);
         assertThat(after.streak()).isEqualTo(1);
+    }
+
+    @Test
+    void aWrongReviewAnswerNamesTheLessonAndARightOneDoesNot() {
+        User ana = student("r-lesson");
+        Quiz quiz = quiz("Fracții r-lesson", true);
+        QuizItem wrongNow = grila(quiz, 0);
+        QuizItem rightNow = grila(quiz, 1);
+        EnChapter g1 = enChapterRepository.findAllByOrderByPositionAscIdAsc().stream()
+                .filter(c -> c.getCode().equals("G1")).findFirst().orElseThrow();
+        wrongNow.pointToEnChapter(g1);
+        rightNow.pointToEnChapter(g1);
+        itemRepository.saveAll(List.of(wrongNow, rightNow));
+        QuizAttempt p = practice(quiz, ana, D1);
+        answer(p, wrongNow, false);
+        answer(p, rightNow, false);
+
+        ReviewResultDto wrong = at(D1.plusDays(1)).answer(ana.getEmail(), wrongNow.getId(), option(wrongNow, false).getId());
+        ReviewResultDto right = at(D1.plusDays(1)).answer(ana.getEmail(), rightNow.getId(), option(rightNow, true).getId());
+
+        assertThat(wrong.enChapter().code()).isEqualTo("G1");
+        assertThat(wrong.enChapter().ready()).isTrue();
+        assertThat(wrong.enChapter().revisionTopic()).isEqualTo("simetrie și segmente");
+        assertThat(right.enChapter()).isNull();
     }
 
     @Test

@@ -8,6 +8,7 @@ import { MathContent } from '@/components/MathContent'
 import { MistakeNote } from '@/components/MistakeNote'
 import { NumberAnswer } from '@/components/NumberAnswer'
 import { QuestionImage } from '@/components/QuestionImage'
+import { RevisionNote } from '@/components/RevisionNote'
 import { SectionHeadingView } from '@/components/SectionHeadingView'
 import { PartsView } from '@/components/PartsView'
 import { parseOnly } from '@/lib/mistakes'
@@ -777,6 +778,7 @@ export function TakeQuizPage() {
                           <MathContent>{feedback[item.id]!.solution!}</MathContent>
                         </div>
                       )}
+                      {feedback[item.id]?.enChapter?.ready && <RevisionNote chapter={feedback[item.id]!.enChapter!} newTab />}
                     </div>
                   )}
                 </div>
@@ -817,6 +819,7 @@ export function TakeQuizPage() {
                           <MathContent>{feedback[item.id]!.solution!}</MathContent>
                         </div>
                       )}
+                      {feedback[item.id]?.enChapter?.ready && <RevisionNote chapter={feedback[item.id]!.enChapter!} newTab />}
                     </div>
                   )}
                 </div>

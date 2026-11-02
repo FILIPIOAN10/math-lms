@@ -75,7 +75,10 @@ export function AdminEnChaptersPage() {
       const page = await getEnChapter(c.id)
       setDialog({
         id: c.id,
-        input: { code: page.code, title: page.title, area: page.area, notes: page.notes, parentId: page.parentId, bookPage: page.bookPage },
+        input: {
+          code: page.code, title: page.title, area: page.area, notes: page.notes,
+          parentId: page.parentId, bookPage: page.bookPage, revisionTopic: page.revisionTopic,
+        },
       })
     } catch (e) {
       setError(errorMessage(e))

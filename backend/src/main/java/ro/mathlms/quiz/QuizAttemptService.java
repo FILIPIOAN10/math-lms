@@ -19,6 +19,7 @@ import ro.mathlms.cache.CacheNames;
 import ro.mathlms.content.Chapter;
 import ro.mathlms.content.EnrollmentRepository;
 import ro.mathlms.content.RoCount;
+import ro.mathlms.enchapter.EnChapterLinkDto;
 import ro.mathlms.quiz.AdminAttemptDtos.AdminAttemptDetailDto;
 import ro.mathlms.quiz.AdminAttemptDtos.AdminAttemptSummaryDto;
 import ro.mathlms.quiz.AdminAttemptDtos.AdminItemReviewDto;
@@ -244,10 +245,11 @@ public class QuizAttemptService {
         List<ItemResponse> responses = responseRepository.findByAttemptId(attempt.getId());
         // A row that exists only because the student asked for a hint is not an answer: it must not come back as one
         // (its "feedback" would hand over the solution of a question they have not tried).
+        EnChapterLinks.Resolved links = attempt.getMode() == AttemptMode.PRACTICE ? linksOf(quiz) : null;
         List<SavedAnswerDto> answers = responses.stream()
                 .filter(ItemResponse::isAnswered)
                 .map(response -> attempt.getMode() == AttemptMode.PRACTICE
-                        ? SavedAnswerDto.from(response, feedbackFor(response.getItem(), response))
+                        ? SavedAnswerDto.from(response, feedbackFor(response.getItem(), response, links))
                         : SavedAnswerDto.from(response))
                 .toList();
         List<RevealedHintsDto> revealedHints = attempt.getMode() == AttemptMode.PRACTICE
@@ -344,7 +346,7 @@ public class QuizAttemptService {
             responseRepository.save(response);
         }
         return attempt.getMode() == AttemptMode.PRACTICE
-                ? Optional.of(feedbackFor(item, response))
+                ? Optional.of(feedbackFor(item, response, linksOf(attempt.getQuiz())))
                 : Optional.empty();
     }
 
@@ -376,7 +378,7 @@ public class QuizAttemptService {
             responseRepository.save(response);
         }
         return attempt.getMode() == AttemptMode.PRACTICE
-                ? Optional.of(feedbackFor(item, response))
+                ? Optional.of(feedbackFor(item, response, linksOf(attempt.getQuiz())))
                 : Optional.empty();
     }
 
@@ -427,7 +429,7 @@ public class QuizAttemptService {
         responseRepository.saveAndFlush(response); // the new photo's id is part of the answer
 
         return new PhotosDto(response.photoIds(),
-                attempt.getMode() == AttemptMode.PRACTICE ? feedbackFor(item, response) : null);
+                attempt.getMode() == AttemptMode.PRACTICE ? feedbackFor(item, response, linksOf(attempt.getQuiz())) : null);
     }
 
     /**
@@ -735,10 +737,16 @@ public class QuizAttemptService {
                 .toList();
     }
 
-    /** What a PRACTICE answer reveals: the verdict (SINGLE_CHOICE), the right option's id and the barem. */
-    private AnswerFeedbackDto feedbackFor(QuizItem item, ItemResponse response) {
+    /** The EN links of a quiz: numbering a question takes all of them. */
+    private EnChapterLinks.Resolved linksOf(Quiz quiz) {
+        return enChapterLinks.resolve(itemRepository.findByQuizIdOrderByPosition(quiz.getId()));
+    }
+
+    /** What a PRACTICE answer reveals: the verdict (SINGLE_CHOICE), the right option's id, the barem, the lesson if wrong. */
+    private AnswerFeedbackDto feedbackFor(QuizItem item, ItemResponse response, EnChapterLinks.Resolved links) {
+        EnChapterLinkDto lesson = Boolean.FALSE.equals(response.getCorrect()) ? links.linkOf(item) : null;
         if (item.getType() == QuizItemType.NUMERIC) {
-            return new AnswerFeedbackDto(response.getCorrect(), null, item.getSolution(), null, item.getNumericAnswer());
+            return new AnswerFeedbackDto(response.getCorrect(), null, item.getSolution(), null, item.getNumericAnswer(), lesson);
         }
         if (item.getType() != QuizItemType.SINGLE_CHOICE) {
             return new AnswerFeedbackDto(null, null, item.getSolution());
@@ -748,7 +756,7 @@ public class QuizAttemptService {
                 .map(QuizOption::getId)
                 .findFirst().orElse(null);
         return new AnswerFeedbackDto(response.getCorrect(), correctOptionId, item.getSolution(), response.mistakeExplained(),
-                null);
+                null, lesson);
     }
 
     private void requireTimeLeft(QuizAttempt attempt) {

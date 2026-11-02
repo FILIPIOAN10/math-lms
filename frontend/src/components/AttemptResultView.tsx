@@ -19,6 +19,7 @@ import { GradeFigure } from '@/components/GradeFigure'
 import { celebrateFirstTen } from '@/lib/celebrate'
 import { chapterExercisesHref, missed, mistakesOf, practiceMistakesHref } from '@/lib/mistakes'
 import { MistakeNote } from '@/components/MistakeNote'
+import { RevisionNote } from '@/components/RevisionNote'
 import { revisionLinks } from '@/lib/enChapters'
 
 /** The teacher's words, set apart from the app's own text so they read as a note from a person. */
@@ -206,16 +207,9 @@ function ItemResult({
         {item.mistake && <MistakeNote text={item.mistake} />}
 
         {(revisionLinks(item).length > 0 || exercises) && (
-          <div className="flex flex-wrap gap-2" data-testid="revision-links">
+          <div className="space-y-3" data-testid="revision-links">
             {revisionLinks(item).map(({ chapter, parts }) => (
-              <Link
-                key={chapter.id}
-                to={`/capitole/${chapter.id}`}
-                className={buttonVariants({ size: 'sm', variant: 'secondary' })}
-              >
-                {parts.length > 0 && `${parts.map((p) => `${p})`).join(', ')} · `}
-                Vezi modele: {chapter.code} {chapter.title} →
-              </Link>
+              <RevisionNote key={chapter.id} chapter={chapter} parts={parts} />
             ))}
             {exercises && (
               <Link to={chapterExercisesHref(exercises)} className={buttonVariants({ size: 'sm', variant: 'secondary' })}>

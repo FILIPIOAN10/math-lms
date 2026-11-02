@@ -134,10 +134,19 @@ export function photoIndexOf(sectionPage: number | null, chapterFirstPage: numbe
   return index >= 0 && index < photoCount ? index : null
 }
 
-/** One "Vezi modele" button on a result: the chapter, and which requirements it is for ([] = the whole question). */
+/** One lesson to revise on a result: the chapter, and which requirements it is for ([] = the whole question). */
 export interface RevisionLink {
   chapter: EnChapterLink
   parts: string[]
+}
+
+/** "Dacă vrei să recapitulezi noțiunile despre simetrie și segmente:", said about the requirements it is for, if any. */
+export function revisionSentence(chapter: EnChapterLink, parts: string[] = []): string {
+  const what = chapter.revisionTopic ? `noțiunile despre ${chapter.revisionTopic}` : 'noțiunile din acest capitol'
+  const wish = `dacă vrei să recapitulezi ${what}:`
+  return parts.length > 0
+    ? `La ${parts.map((p) => `${p})`).join(', ')}, ${wish}`
+    : wish.charAt(0).toUpperCase() + wish.slice(1)
 }
 
 /**

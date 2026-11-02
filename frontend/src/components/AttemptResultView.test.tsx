@@ -282,19 +282,21 @@ describe('AttemptResultView', () => {
   })
 
   it('sends the student to the chapter page of a question they lost points on (EN chapters)', () => {
-    const chapter = { id: 1, code: 'A1', title: 'Ordinea efectuării operațiilor', ready: true }
+    const chapter = { id: 1, code: 'A1', title: 'Ordinea efectuării operațiilor', ready: true, revisionTopic: null }
     const withChapters: AttemptResultViewDto = {
       ...graded,
       items: [
-        { ...graded.items[0], enChapter: chapter }, // right: no button
-        { ...graded.items[1], enChapter: { ...chapter, id: 17, code: 'G6', title: 'Cercul' } }, // 8 / 10 p
+        { ...graded.items[0], enChapter: chapter }, // right: no link
+        { ...graded.items[1], enChapter: { ...chapter, id: 17, code: 'G6', title: 'Cercul', revisionTopic: 'cerc' } }, // 8 / 10 p
       ],
     }
     render(<AttemptResultView result={withChapters} />, { wrapper: MemoryRouter })
 
-    const links = screen.getAllByTestId('revision-links')
-    expect(links).toHaveLength(1)
-    expect(screen.getByRole('link', { name: /Vezi modele: G6 Cercul/ })).toHaveAttribute('href', '/capitole/17')
+    expect(screen.getAllByTestId('revision-links')).toHaveLength(1)
+    expect(screen.getByTestId('revision-note')).toHaveTextContent('Dacă vrei să recapitulezi noțiunile despre cerc:')
+    const lesson = screen.getByRole('link', { name: /Vezi lecția: G6 Cercul/ })
+    expect(lesson).toHaveAttribute('href', '/capitole/17')
+    expect(lesson).not.toHaveAttribute('target')
     expect(screen.queryByRole('link', { name: /A1/ })).not.toBeInTheDocument()
   })
 })

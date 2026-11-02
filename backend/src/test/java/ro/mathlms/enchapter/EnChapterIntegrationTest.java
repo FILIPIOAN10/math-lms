@@ -114,6 +114,28 @@ class EnChapterIntegrationTest {
     }
 
     @Test
+    void theTeacherWritesWhatAWrongAnswerSendsTheStudentToRevise() throws Exception {
+        String code = code();
+        long id = createChapter(code, "Simetrie");
+        mockMvc.perform(get("/api/en-chapters/" + id).with(student)).andExpect(jsonPath("$.revisionTopic").isEmpty());
+
+        mockMvc.perform(put("/api/admin/en-chapters/" + id).with(csrf()).with(teacher)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"code\":\"" + code + "\",\"title\":\"Simetrie\",\"area\":\"ALGEBRA\","
+                                + "\"revisionTopic\":\"  simetrie și segmente \"}"))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/en-chapters/" + id).with(student))
+                .andExpect(jsonPath("$.revisionTopic").value("simetrie și segmente"));
+
+        assertThat(auditRepository.findAll())
+                .filteredOn(e -> e.getEntityId() != null && e.getEntityId() == id
+                        && e.getAction() == AuditAction.EN_CHAPTER_UPDATED)
+                .extracting(e -> e.getDetails())
+                .anySatisfy(details -> assertThat(details).contains("ce recapitulează elevul"));
+        mockMvc.perform(delete("/api/admin/en-chapters/" + id).with(csrf()).with(teacher)).andExpect(status().isNoContent());
+    }
+
+    @Test
     void theTeacherAddsRenamesAndDeletesAnEmptyChapterAndEachStepIsJournalled() throws Exception {
         String code = code();
         long id = createChapter(code, "Puteri");

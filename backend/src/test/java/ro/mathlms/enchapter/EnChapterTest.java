@@ -19,6 +19,19 @@ class EnChapterTest {
     }
 
     @Test
+    void keepsWhatAWrongAnswerSendsTheStudentToReviseTrimmed() {
+        EnChapter chapter = new EnChapter("G1", "Segmente", EnArea.GEOMETRY, 1, null);
+
+        chapter.describeRevision("  simetrie și segmente ");
+        assertThat(chapter.getRevisionTopic()).isEqualTo("simetrie și segmente");
+
+        chapter.describeRevision("   ");
+        assertThat(chapter.getRevisionTopic()).isNull(); // blank = only the title
+        assertThatThrownBy(() -> chapter.describeRevision("x".repeat(EnChapter.MAX_REVISION_TOPIC + 1)))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("recapitulează");
+    }
+
+    @Test
     void rejectsACodeWithSpacesSignsOrMoreThanTenCharacters() {
         assertThatThrownBy(() -> new EnChapter("A 1", "Titlu", EnArea.ALGEBRA, 1, null))
                 .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("Codul");

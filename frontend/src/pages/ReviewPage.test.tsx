@@ -62,6 +62,22 @@ describe('ReviewPage', () => {
     expect(screen.getByText('Cât face 2+2?')).toBeInTheDocument()
   })
 
+  it('after a wrong answer says what to revise and opens the lesson in another tab', async () => {
+    api.answerReview.mockResolvedValue({
+      correct: false, correctOptionId: 10, solution: 'Doi.', boxBefore: 1, boxAfter: 1, nextDueOn: '2026-10-12',
+      enChapter: { id: 16, code: 'G1', title: 'Segmente', ready: true, revisionTopic: 'simetrie și segmente' },
+    })
+    renderPage()
+
+    await userEvent.click(await screen.findByLabelText('b) greșit'))
+    await userEvent.click(screen.getByRole('button', { name: 'Verifică' }))
+
+    expect(await screen.findByTestId('revision-note')).toHaveTextContent('Dacă vrei să recapitulezi noțiunile despre simetrie și segmente:')
+    const lesson = screen.getByRole('link', { name: /Vezi lecția: G1 Segmente/ })
+    expect(lesson).toHaveAttribute('href', '/capitole/16')
+    expect(lesson).toHaveAttribute('target', '_blank')
+  })
+
   it('celebrates when today is done', async () => {
     api.getReviewToday
       .mockResolvedValueOnce(today({ questions: [question(1, 'Cât face 1+1?')], remainingToday: 1 }))

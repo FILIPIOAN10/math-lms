@@ -117,10 +117,11 @@ public final class StudentQuizDtos {
      * none). Never produced for a graded TEST.
      */
     public record AnswerFeedbackDto(Boolean correct, Long correctOptionId, String solution, String mistake,
-                                    String correctNumber // NUMERIC only: the right answer as the teacher wrote it
+                                    String correctNumber, // NUMERIC only: the right answer as the teacher wrote it
+                                    EnChapterLinkDto enChapter // the lesson to revise; only after a wrong answer
     ) {
         public AnswerFeedbackDto(Boolean correct, Long correctOptionId, String solution) {
-            this(correct, correctOptionId, solution, null, null);
+            this(correct, correctOptionId, solution, null, null, null);
         }
     }
 

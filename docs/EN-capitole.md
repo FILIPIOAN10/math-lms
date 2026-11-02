@@ -467,5 +467,6 @@ Aceste teme sunt la sfârșitul textului fiecărui capitol, iar modelele lor dup
 1. Fiecare capitol de mai sus devine o pagină cu **codul** lui (A1…G10): poze cu materia și modelele rezolvate.
 2. Tabelul de la §1 devine legătura implicită: o întrebare din „SUBIECTUL I”, numărul 1, primește automat A1. La Subiectul III legătura se face pe cerință; de exemplu, la S III.6, cerința a) primește G8 și b) primește G9.
 3. La o variantă care iese din tipar schimbi capitolul doar la acea întrebare.
+4. După un răspuns greșit, elevul citește o frază scrisă pe capitol, „Dacă vrei să recapitulezi noțiunile despre simetrie și segmente:”, cu linkul către lecție. Fraza e una pe capitol, nu pe loc în test, ca să descrie mereu lecția pe care o deschide linkul, chiar și când schimbi capitolul la o întrebare. Orice întrebare legată de G1 o primește pe aceeași; profesorul o schimbă în **Editează capitolul**.
 
 **Surse:** subiectele oficiale EN VIII Matematică 2023 (var. 1), 2024 (var. 7), 2025 (var. 7), publicate de Ministerul Educației / CNPEE; modelul EN 2026 (CNCE); „Analiza itemilor de la Evaluarea Națională pentru absolvenții clasei a VIII-a – 2024, Matematică” (CNPEE); programa pentru EN din Monitorul Oficial, Partea I, nr. 860 bis din 14.10.2026, Anexa 11.

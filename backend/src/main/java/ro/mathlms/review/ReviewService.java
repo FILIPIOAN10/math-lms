@@ -5,7 +5,9 @@ import org.springframework.transaction.annotation.Transactional;
 import ro.mathlms.content.ContentNotFoundException;
 import ro.mathlms.content.Enrollment;
 import ro.mathlms.content.EnrollmentRepository;
+import ro.mathlms.enchapter.EnChapterLinkDto;
 import ro.mathlms.quiz.AttemptMode;
+import ro.mathlms.quiz.EnChapterLinks;
 import ro.mathlms.quiz.ItemResponse;
 import ro.mathlms.quiz.ItemResponseRepository;
 import ro.mathlms.quiz.QuizAttempt;
@@ -70,13 +72,14 @@ public class ReviewService {
     private final QuizOptionRepository optionRepository;
     private final ItemResponseRepository responseRepository;
     private final ReviewAnswerRepository reviewAnswerRepository;
+    private final EnChapterLinks enChapterLinks;
     private final Clock clock;
 
     public ReviewService(UserRepository userRepository, EnrollmentRepository enrollmentRepository,
                          QuizRepository quizRepository, QuizAttemptRepository attemptRepository,
                          QuizItemRepository itemRepository, QuizOptionRepository optionRepository,
                          ItemResponseRepository responseRepository, ReviewAnswerRepository reviewAnswerRepository,
-                         Clock clock) {
+                         EnChapterLinks enChapterLinks, Clock clock) {
         this.userRepository = userRepository;
         this.enrollmentRepository = enrollmentRepository;
         this.quizRepository = quizRepository;
@@ -85,6 +88,7 @@ public class ReviewService {
         this.optionRepository = optionRepository;
         this.responseRepository = responseRepository;
         this.reviewAnswerRepository = reviewAnswerRepository;
+        this.enChapterLinks = enChapterLinks;
         this.clock = clock;
     }
 
@@ -120,8 +124,10 @@ public class ReviewService {
         Card after = LeitnerEngine.next(before, chosen.isCorrect(), today());
         Long correctOptionId = optionRepository.findByItemIdOrderByPosition(itemId).stream()
                 .filter(QuizOption::isCorrect).map(QuizOption::getId).findFirst().orElse(null);
+        EnChapterLinkDto lesson = chosen.isCorrect() ? null
+                : enChapterLinks.resolve(itemRepository.findByQuizIdOrderByPosition(item.getQuiz().getId())).linkOf(item);
         return new ReviewResultDto(chosen.isCorrect(), correctOptionId, item.getSolution(), before.box(), after.box(),
-                after.dueOn(), chosen.isCorrect() ? null : chosen.getMistake());
+                after.dueOn(), chosen.isCorrect() ? null : chosen.getMistake(), lesson);
     }
 
     // ---------------------------------------------------------------- parent and teacher

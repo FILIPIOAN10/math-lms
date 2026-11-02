@@ -806,6 +806,8 @@ export interface ReviewResult {
   solution: string | null
   /** The teacher's words about the wrong option chosen; null/absent = none. */
   mistake?: string | null
+  /** The lesson to revise; only after a wrong answer. */
+  enChapter?: EnChapterLink | null
   boxBefore: number
   boxAfter: number
   /** A calendar day, "2026-10-14". */
@@ -1315,6 +1317,8 @@ export interface AnswerFeedback {
   mistake?: string | null
   /** A numeric question: the right answer as the teacher wrote it. */
   correctNumber?: string | null
+  /** The lesson to revise; only after a wrong answer. */
+  enChapter?: EnChapterLink | null
 }
 
 /** What the student already saved on a resumed attempt. */
@@ -1992,6 +1996,8 @@ export interface EnChapterLink {
   code: string
   title: string
   ready: boolean
+  /** What a wrong answer sends the student to revise: "noțiunile despre …"; null = not written. */
+  revisionTopic: string | null
 }
 
 /** A chapter in the list ("A1 Ordinea efectuării operațiilor"), with how much the teacher has put on its page. */
@@ -2043,6 +2049,7 @@ export interface EnChapterPage {
   sections: EnSection[]
   photos: { id: number }[]
   examples: EnExample[]
+  revisionTopic: string | null
 }
 
 export interface EnChapterInput {
@@ -2053,6 +2060,7 @@ export interface EnChapterInput {
   /** Omitted = keep it a chapter of its own. */
   parentId?: number | null
   bookPage?: number | null
+  revisionTopic?: string | null
 }
 
 export interface EnExampleInput {

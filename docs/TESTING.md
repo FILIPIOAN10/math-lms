@@ -772,10 +772,14 @@ la Subiectul III, cerințele a)/b) ale problemelor 5 și 6 au capitolul lor.
 | 2 | **Editează** o grilă → câmpul **Capitol EN** | „Automat: A1 Ordinea efectuării operațiilor”; alege alt capitol, Salvează → eticheta se schimbă, fără „automat” |
 | 3 | **Editează** problema III.6 | Sub fiecare cerință câte un **Capitol EN cerința a)/b)**: „Automat: G8…” și „Automat: G9…” |
 | 4 | Pune materie (o poză sau un model) în capitolul primei întrebări (§27) | — |
-| 5 | Elev: dă testul, greșește întrebarea 1, predă | Pe rezultat, la întrebarea 1: butonul **Vezi modele: A1 Ordinea efectuării operațiilor →** → deschide pagina capitolului |
-| 6 | Același rezultat: întrebările corecte și cele al căror capitol e gol | Fără buton |
-| 7 | La o problemă cu a)/b) notată parțial | Butonul apare doar pentru cerința care a pierdut puncte, cu „b) · Vezi modele: …” — și doar după ce TOATE cerințele problemei au puncte (cât timp profesorul a notat doar a), fără buton) |
-| 8 | Părinte: rezultatul copilului | Aceleași butoane |
+| 5 | Elev: dă testul, greșește întrebarea 1, predă | Pe rezultat, la întrebarea 1: **Dacă vrei să recapitulezi noțiunile despre ordinea operațiilor, paranteze și puteri:** și linkul **Vezi lecția: A1 Ordinea efectuării operațiilor →**, care deschide pagina capitolului |
+| 6 | Același rezultat: întrebările corecte și cele al căror capitol e gol | Fără frază și fără link |
+| 7 | La o problemă cu a)/b) notată parțial | Fraza apare doar pentru cerința care a pierdut puncte, „La b), dacă vrei să recapitulezi…” — și doar după ce TOATE cerințele problemei au puncte (cât timp profesorul a notat doar a), nu apare) |
+| 8 | Părinte: rezultatul copilului | Aceleași fraze și linkuri |
+| 9 | Elev: la exersare, alege o variantă greșită la o întrebare legată de un capitol cu materie | Sub rezolvare: fraza și **Vezi lecția: … ↗**, care se deschide în altă filă; exersarea rămâne unde era. După un răspuns corect, nimic |
+| 10 | Elev: la recapitulare, greșește o întrebare legată de un capitol | Aceeași frază și același link, în altă filă |
+| 11 | Profesor: **Editează capitolul** → **Ce recapitulează elevul** | Dedesubt, propoziția așa cum o citește elevul; după Salvează, fraza nouă apare la toate întrebările legate de capitol, inclusiv la lucrările vechi. Goală: „noțiunile din acest capitol” |
+| 12 | Elev: deschide **G8** | Teoria veche, apoi „Vârfuri, muchii și fețe”, cu formulele desenate |
 
 ### 29. AI-ul propune capitolul EN — ca profesor (cere `AI_IMPORT_ENABLED=true`)
 
@@ -904,7 +908,7 @@ V49 adaugă A12–A15 și G10 și completează 17 capitole cu temele cerute de p
 | 3 | Elev: deschide **G4** | Teoria veche, apoi tabelul cu sin, cos, tg și ctg, cu fracțiile desenate; 7 modele |
 | 4 | Elev: deschide **A1** | Teoria veche, apoi „Împărțirea cu rest”…; 8 modele, cele vechi primele |
 | 5 | Profesor: **Capitole EN → Legături automate** | Capitolele noi se pot alege, dar niciun exercițiu nu e legat de ele |
-| 6 | La o întrebare alege manual **A14**, apoi elevul o greșește | Pe rezultat apare „Vezi modele: A14…” |
+| 6 | La o întrebare alege manual **A14**, apoi elevul o greșește | Pe rezultat apare „Vezi lecția: A14…” |
 | 7 | **Sugerează capitolele (AI)** cu furnizorul `fake`, pe un enunț cu „probabilitatea” | Propune A15 |
 
 ## E. Debugging — unde te uiți când pică ceva

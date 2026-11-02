@@ -18,7 +18,7 @@ const chapter = (id: number, over: Partial<EnChapterSummary> = {}): EnChapterSum
 
 const page = (over: Partial<EnChapterPageDto> = {}): EnChapterPageDto => ({
   id: 1, code: 'A1', title: 'Ordinea efectuării operațiilor', area: 'ALGEBRA', notes: null, parentId: null, rootId: 1,
-  bookPage: null, sections: [], photos: [], examples: [],
+  bookPage: null, sections: [], photos: [], examples: [], revisionTopic: null,
   ...over,
 })
 

@@ -16,16 +16,18 @@ public final class EnChapterDtos {
 
     /**
      * Create or edit a chapter (the place in the list moves separately). {@code parentId} makes it a section of that
-     * chapter (or a point of that section); {@code bookPage} is the page printed in the book where it starts.
+     * chapter (or a point of that section); {@code bookPage} is the page printed in the book where it starts;
+     * {@code revisionTopic} is what a wrong answer sends the student to revise.
      */
     public record EnChapterRequest(
             @NotBlank @Size(max = EnChapter.MAX_CODE) String code,
             @NotBlank @Size(max = EnChapter.MAX_TITLE) String title,
             @NotNull EnArea area,
-            // No @Size here: the entity refuses a too long text with a sentence the teacher can read.
+            // No @Size here or on revisionTopic: the entity refuses a too long text with a sentence the teacher can read.
             String notes,
             Long parentId,
-            @Min(1) @Max(EnChapter.MAX_BOOK_PAGE) Integer bookPage
+            @Min(1) @Max(EnChapter.MAX_BOOK_PAGE) Integer bookPage,
+            String revisionTopic
     ) {
     }
 
@@ -72,7 +74,7 @@ public final class EnChapterDtos {
      */
     public record EnChapterPageDto(Long id, String code, String title, EnArea area, String notes, Long parentId,
                                    Long rootId, Integer bookPage, List<SectionDto> sections, List<PhotoDto> photos,
-                                   List<ExampleDto> examples) {
+                                   List<ExampleDto> examples, String revisionTopic) {
     }
 
     /** Which way a chapter moves in the list. */

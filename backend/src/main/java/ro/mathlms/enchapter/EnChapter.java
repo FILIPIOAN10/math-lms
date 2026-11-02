@@ -31,6 +31,7 @@ public class EnChapter {
     /** A whole chapter of the book's theory is tens of thousands of characters; the page text may hold it. */
     public static final int MAX_NOTES = 60_000;
     public static final int MAX_BOOK_PAGE = 5000;
+    public static final int MAX_REVISION_TOPIC = 200;
     private static final Pattern CODE = Pattern.compile("[A-Z0-9]{1," + MAX_CODE + "}");
 
     @Id
@@ -62,6 +63,10 @@ public class EnChapter {
     @Column(name = "book_page")
     private Integer bookPage;
 
+    /** What a wrong answer sends the student to revise: "noțiunile despre {this}"; {@code null} = not written. */
+    @Column(name = "revision_topic", length = MAX_REVISION_TOPIC)
+    private String revisionTopic;
+
     public EnChapter(String code, String title, EnArea area, int position, String notes) {
         this.position = position;
         update(code, title, area, notes);
@@ -86,6 +91,14 @@ public class EnChapter {
             throw new IllegalArgumentException("Textul paginii poate avea cel mult " + MAX_NOTES + " de caractere.");
         }
         this.notes = trimmed == null || trimmed.isEmpty() ? null : trimmed;
+    }
+
+    public void describeRevision(String topic) {
+        String trimmed = topic == null ? "" : topic.strip();
+        if (trimmed.length() > MAX_REVISION_TOPIC) {
+            throw new IllegalArgumentException("Ce recapitulează elevul are cel mult " + MAX_REVISION_TOPIC + " de caractere.");
+        }
+        this.revisionTopic = trimmed.isEmpty() ? null : trimmed;
     }
 
     public void moveTo(int position) {

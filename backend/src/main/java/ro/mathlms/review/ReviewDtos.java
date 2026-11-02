@@ -1,5 +1,7 @@
 package ro.mathlms.review;
 
+import ro.mathlms.enchapter.EnChapterLinkDto;
+
 import java.time.LocalDate;
 import java.util.List;
 
@@ -29,7 +31,8 @@ public final class ReviewDtos {
     /** One answered review question: the verdict, the right option, the explanation and where the card moved. */
     public record ReviewResultDto(boolean correct, Long correctOptionId, String solution, int boxBefore, int boxAfter,
                                   LocalDate nextDueOn,
-                                  String mistake // the teacher's words about the wrong option chosen; null = none
+                                  String mistake, // the teacher's words about the wrong option chosen; null = none
+                                  EnChapterLinkDto enChapter // the lesson to revise; only after a wrong answer
     ) {
     }
 

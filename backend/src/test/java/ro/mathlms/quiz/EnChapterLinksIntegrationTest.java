@@ -212,4 +212,61 @@ class EnChapterLinksIntegrationTest {
         assertThat(cubeParts.get(0).get("enChapter").get("code").asString()).isEqualTo("G8");
         assertThat(cubeParts.get(1).get("enChapter").get("code").asString()).isEqualTo("G9");
     }
+
+    @Test
+    void theResultSaysWhatToReviseForTheChapterOfAQuestion() throws Exception {
+        send(post("/api/admin/quizzes/" + quizId + "/publish"), Map.of()).andExpect(status().isOk());
+        long attemptId = start("").get("attemptId").asLong();
+        mockMvc.perform(post("/api/quiz/attempts/" + attemptId + "/submit").with(ana()).with(csrf())).andExpect(status().isOk());
+
+        JsonNode result = json(mockMvc.perform(get("/api/quiz/attempts/" + attemptId + "/result").with(ana()))
+                .andExpect(status().isOk())).get("items");
+
+        assertThat(result.get(0).get("enChapter").get("revisionTopic").asString()).isEqualTo("ordinea operațiilor, paranteze și puteri");
+    }
+
+    @Test
+    void aWrongPracticeAnswerNamesTheLessonAndARightOneDoesNot() throws Exception {
+        send(put("/api/admin/quizzes/" + quizId), Map.of("title", "Simulare EN " + System.nanoTime(), "practiceAllowed", true))
+                .andExpect(status().isOk());
+        send(post("/api/admin/quizzes/" + quizId + "/publish"), Map.of()).andExpect(status().isOk());
+        JsonNode started = start("?mode=PRACTICE");
+        long attemptId = started.get("attemptId").asLong();
+
+        JsonNode wrong = answer(attemptId, started, "17");
+        assertThat(wrong.get("correct").asBoolean()).isFalse();
+        assertThat(wrong.get("enChapter").get("code").asString()).isEqualTo("A1");
+        assertThat(wrong.get("enChapter").get("ready").asBoolean()).isTrue();
+        assertThat(wrong.get("enChapter").get("revisionTopic").asString()).isEqualTo("ordinea operațiilor, paranteze și puteri");
+
+        // a practice picked up again says the same thing
+        JsonNode resumed = start("?mode=PRACTICE").get("answers").get(0).get("feedback");
+        assertThat(resumed.get("enChapter").get("code").asString()).isEqualTo("A1");
+
+        JsonNode right = answer(attemptId, started, "1");
+        assertThat(right.get("correct").asBoolean()).isTrue();
+        assertThat(right.get("enChapter").isNull()).isTrue();
+    }
+
+    private RequestPostProcessor ana() {
+        return user(student.getEmail()).authorities(STUDENT);
+    }
+
+    private JsonNode start(String query) throws Exception {
+        return json(mockMvc.perform(post("/api/quiz/quizzes/" + quizId + "/attempts" + query).with(ana()).with(csrf()))
+                .andExpect(status().isOk()));
+    }
+
+    /** Chooses the option with this text on the first question. */
+    private JsonNode answer(long attemptId, JsonNode started, String text) throws Exception {
+        for (JsonNode option : started.get("quiz").get("items").get(0).get("options")) {
+            if (option.get("text").asString().equals(text)) {
+                return json(mockMvc.perform(put("/api/quiz/attempts/" + attemptId + "/responses/" + items.get(0))
+                                .with(ana()).with(csrf()).contentType("application/json")
+                                .content("{\"optionId\":" + option.get("id").asLong() + "}"))
+                        .andExpect(status().isOk()));
+            }
+        }
+        throw new AssertionError("no option " + text);
+    }
 }

@@ -120,7 +120,7 @@ public class EnChapterLinks {
             return part.getEnChapter() != null ? part.getEnChapter() : partDefault(part);
         }
 
-        EnChapterLinkDto linkOf(QuizItem item) {
+        public EnChapterLinkDto linkOf(QuizItem item) {
             EnChapter chapter = itemChapter(item);
             return EnChapterLinkDto.of(chapter, chapter != null && ready.contains(chapter.getId()));
         }

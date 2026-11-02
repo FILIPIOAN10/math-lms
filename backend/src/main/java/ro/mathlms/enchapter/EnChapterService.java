@@ -104,7 +104,8 @@ public class EnChapterService {
                 chapter.getNotes(), chapter.getParentId(), root.getId(), chapter.getBookPage(),
                 tree.descendantsOf(chapter).stream().map(SectionDto::of).toList(),
                 photoRepository.findByChapterIdOrderByPositionAscIdAsc(id).stream().map(p -> new PhotoDto(p.getId())).toList(),
-                exampleRepository.findByChapterIdOrderByPositionAscIdAsc(id).stream().map(ExampleDto::from).toList());
+                exampleRepository.findByChapterIdOrderByPositionAscIdAsc(id).stream().map(ExampleDto::from).toList(),
+                chapter.getRevisionTopic());
     }
 
     @Transactional(readOnly = true)
@@ -133,6 +134,7 @@ public class EnChapterService {
         EnChapter created = new EnChapter(code, request.title(), request.area(),
                 chapterRepository.maxPosition() + 1, request.notes());
         created.placeIn(request.parentId(), request.bookPage());
+        created.describeRevision(request.revisionTopic());
         EnChapter saved = chapterRepository.save(created);
         auditLog.record(AuditEvent.of(AuditAction.EN_CHAPTER_CREATED, saved.getId(), label(saved)));
         return EnChapterSummaryDto.of(saved, 0, 0);
@@ -147,12 +149,15 @@ public class EnChapterService {
         String before = label(chapter);
         String notesBefore = chapter.getNotes();
         String placeBefore = place(chapter);
+        String topicBefore = chapter.getRevisionTopic();
         chapter.update(code, request.title(), request.area(), request.notes());
         chapter.placeIn(request.parentId(), request.bookPage());
+        chapter.describeRevision(request.revisionTopic());
         String details = new AuditText.Changes()
                 .addIfDifferent(before, label(chapter), "fost „" + before + "”")
                 .addIfDifferent(notesBefore, chapter.getNotes(), "textul paginii")
                 .addIfDifferent(placeBefore, place(chapter), "locul în carte")
+                .addIfDifferent(topicBefore, chapter.getRevisionTopic(), "ce recapitulează elevul")
                 .joined();
         auditLog.record(AuditEvent.of(AuditAction.EN_CHAPTER_UPDATED, id, label(chapter)).details(details));
         return EnChapterSummaryDto.of(chapter, photoRepository.countByChapterId(id), exampleRepository.countByChapterId(id));
