@@ -37,7 +37,23 @@ function loginErrorMessage(error: unknown): string {
   return 'A apărut o eroare. Încearcă din nou.'
 }
 
-function GoogleTab() {
+/** Why Google sent the visitor back here (?error=…): a fixed code from the server, never repeated as it stands. */
+function googleRefusal(code: string | null): string | null {
+  switch (code) {
+    case null:
+      return null
+    case 'no_account':
+      return 'Nu există un cont pentru acest email Google.'
+    case 'invite_unavailable':
+      return 'Linkul de invitație nu mai e valabil. Cere-i profesorului unul nou.'
+    case 'access_denied':
+      return 'Ai anulat conectarea cu Google. Poți încerca din nou.'
+    default:
+      return 'Conectarea cu Google nu a reușit. Încearcă din nou.'
+  }
+}
+
+function GoogleTab({ refusal }: { refusal: string | null }) {
   function signInWithGoogle() {
     saveLoginMethod('google')
     window.location.href = '/oauth2/authorization/google'
@@ -45,6 +61,11 @@ function GoogleTab() {
 
   return (
     <div className="flex flex-col gap-3">
+      {refusal && (
+        <p role="alert" className="text-sm text-destructive">
+          {refusal}
+        </p>
+      )}
       <Button className="w-full" onClick={signInWithGoogle}>
         Continuă cu Google
       </Button>
@@ -194,6 +215,7 @@ export function LoginPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   // Google sends a sign-in that still needs its code here with ?step=2fa; the password tab switches to it itself.
   const [needCode, setNeedCode] = useState(searchParams.get('step') === '2fa')
+  const refusal = googleRefusal(searchParams.get('error'))
 
   function restart() {
     setNeedCode(false)
@@ -212,13 +234,13 @@ export function LoginPage() {
         <CardContent>
           {needCode ? <TwoFactorStep onRestart={restart} /> : (
             <>
-              <Tabs defaultValue={readLoginMethod()}>
+              <Tabs defaultValue={refusal ? 'google' : readLoginMethod()}>
                 <TabsList>
                   <TabsTrigger value="google">Google</TabsTrigger>
                   <TabsTrigger value="password">Email și parolă</TabsTrigger>
                 </TabsList>
                 <TabsContent value="google">
-                  <GoogleTab />
+                  <GoogleTab refusal={refusal} />
                 </TabsContent>
                 <TabsContent value="password">
                   <PasswordTab onNeedCode={() => setNeedCode(true)} />

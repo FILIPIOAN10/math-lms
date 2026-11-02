@@ -260,6 +260,10 @@ Calea simplă (fără aprobare) e la §18; linkul general rămâne pentru cazuri
 
 ### 7. Google login (tab Google)
 - OAuth real; merge doar cu emailuri din `ADMIN_EMAILS` / `ALLOWED_EMAILS`, sau via invite link
+- Un cont Google fără cont în aplicație și fără invitație: te întoarce la pagina de login, pe tab-ul Google, cu „Nu există un cont pentru acest email Google.”
+- Link de invitație expirat, revocat sau folosit, deschis cu Google: „Linkul de invitație nu mai e valabil. Cere-i profesorului unul nou.”
+- **Cancel** pe pagina Google: „Ai anulat conectarea cu Google. Poți încerca din nou.”
+- Orice altă problemă cu Google: „Conectarea cu Google nu a reușit. Încearcă din nou.”; codul exact e în logul backendului, pe rândul `Google sign-in failed`
 
 ### 8. Admin — gestionare conținut (`/admin/content`, ca admin)
 Din bara de sus: **Clase**. Navigare arborescentă cu breadcrumb.

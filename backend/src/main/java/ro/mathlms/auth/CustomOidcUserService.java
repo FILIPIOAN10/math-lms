@@ -1,11 +1,15 @@
 package ro.mathlms.auth;
 
+import io.jsonwebtoken.JwtException;
 import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserRequest;
 import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserService;
+import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
+import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.stereotype.Service;
 import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.context.request.RequestContextHolder;
+import ro.mathlms.invite.InviteUnavailableException;
 import ro.mathlms.user.User;
 
 @Service
@@ -25,9 +29,19 @@ public class CustomOidcUserService extends OidcUserService {
         String email = oidcUser.getEmail();
         String fullName = oidcUser.getFullName();
 
-        User user = provisioningService.provision(googleId, email, fullName, currentInviteToken());
+        try {
+            User user = provisioningService.provision(googleId, email, fullName, currentInviteToken());
+            return new AppOidcUser(oidcUser, user);
+        } catch (EmailNotAllowedException e) {
+            throw refused(GoogleLoginFailureHandler.NO_ACCOUNT, e);
+        } catch (InviteUnavailableException | JwtException e) {
+            throw refused(GoogleLoginFailureHandler.INVITE_UNAVAILABLE, e);
+        }
+    }
 
-        return new AppOidcUser(oidcUser, user);
+    /** Only an authentication failure reaches {@link GoogleLoginFailureHandler}; anything else is the raw error page. */
+    private static OAuth2AuthenticationException refused(String reason, RuntimeException cause) {
+        return new OAuth2AuthenticationException(new OAuth2Error(reason), cause);
     }
 
     /**

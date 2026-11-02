@@ -1,5 +1,6 @@
 package ro.mathlms.auth;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -47,7 +48,8 @@ public class SecurityConfig {
                                             JwtCookieSuccessHandler jwtCookieSuccessHandler,
                                             JwtCookieAuthFilter jwtCookieAuthFilter,
                                             ClientRegistrationRepository clientRegistrationRepository,
-                                            MetricsTokenAuthorizationManager metricsAccess) throws Exception {
+                                            MetricsTokenAuthorizationManager metricsAccess,
+                                            @Value("${app.frontend.base-url}") String frontendBaseUrl) throws Exception {
         OAuth2AuthorizationRequestResolver inviteAwareResolver =
                 new InviteAwareAuthorizationRequestResolver(
                         new DefaultOAuth2AuthorizationRequestResolver(
@@ -124,7 +126,8 @@ public class SecurityConfig {
                                 .authorizationRequestResolver(inviteAwareResolver)
                                 .authorizationRequestRepository(inviteCapturingRepository))
                         .userInfoEndpoint(userInfo -> userInfo.oidcUserService(customOidcUserService))
-                        .successHandler(jwtCookieSuccessHandler))
+                        .successHandler(jwtCookieSuccessHandler)
+                        .failureHandler(new GoogleLoginFailureHandler(frontendBaseUrl)))
                 .exceptionHandling(ex ->
                         ex.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
                 .addFilterBefore(jwtCookieAuthFilter, UsernamePasswordAuthenticationFilter.class)

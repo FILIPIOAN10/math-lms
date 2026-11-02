@@ -124,6 +124,52 @@ describe('LoginPage error messages', () => {
   })
 })
 
+describe('LoginPage after Google refused a sign-in', () => {
+  beforeEach(() => localStorage.clear())
+
+  const renderAt = (url: string) => render(<MemoryRouter initialEntries={[url]}><LoginPage /></MemoryRouter>)
+
+  it('says there is no account, and still says where to get one', () => {
+    renderAt('/login?error=no_account')
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Nu există un cont pentru acest email Google.')
+    expect(screen.getByTestId('no-account')).toHaveTextContent('Cere-i profesorului linkul de invitație')
+  })
+
+  it('says the invitation is no longer valid', () => {
+    renderAt('/login?error=invite_unavailable')
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Linkul de invitație nu mai e valabil.')
+  })
+
+  it('says the visitor cancelled on Google', () => {
+    renderAt('/login?error=access_denied')
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Ai anulat conectarea cu Google.')
+  })
+
+  it('never repeats what it does not know from the address', () => {
+    renderAt('/login?error=altceva-din-adres%C4%83')
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Conectarea cu Google nu a reușit.')
+    expect(screen.queryByText(/altceva/)).not.toBeInTheDocument()
+  })
+
+  it('shows the reason on the Google tab even after a password sign-in', () => {
+    localStorage.setItem('mathlms-login-method', 'password')
+    renderAt('/login?error=no_account')
+
+    expect(screen.getByRole('tab', { name: 'Google' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('alert')).toBeInTheDocument()
+  })
+
+  it('has nothing to say on a plain visit', () => {
+    renderAt('/login')
+
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+})
+
 describe('LoginPage two-step sign-in', () => {
   beforeEach(() => {
     login.mockReset()
