@@ -46,6 +46,8 @@ function googleRefusal(code: string | null): string | null {
       return 'Nu există un cont pentru acest email Google.'
     case 'invite_unavailable':
       return 'Linkul de invitație nu mai e valabil. Cere-i profesorului unul nou.'
+    case 'email_not_verified':
+      return 'Google nu a confirmat încă acest email. Confirmă-l în contul tău Google, apoi încearcă din nou.'
     case 'access_denied':
       return 'Ai anulat conectarea cu Google. Poți încerca din nou.'
     default:

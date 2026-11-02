@@ -262,6 +262,7 @@ Calea simplă (fără aprobare) e la §18; linkul general rămâne pentru cazuri
 - OAuth real; merge doar cu emailuri din `ADMIN_EMAILS` / `ALLOWED_EMAILS`, sau via invite link
 - Un cont Google fără cont în aplicație și fără invitație: te întoarce la pagina de login, pe tab-ul Google, cu „Nu există un cont pentru acest email Google.”
 - Link de invitație expirat, revocat sau folosit, deschis cu Google: „Linkul de invitație nu mai e valabil. Cere-i profesorului unul nou.”
+- Un cont Google cu adresa neconfirmată de Google: „Google nu a confirmat încă acest email…”, fără să se atingă vreun cont și fără să se consume invitația. Nu se poate provoca ușor de mână, o acoperă `CustomOidcUserServiceTest`
 - **Cancel** pe pagina Google: „Ai anulat conectarea cu Google. Poți încerca din nou.”
 - Orice altă problemă cu Google: „Conectarea cu Google nu a reușit. Încearcă din nou.”; codul exact e în logul backendului, pe rândul `Google sign-in failed`
 

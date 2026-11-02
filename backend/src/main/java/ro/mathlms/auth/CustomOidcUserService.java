@@ -25,6 +25,11 @@ public class CustomOidcUserService extends OidcUserService {
     public OidcUser loadUser(OidcUserRequest userRequest) {
         OidcUser oidcUser = super.loadUser(userRequest);
 
+        // The email decides whose account this is, and whether it is an admin's (ADMIN_EMAILS): only one Google vouches for.
+        if (!Boolean.TRUE.equals(oidcUser.getEmailVerified())) {
+            throw new OAuth2AuthenticationException(new OAuth2Error(GoogleLoginFailureHandler.EMAIL_NOT_VERIFIED));
+        }
+
         String googleId = oidcUser.getSubject();
         String email = oidcUser.getEmail();
         String fullName = oidcUser.getFullName();

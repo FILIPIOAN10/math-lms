@@ -31,6 +31,8 @@ class GoogleLoginFailureHandlerTest {
                 .isEqualTo("https://mate.exemplu.ro/login?error=no_account");
         assertThat(redirectAfter(oauth(GoogleLoginFailureHandler.INVITE_UNAVAILABLE)))
                 .isEqualTo("https://mate.exemplu.ro/login?error=invite_unavailable");
+        assertThat(redirectAfter(oauth(GoogleLoginFailureHandler.EMAIL_NOT_VERIFIED)))
+                .isEqualTo("https://mate.exemplu.ro/login?error=email_not_verified");
         assertThat(redirectAfter(oauth("access_denied"))).isEqualTo("https://mate.exemplu.ro/login?error=access_denied");
     }
 

@@ -142,6 +142,12 @@ describe('LoginPage after Google refused a sign-in', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('Linkul de invitație nu mai e valabil.')
   })
 
+  it('says Google has not confirmed the email', () => {
+    renderAt('/login?error=email_not_verified')
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Google nu a confirmat încă acest email.')
+  })
+
   it('says the visitor cancelled on Google', () => {
     renderAt('/login?error=access_denied')
 
