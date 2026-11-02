@@ -48,6 +48,9 @@ public class RateLimitConfig {
                         Duration.ofDays(1), RateLimitKeyType.USER),
                 // Three paid model calls per question (the tutor's levels): a whole paper twice over, per teacher per day.
                 new RateLimitRule("tutor-hints", "POST", "/api/admin/quiz-items/*/tutor-hints", 60,
+                        Duration.ofDays(1), RateLimitKeyType.USER),
+                // One paid call per wrong option: a whole paper's options, a few times over, per teacher per day.
+                new RateLimitRule("mistake-suggestion", "POST", "/api/admin/quiz-options/*/mistake-suggestion", 100,
                         Duration.ofDays(1), RateLimitKeyType.USER)
         );
     }
