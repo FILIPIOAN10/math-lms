@@ -155,12 +155,27 @@ describe('TakeQuizPage', () => {
     })
 
     it('warns about what is not a number while there is still time to fix it', async () => {
+      api.saveQuizAnswer.mockResolvedValue(null)
       renderPage('')
       const box = await beginNumeric(startedNumeric(), 'Începe testul')
 
       await userEvent.type(box, '20 cm')
 
       expect(screen.getByText(/Nu pare un număr/)).toBeInTheDocument()
+    })
+
+    it('sends a number still in its pause when the student leaves the page, and leaves nothing ticking', async () => {
+      api.saveQuizAnswer.mockResolvedValue(null)
+      const { unmount } = renderPage('')
+      const box = await beginNumeric(startedNumeric(), 'Începe testul')
+
+      await userEvent.type(box, '3/4')
+      unmount()
+
+      expect(api.saveQuizAnswer).toHaveBeenCalledTimes(1)
+      expect(api.saveQuizAnswer).toHaveBeenCalledWith(50, 200, '3/4', expect.anything())
+      await new Promise((resolve) => setTimeout(resolve, 900)) // past the pause: nothing fires a second time
+      expect(api.saveQuizAnswer).toHaveBeenCalledTimes(1)
     })
 
     it('hands in a number still waiting for its pause', async () => {

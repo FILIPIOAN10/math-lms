@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react'
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -422,6 +422,13 @@ export function TakeQuizPage() {
   function commitTypedNumbers() {
     for (const itemId of numberTimers.current.keys()) commitNumber(itemId, numbers[itemId] ?? '')
   }
+
+  // Leaving the page during the pause: the number goes now, and nothing stays ticking behind a closed page.
+  const commitOnLeave = useRef(commitTypedNumbers)
+  useLayoutEffect(() => {
+    commitOnLeave.current = commitTypedNumbers
+  })
+  useEffect(() => () => commitOnLeave.current(), [])
 
   /** In a test a number saves itself after a pause. In a practice only "Verifică" sends it: half a number must not be marked. */
   function typeNumber(itemId: number, value: string) {
