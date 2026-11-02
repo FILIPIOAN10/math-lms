@@ -36,7 +36,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * The EN chapter pages on real Postgres + the local file store: the 20 chapters seeded by V33, the teacher editing the
+ * The EN chapter pages on real Postgres + the local file store: the chapters seeded by V33 and V49, the teacher editing the
  * list and filling a page (theory photos, worked examples with an optional figure), every active account reading it,
  * and nobody else writing it.
  */
@@ -194,11 +194,11 @@ class EnChapterIntegrationTest {
                 .content("{\"code\":\"" + geometryCode + "\",\"title\":\"Geometrie la final\",\"area\":\"GEOMETRY\"}"), 201);
         long geometry = ((Number) JsonPath.read(body, "$.id")).longValue();
 
-        // Up from the end of geometry: past the last geometry chapter (G9), not past the algebra one added before it.
+        // Up from the end of geometry: past the last geometry chapter (G10), not past the algebra one added before it.
         mockMvc.perform(post("/api/admin/en-chapters/" + geometry + "/move?direction=UP").with(csrf()).with(teacher))
                 .andExpect(status().isNoContent());
         List<String> codes = codesInOrder();
-        assertThat(codes.indexOf(geometryCode)).isLessThan(codes.indexOf("G9"));
+        assertThat(codes.indexOf(geometryCode)).isLessThan(codes.indexOf("G10"));
 
         mockMvc.perform(post("/api/admin/en-chapters/" + geometry + "/move?direction=DOWN").with(csrf()).with(teacher))
                 .andExpect(status().isNoContent());

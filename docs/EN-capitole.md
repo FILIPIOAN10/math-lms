@@ -2,13 +2,15 @@
 
 Lista paginilor de materie din aplicație: ce capitole faci, ce materie și ce modele pui în fiecare și la ce exercițiu din test se leagă.
 
-**Pe ce se bazează** (verificat pe 13.10.2026):
+**Pe ce se bazează** (verificat pe 13.10.2026, completat după programă pe 02.11.2026):
 - subiectele oficiale de la **EN 2023** (varianta 1), **EN 2024** (varianta 7), **EN 2025** (varianta 7) și **modelul oficial EN 2026**;
 - **analiza oficială a itemilor** făcută de CNPEE pentru simularea EN 2024 (competența verificată de fiecare item și ce trebuie recapitulat când e greșit);
-- programa de EN aprobată prin OME nr. 4.730/2022, făcută după programa școlară de matematică V–VIII (OMEN nr. 3393/2017).
+- programa pentru Evaluarea Națională din Monitorul Oficial nr. 860 bis din 14.10.2026 (Anexa 11), făcută după programa școlară de matematică V–VIII (OMEN nr. 3393/2017). Prima versiune a acestei liste a folosit programa aprobată prin OME nr. 4.730/2022.
+
+Capitolele A1–A11 și G1–G9 vin din cele 4 variante oficiale, deci acoperă ce a picat acolo. Capitolele A12–A15 și G10 vin din programă: acoperă materia cerută care lipsea. Programa are domenii și conținuturi, nu capitole și nici poziții la examen.
 
 **Cum se citește:**
-- Fiecare capitol are un **cod** (A1…A11 pentru algebră, G1…G9 pentru geometrie). Codul leagă întrebările din test de pagina capitolului.
+- Fiecare capitol are un **cod** (A1…A15 pentru algebră, G1…G10 pentru geometrie). Codul leagă întrebările din test de pagina capitolului.
 - „Apare la” spune unde a picat capitolul în cele 4 variante oficiale. De exemplu, „S I.1 (4/4)” înseamnă Subiectul I, exercițiul 1, în toate cele 4 variante.
 - „Clasa” e orientativă: anul în care se predă materia, ca s-o găsești în manual.
 
@@ -42,6 +44,7 @@ Când adaugi o variantă, aplicația leagă automat fiecare exercițiu de capito
 Cum arată tiparul:
 - **Stabile:** S I.1, S II.1, S II.4, S II.5, toată partea de algebră de la Subiectul III (1, 2, 3) și S III.6 b). Aici legătura automată nimerește aproape mereu.
 - **Se rotesc:** S I.2–I.4 (proporții, procente, numere întregi, intervale, ecuații) și S III.4–5 (patrulatere, triunghiuri, cerc, asemănare). Aici verifici legătura la fiecare variantă.
+- **Capitolele din programă** (A12–A15, G10) nu sunt în tabel, pentru că nu au o poziție fixă în cele 4 variante. Le alegi la întrebare sau le propune AI-ul.
 - **Formatul rămâne fix chiar când tema se schimbă:** S I.5 e mereu un tabel cu „patru elevi”, din care alegi elevul care a răspuns corect; S I.6 e mereu adevărat/fals; la Subiectul III, a) valorează 2p și b) 3p.
 
 ---
@@ -203,6 +206,65 @@ La b) apar de obicei: „$E(n)$ este număr natural” (cu divizori), o ecuație
 4. Distanța de la $O$ la dreapta $AB$: $AB = \sqrt{40} = 2\sqrt{10}$, deci $d = \frac{2 \cdot 6}{2\sqrt{10}} = \frac{3\sqrt{10}}{5}$.
 5. Dacă $A(1, 5)$ este pe graficul lui $f(x) = ax + 2$, atunci $a = 3$.
 
+### A12 — Fracții ordinare și zecimale: operații
+**Clasa:** a V-a – a VI-a · **Apare la:** nu are o poziție fixă în cele 4 variante; vine din programă
+
+**Materia de pus:**
+- fracții subunitare, echiunitare și supraunitare; scoaterea și introducerea întregilor;
+- amplificarea și simplificarea, fracții echivalente, fracții ireductibile;
+- compararea fracțiilor;
+- numitor comun, cele patru operații, puteri;
+- fracții zecimale: transformări, comparare, rotunjire, cele patru operații.
+
+**Modele rezolvate de pus:**
+1. $\frac{2}{3} + \frac{3}{4} - \frac{5}{6} = \frac{7}{12}$
+2. $\frac{4}{9} \cdot \frac{3}{8} : \frac{5}{6} = \frac{1}{5}$
+3. $\frac{17}{5} = 3\frac{2}{5} = 3{,}4$
+4. $0{,}55 < \frac{3}{5} < \frac{2}{3}$
+5. $2{,}5 \cdot 0{,}4 + 1{,}8 : 0{,}6 = 4$
+
+### A13 — Metode aritmetice de rezolvare a problemelor
+**Clasa:** a V-a · **Apare la:** nu are o poziție fixă în cele 4 variante; vine din programă
+
+**Materia de pus:** metoda reducerii la unitate, metoda comparației, metoda figurativă, metoda mersului invers, metoda falsei ipoteze; probleme cu fracții și unități de măsură; cum recunoști metoda din enunț.
+
+**Modele rezolvate de pus:**
+1. **Reducere la unitate.** 5 muncitori fac 200 de piese în 4 zile, deci 3 muncitori fac 180 de piese în 6 zile.
+2. **Comparație.** 2 caiete și 3 pixuri costă 17 lei, 3 caiete și 2 pixuri costă 18 lei. Un caiet costă 4 lei, un pix 3 lei.
+3. **Figurativă.** Suma este 48, iar un număr e de 3 ori mai mare: numerele sunt 12 și 36.
+4. **Mers invers.** Jumătate din carte, apoi o treime din rest, rămân 40 de pagini: cartea are 120 de pagini.
+5. **Falsa ipoteză.** 20 de capete și 56 de picioare: 12 găini și 8 iepuri.
+6. **Fracții și unități.** Din $1{,}5$ m³ se consumă $\frac{2}{5}$: rămân 900 de litri.
+
+### A14 — Ecuații de gradul al II-lea
+**Clasa:** a VIII-a · **Apare la:** nu are o poziție fixă în cele 4 variante; vine din programă
+
+**Materia de pus:** ecuația $ax^2 + bx + c = 0$, cazurile simple, rezolvarea prin descompunere, discriminantul $\Delta = b^2 - 4ac$ și formula soluțiilor, probleme care duc la o astfel de ecuație.
+
+**Modele rezolvate de pus:**
+1. $x^2 - 25 = 0 \Rightarrow S = \{-5, 5\}$
+2. $2x^2 - 6x = 0 \Rightarrow S = \{0, 3\}$
+3. $x^2 - 5x + 6 = 0$: $\Delta = 1$, soluțiile sunt $2$ și $3$.
+4. $2x^2 + 3x - 2 = 0$: $\Delta = 25$, soluțiile sunt $\frac{1}{2}$ și $-2$.
+5. $x^2 - 4x + 4 = 0$ are o soluție, iar $x^2 + x + 1 = 0$ nu are soluții reale.
+6. Un dreptunghi cu lățimea $x$, lungimea $x + 3$ și aria 40 are dimensiunile 5 și 8.
+
+### A15 — Statistică și probabilități
+**Clasa:** a VI-a – a VII-a · **Apare la:** nu are o poziție fixă în cele 4 variante; vine din programă
+
+**Materia de pus:** frecvență și frecvență relativă; media, mediana, modul, amplitudinea; grafice cu bare și cu linii, poligonul frecvențelor; probabilitatea ca raport între cazurile favorabile și cele posibile.
+
+**Modele rezolvate de pus:**
+1. Pentru notele $5, 6, 7, 7, 7, 8, 8, 9, 10, 10$: media $7{,}7$, mediana $7{,}5$, modul $7$, amplitudinea $5$.
+2. Pentru $9, 12, 14, 15, 15$: media $13$ și mediana $14$.
+3. Tabel cu frecvențe, 20 de elevi: frecvența relativă, modul, mediana și media.
+4. Punctele poligonului frecvențelor, din același tabel.
+5. Zar: probabilitatea unui număr prim este $\frac{1}{2}$.
+6. Bile colorate: probabilitatea să NU fie verde este $\frac{3}{5}$.
+7. Numere de două cifre: probabilitatea să fie divizibil cu 5 este $\frac{1}{5}$.
+
+**Greșeala tipică:** elevul nu ordonează datele înainte de mediană sau scrie ca mod frecvența, nu valoarea.
+
 ---
 
 ## 3. Capitolele de geometrie
@@ -354,12 +416,56 @@ La b) apar de obicei: „$E(n)$ este număr natural” (cu divizori), o ecuație
 3. În cubul cu muchia 6, distanța de la $A$ la planul $(A'BD)$ este $\frac{6}{\sqrt{3}} = 2\sqrt{3}$. Se calculează prin volumul tetraedrului $AA'BD$.
 4. Arată că $BD$ e perpendiculară pe planul $(ACC')$, pentru că $BD \perp AC$ și $BD \perp CC'$.
 
+### G10 — Trunchiuri, secțiuni și desfășurări
+**Clasa:** a VIII-a · **Apare la:** nu are o poziție fixă în cele 4 variante; vine din programă
+
+**Materia de pus:**
+- secțiuni paralele cu baza: raportul ariilor $k^2$, raportul volumelor $k^3$;
+- secțiuni diagonale și axiale;
+- trunchiul de piramidă regulată: $A_l = \frac{(P_B + P_b) \cdot a_t}{2}$, $V = \frac{h}{3}\left(A_B + A_b + \sqrt{A_B \cdot A_b}\right)$;
+- trunchiul de con: $A_l = \pi G(R + r)$, $V = \frac{\pi h}{3}\left(R^2 + r^2 + Rr\right)$;
+- desfășurarea prismei, a cilindrului și a conului; cel mai scurt drum pe suprafața unui corp.
+
+**Modele rezolvate de pus:**
+1. Trunchi de piramidă patrulateră regulată cu laturile 10 și 4 și înălțimea 4: $a_t = 5$, $A_l = 140$, $V = 208$.
+2. Trunchi de con cu razele 7 și 4 și înălțimea 4: $G = 5$, $A_l = 55\pi$, $V = 124\pi$.
+3. Piramidă cu aria bazei 72 și înălțimea 12, tăiată la 6 de vârf: secțiunea are aria 18, iar trunchiul are volumul 252.
+4. Secțiuni axiale și diagonale: con, cilindru și cub.
+5. Conul cu $R = 3$ și $G = 12$ se desfășoară într-un sector de $90^\circ$.
+6. Cel mai scurt drum pe fețele cubului cu muchia 6, din $A$ în $C'$, are $6\sqrt{5}$.
+
 ---
 
-## 4. Cum le leg în aplicație (pentru etapa următoare)
+## 4. Ce a adăugat programa la capitolele existente
 
-1. Fiecare capitol de mai sus devine o pagină cu **codul** lui (A1…G9): poze cu materia și modelele rezolvate.
+Aceste teme sunt la sfârșitul textului fiecărui capitol, iar modelele lor după modelele vechi.
+
+| Capitol | Ce s-a adăugat |
+|---|---|
+| A1 | împărțirea cu rest, factor comun, compararea puterilor, scrierea în baza 10 și în baza 2, aproximări și estimări |
+| A2 | proporții derivate, regula de trei simplă |
+| A5 | mulțimi definite printr-o proprietate, cardinal, numere compuse, numere prime între ele, criteriul cu $10^n$, proprietățile divizibilității |
+| A6 | puteri cu exponent negativ, incluziunile $\mathbb{N} \subset \mathbb{Z} \subset \mathbb{Q} \subset \mathbb{R}$, estimarea rădăcinii pătrate, media ponderată, media geometrică |
+| A7 | mulțimea soluțiilor, ecuații echivalente, identități, ecuații fără soluții |
+| A9 | metoda substituției și metoda reducerii la sisteme |
+| A10 | reducerea termenilor asemenea, descompunerea prin grupare |
+| A11 | produsul cartezian, funcții pe o mulțime finită sau pe un interval |
+| G1 | puncte și drepte, unitățile de măsură și transformările lor |
+| G2 | clasificarea unghiurilor, calcule cu grade și minute, axioma paralelelor, distanța de la un punct la o dreaptă |
+| G3 | inegalități în triunghi, proprietatea punctelor de pe bisectoare și mediatoare, cercul înscris și cel circumscris, ortocentrul, simetria față de o dreaptă |
+| G4 | cotangenta, tabelul valorilor, reciprocele, latura și apotema poligoanelor regulate, hexagonul regulat |
+| G5 | patrulaterul convex și suma unghiurilor lui |
+| G6 | diametrul perpendicular pe o coardă, coarde paralele, coarde egal depărtate de centru, pozițiile dreaptă–cerc și ale două cercuri |
+| G7 | teorema paralelelor echidistante, împărțirea unui segment în părți proporționale, aproximarea distanțelor |
+| G8 | tetraedrul regulat, corpuri cu baza hexagon regulat |
+| G9 | determinarea planului, paralelism, distanța dintre plane paralele, plane perpendiculare, proiecții pe un plan |
+
+---
+
+## 5. Cum le leg în aplicație (pentru etapa următoare)
+
+1. Fiecare capitol de mai sus devine o pagină cu **codul** lui (A1…G10): poze cu materia și modelele rezolvate.
 2. Tabelul de la §1 devine legătura implicită: o întrebare din „SUBIECTUL I”, numărul 1, primește automat A1. La Subiectul III legătura se face pe cerință; de exemplu, la S III.6, cerința a) primește G8 și b) primește G9.
 3. La o variantă care iese din tipar schimbi capitolul doar la acea întrebare.
 
-**Surse:** subiectele oficiale EN VIII Matematică 2023 (var. 1), 2024 (var. 7), 2025 (var. 7), publicate de Ministerul Educației / CNPEE; modelul EN 2026 (CNCE); „Analiza itemilor de la Evaluarea Națională pentru absolvenții clasei a VIII-a – 2024, Matematică” (CNPEE).
+**Surse:** subiectele oficiale EN VIII Matematică 2023 (var. 1), 2024 (var. 7), 2025 (var. 7), publicate de Ministerul Educației / CNPEE; modelul EN 2026 (CNCE); „Analiza itemilor de la Evaluarea Națională pentru absolvenții clasei a VIII-a – 2024, Matematică” (CNPEE); programa pentru EN din Monitorul Oficial, Partea I, nr. 860 bis din 14.10.2026, Anexa 11.

@@ -25,8 +25,12 @@ public class FakeChapterSuggester implements ChapterSuggester {
     }
 
     private static final List<Rule> RULES = List.of(
+            rule("G10", "trunchi|desfășur|secțiun"),
             rule("G9", "la planul|perpendicular\\w* pe plan|unghiul dreptelor"),
             rule("G8", "\\bcub|prism|piramid|\\bconul\\b|cilindr|sfer|volum|aria laterală|aria totală"),
+            rule("A15", "probabil|frecvenț|amplitudin"),
+            rule("A14", "gradul al (doilea|II)|x\\^2[^=]*=\\s*0"),
+            rule("A13", "reducerii la unitate|metoda comparați|metoda figurativ|mersului invers|falsei ipoteze"),
             rule("A11", "f\\s*\\(\\s*x\\s*\\)|funcți|graficul"),
             rule("A10", "E\\s*\\(\\s*x\\s*\\)|expresia"),
             rule("A8", "diagram|tabel"),
@@ -37,6 +41,7 @@ public class FakeChapterSuggester implements ChapterSuggester {
             rule("G3", "triunghi"),
             rule("G2", "unghi|bisectoar"),
             rule("G1", "segment|coliniar"),
+            rule("A12", "fracți\\w* (ordinar|zecimal)|ireductibil"),
             rule("A3", "%|procent"),
             rule("A9", "\\bani\\b|vârst|\\blei\\b|bănci"),
             rule("A6", "\\\\sqrt|radical|modul"),

@@ -38,7 +38,7 @@ Docker · GitHub Actions
 | ![Practice mode with hints](docs/screenshots/08-practice-hints.png) | ![Result with teacher feedback](docs/screenshots/09-result-feedback.png) |
 | **Practice mode.** Answers are checked on the spot without a grade, and hints are revealed one at a time. | **Result.** Points per question, the correct answer, the marking scheme, the teacher's comment, and "practise what you got wrong". Wrong multiple-choice answers come back in the daily review. |
 | ![Progress over time](docs/screenshots/10-progress.png) | ![EN chapter page](docs/screenshots/11-en-chapter.png) |
-| **Progress.** Mastery per chapter plus a chart of every graded test. | **EN chapters.** Theory and worked examples for each of the 20 EN chapters; a wrong EN question links straight to its chapter. |
+| **Progress.** Mastery per chapter plus a chart of every graded test. | **EN chapters.** Theory and worked examples for each of the 25 EN chapters; a wrong EN question links straight to its chapter. |
 
 ### Parent and mobile
 
@@ -174,4 +174,4 @@ docs/         TESTING.md, DEPLOY.md, SECURITY-AUDIT.md, EN-capitole.md, screensh
 - [docs/TESTING.md](docs/TESTING.md): running the stack, test accounts, automated tests, and a manual test per feature (Romanian)
 - [docs/DEPLOY.md](docs/DEPLOY.md): production deployment
 - [docs/SECURITY-AUDIT.md](docs/SECURITY-AUDIT.md): the security audit and its fixes
-- [docs/EN-capitole.md](docs/EN-capitole.md): the 20 EN chapters and how each exam question maps to them
+- [docs/EN-capitole.md](docs/EN-capitole.md): the 25 EN chapters and how each exam question maps to them
