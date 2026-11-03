@@ -58,7 +58,7 @@ function started(
 }
 
 const preview = (over: Partial<QuizPreview> = {}): QuizPreview => ({
-  maxAttempts: null, attemptsUsed: 0, blockedBy: null,
+  maxAttempts: null, attemptsUsed: 0, blockedBy: null, openTest: null, openPractice: null,
   id: 7, title: 'Simulare EN', description: 'Recapitulare pentru examen', timeLimitMinutes: null, practiceAllowed: true,
   itemCount: 3, maxScore: 11, ...over,
 })
@@ -494,6 +494,44 @@ describe('TakeQuizPage', () => {
       api.getQuizPreview.mockResolvedValue(preview({ timeLimitMinutes: 30 }))
       renderPage('')
       expect(await screen.findByTestId('quiz-limit-note')).toHaveTextContent('30 minute')
+    })
+
+    it('says the student is coming back to a test they started, and how far they got', async () => {
+      api.getQuizPreview.mockResolvedValue(preview({ openTest: { answered: 2, deadlineAt: null, serverNow: '2026-10-04T12:00:00Z' } }))
+      renderPage('')
+
+      expect(await screen.findByTestId('quiz-resume')).toHaveTextContent('Ai început deja testul: ai răspuns la 2 din 3 întrebări.')
+      expect(screen.getByTestId('quiz-start')).toHaveTextContent('Continuă testul')
+    })
+
+    it('tells a timed test taken up again that its clock already runs, and how long is left', async () => {
+      api.getQuizPreview.mockResolvedValue(preview({
+        timeLimitMinutes: 30,
+        openTest: { answered: 0, deadlineAt: '2026-10-04T12:12:00Z', serverNow: '2026-10-04T12:00:00Z' },
+      }))
+      renderPage('')
+
+      const note = await screen.findByTestId('quiz-limit-note')
+      expect(note).toHaveTextContent('Cronometrul a pornit când ai început testul')
+      expect(note).toHaveTextContent('mai ai 12 minute')
+      expect(note).not.toHaveTextContent('pornește când apeși')
+      expect(screen.getByTestId('quiz-resume')).toHaveTextContent('Ai început deja testul, încă fără răspunsuri.')
+    })
+
+    it('resumes the practice or the test the page is for, never the other one', async () => {
+      api.getQuizPreview.mockResolvedValue(preview({ openTest: { answered: 2, deadlineAt: null, serverNow: '2026-10-04T12:00:00Z' } }))
+      renderPage('?mode=practice')
+
+      expect(await screen.findByTestId('quiz-start')).toHaveTextContent('Începe exersarea')
+      expect(screen.queryByTestId('quiz-resume')).not.toBeInTheDocument()
+    })
+
+    it('offers to go on with a practice already started', async () => {
+      api.getQuizPreview.mockResolvedValue(preview({ openPractice: { answered: 1, deadlineAt: null, serverNow: '2026-10-04T12:00:00Z' } }))
+      renderPage('?mode=practice')
+
+      expect(await screen.findByTestId('quiz-resume')).toHaveTextContent('Ai început deja exersarea: ai răspuns la 1 din 3 întrebări.')
+      expect(screen.getByTestId('quiz-start')).toHaveTextContent('Continuă exersarea')
     })
 
     it('says how many tries the student has and which grade counts', async () => {

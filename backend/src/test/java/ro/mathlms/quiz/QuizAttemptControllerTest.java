@@ -128,7 +128,7 @@ class QuizAttemptControllerTest {
 
     @Test
     void previewDelegatesWithPrincipalEmail() {
-        QuizPreviewDto preview = new QuizPreviewDto(10L, "Simulare EN", null, 30, false, 3, 11, 1, 0, null);
+        QuizPreviewDto preview = new QuizPreviewDto(10L, "Simulare EN", null, 30, false, 3, 11, 1, 0, null, null, null);
         when(service.getPreview(10L, "elev@scoala.ro")).thenReturn(preview);
 
         assertThat(controller.preview(10L, auth)).isEqualTo(preview);

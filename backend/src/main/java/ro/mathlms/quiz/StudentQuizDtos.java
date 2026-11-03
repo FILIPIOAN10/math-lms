@@ -71,8 +71,17 @@ public final class StudentQuizDtos {
             int maxScore,
             Integer maxAttempts, // null = no limit
             int attemptsUsed,
-            RetakeBlock blockedBy // null = the student may start it
+            RetakeBlock blockedBy, // null = the student may start it
+            OpenAttemptDto openTest, // null = no test to resume
+            OpenAttemptDto openPractice // null = no practice to resume
     ) {}
+
+    /**
+     * A test or practice the student started and did not hand in, as the screen before it tells it: how many questions
+     * they answered and, when timed, when it closes ({@code serverNow} so the browser counts from the server's clock).
+     */
+    public record OpenAttemptDto(int answered, Instant deadlineAt, Instant serverNow) {
+    }
 
     /** A quiz on the student's list, with what they may still do with it (see {@link AttemptAllowance}). */
     public record OfferedQuizDto(

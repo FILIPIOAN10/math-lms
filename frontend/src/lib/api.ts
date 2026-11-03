@@ -1543,6 +1543,18 @@ export interface QuizPreview {
   attemptsUsed: number
   /** null = the student may start it. */
   blockedBy: RetakeBlock | null
+  /** The test the student started and did not hand in; null = nothing to resume. */
+  openTest: OpenAttempt | null
+  /** The same for a practice, resumed apart from the test. */
+  openPractice: OpenAttempt | null
+}
+
+/** How far the student got in an attempt they left, and when a timed one closes. */
+export interface OpenAttempt {
+  answered: number
+  /** null = untimed */
+  deadlineAt: string | null
+  serverNow: string
 }
 
 export async function getQuizPreview(quizId: number): Promise<QuizPreview> {

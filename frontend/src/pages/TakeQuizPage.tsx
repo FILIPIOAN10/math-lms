@@ -122,6 +122,14 @@ function PhotoPicker({
 /** How long a typed number waits after the last key before it goes to the server. */
 const NUMBER_PAUSE_MS = 800
 
+/** "Ai început deja testul: ai răspuns la 2 din 4 întrebări." - what the start button will take the student back to. */
+function resumeLine(practice: boolean, answered: number, itemCount: number): string {
+  const what = practice ? 'exersarea' : 'testul'
+  return answered === 0
+    ? `Ai început deja ${what}, încă fără răspunsuri.`
+    : `Ai început deja ${what}: ai răspuns la ${answered} din ${roCount(itemCount, 'întrebare', 'întrebări')}.`
+}
+
 /**
  * Taking one quiz. Nothing is created until the student presses "Începe" (the start call creates
  * the attempt, or resumes the one in progress). Before that the page shows what the student is walking into: the
@@ -544,6 +552,10 @@ export function TakeQuizPage() {
     const limitMinutes = preview?.timeLimitMinutes ?? null
     // A practice is never limited; a link to a test with no attempt left says so instead of offering to start.
     const blocked = !practice ? preview?.blockedBy ?? null : null
+    // "Începe" resumes what the student left: say so, and that the clock of a timed test did not wait for them.
+    const open = (practice ? preview?.openPractice : preview?.openTest) ?? null
+    const minutesLeft = open?.deadlineAt
+      ? Math.ceil(secondsLeft(open.deadlineAt, open.serverNow, Date.now(), Date.now()) / 60) : null
     return (
       <div className="min-h-screen bg-muted p-4">
         <div className="mx-auto max-w-xl space-y-4 pt-12">
@@ -570,6 +582,11 @@ export function TakeQuizPage() {
                 </p>
               )}
               {blocked && <p data-testid="quiz-blocked" className="text-sm font-medium">{RETAKE_BLOCK_TEXT[blocked]}</p>}
+              {open && preview && (
+                <p data-testid="quiz-resume" className="rounded-lg bg-primary/10 px-3 py-2 text-sm font-medium">
+                  {resumeLine(practice, open.answered, preview.itemCount)}
+                </p>
+              )}
               {homeworkDue && (
                 <p data-testid="quiz-homework-due" className="text-sm">
                   Temă — termen: {formatDate(homeworkDue)} ({dueCountdown(homeworkDue, Date.now())})
@@ -588,8 +605,17 @@ export function TakeQuizPage() {
               )}
               {!practice && limitMinutes !== null && (
                 <p className="text-sm font-medium" data-testid="quiz-limit-note">
-                  ⏱ Testul are limită de timp: {formatMinutes(limitMinutes)}. Cronometrul pornește când apeși „Începe testul”
-                  și nu se oprește dacă închizi pagina.
+                  {minutesLeft !== null ? (
+                    <>
+                      ⏱ Cronometrul a pornit când ai început testul și nu se oprește dacă închizi pagina:{' '}
+                      {minutesLeft < 1 ? 'mai ai mai puțin de un minut' : `mai ai ${formatMinutes(minutesLeft)}`}.
+                    </>
+                  ) : (
+                    <>
+                      ⏱ Testul are limită de timp: {formatMinutes(limitMinutes)}. Cronometrul pornește când apeși „Începe testul”
+                      și nu se oprește dacă închizi pagina.
+                    </>
+                  )}
                 </p>
               )}
               {error && <p className="text-sm text-destructive">{error}</p>}
@@ -597,7 +623,9 @@ export function TakeQuizPage() {
                 <Link to="/quizzes" className={buttonVariants({ variant: 'outline' })}>Înapoi</Link>
                 {!blocked && (
                   <Button onClick={start} disabled={starting} data-testid="quiz-start">
-                    {starting ? 'Se pregătește...' : practice ? 'Începe exersarea' : 'Începe testul'}
+                    {starting ? 'Se pregătește...'
+                      : open ? (practice ? 'Continuă exersarea' : 'Continuă testul')
+                        : practice ? 'Începe exersarea' : 'Începe testul'}
                   </Button>
                 )}
               </div>

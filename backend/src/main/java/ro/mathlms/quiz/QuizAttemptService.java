@@ -34,6 +34,7 @@ import ro.mathlms.quiz.StudentQuizDtos.PartLessonDto;
 import ro.mathlms.quiz.StudentQuizDtos.OfferedQuizDto;
 import ro.mathlms.quiz.StudentQuizDtos.PhotosDto;
 import ro.mathlms.quiz.StudentQuizDtos.ProgressPointDto;
+import ro.mathlms.quiz.StudentQuizDtos.OpenAttemptDto;
 import ro.mathlms.quiz.StudentQuizDtos.QuizPreviewDto;
 import ro.mathlms.quiz.StudentQuizDtos.RevealedHintsDto;
 import ro.mathlms.quiz.StudentQuizDtos.SavedAnswerDto;
@@ -185,8 +186,9 @@ public class QuizAttemptService {
     }
 
     /**
-     * The "before you start" summary of a quiz the student may take: item count, total points, time limit. The same
-     * rules as starting it apply - a draft, or another class's quiz, is a 404 (a guessed id must not confirm it exists).
+     * The "before you start" summary of a quiz the student may take: item count, total points, time limit, and the test
+     * and practice they started and may resume. The same rules as starting it apply - a draft, or another class's quiz,
+     * is a 404 (a guessed id must not confirm it exists).
      */
     @Transactional(readOnly = true)
     public QuizPreviewDto getPreview(Long quizId, String studentEmail) {
@@ -194,10 +196,25 @@ public class QuizAttemptService {
         Quiz quiz = requireTakeable(quizId, student);
         int maxScore = itemRepository.sumPointsByQuiz(List.of(quizId)).stream()
                 .findFirst().map(m -> m.maxScore().intValue()).orElse(0);
-        AttemptAllowance allowance = allowanceFor(quiz, student);
+        List<QuizAttempt> attempts = attemptRepository.findByStudentIdAndQuizIdIn(student.getId(), List.of(quizId));
+        AttemptAllowance allowance = AttemptAllowance.of(quiz.getMaxAttempts(), attempts, homeworkGivenAt(student).get(quizId));
+        Instant now = Instant.now(clock);
         return new QuizPreviewDto(quiz.getId(), quiz.getTitle(), quiz.getDescription(), quiz.getTimeLimitMinutes(),
                 quiz.isPracticeAllowed(), (int) itemRepository.countByQuizId(quizId), maxScore,
-                allowance.maxAttempts(), allowance.used(), allowance.blockedBy());
+                allowance.maxAttempts(), allowance.used(), allowance.blockedBy(),
+                openAttempt(attempts, AttemptMode.TEST, now), openAttempt(attempts, AttemptMode.PRACTICE, now));
+    }
+
+    /** The attempt of this mode the start would resume; one whose time ran out is handed in on start, not resumed. */
+    private OpenAttemptDto openAttempt(List<QuizAttempt> attempts, AttemptMode mode, Instant now) {
+        return attempts.stream()
+                .filter(a -> a.getMode() == mode && a.getStatus() == QuizAttemptStatus.IN_PROGRESS)
+                .filter(a -> !a.isOverdue(now, SUBMIT_GRACE))
+                .findFirst()
+                .map(a -> new OpenAttemptDto(
+                        (int) responseRepository.findByAttemptId(a.getId()).stream().filter(ItemResponse::isAnswered).count(),
+                        a.getDeadlineAt(), now))
+                .orElse(null);
     }
 
     private Quiz requireTakeable(Long quizId, User student) {
