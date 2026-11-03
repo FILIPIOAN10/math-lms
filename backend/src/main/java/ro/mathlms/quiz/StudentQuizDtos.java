@@ -118,11 +118,17 @@ public final class StudentQuizDtos {
      */
     public record AnswerFeedbackDto(Boolean correct, Long correctOptionId, String solution, String mistake,
                                     String correctNumber, // NUMERIC only: the right answer as the teacher wrote it
-                                    EnChapterLinkDto enChapter // the lesson to revise; only after a wrong answer
+                                    // The lesson to revise: after a wrong answer, or beside the barem of an open problem.
+                                    EnChapterLinkDto enChapter,
+                                    List<PartLessonDto> partLessons // an open problem with requirements: one per a), b)...
     ) {
         public AnswerFeedbackDto(Boolean correct, Long correctOptionId, String solution) {
-            this(correct, correctOptionId, solution, null, null, null);
+            this(correct, correctOptionId, solution, null, null, null, List.of());
         }
+    }
+
+    /** The lesson of one requirement of an open problem: "a" and the chapter it points at. */
+    public record PartLessonDto(String label, EnChapterLinkDto enChapter) {
     }
 
     /** The class chapter a question belongs to, with what a link to its exercises needs. */

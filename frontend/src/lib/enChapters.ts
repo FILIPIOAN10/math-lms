@@ -1,4 +1,4 @@
-import { type EnArea, type EnChapterLink, type EnChapterSummary, type ItemResultDto } from '@/lib/api'
+import { type AnswerFeedback, type EnArea, type EnChapterLink, type EnChapterSummary, type ItemResultDto } from '@/lib/api'
 import { roCount } from '@/lib/format'
 
 /** The two parts of the list, in the order the pages show them. */
@@ -157,9 +157,34 @@ export function revisionSentence(chapter: EnChapterLink, parts: string[] = []): 
  */
 export function revisionLinks(item: ItemResultDto): RevisionLink[] {
   const parts = item.parts ?? []
+  if (parts.length > 0) {
+    if (item.awardedPoints === null) return [] // still being graded
+    return byChapter(parts
+      .filter((p) => p.awardedPoints !== null && p.awardedPoints < p.points)
+      .map((p) => ({ chapter: p.enChapter, part: p.label })))
+  }
+  const lost = item.type !== 'OPEN'
+    ? item.correct !== true
+    : item.awardedPoints !== null && item.awardedPoints < item.points
+  return lost ? byChapter([{ chapter: item.enChapter, part: null }]) : []
+}
+
+/**
+ * The lessons beside an open problem's barem in a practice: each requirement's chapter, or the problem's own when it
+ * has none. No verdict needed - the student compares their work with the barem and decides.
+ */
+export function baremLessons(feedback: AnswerFeedback): RevisionLink[] {
+  const parts = feedback.partLessons ?? []
+  return parts.length > 0
+    ? byChapter(parts.map((p) => ({ chapter: p.enChapter, part: p.label })))
+    : byChapter([{ chapter: feedback.enChapter, part: null }])
+}
+
+/** One link per chapter with something on its page; requirements sharing a chapter share its sentence. */
+function byChapter(entries: { chapter: EnChapterLink | null | undefined; part: string | null }[]): RevisionLink[] {
   const links: RevisionLink[] = []
-  const add = (chapter: EnChapterLink | null | undefined, part: string | null) => {
-    if (!chapter?.ready) return
+  for (const { chapter, part } of entries) {
+    if (!chapter?.ready) continue
     const existing = links.find((l) => l.chapter.id === chapter.id)
     if (existing) {
       if (part) existing.parts.push(part)
@@ -167,14 +192,5 @@ export function revisionLinks(item: ItemResultDto): RevisionLink[] {
       links.push({ chapter, parts: part ? [part] : [] })
     }
   }
-  if (parts.length > 0) {
-    if (item.awardedPoints === null) return links // still being graded
-    parts.filter((p) => p.awardedPoints !== null && p.awardedPoints < p.points).forEach((p) => add(p.enChapter, p.label))
-    return links
-  }
-  const lost = item.type !== 'OPEN'
-    ? item.correct !== true
-    : item.awardedPoints !== null && item.awardedPoints < item.points
-  if (lost) add(item.enChapter, null)
   return links
 }

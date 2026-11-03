@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { revisionLinks, revisionSentence, enPageForStudents } from '@/lib/enChapters'
+import { baremLessons, revisionLinks, revisionSentence, enPageForStudents } from '@/lib/enChapters'
 import type { EnChapterLink, GradedPart, ItemResultDto } from '@/lib/api'
 
 const A1: EnChapterLink = { id: 1, code: 'A1', title: 'Ordinea efectuării operațiilor', ready: true, revisionTopic: null }
@@ -37,6 +37,27 @@ describe('revisionSentence', () => {
 
   it('stands without a phrase, on a page a teacher added and did not describe', () => {
     expect(revisionSentence({ ...G1, revisionTopic: null })).toBe('Dacă vrei să recapitulezi noțiunile din acest capitol:')
+  })
+})
+
+describe('baremLessons', () => {
+  const barem = { correct: null, correctOptionId: null, solution: 'Barem' }
+
+  it('gives each requirement its lesson, and requirements sharing one share it', () => {
+    expect(baremLessons({ ...barem, partLessons: [{ label: 'a', enChapter: G8 }, { label: 'b', enChapter: G9 }] }))
+      .toEqual([{ chapter: G8, parts: ['a'] }, { chapter: G9, parts: ['b'] }])
+    expect(baremLessons({ ...barem, partLessons: [{ label: 'a', enChapter: G9 }, { label: 'b', enChapter: G9 }] }))
+      .toEqual([{ chapter: G9, parts: ['a', 'b'] }])
+  })
+
+  it("uses the problem's own lesson when it has no requirements", () => {
+    expect(baremLessons({ ...barem, enChapter: A1, partLessons: [] })).toEqual([{ chapter: A1, parts: [] }])
+  })
+
+  it('leaves out a lesson with nothing on its page', () => {
+    expect(baremLessons({ ...barem, partLessons: [{ label: 'a', enChapter: { ...G8, ready: false } }, { label: 'b', enChapter: null }] }))
+      .toEqual([])
+    expect(baremLessons(barem)).toEqual([])
   })
 })
 

@@ -30,6 +30,7 @@ import ro.mathlms.quiz.StudentQuizDtos.ChapterLinkDto;
 import ro.mathlms.quiz.StudentQuizDtos.HintDto;
 import ro.mathlms.quiz.StudentQuizDtos.ItemResultDto;
 import ro.mathlms.quiz.StudentQuizDtos.MyAttemptDto;
+import ro.mathlms.quiz.StudentQuizDtos.PartLessonDto;
 import ro.mathlms.quiz.StudentQuizDtos.OfferedQuizDto;
 import ro.mathlms.quiz.StudentQuizDtos.PhotosDto;
 import ro.mathlms.quiz.StudentQuizDtos.ProgressPointDto;
@@ -746,17 +747,22 @@ public class QuizAttemptService {
     private AnswerFeedbackDto feedbackFor(QuizItem item, ItemResponse response, EnChapterLinks.Resolved links) {
         EnChapterLinkDto lesson = Boolean.FALSE.equals(response.getCorrect()) ? links.linkOf(item) : null;
         if (item.getType() == QuizItemType.NUMERIC) {
-            return new AnswerFeedbackDto(response.getCorrect(), null, item.getSolution(), null, item.getNumericAnswer(), lesson);
+            return new AnswerFeedbackDto(response.getCorrect(), null, item.getSolution(), null, item.getNumericAnswer(),
+                    lesson, List.of());
         }
         if (item.getType() != QuizItemType.SINGLE_CHOICE) {
-            return new AnswerFeedbackDto(null, null, item.getSolution());
+            // No verdict on an open problem: the student compares with the barem, so the lessons come with it.
+            List<QuizItemPart> parts = partRepository.findByItemIdOrderByPosition(item.getId());
+            return new AnswerFeedbackDto(null, null, item.getSolution(), null, null,
+                    parts.isEmpty() ? links.linkOf(item) : null,
+                    parts.stream().map(p -> new PartLessonDto(p.label(), links.linkOf(p))).toList());
         }
         Long correctOptionId = optionRepository.findByItemIdOrderByPosition(item.getId()).stream()
                 .filter(QuizOption::isCorrect)
                 .map(QuizOption::getId)
                 .findFirst().orElse(null);
         return new AnswerFeedbackDto(response.getCorrect(), correctOptionId, item.getSolution(), response.mistakeExplained(),
-                null, lesson);
+                null, lesson, List.of());
     }
 
     private void requireTimeLeft(QuizAttempt attempt) {

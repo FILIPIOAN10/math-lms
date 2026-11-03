@@ -785,6 +785,7 @@ la Subiectul III, cerințele a)/b) ale problemelor 5 și 6 au capitolul lor.
 | 10 | Elev: la recapitulare, greșește o întrebare legată de un capitol | Aceeași frază și același link, în altă filă |
 | 11 | Profesor: **Editează capitolul** → **Ce recapitulează elevul** | Dedesubt, propoziția așa cum o citește elevul; după Salvează, fraza nouă apare la toate întrebările legate de capitol, inclusiv la lucrările vechi. Goală: „noțiunile din acest capitol” |
 | 12 | Elev: deschide **G8** | Teoria veche, apoi „Vârfuri, muchii și fețe”, cu formulele desenate |
+| 13 | Elev: la exersare, la o problemă de la Subiectul III, încarcă o poză | Sub barem, câte o frază pe cerință („La a), dacă vrei să recapitulezi…”) cu linkul lecției, în altă filă; o problemă fără cerințe are o singură frază |
 
 ### 29. AI-ul propune capitolul EN — ca profesor (cere `AI_IMPORT_ENABLED=true`)
 

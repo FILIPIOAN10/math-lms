@@ -985,6 +985,32 @@ describe('TakeQuizPage', () => {
       expect(screen.getByRole('status')).toHaveTextContent('Poză încărcată · 2 pagini trimise')
     })
 
+    it('in a practice puts the lesson of each requirement under the barem, to open in another tab', async () => {
+      const lesson = (id: number, code: string, title: string, revisionTopic: string) =>
+        ({ id, code, title, ready: true, revisionTopic })
+      api.uploadQuizPhoto.mockResolvedValue({
+        photoIds: [41],
+        feedback: {
+          correct: null, correctOptionId: null, solution: 'a) 2p, b) 3p',
+          partLessons: [
+            { label: 'a', enChapter: lesson(19, 'G8', 'Corpuri geometrice', 'corpuri geometrice, arii și volume') },
+            { label: 'b', enChapter: lesson(20, 'G9', 'Drepte și plane', 'drepte și plane, unghiuri și distanțe în spațiu') },
+          ],
+        },
+      })
+      api.startQuizAttempt.mockResolvedValue({ ...startedThree(), mode: 'PRACTICE' })
+      renderPage('?mode=practice')
+      await userEvent.click(await screen.findByRole('button', { name: 'Începe exersarea' }))
+
+      await userEvent.upload(await screen.findByTestId('item-photo'), new File(['x'], 'p1.png', { type: 'image/png' }))
+
+      const notes = await screen.findAllByTestId('revision-note')
+      expect(notes).toHaveLength(2)
+      expect(notes[0]).toHaveTextContent('La a), dacă vrei să recapitulezi noțiunile despre corpuri geometrice, arii și volume:')
+      expect(notes[1]).toHaveTextContent('La b), dacă vrei să recapitulezi noțiunile despre drepte și plane')
+      expect(screen.getByRole('link', { name: /Vezi lecția: G9 Drepte și plane/ })).toHaveAttribute('target', '_blank')
+    })
+
     it('adds a page with each upload and says so (the E2E suite waits for "Poză încărcată")', async () => {
       api.uploadQuizPhoto.mockResolvedValueOnce({ photoIds: [41], feedback: null })
       api.uploadQuizPhoto.mockResolvedValueOnce({ photoIds: [41, 42], feedback: null })

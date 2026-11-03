@@ -9,6 +9,7 @@ import { MistakeNote } from '@/components/MistakeNote'
 import { NumberAnswer } from '@/components/NumberAnswer'
 import { QuestionImage } from '@/components/QuestionImage'
 import { RevisionNote } from '@/components/RevisionNote'
+import { baremLessons } from '@/lib/enChapters'
 import { SectionHeadingView } from '@/components/SectionHeadingView'
 import { PartsView } from '@/components/PartsView'
 import { parseOnly } from '@/lib/mistakes'
@@ -895,6 +896,9 @@ export function TakeQuizPage() {
                       <MathContent>{feedback[item.id]!.solution!}</MathContent>
                     </div>
                   )}
+                  {feedback[item.id] && baremLessons(feedback[item.id]!).map(({ chapter, parts }) => (
+                    <RevisionNote key={chapter.id} chapter={chapter} parts={parts} newTab />
+                  ))}
                 </div>
               )}
 

@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
@@ -28,6 +29,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -49,6 +51,8 @@ class EnChapterLinksIntegrationTest {
             user("prof@scoala.ro").authorities(new SimpleGrantedAuthority("ROLE_ADMIN"), new SimpleGrantedAuthority("STATUS_ACTIVE"));
     private static final String SUBJECT_I = "SUBIECTUL I\nÎncercuiește litera corespunzătoare răspunsului corect.";
     private static final String SUBJECT_III = "SUBIECTUL al III-lea\nScrie rezolvările complete.";
+    private static final byte[] PNG = java.util.Base64.getDecoder().decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==");
 
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;
@@ -227,10 +231,7 @@ class EnChapterLinksIntegrationTest {
 
     @Test
     void aWrongPracticeAnswerNamesTheLessonAndARightOneDoesNot() throws Exception {
-        send(put("/api/admin/quizzes/" + quizId), Map.of("title", "Simulare EN " + System.nanoTime(), "practiceAllowed", true))
-                .andExpect(status().isOk());
-        send(post("/api/admin/quizzes/" + quizId + "/publish"), Map.of()).andExpect(status().isOk());
-        JsonNode started = start("?mode=PRACTICE");
+        JsonNode started = startPractice();
         long attemptId = started.get("attemptId").asLong();
 
         JsonNode wrong = answer(attemptId, started, "17");
@@ -246,6 +247,37 @@ class EnChapterLinksIntegrationTest {
         JsonNode right = answer(attemptId, started, "1");
         assertThat(right.get("correct").asBoolean()).isTrue();
         assertThat(right.get("enChapter").isNull()).isTrue();
+    }
+
+    @Test
+    void anOpenProblemInPracticeNamesTheLessonOfEachRequirementBesideItsBarem() throws Exception {
+        long attemptId = startPractice().get("attemptId").asLong();
+
+        JsonNode cube = photo(attemptId, items.get(7)).get("feedback"); // III.6: a) G8, b) G9
+        assertThat(cube.get("correct").isNull()).isTrue(); // no verdict: the student compares with the barem
+        assertThat(cube.get("enChapter").isNull()).isTrue();
+        assertThat(cube.get("partLessons")).hasSize(2);
+        assertThat(cube.get("partLessons").get(0).get("label").asString()).isEqualTo("a");
+        assertThat(cube.get("partLessons").get(0).get("enChapter").get("code").asString()).isEqualTo("G8");
+        assertThat(cube.get("partLessons").get(1).get("label").asString()).isEqualTo("b");
+        assertThat(cube.get("partLessons").get(1).get("enChapter").get("code").asString()).isEqualTo("G9");
+
+        JsonNode first = photo(attemptId, items.get(2)).get("feedback"); // III.1, no requirements
+        assertThat(first.get("enChapter").get("code").asString()).isEqualTo("A9");
+        assertThat(first.get("partLessons")).isEmpty();
+    }
+
+    private JsonNode startPractice() throws Exception {
+        send(put("/api/admin/quizzes/" + quizId), Map.of("title", "Simulare EN " + System.nanoTime(), "practiceAllowed", true))
+                .andExpect(status().isOk());
+        send(post("/api/admin/quizzes/" + quizId + "/publish"), Map.of()).andExpect(status().isOk());
+        return start("?mode=PRACTICE");
+    }
+
+    private JsonNode photo(long attemptId, long itemId) throws Exception {
+        return json(mockMvc.perform(multipart("/api/quiz/attempts/" + attemptId + "/responses/" + itemId + "/photo")
+                        .file(new MockMultipartFile("file", "rezolvare.png", "image/png", PNG)).with(ana()).with(csrf()))
+                .andExpect(status().isOk()));
     }
 
     private RequestPostProcessor ana() {

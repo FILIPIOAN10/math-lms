@@ -1317,8 +1317,10 @@ export interface AnswerFeedback {
   mistake?: string | null
   /** A numeric question: the right answer as the teacher wrote it. */
   correctNumber?: string | null
-  /** The lesson to revise; only after a wrong answer. */
+  /** The lesson to revise: after a wrong answer, or beside the barem of an open problem. */
   enChapter?: EnChapterLink | null
+  /** An open problem with requirements: the lesson of each a), b)... */
+  partLessons?: { label: string; enChapter: EnChapterLink | null }[]
 }
 
 /** What the student already saved on a resumed attempt. */
