@@ -314,7 +314,8 @@ Din bara de sus: **Testele mele**.
 - în timpul testului: bara de jos numerotează subiectele (umplute = cu răspuns), click = sari la subiect;
   „Trimite lucrarea” deschide dialogul: cu subiecte goale → „Ai 2 întrebări fără răspuns — Întrebările 2, 3…” + **Mergi la întrebarea 2** / **Trimite oricum**
 - subiect deschis: butonul „📷 Încarcă poza rezolvării” → miniatura pozei + „✓ Poză încărcată”; altă poză → „Înlocuiește poza”, miniatura se schimbă
-- „Testele mele” → **Începe** (sau **Continuă** dacă ai unul în lucru) → **Începe testul**
+- „Testele mele” → **Începe** (sau **Continuă** dacă ai unul în lucru) → **Începe testul**; la unul în lucru pagina de start scrie
+  „Ai început deja testul: ai răspuns la 2 din 4 întrebări.” și butonul e **Continuă testul** (la exersare: **Continuă exersarea**)
 - bifează o variantă → „x / n răspunsuri salvate” crește; **reîncarcă pagina** → Continuă → variantele și poza revin
 - subiect deschis → alege o poză (una mare de pe telefon e micșorată automat la ≤2000 px înainte de upload)
 - **Trimite lucrarea** (avertizează dacă ai subiecte fără răspuns) → pagina de rezultat: grile ✓/✗ cu răspunsul
@@ -324,6 +325,7 @@ Din bara de sus: **Testele mele**.
 ### 11a. Quiz cronometrat — timer pe server (`/admin/quizzes`, apoi `/quizzes`)
 **Ca admin:** la „Adaugă test” / „Editează” completează **Limită de timp (minute)** (1–600; gol = fără limită). Lista arată „⏱ 45 min”.
 **Ca elev:** în „Testele mele” apare „⏱ 45 minute”; pe pagina testului scrie că cronometrul pornește la „Începe testul”.
+Revino la el după câteva minute: pagina de start scrie „Cronometrul a pornit când ai început testul … mai ai 12 minute”, nu că pornește la apăsare.
 - bară sus „⏱ Timp rămas: mm:ss” — **chihlimbar** în ultimele 5 minute, **roșie** în ultimul minut (cititorul de ecran anunță o dată la fiecare prag);
   la **0:00** lucrarea se trimite singură cu ce era salvat → pagina de rezultat
 - serverul e sursa adevărului: după termen + 30 s grație, orice răspuns/poză e respins cu **409** („Timpul pentru acest test a expirat”);
@@ -877,6 +879,8 @@ trimite doar textul întrebării și al variantelor, niciodată ceva despre elev
 |---|---|---|
 | 1 | Un test cu cel puțin 6 elevi notați, la care cei mai buni au ales aceeași variantă, alta decât cea marcată | Sus „De verificat întrebarea …”, iar pe întrebare „x din y elevi buni au ales varianta …”. „Buni” se calculează pe restul testului, fără întrebarea asta |
 | 2 | Sub 6 elevi notați | Nicio alarmă: prea puține răspunsuri |
+| 2a | Același test de la 1, pe **Acasă** și pe **Teste** | Acasă începe cu „De verificat”: „Titlu — 1 întrebare cu răspunsul marcat de verificat…”; rândul testului are „1 răspuns de verificat”; ambele duc la Statistici |
+| 2b | Pe Statistici: click pe „întrebarea 1” din caseta de sus | Pagina coboară la întrebare, cu titlul vizibil sub antet; la varianta aleasă de cei buni **Asta e varianta corectă** e butonul plin; „Greșeli frecvente” nu o mai listează |
 | 3 | La varianta care chiar e corectă: **Asta e varianta corectă** → **Schimbă și recalculează** | „Răspunsul corect e acum b). S-au schimbat n note.”; media și procentele se schimbă |
 | 4 | Ca elev cu nota schimbată | Pe Acasă, nota apare iar ca „Nou”, cu punctajul nou |
 | 5 | **Jurnal**, filtrul Teste | „Răspuns corect schimbat · … · răspuns corect a) → b), n note schimbate” |
