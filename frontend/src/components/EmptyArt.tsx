@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils'
 
 /**
  * The picture of an empty state: a maths symbol on a soft indigo tile with two dots, instead of a bare grey sentence.
- * Decorative - the sentence beside it says everything.
+ * Decorative - the sentence beside it says everything. Never a digit: next to a grade it would read as one.
  */
 export function EmptyArt({ symbol = 'x²', className }: { symbol?: string; className?: string }) {
   return (

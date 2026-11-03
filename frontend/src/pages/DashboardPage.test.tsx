@@ -147,6 +147,14 @@ describe('DashboardPage — student', () => {
     expect(screen.getAllByTestId('skeleton-card').length).toBeGreaterThan(0)
   })
 
+  it('shows no number where the grade goes before the first grade', async () => {
+    renderHome()
+
+    const grade = await screen.findByTestId('latest-grade')
+    expect(grade).toHaveTextContent('Nicio notă încă')
+    expect(grade.textContent).not.toMatch(/[0-9]/)
+  })
+
   it('says quietly that nothing waits for the teacher, instead of a big 0', async () => {
     api.getMyProgress.mockResolvedValue([point({})])
     api.getMyAttempts.mockResolvedValue([])

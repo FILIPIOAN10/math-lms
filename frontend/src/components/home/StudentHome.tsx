@@ -189,7 +189,8 @@ export function StudentHome() {
                 </>
               ) : (
                 <div className="flex items-center gap-3">
-                  <EmptyArt symbol="10" />
+                  {/* The plain x², not a number: anything numeric in this spot reads as a grade. */}
+                  <EmptyArt />
                   <p className="text-sm text-muted-foreground">Nicio notă încă. Apare după primul test corectat.</p>
                 </div>
               )}
