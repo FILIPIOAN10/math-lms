@@ -1335,11 +1335,21 @@ export function AdminQuizzesPage() {
                 <Card key={q.id} className="hover-lift">
                   <CardContent data-testid="quiz-row" className="flex flex-wrap items-center justify-between gap-3 py-3">
                     <div className="min-w-0 flex-1 basis-56 space-y-0.5">
-                      <p className="flex min-w-0 items-center gap-2">
+                      <p className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                         <Link to={`/admin/quizzes/${q.id}`} className="truncate font-medium hover:underline">
                           {q.title}
                         </Link>
                         <span className={statusBadge(q.status)}>{q.status === 'PUBLISHED' ? 'Publicat' : 'Ciornă'}</span>
+                        {/* A wrong key marks every paper wrong: the warning sits on the row, not only on Statistici. */}
+                        {(summaries[q.id]?.toCheck ?? 0) > 0 && (
+                          <Link
+                            to={`/admin/quizzes/${q.id}/stats`}
+                            data-testid="quiz-to-check"
+                            className="rounded-md bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-800 hover:underline dark:text-amber-200"
+                          >
+                            {roCount(summaries[q.id].toCheck, 'răspuns', 'răspunsuri')} de verificat
+                          </Link>
+                        )}
                       </p>
                       <p className="truncate text-xs text-muted-foreground" data-testid="quiz-audience">
                         {q.schoolClassName ? `Clasa: ${q.schoolClassName}` : 'Toți elevii'}

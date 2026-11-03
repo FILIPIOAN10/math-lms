@@ -18,7 +18,8 @@ import static org.mockito.Mockito.when;
 class QuizAdminControllerTest {
 
     private final QuizAdminService service = mock(QuizAdminService.class);
-    private final QuizAdminController controller = new QuizAdminController(service, new TeacherScope(null));
+    private final QuizAdminController controller = new QuizAdminController(service, new TeacherScope(null),
+            new AnswerKeyChecks(mock(QuizStatsService.class)));
 
     @Test
     void listMapsToSummaries() {
@@ -90,7 +91,7 @@ class QuizAdminControllerTest {
 
     @Test
     void summariesPassTheServiceRowsThrough() {
-        QuizListSummaryDto row = new QuizListSummaryDto(7L, 3, 2, 7.42, null);
+        QuizListSummaryDto row = new QuizListSummaryDto(7L, 3, 2, 7.42, null, 0);
         when(service.listSummaries()).thenReturn(List.of(row));
 
         assertThat(controller.summaries()).containsExactly(row);

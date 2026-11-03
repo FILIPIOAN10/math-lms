@@ -91,6 +91,30 @@ describe('AdminQuizStatsPage', () => {
     expect(screen.getByTestId('stats-suspect')).toHaveTextContent('3 din 3 elevi buni au ales varianta b)')
   })
 
+  it('takes the teacher from the warning to the question, where the suggested fix is the main button', async () => {
+    Element.prototype.scrollIntoView = vi.fn()
+    api.getQuizStats.mockResolvedValue(stats({ items: [grila({ letter: 'b', chosen: 3, strong: 3 })] }))
+    renderPage()
+
+    await userEvent.click(within(await screen.findByTestId('stats-suspects')).getByRole('button', { name: 'întrebarea 1' }))
+
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalled()
+    expect(document.activeElement).toHaveTextContent('Întrebarea 1')
+    const fix = screen.getByTestId('stats-suggested-fix')
+    expect(fix).toHaveTextContent('Asta e varianta corectă')
+    expect(within(screen.getAllByTestId('stats-option')[1]).getByTestId('stats-suggested-fix')).toBe(fix)
+  })
+
+  it('does not list the answer the strongest students chose as a frequent mistake', async () => {
+    const item = grila({ letter: 'b', chosen: 3, strong: 3 })
+    item.options[1].chosen = 3
+    api.getQuizStats.mockResolvedValue(stats({ items: [item] }))
+    renderPage()
+
+    await screen.findByTestId('stats-suspects')
+    expect(screen.queryByTestId('stats-common')).not.toBeInTheDocument()
+  })
+
   it('corrects the answer after asking, then shows the new numbers', async () => {
     api.getQuizStats.mockResolvedValueOnce(stats({ items: [grila()] }))
     api.getQuizStats.mockResolvedValueOnce(stats({ averageScore: 15 }))

@@ -26,10 +26,12 @@ public class QuizAdminController {
 
     private final QuizAdminService service;
     private final TeacherScope scope;
+    private final AnswerKeyChecks answerKeyChecks;
 
-    public QuizAdminController(QuizAdminService service, TeacherScope scope) {
+    public QuizAdminController(QuizAdminService service, TeacherScope scope, AnswerKeyChecks answerKeyChecks) {
         this.service = service;
         this.scope = scope;
+        this.answerKeyChecks = answerKeyChecks;
     }
 
     @GetMapping("/api/admin/quizzes")
@@ -37,10 +39,13 @@ public class QuizAdminController {
         return scope.keepOwnedQuizzes(service.listQuizzes(), Quiz::getId).stream().map(QuizSummaryDto::from).toList();
     }
 
-    /** Questions, papers, mean grade and deadline per quiz, for the list's rows (a TEACHER gets their own tests). */
+    /**
+     * Questions, papers, mean grade, deadline and answers to check per quiz, for the list's rows and Acasă (a TEACHER
+     * gets their own tests). The answer check reads statistics, so it runs only on the tests the caller may see.
+     */
     @GetMapping("/api/admin/quizzes/summary")
     public List<QuizListSummaryDto> summaries() {
-        return scope.keepOwnedQuizzes(service.listSummaries(), QuizListSummaryDto::quizId);
+        return answerKeyChecks.withToCheck(scope.keepOwnedQuizzes(service.listSummaries(), QuizListSummaryDto::quizId));
     }
 
     @GetMapping("/api/admin/quizzes/{id}")

@@ -30,6 +30,7 @@ const api = vi.hoisted(() => ({
   listClasses: vi.fn(),
   listActiveUsers: vi.fn(),
   listQuizzes: vi.fn(),
+  listQuizSummaries: vi.fn(),
   getChildAttempts: vi.fn(),
   getChildProgress: vi.fn(),
   getChildAssignments: vi.fn(),
@@ -235,6 +236,31 @@ describe('DashboardPage — teacher', () => {
     api.listClasses.mockResolvedValue([{ id: 1, name: 'Clasa a 9-a', description: null }])
     api.listActiveUsers.mockResolvedValue([{ id: 4 }])
     api.listQuizzes.mockResolvedValue([{ id: 1 }])
+    api.listQuizSummaries.mockResolvedValue([])
+  })
+
+  it('puts a test whose marked answer looks wrong first, with a link to its statistics', async () => {
+    api.listQuizzes.mockResolvedValue([{ id: 1, title: 'Fracții' }, { id: 2, title: 'Ecuații' }])
+    api.listQuizSummaries.mockResolvedValue([
+      { quizId: 1, questions: 3, papers: 6, average: 5, dueAt: null, toCheck: 2 },
+      { quizId: 2, questions: 3, papers: 9, average: 8, dueAt: null, toCheck: 0 },
+    ])
+    renderHome()
+
+    const toCheck = await screen.findByRole('region', { name: 'De verificat' })
+    const rows = within(toCheck).getAllByRole('link')
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toHaveTextContent('Fracții')
+    expect(rows[0]).toHaveTextContent('2 întrebări cu răspunsul marcat de verificat')
+    expect(rows[0]).toHaveAttribute('href', '/admin/quizzes/1/stats')
+  })
+
+  it('shows nothing to check when every answer key looks right', async () => {
+    renderHome()
+
+    await screen.findByTestId('tile-grading')
+    await waitFor(() => expect(api.listQuizSummaries).toHaveBeenCalled())
+    expect(screen.queryByRole('region', { name: 'De verificat' })).not.toBeInTheDocument()
   })
 
   it('walks a brand-new teacher through the first steps, the next one with a button', async () => {

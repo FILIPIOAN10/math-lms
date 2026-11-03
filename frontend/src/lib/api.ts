@@ -856,6 +856,8 @@ export interface QuizListSummary {
   papers: number
   average: number | null
   dueAt: string | null
+  /** Questions whose marked answer the strongest students disagree with (0 = nothing to check). */
+  toCheck: number
 }
 
 export async function listQuizSummaries(): Promise<QuizListSummary[]> {

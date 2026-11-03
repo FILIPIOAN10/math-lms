@@ -24,6 +24,12 @@ describe('commonMistakes', () => {
     expect(commonMistakes(numbered, 24)).toEqual([])
   })
 
+  it('leaves out the option the strongest students say is the right one', () => {
+    const suspect = { ...item([option(1, 2, true), option(2, 6)]), suspect: { letter: 'b', chosen: 3, strong: 3 } } as QuizItemStat
+
+    expect(commonMistakes([{ label: '1', item: suspect }], 8)).toEqual([])
+  })
+
   it('shows at most three', () => {
     const numbered = [{ label: '1', item: item([option(1, 5), option(2, 5), option(3, 5), option(4, 5)]) }]
 

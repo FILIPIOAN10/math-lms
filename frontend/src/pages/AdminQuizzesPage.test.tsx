@@ -371,8 +371,8 @@ describe('AdminQuizzesPage', () => {
 
   it('shows the numbers on each row and a visible link to the statistics of a published test', async () => {
     api.listQuizSummaries.mockResolvedValue([
-      { quizId: 7, questions: 18, papers: 24, average: 7.42, dueAt: '2026-11-02T18:00:00Z' },
-      { quizId: 8, questions: 1, papers: 0, average: null, dueAt: null },
+      { quizId: 7, questions: 18, papers: 24, average: 7.42, dueAt: '2026-11-02T18:00:00Z', toCheck: 0 },
+      { quizId: 8, questions: 1, papers: 0, average: null, dueAt: null, toCheck: 0 },
     ])
     renderAt('/admin/quizzes')
 
@@ -390,6 +390,19 @@ describe('AdminQuizzesPage', () => {
     expect(draftNumbers).not.toHaveTextContent('media')
     expect(draftNumbers).not.toHaveTextContent('Termen')
     expect(within(draft).queryByRole('link', { name: 'Statistici' })).not.toBeInTheDocument()
+  })
+
+  it('flags a test whose marked answer looks wrong, linking to its statistics', async () => {
+    api.listQuizSummaries.mockResolvedValue([
+      { quizId: 7, questions: 3, papers: 6, average: 5, dueAt: null, toCheck: 1 },
+      { quizId: 8, questions: 1, papers: 0, average: null, dueAt: null, toCheck: 0 },
+    ])
+    renderAt('/admin/quizzes')
+
+    const flagged = await within(await row('Simulare EN')).findByTestId('quiz-to-check')
+    expect(flagged).toHaveTextContent('1 răspuns de verificat')
+    expect(flagged).toHaveAttribute('href', '/admin/quizzes/7/stats')
+    expect(within(await row('Ciornă nouă')).queryByTestId('quiz-to-check')).not.toBeInTheDocument()
   })
 
   it('searches and filters the list once there are five tests', async () => {

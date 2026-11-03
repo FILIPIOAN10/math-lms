@@ -33,7 +33,22 @@ function Bar({ fraction, fill = 'bg-primary' }: { fraction: number; fill?: strin
 /** The colour of each grade group the server sends: under 5, 5 – 6,99, 7 – 8,99, 9 – 10. */
 const BUCKET_BANDS: GradeBand[] = ['low', 'mid', 'high', 'high']
 
-/** What each option of a grilă drew, so the teacher sees which mistake the class made, not just how many went wrong. */
+/** Where a question's card starts: the warning at the top links there, focus lands on its title. */
+const itemTitleId = (itemId: number) => `stats-item-${itemId}`
+
+/** Scrolls to a question and puts focus on its title, so keyboard and screen-reader users land there too. */
+function goToItem(itemId: number) {
+  const title = document.getElementById(itemTitleId(itemId))
+  if (!title) return
+  const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+  title.scrollIntoView?.({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' })
+  title.focus({ preventScroll: true })
+}
+
+/**
+ * What each option of a grilă drew, so the teacher sees which mistake the class made, not just how many went wrong.
+ * On a suspect question the option the strongest students chose carries the fix as the main button.
+ */
 function OptionCounts({ item, graded, aiOn, onMakeCorrect, onMistakeSaved }: {
   item: QuizItemStat
   graded: number
@@ -62,9 +77,15 @@ function OptionCounts({ item, graded, aiOn, onMakeCorrect, onMistakeSaved }: {
           {!option.correct && (
             <div className="flex flex-wrap items-start gap-1">
               <MistakeEditor option={option} aiOn={aiOn} onSaved={onMistakeSaved} />
-              <Button type="button" size="xs" variant="ghost" onClick={() => onMakeCorrect(option)}>
-                Asta e varianta corectă
-              </Button>
+              {item.suspect?.letter === option.letter ? (
+                <Button type="button" size="xs" data-testid="stats-suggested-fix" onClick={() => onMakeCorrect(option)}>
+                  Asta e varianta corectă
+                </Button>
+              ) : (
+                <Button type="button" size="xs" variant="ghost" onClick={() => onMakeCorrect(option)}>
+                  Asta e varianta corectă
+                </Button>
+              )}
             </div>
           )}
         </li>
@@ -195,8 +216,20 @@ export function AdminQuizStatsPage() {
             {suspects.length > 0 && (
               <p role="status" data-testid="stats-suspects"
                  className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
-                {suspects.length === 1 ? 'De verificat întrebarea ' : 'De verificat întrebările '}
-                {suspects.map((s) => s.label).join(', ')}: elevii cei mai buni au ales altă variantă decât cea marcată corectă.
+                {suspects.length === 1 ? 'De verificat ' : 'De verificat întrebările '}
+                {suspects.map((s, i) => (
+                  <Fragment key={s.item.itemId}>
+                    {i > 0 && ', '}
+                    <button
+                      type="button"
+                      className="font-medium underline underline-offset-2 hover:no-underline"
+                      onClick={() => goToItem(s.item.itemId)}
+                    >
+                      {suspects.length === 1 ? `întrebarea ${s.label}` : s.label}
+                    </button>
+                  </Fragment>
+                ))}
+                : elevii cei mai buni au ales altă variantă decât cea marcată corectă.
               </p>
             )}
 
@@ -267,7 +300,7 @@ export function AdminQuizStatsPage() {
                 <Card>
                   <CardContent className="space-y-2 py-3" data-testid="stats-item">
                     <div className="flex items-center justify-between gap-2 text-sm">
-                      <span className="font-medium">
+                      <span id={itemTitleId(item.itemId)} tabIndex={-1} className="scroll-mt-32 font-medium outline-none">
                         Întrebarea {label} · {itemTypeLabel(item.type)} · {item.points} p
                       </span>
                       {hardest?.itemId === item.itemId && (
