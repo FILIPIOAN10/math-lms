@@ -57,6 +57,13 @@ describe('AdminAiImportPage', () => {
     api.getAiImport.mockResolvedValue(done())
   })
 
+  it('says how many pages one reading takes, as the server allows', async () => {
+    api.getAiImportSettings.mockResolvedValue({ enabled: true, maxPages: 12, dailyPageLimit: 50, pagesUsedToday: 0 })
+    renderAt('/admin/quizzes/ai-import')
+
+    expect(await screen.findByText(/Fotografiază până la 12 pagini/)).toBeInTheDocument()
+  })
+
   it('sends the chosen pages once the teacher confirms they are textbook pages only', async () => {
     const user = userEvent.setup()
     api.createAiImport.mockResolvedValue(done({ status: 'QUEUED', items: null }))

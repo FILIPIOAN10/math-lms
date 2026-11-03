@@ -109,7 +109,7 @@ function UploadView({ classes, chapters }: { classes: SchoolClass[]; chapters: C
   useEffect(() => () => previews.forEach((url) => url && URL.revokeObjectURL(url)), [previews])
   const hasPdf = pages.some(isPdf)
 
-  const maxPages = settings?.maxPages ?? 5
+  const maxPages = settings?.maxPages ?? 12
   const leftToday = settings ? Math.max(0, settings.dailyPageLimit - settings.pagesUsedToday) : 0
   const chapterChoices = classId === null ? chapters : chapters.filter((c) => c.schoolClassId === classId)
 
@@ -155,7 +155,7 @@ function UploadView({ classes, chapters }: { classes: SchoolClass[]; chapters: C
       <PageHeader
         title="Test din poze"
         breadcrumbs={crumbs('Din poze')}
-        description="Fotografiază 1–5 pagini din manual sau culegere, sau încarcă un PDF scanat. Le citim, verifici fiecare exercițiu, marchezi răspunsurile corecte și primești un test ciornă."
+        description={`Fotografiază până la ${maxPages} pagini din manual sau culegere, sau încarcă un PDF, de exemplu un subiect EN întreg. Le citim, verifici fiecare exercițiu, marchezi răspunsurile corecte și primești un test ciornă.`}
       />
 
       <Card>

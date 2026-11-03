@@ -35,8 +35,8 @@ public class OpenAiPageExtractor implements PageExtractor {
 
     static final String NAME = "openai";
     static final Duration TIMEOUT = Duration.ofSeconds(180);
-    /** Reasoning tokens count here too; OpenAI suggests leaving plenty of room, and 5 pages of text fit easily. */
-    static final int MAX_OUTPUT_TOKENS = 25_000;
+    /** Reasoning tokens count here too; OpenAI suggests leaving plenty of room for a whole EN paper (12 pages). */
+    static final int MAX_OUTPUT_TOKENS = 60_000;
 
     static final String NO_KEY = "Cheia OpenAI lipsește din configurarea serverului.";
     static final String BAD_KEY = "Cheia OpenAI nu e validă sau nu are acces la model.";

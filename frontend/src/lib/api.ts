@@ -1074,7 +1074,7 @@ export async function getAiImportSettings(): Promise<AiImportSettings> {
   return response.json()
 }
 
-/** Uploads 1–5 textbook pages to be read; answers at once (QUEUED), poll getAiImport until DONE or FAILED. */
+/** Uploads the pages to be read (at most settings.maxPages); answers at once (QUEUED), poll getAiImport until DONE or FAILED. */
 export async function createAiImport(pages: File[], schoolClassId: number | null, chapterId: number | null): Promise<AiImport> {
   const formData = new FormData()
   pages.forEach((page) => formData.append('files', page))

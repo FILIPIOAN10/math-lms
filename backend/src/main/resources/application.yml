@@ -161,7 +161,8 @@ app:
   ai:
     enabled: ${AI_IMPORT_ENABLED:false}
     provider: ${AI_PROVIDER:gemini}
-    max-pages: ${AI_MAX_PAGES:5}
+    # A whole official EN paper in one read: since the 2027 model it is a 10-page booklet (cover, subjects, a blank page).
+    max-pages: ${AI_MAX_PAGES:12}
     # Per teacher per day (Romanian midnight to midnight): bounds the provider bill.
     daily-page-limit: ${AI_DAILY_PAGE_LIMIT:50}
     # Inside the uploads volume; files are deleted once the quiz is made, or after keep-pages-days.

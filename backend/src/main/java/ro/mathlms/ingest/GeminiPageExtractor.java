@@ -21,8 +21,8 @@ public class GeminiPageExtractor implements PageExtractor {
     private static final Logger log = LoggerFactory.getLogger(GeminiPageExtractor.class);
 
     static final String NAME = "gemini";
-    /** Thinking counts here too; 5 pages of exercises fit easily. */
-    static final int MAX_OUTPUT_TOKENS = 25_000;
+    /** Thinking counts here too; a whole EN paper (12 pages) fits, under the model's ceiling of 65,536. Billed only as used. */
+    static final int MAX_OUTPUT_TOKENS = 60_000;
     static final String THINKING_LEVEL = "LOW";
 
     private final GeminiClient client;

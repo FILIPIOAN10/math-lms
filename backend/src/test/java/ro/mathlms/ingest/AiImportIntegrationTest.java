@@ -307,6 +307,18 @@ class AiImportIntegrationTest {
                 .isEqualTo("QUEUED");
     }
 
+    /** Since the 2027 model an official EN paper is a 10-page booklet: cover, 8 pages of subjects, a blank page. */
+    @Test
+    void aWholeTenPageExamBookletIsReadInOneGo() throws Exception {
+        JsonNode queued = json(mockMvc.perform(multipart("/api/admin/ai-imports")
+                        .file(new MockMultipartFile("files", "ENVIII_Matematica_2027_var_model.pdf", "application/pdf",
+                                PdfPagesTest.scannedPdf(10)))
+                        .with(as(teacher)).with(csrf()))
+                .andExpect(status().isAccepted()));
+
+        assertThat(queued.get("pageCount").asInt()).isEqualTo(10);
+    }
+
     @Test
     void aPdfWithMorePagesThanOneImportTakesIsRefused() throws Exception {
         mockMvc.perform(multipart("/api/admin/ai-imports")

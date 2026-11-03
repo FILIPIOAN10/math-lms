@@ -59,7 +59,7 @@ Docker · GitHub Actions
 - EN exam format: *SUBIECTUL I / II / III* sections, requirements a)/b) with their own points, and links from each
   question to its EN chapter (set automatically from the question's position, editable).
 - Homework with deadlines and a "who handed in" status per class; optional reminders by email.
-- **Test from photos:** photograph 1–5 textbook pages and an OpenAI vision model extracts the exercises into a draft
+- **Test from photos:** photograph up to 12 textbook pages, or upload a whole EN paper as a PDF, and an OpenAI vision model extracts the exercises into a draft
   test, which the teacher reviews before anything is saved (off by default; there is a fake reader for development).
 
 **Assessment**
