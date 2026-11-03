@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Flame } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { EmptyArt } from '@/components/EmptyArt'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { MathContent } from '@/components/MathContent'
@@ -94,7 +96,7 @@ export function ReviewPage() {
 
   return (
     <div className="p-4">
-      <div className="mx-auto max-w-2xl space-y-4">
+      <div className="mx-auto max-w-4xl space-y-4">
         <PageHeader
           title="Recapitulare"
           description="Câte puțin în fiecare zi: întrebările greșite revin a doua zi, cele știute tot mai rar (după 3, 7, 14, 30 de zile)."
@@ -109,7 +111,7 @@ export function ReviewPage() {
             </span>
             <span>
               Seria: <span className="font-medium text-foreground">{roCount(today.streak, 'zi', 'zile')}</span>
-              {today.streak > 0 && ' 🔥'}
+              {today.streak > 0 && <Flame aria-hidden="true" className="ml-1 inline size-3.5 text-warm" fill="currentColor" />}
             </span>
             <span>
               Stăpânite: <span className="font-medium text-foreground">{today.mastered} din {today.totalCards}</span>
@@ -119,7 +121,8 @@ export function ReviewPage() {
 
         {today && today.questions.length === 0 && (
           <Card>
-            <CardContent className="space-y-3 py-6 text-center">
+            <CardContent className="flex flex-col items-center space-y-3 py-6 text-center">
+              <EmptyArt symbol={today.totalCards === 0 ? '↻' : '✓'} />
               {today.totalCards === 0 ? (
                 <p className="text-muted-foreground">
                   Încă nu ai nimic de recapitulat. Întrebările apar aici după ce exersezi sau predai un test.

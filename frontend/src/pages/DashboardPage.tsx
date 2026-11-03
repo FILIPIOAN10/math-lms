@@ -25,8 +25,9 @@ export function DashboardPage() {
 
   return (
     <div className="p-4">
-      {/* A parent has one card per child: a narrow column reads better. The others use the width of a laptop. */}
-      <div className={cn('mx-auto max-w-3xl space-y-6', user.role !== 'PARENT' && 'lg:max-w-5xl')}>
+      {/* A parent has one card per child: a narrow column reads better. A student's pages all share one width (4xl), so
+          the content does not jump sideways between tabs; staff use the width of a laptop. */}
+      <div className={cn('mx-auto max-w-3xl space-y-6', user.role === 'STUDENT' ? 'max-w-4xl' : user.role !== 'PARENT' && 'lg:max-w-5xl')}>
         <div>
           <h1 data-testid="welcome" className="text-2xl font-semibold">Bine ai venit, {user.fullName}</h1>
           <p className="text-sm text-muted-foreground">{SUBTITLES[user.role]}</p>

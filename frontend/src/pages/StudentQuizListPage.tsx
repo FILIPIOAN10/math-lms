@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { buttonVariants } from '@/components/ui/button'
+import { EmptyArt } from '@/components/EmptyArt'
 import { ErrorState } from '@/components/ErrorState'
 import { Card, CardContent } from '@/components/ui/card'
 import { AttemptModeBadge } from '@/components/AttemptModeBadge'
@@ -197,7 +198,7 @@ export function StudentQuizListPage() {
 
   return (
     <div className="p-4">
-      <div className="mx-auto max-w-3xl space-y-6">
+      <div className="mx-auto max-w-4xl space-y-6">
         <PageHeader title="Testele mele" description="Ce ai de făcut și ce ai dat până acum." />
 
         {savedQuizTitle && (
@@ -230,7 +231,10 @@ export function StudentQuizListPage() {
             <section className="space-y-2" data-testid="quizzes-done">
               <h2 className="font-medium">Teste date</h2>
               {done.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Nu ai dat încă niciun test.</p>
+                <div className="flex items-center gap-3 rounded-xl border border-dashed bg-background p-4">
+                  <EmptyArt symbol="π" />
+                  <p className="text-sm text-muted-foreground">Nu ai dat încă niciun test.</p>
+                </div>
               ) : (
                 done.map((card) => <QuizCardView key={card.quizId} card={card} now={loadedAt} showClass={showClass} />)
               )}

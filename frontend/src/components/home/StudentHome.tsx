@@ -18,6 +18,7 @@ import {
 import { errorMessage } from '@/lib/errors'
 import { formatDate, roCount } from '@/lib/format'
 import { scoreLine } from '@/lib/grades'
+import { EmptyArt, StreakPill } from '@/components/EmptyArt'
 import { GradeFigure } from '@/components/GradeFigure'
 import { NewResultBadge } from '@/components/NewResultBadge'
 import { latestGrade, todoAssignments } from '@/lib/home'
@@ -99,10 +100,11 @@ export function StudentHome() {
         <>
       {nothingToDo && grades}
       {todo.length > 0 ? (
-        <AssignmentsSection assignments={todo} title="De făcut" />
+        <AssignmentsSection assignments={todo} title="De făcut" hero />
       ) : (
         <HomeSection title="De făcut">
           <HomeEmpty
+            symbol="Σ"
             action={
               <Link to="/quizzes" className={buttonVariants({ variant: 'outline', size: 'sm' })}>
                 Vezi toate testele
@@ -140,14 +142,14 @@ export function StudentHome() {
           <Card data-testid="home-review">
             <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4 text-sm">
               {review.remainingToday > 0 ? (
-                <p>
+                <p className="flex flex-wrap items-center gap-2">
                   <span className="font-medium">{roCount(review.remainingToday, 'întrebare', 'întrebări')} de recapitulat azi</span>
-                  {review.streak > 0 && <span className="text-muted-foreground"> · seria {roCount(review.streak, 'zi', 'zile')} 🔥</span>}
+                  {review.streak > 0 && <StreakPill>seria {roCount(review.streak, 'zi', 'zile')}</StreakPill>}
                 </p>
               ) : (
-                <p>
+                <p className="flex flex-wrap items-center gap-2">
                   <span className="font-medium text-emerald-700 dark:text-emerald-300">Gata pe azi ✓</span>
-                  {review.streak > 0 && <span className="text-muted-foreground"> · seria {roCount(review.streak, 'zi', 'zile')} 🔥</span>}
+                  {review.streak > 0 && <StreakPill>seria {roCount(review.streak, 'zi', 'zile')}</StreakPill>}
                 </p>
               )}
               {review.remainingToday > 0 && (
@@ -186,7 +188,10 @@ export function StudentHome() {
                   </p>
                 </>
               ) : (
-                <p className="text-sm text-muted-foreground">Nicio notă încă. Apare după primul test corectat.</p>
+                <div className="flex items-center gap-3">
+                  <EmptyArt symbol="10" />
+                  <p className="text-sm text-muted-foreground">Nicio notă încă. Apare după primul test corectat.</p>
+                </div>
               )}
             </CardContent>
           </Card>

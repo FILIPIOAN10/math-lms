@@ -35,7 +35,7 @@ export function StudentProgressPage() {
 
   return (
     <div className="p-4">
-      <div className="mx-auto max-w-3xl space-y-4">
+      <div className="mx-auto max-w-4xl space-y-4">
         <PageHeader title="Progresul meu" description="Cât de bine stăpânești fiecare capitol și cum au mers testele notate." />
 
         {mastery && (

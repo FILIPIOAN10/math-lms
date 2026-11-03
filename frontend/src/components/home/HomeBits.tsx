@@ -1,6 +1,7 @@
 import { useId, type ReactNode } from 'react'
 import { type LucideIcon } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { EmptyArt } from '@/components/EmptyArt'
 import { Card, CardContent } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 
@@ -100,11 +101,14 @@ export function HomeColumns({ main, side }: { main: ReactNode; side?: ReactNode 
 }
 
 /** The calm "nothing here" line inside a card, with an optional way forward. */
-export function HomeEmpty({ children, action }: { children: ReactNode; action?: ReactNode }) {
+export function HomeEmpty({ children, action, symbol }: { children: ReactNode; action?: ReactNode; symbol?: string }) {
   return (
     <Card>
       <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4 text-sm text-muted-foreground">
-        <p>{children}</p>
+        <div className="flex min-w-0 items-center gap-3">
+          {symbol && <EmptyArt symbol={symbol} />}
+          <p>{children}</p>
+        </div>
         {action}
       </CardContent>
     </Card>

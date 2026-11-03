@@ -197,8 +197,8 @@ function TabBar({ role, counts, pathname }: { role: Role; counts: Counts; pathna
  * account with the logout button. Who may see a page is still decided by the route guard inside, so with nobody
  * (or a not-yet-approved account) signed in this renders only the page and lets the guard redirect.
  *
- * On a phone the links move to a tab bar at the bottom (TabBar); between phone and desktop widths they take their own
- * row under the name.
+ * On a phone the links move to a tab bar at the bottom (TabBar); below `xl` they take their own row under the name -
+ * a student's six links plus the name and the logout button do not fit one row on a 1024 px laptop.
  */
 export function AppShell() {
   const { user, logout } = useAuth()
@@ -217,14 +217,18 @@ export function AppShell() {
   return (
     <div className="min-h-screen bg-muted">
       <header className="sticky top-0 z-20 border-b bg-background">
+        <div aria-hidden="true" className="hero-surface h-1" />
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2">
-          <Link to="/" className="text-base font-semibold">
+          <Link to="/" className="flex items-center gap-2 text-base font-semibold">
+            <span aria-hidden="true" className="hero-surface flex size-7 items-center justify-center rounded-lg bg-primary text-xs font-bold text-white">
+              x²
+            </span>
             Math LMS
           </Link>
           {withNav && (
             <nav
               aria-label="Navigare principală"
-              className="order-last -mx-1 hidden w-full gap-1 overflow-x-auto [scrollbar-width:none] md:flex lg:order-none lg:mx-0 lg:w-auto"
+              className="order-last -mx-1 hidden w-full gap-1 overflow-x-auto [scrollbar-width:none] md:flex xl:order-none xl:mx-0 xl:w-auto"
             >
               {navItems(user.role).map((item) => {
                 const active = isNavActive(item, pathname)

@@ -16,6 +16,9 @@
     --color-sidebar-primary: var(--sidebar-primary);
     --color-sidebar-foreground: var(--sidebar-foreground);
     --color-sidebar: var(--sidebar);
+    --color-warm: var(--warm);
+    --color-warm-soft: var(--warm-soft);
+    --color-warm-foreground: var(--warm-foreground);
     --color-chart-5: var(--chart-5);
     --color-chart-4: var(--chart-4);
     --color-chart-3: var(--chart-3);
@@ -58,22 +61,27 @@
     /* The brand: indigo (Tailwind indigo-600) - buttons, the current page in the menu, focus rings, picked answers. */
     --primary: oklch(0.511 0.262 276.966);
     --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.97 0 0);
+    /* The grey is nudged toward the brand's hue (chroma 0.01): the page behind the white cards reads as a soft indigo mist, not dead grey. */
+    --secondary: oklch(0.965 0.01 277);
     --secondary-foreground: oklch(0.205 0 0);
-    --muted: oklch(0.97 0 0);
+    --muted: oklch(0.965 0.01 277);
     /* 0.5, not shadcn's 0.556: grey text sits on the grey page (bg-muted) too, where 0.556 gave 4.3:1 - under AA. */
     --muted-foreground: oklch(0.5 0 0);
     --accent: oklch(0.962 0.018 272.314);
     --accent-foreground: oklch(0.457 0.24 277.023);
     --destructive: oklch(0.577 0.245 27.325);
-    --border: oklch(0.922 0 0);
-    --input: oklch(0.922 0 0);
+    --border: oklch(0.915 0.008 277);
+    --input: oklch(0.915 0.008 277);
     --ring: oklch(0.673 0.182 276.935);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
+    /* The second colour: warm amber for what is rewarding or due soon (streak, deadline, a new grade). Never for errors. */
+    --warm: oklch(0.78 0.165 70);
+    --warm-soft: oklch(0.965 0.045 85);
+    --warm-foreground: oklch(0.42 0.1 55);
+    --chart-1: oklch(0.55 0.24 277);
+    --chart-2: oklch(0.62 0.2 305);
+    --chart-3: oklch(0.78 0.165 70);
+    --chart-4: oklch(0.68 0.15 160);
+    --chart-5: oklch(0.66 0.2 12);
     --radius: 0.625rem;
     --sidebar: oklch(0.985 0 0);
     --sidebar-foreground: oklch(0.145 0 0);
@@ -104,11 +112,14 @@
     --border: oklch(1 0 0 / 10%);
     --input: oklch(1 0 0 / 15%);
     --ring: oklch(0.585 0.233 277.117);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
+    --warm: oklch(0.8 0.15 75);
+    --warm-soft: oklch(0.32 0.05 65);
+    --warm-foreground: oklch(0.9 0.09 85);
+    --chart-1: oklch(0.7 0.18 277);
+    --chart-2: oklch(0.72 0.17 305);
+    --chart-3: oklch(0.82 0.15 75);
+    --chart-4: oklch(0.76 0.15 160);
+    --chart-5: oklch(0.74 0.17 12);
     --sidebar: oklch(0.205 0 0);
     --sidebar-foreground: oklch(0.985 0 0);
     --sidebar-primary: oklch(0.673 0.182 276.935);
@@ -148,6 +159,11 @@
       transform: translateY(-2px);
     }
   }
+}
+
+/* The brand's gradient, indigo to violet: the next task's card, the logo mark, the strip over the header. Light text on it. */
+@utility hero-surface {
+  background-image: linear-gradient(135deg, oklch(0.5 0.26 277), oklch(0.46 0.24 303));
 }
 
 /* The grade arrives: the ring fills up to its share, the number settles. Played again when the grade changes. */
