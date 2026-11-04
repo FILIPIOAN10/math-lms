@@ -61,12 +61,18 @@ public class AdminUserService {
         return saved;
     }
 
-    /** Links a student account to a parent account (both must hold their real role). */
+    /**
+     * Links a student account to a parent account (both must hold their real role). The parent the student already has
+     * changes nothing and is not journalled again: a second click must not read as a second link.
+     */
     @Transactional
     public User linkParent(Long studentId, Long parentId) {
         User student = find(studentId);
         User parent = find(parentId);
-        boolean replaced = student.getParent() != null && !student.getParent().getId().equals(parentId);
+        if (student.getParent() != null && student.getParent().getId().equals(parentId)) {
+            return student;
+        }
+        boolean replaced = student.getParent() != null;
         student.linkParent(parent);
         User saved = userRepository.save(student);
         auditLog.record(AuditEvent.of(AuditAction.PARENT_LINKED, studentId, "Părinte legat").about(saved).with(parent)

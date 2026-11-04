@@ -127,6 +127,23 @@ class AdminUserServiceTest {
     }
 
     @Test
+    void linkingTheParentTheStudentAlreadyHasChangesNothingAndIsNotJournalled() {
+        User student = new User("copil@example.com", "Copil Pop", Role.STUDENT);
+        User parent = new User("parinte@example.com", "Parinte Pop", Role.PARENT);
+        ReflectionTestUtils.setField(student, "id", 1L);
+        ReflectionTestUtils.setField(parent, "id", 2L);
+        student.linkParent(parent);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(student));
+        when(userRepository.findById(2L)).thenReturn(Optional.of(parent));
+
+        User result = service.linkParent(1L, 2L);
+
+        assertThat(result.getParent()).isSameAs(parent);
+        verify(userRepository, never()).save(any());
+        verify(auditLog, never()).record(any());
+    }
+
+    @Test
     void approvingIsJournalledWithTheRoleGiven() {
         User pending = User.registerLocal("ana@example.com", "Ana Pop", "hash", Role.STUDENT);
         pending.verifyEmail();

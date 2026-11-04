@@ -238,7 +238,9 @@ Cardul apare doar cât timp așteaptă cineva (rolul e scris în română: Elev 
 - **Respinge** → `status=REJECTED`
 
 ### 4. Admin — legare părinte (`/admin/students`, ca admin)
-- alege un părinte pentru un student → **Leagă** → „Părinte curent" se actualizează; în DB `parent_id` setat
+- alege un părinte pentru un student → **Leagă** → sub rând „✓ Legat de …”, lista dispare și rămân numele părintelui și
+  **Schimbă**; în DB `parent_id` setat. **Schimbă** → lista revine, **Leagă** e oprit pe părintele de acum, **Anulează** o
+  închide; același părinte ales din nou nu mai scrie rând în Jurnal
 - endpointul: `GET /api/admin/users?role=STUDENT|PARENT`, apoi `POST /api/admin/users/{id}/link-parent`
 
 ### 4a. Admin — link general cu aprobare (`/admin/students`, cardul „Link general (cu aprobare)”, jos, ca admin)

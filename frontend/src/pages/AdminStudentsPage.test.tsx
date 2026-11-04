@@ -169,6 +169,65 @@ describe('AdminStudentsPage', () => {
     expect(screen.queryByTestId('parent-invite-2')).not.toBeInTheDocument()
   })
 
+  describe('parent column', () => {
+    const parent = (id: number, fullName: string): AdminUserSummary => ({
+      id, email: `p${id}@scoala.ro`, fullName, role: 'PARENT', parentId: null, parentName: null,
+    })
+    const rowOf = async (name: string) => (await screen.findByRole('link', { name })).closest('tr') as HTMLElement
+
+    beforeEach(() => {
+      api.listActiveUsers.mockImplementation((role: string) =>
+        Promise.resolve(role === 'STUDENT'
+          ? [student(1, 'Ana Pop'), student(2, 'Radu Nou', 'Maria Parinte')]
+          : [parent(99, 'Maria Parinte'), parent(98, 'Ion Parinte')]))
+      api.linkParent.mockResolvedValue({})
+    })
+
+    it("shows a linked student's parent with Schimbă, not a list to pick from", async () => {
+      renderPage()
+
+      const radu = await rowOf('Radu Nou')
+      expect(radu).toHaveTextContent('Maria Parinte')
+      expect(within(radu).getByRole('button', { name: 'Schimbă părintele lui Radu Nou' })).toBeInTheDocument()
+      expect(within(radu).queryByRole('combobox')).not.toBeInTheDocument()
+      expect(within(radu).queryByRole('button', { name: 'Leagă' })).not.toBeInTheDocument()
+      expect(within(await rowOf('Ana Pop')).getByRole('combobox')).toBeInTheDocument()
+    })
+
+    it('links a parent, says so, and puts the list away', async () => {
+      const user = userEvent.setup()
+      renderPage()
+
+      const ana = await rowOf('Ana Pop')
+      await user.selectOptions(within(ana).getByRole('combobox'), '99')
+      await user.click(within(ana).getByRole('button', { name: 'Leagă' }))
+
+      expect(api.linkParent).toHaveBeenCalledWith(1, 99)
+      expect(await within(ana).findByRole('status')).toHaveTextContent('✓ Legat de Maria Parinte')
+      expect(within(ana).queryByRole('combobox')).not.toBeInTheDocument()
+      expect(within(ana).getByRole('button', { name: 'Schimbă părintele lui Ana Pop' })).toBeInTheDocument()
+    })
+
+    it('opens the list on Schimbă, where the same parent again cannot be linked', async () => {
+      const user = userEvent.setup()
+      renderPage()
+
+      const radu = await rowOf('Radu Nou')
+      await user.click(within(radu).getByRole('button', { name: 'Schimbă părintele lui Radu Nou' }))
+      const list = within(radu).getByRole('combobox')
+      const link = within(radu).getByRole('button', { name: 'Leagă' })
+
+      await user.selectOptions(list, '99') // Maria, already his parent
+      expect(link).toBeDisabled()
+      await user.selectOptions(list, '98')
+      expect(link).toBeEnabled()
+
+      await user.click(within(radu).getByRole('button', { name: 'Anulează' }))
+      expect(within(radu).queryByRole('combobox')).not.toBeInTheDocument()
+      expect(api.linkParent).not.toHaveBeenCalled()
+    })
+  })
+
   it("shows the student's single-use link to copy", async () => {
     const user = userEvent.setup()
     api.createParentInvite.mockResolvedValue(parentLink)

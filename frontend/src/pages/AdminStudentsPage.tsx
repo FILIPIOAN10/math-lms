@@ -57,6 +57,10 @@ export function AdminStudentsPage() {
   // Parent the admin picked per student row (parent id, or '' for none chosen yet).
   const [selectedParent, setSelectedParent] = useState<Record<number, number | ''>>({})
   const [busyIds, setBusyIds] = useState<Set<number>>(new Set())
+  // Rows of linked students whose parent the admin is changing: only these show the parent list again.
+  const [editingParent, setEditingParent] = useState<Set<number>>(new Set())
+  // "✓ Legat de Maria" under a row just linked, so the click visibly did something.
+  const [linkedNotes, setLinkedNotes] = useState<Record<number, string>>({})
   // The parent link minted for a student row in this visit, shown under the row until the page is left.
   const [parentLinks, setParentLinks] = useState<Record<number, InviteLink>>({})
 
@@ -100,6 +104,20 @@ export function AdminStudentsPage() {
     })
   }
 
+  function setEditing(id: number, editing: boolean) {
+    setEditingParent((prev) => {
+      const next = new Set(prev)
+      if (editing) {
+        next.add(id)
+      } else {
+        next.delete(id)
+      }
+      return next
+    })
+    setSelectedParent((prev) => ({ ...prev, [id]: '' }))
+    setLinkedNotes((prev) => ({ ...prev, [id]: '' }))
+  }
+
   async function handleLink(studentId: number) {
     const parentId = selectedParent[studentId]
     if (parentId === '' || parentId === undefined) {
@@ -119,6 +137,8 @@ export function AdminStudentsPage() {
             : s,
         ),
       )
+      setEditing(studentId, false)
+      setLinkedNotes((prev) => ({ ...prev, [studentId]: `✓ Legat de ${parent?.fullName ?? 'părinte'}` }))
     } catch {
       setActionError('Legarea a eșuat. Reîncearcă.')
     } finally {
@@ -217,6 +237,9 @@ export function AdminStudentsPage() {
                     {visible.map((s) => {
                       const busy = busyIds.has(s.id)
                       const choice = selectedParent[s.id] ?? ''
+                      const editing = editingParent.has(s.id)
+                      // A linked student shows the parent's name and "Schimbă"; the list is for linking or changing.
+                      const canPick = isAdmin && (s.parentId === null || editing)
                       return (
                         <tr key={s.id} className="border-b last:border-0">
                           <td className="py-3 pr-4">
@@ -252,9 +275,28 @@ export function AdminStudentsPage() {
                             <LastGrade row={rows[s.id]} />
                           </td>
                           <td className="py-3">
-                            {s.parentName && <p className="mb-1">{s.parentName}</p>}
+                            {s.parentName && (
+                              <div className="mb-1 flex flex-wrap items-center gap-2">
+                                <span>{s.parentName}</span>
+                                {isAdmin && !editing && (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    aria-label={`Schimbă părintele lui ${s.fullName}`}
+                                    disabled={busy}
+                                    onClick={() => setEditing(s.id, true)}
+                                  >
+                                    Schimbă
+                                  </Button>
+                                )}
+                              </div>
+                            )}
+                            {linkedNotes[s.id] && (
+                              <p role="status" className="mb-1 text-sm text-emerald-700 dark:text-emerald-300">{linkedNotes[s.id]}</p>
+                            )}
+                            {(canPick || s.parentId === null) && (
                             <div className="flex flex-wrap gap-2">
-                              {isAdmin && (
+                              {canPick && (
                                 <>
                                   <select
                                     className={selectClass}
@@ -276,11 +318,16 @@ export function AdminStudentsPage() {
                                   </select>
                                   <Button
                                     size="sm"
-                                    disabled={busy || choice === ''}
+                                    disabled={busy || choice === '' || choice === s.parentId}
                                     onClick={() => handleLink(s.id)}
                                   >
                                     Leagă
                                   </Button>
+                                  {editing && (
+                                    <Button size="sm" variant="ghost" disabled={busy} onClick={() => setEditing(s.id, false)}>
+                                      Anulează
+                                    </Button>
+                                  )}
                                 </>
                               )}
                               {s.parentId === null && (
@@ -295,6 +342,7 @@ export function AdminStudentsPage() {
                                 </Button>
                               )}
                             </div>
+                            )}
                             {parentLinks[s.id] && s.parentId === null && (
                               <div className="mt-2 max-w-md space-y-1">
                                 <CopyLinkField
