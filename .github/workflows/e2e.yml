@@ -1,7 +1,8 @@
 name: E2E (Selenium)
 
 # The whole product in real Chrome against the REAL production stack (docker-compose.prod.yml):
-# nginx + backend + Postgres + Redis. Manual — it is slow and builds both images.
+# nginx + backend + Postgres + Redis, plus Mailpit (docker-compose.e2e.yml) as the inbox of the email tests.
+# Manual — it is slow and builds both images.
 on:
   workflow_dispatch:
 
@@ -33,13 +34,17 @@ jobs:
           ADMIN_EMAILS=admin@mathlms.local
           RATE_LIMIT_ENABLED=false
           TWO_FACTOR_REQUIRED_FOR_ADMIN=false
+          SMTP_HOST=mailpit
+          SMTP_PORT=1025
+          SMTP_USER=e2e@mathlms.test
+          SMTP_PASS=e2e
           EOF
 
       - name: Start the stack
-        run: docker compose -f docker-compose.prod.yml --env-file .env.e2e up -d --build --wait --wait-timeout 300
+        run: docker compose -f docker-compose.prod.yml -f docker-compose.e2e.yml --env-file .env.e2e up -d --build --wait --wait-timeout 300
 
       - name: Seed the test accounts
-        run: docker compose -f docker-compose.prod.yml --env-file .env.e2e exec -T postgres psql -U mathlms -d mathlms < deploy/e2e-seed.sql
+        run: docker compose -f docker-compose.prod.yml -f docker-compose.e2e.yml --env-file .env.e2e exec -T postgres psql -U mathlms -d mathlms < deploy/e2e-seed.sql
 
       - name: Run the E2E suite
         working-directory: backend
@@ -47,8 +52,8 @@ jobs:
 
       - name: Stack logs on failure
         if: failure()
-        run: docker compose -f docker-compose.prod.yml --env-file .env.e2e logs --no-color --tail 200
+        run: docker compose -f docker-compose.prod.yml -f docker-compose.e2e.yml --env-file .env.e2e logs --no-color --tail 200
 
       - name: Stop the stack
         if: always()
-        run: docker compose -f docker-compose.prod.yml --env-file .env.e2e down -v
+        run: docker compose -f docker-compose.prod.yml -f docker-compose.e2e.yml --env-file .env.e2e down -v

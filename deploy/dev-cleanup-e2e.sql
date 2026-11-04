@@ -5,6 +5,7 @@
 --     + their items, options, hints, attempts, answers and homework
 --   * classes named   "E2E clasa|invitatie|tema|profesor|clasa offline|clasa IDOR|clasa dublu submit|clasa reload <digits>" + their enrollments, homework and invite links
 --   * the journal rows (F1) about any of the above
+--   * accounts made by the email tests (e2e.<what>.<n>@mathlms.test) + their enrollments and parent links
 -- Kept: every other quiz/class, all users, parent links, your own attempts.
 --
 -- Run (from math-lms/):
@@ -52,6 +53,14 @@ DELETE FROM admin_audit_log WHERE label ~ 'E2E (flow|clasa|parinte|publica si te
 -- Corectură (V43): coloanele reale pentru 2FA
 DELETE FROM totp_recovery_codes WHERE user_id IN (SELECT id FROM users WHERE email = 'admin2fa@mathlms.local');
 UPDATE users SET totp_secret = NULL, totp_enabled_at = NULL, totp_last_step = NULL WHERE email = 'admin2fa@mathlms.local';
+
+-- Accounts the email tests make (e2e.<what>.<n>@mathlms.test, signed up through Mailpit): their enrollments and parent
+-- links first, then the accounts. An erased one is already an anonymised tombstone and stays.
+CREATE TEMP TABLE e2e_user ON COMMIT DROP AS
+  SELECT id FROM users WHERE email ~ '^e2e\.[a-z0-9]+\.[0-9]+@mathlms\.test$';
+DELETE FROM enrollments WHERE student_id IN (SELECT id FROM e2e_user);
+UPDATE users SET parent_id = NULL WHERE parent_id IN (SELECT id FROM e2e_user);
+DELETE FROM users WHERE id IN (SELECT id FROM e2e_user);
 
 \echo '--- left after cleanup:'
 SELECT (SELECT count(*) FROM quizzes) AS quizzes,

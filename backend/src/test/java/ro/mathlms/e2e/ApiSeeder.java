@@ -51,6 +51,105 @@ final class ApiSeeder {
                 Map.of("parentId", userId("PARENT", parentEmail)));
     }
 
+    // --- accounts made the way newcomers make them: invite link, sign-up, the link from the email ---
+
+    /** Admin: a class's invite link for at most {@code maxUses} students. Returns the link's URL. */
+    String classInvite(long classId, int maxUses) {
+        return send("POST", "/api/admin/classes/" + classId + "/invites", Map.of("maxUses", maxUses)).get("url").asString();
+    }
+
+    /** Admin: a single-use link for a new teacher (approved by hand after sign-up). */
+    String teacherInvite() {
+        return send("POST", "/api/admin/invites/admin", Map.of()).get("url").asString();
+    }
+
+    /** Admin: the general link for {@code role} (STUDENT or PARENT); every account made with it waits for approval. */
+    String generalInvite(String role) {
+        return send("POST", "/api/admin/invites", Map.of("role", role)).get("url").asString();
+    }
+
+    /** Admin or teacher: the single-use link for the parent of this student. */
+    String parentInvite(String studentEmail) {
+        return send("POST", "/api/admin/users/" + userId("STUDENT", studentEmail) + "/parent-invite", Map.of())
+                .get("url").asString();
+    }
+
+    /** Signed out: the request the sign-up form sends for an invite link. */
+    void signUp(String inviteUrl, String fullName, String email, String password) {
+        primeXsrf();
+        send("POST", "/api/auth/register", Map.of("email", email, "fullName", fullName, "password", password,
+                "inviteToken", queryParam(inviteUrl, "token")));
+    }
+
+    /** The request the page behind the confirmation email's link sends. */
+    void confirmEmail(String verifyLink) {
+        send("GET", "/api/auth/verify-email?token=" + queryParam(verifyLink, "token"), null);
+    }
+
+    /** Admin: approves the waiting account with this email as {@code role}. */
+    void approve(String email, String role) {
+        for (JsonNode pending : send("GET", "/api/admin/users/pending", null)) {
+            if (pending.get("email").asString().equals(email)) {
+                send("POST", "/api/admin/users/" + pending.get("id").asLong() + "/approve", Map.of("role", role));
+                return;
+            }
+        }
+        throw new IllegalStateException("No pending account " + email);
+    }
+
+    /** Admin: whether an active account with this role and email exists. */
+    boolean isActive(String role, String email) {
+        for (JsonNode user : send("GET", "/api/admin/users?role=" + role, null)) {
+            if (user.get("email").asString().equals(email)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Admin: the id of the student's parent, or null. */
+    Long parentIdOf(String studentEmail) {
+        for (JsonNode user : send("GET", "/api/admin/users?role=STUDENT", null)) {
+            if (user.get("email").asString().equals(studentEmail)) {
+                JsonNode parentId = user.get("parentId");
+                return parentId == null || parentId.isNull() ? null : parentId.asLong();
+            }
+        }
+        throw new IllegalStateException("No STUDENT account " + studentEmail);
+    }
+
+    /** Admin: the student ids enrolled in a class. */
+    List<Long> enrolledStudentIds(long classId) {
+        List<Long> ids = new java.util.ArrayList<>();
+        for (JsonNode enrollment : send("GET", "/api/admin/classes/" + classId + "/enrollments", null)) {
+            ids.add(enrollment.get("studentId").asLong());
+        }
+        return ids;
+    }
+
+    /** A signed-out client has no XSRF-TOKEN cookie until its first request: ask who it is (401) to get one. */
+    private void primeXsrf() {
+        if (xsrfToken().isPresent()) {
+            return;
+        }
+        try {
+            send("GET", "/api/auth/me", null);
+        } catch (IllegalStateException signedOut) {
+            // expected: 401, and the response set the cookie
+        }
+    }
+
+    private static String queryParam(String url, String name) {
+        String query = URI.create(url).getRawQuery();
+        for (String pair : query == null ? new String[0] : query.split("&")) {
+            int eq = pair.indexOf('=');
+            if (eq > 0 && pair.substring(0, eq).equals(name)) {
+                return java.net.URLDecoder.decode(pair.substring(eq + 1), java.nio.charset.StandardCharsets.UTF_8);
+            }
+        }
+        throw new IllegalArgumentException("No " + name + " in " + url);
+    }
+
     private long userId(String role, String email) {
         for (JsonNode user : send("GET", "/api/admin/users?role=" + role, null)) {
             if (user.get("email").asString().equals(email)) {

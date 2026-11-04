@@ -187,6 +187,29 @@ backend `:8080`, Vite `:5173`) și a conturilor seed din secțiunea B. Sunt excl
 ./mvnw test "-Dgroups=e2e" "-DexcludedGroups=" "-De2e.headless=false"     # Chrome vizibil, ca să urmărești
 ```
 
+**Testele cu email (Mailpit).** Înregistrarea, confirmarea, parola uitată, exportul și ștergerea contului citesc linkurile
+din emailuri dintr-un inbox fals, Mailpit. Fără el, aceste teste sunt sărite (nu picate). Ca să ruleze:
+
+```powershell
+docker compose --profile e2e up -d mailpit        # inboxul: http://localhost:8025
+cd backend
+$env:SMTP_HOST='localhost'; $env:SMTP_PORT='1025'; $env:SMTP_USER='e2e@mathlms.test'; $env:SMTP_PASS='e2e'; .mvnw.cmd spring-boot:run
+```
+
+Variabilele din fereastră bat `backend/.env`, deci backend-ul pornit așa trimite tot spre Mailpit, nu spre Gmail. Pentru
+testarea de mână cu Gmail, pornește-l din nou fără ele. Fiecare test își face conturile lui, `e2e.<ce>.<număr>@mathlms.test`
+(`newStudent` în `E2eBase`: o clasă „E2E invitatie …”, linkul ei, înscrierea și linkul de confirmare), iar
+`deploy/dev-cleanup-e2e.sql` le șterge.
+
+- Capitolul 1 din ghidul de testare: `LoginPageE2eTest` (tabul ales, metoda ținută minte, același refuz pentru parolă greșită
+  și email inexistent, Înapoi după logout, rolul greșit trimis Acasă, 404, meniul fiecărui rol și bara de jos pe telefon),
+  `PasswordChangeE2eTest` (Contul meu → Parola).
+- Capitolul 2: `SignUpWithApprovalE2eTest` (linkul general → confirmare → „Cont în așteptare” → Aprobă / Respinge),
+  `ClassSignUpE2eTest` (formularul refuză ce e greșit; cu linkul clasei intri direct în clasă), `TeacherInviteE2eTest`
+  (invitație de profesor, aprobare, link folosit și revocat), `ParentInviteE2eTest` (Invită părintele; Leagă, „✓ Legat de …”,
+  Schimbă), `PasswordResetE2eTest`, `ExportAndErasureE2eTest` (ZIP-ul cu `manifest.json`, ștergerea elevului și a părintelui).
+- Rămân de mână din capitolele 1–2: serverul oprit (1.5–1.6) și Google (2.20).
+
 - `QuizFlowE2eTest`: quiz creat prin REST (`ApiSeeder`) → elevul îl dă (grilă + poză) → profesorul
   corectează → elevul vede 13 / 15. Fiecare rulare creează un quiz nou „E2E flow <timp>" (nu se șterg;
   un quiz cu încercări nu poate fi șters).

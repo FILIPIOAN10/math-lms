@@ -27,7 +27,9 @@ class AuthorizationE2eTest extends E2eBase {
         adminApi.ensureActiveStudent(STUDENT2);
         adminApi.enroll(classId, STUDENT2);
         long quizId = adminApi.createPublishedQuiz(quizTitle, classId);
-        long student2Id = adminApi.getUserIdForTest("STUDENT", STUDENT2);
+        // A3 needs a student who is surely not Maria's child; a dev database may have Radu linked to her by hand
+        String[] stranger = strangerToMaria(adminApi);
+        long strangerId = adminApi.getUserIdForTest("STUDENT", stranger[0]);
 
         // STUDENT2 (Radu) dă testul, generând un `attempt` pe care Ana nu ar trebui să-l vadă
         ApiSeeder student2Api = new ApiSeeder(API_URL);
@@ -71,15 +73,27 @@ class AuthorizationE2eTest extends E2eBase {
         wait.until(ExpectedConditions.urlToBe(BASE_URL + "/"));
 
         // A3: Maria deschide pagina unui copil care nu îi e asociat -> refuzat
-        open("/parent/children/" + student2Id);
+        open("/parent/children/" + strangerId);
         wait.until(ExpectedConditions.or(
                 ExpectedConditions.urlToBe(BASE_URL + "/"),
                 ExpectedConditions.textToBePresentInElementLocated(By.tagName("body"), "nu e copilul tău")
         ));
 
-        assertThat(bodyText()).doesNotContain(STUDENT2_NAME); // Numele copilului nu trebuie să apară pe ecran
+        assertThat(bodyText()).doesNotContain(stranger[1]); // Numele copilului nu trebuie să apară pe ecran
         assertThat(bodyText()).doesNotContain("Pe capitole"); // Verificăm că secțiunea de date e ascunsă
 
         logout();
+    }
+
+    /** {email, name} of a student who is not Maria's child: Radu, unless he was linked to her; then a fresh one (Mailpit). */
+    private String[] strangerToMaria(ApiSeeder admin) {
+        Long radusParent = admin.parentIdOf(STUDENT2);
+        if (radusParent == null || radusParent != admin.getUserIdForTest("PARENT", PARENT)) {
+            return new String[] {STUDENT2, STUDENT2_NAME};
+        }
+        assumeMailpit();
+        String email = freshEmail("strain");
+        newStudent("Elev Strain", email, "TestStrain1!");
+        return new String[] {email, "Elev Strain"};
     }
 }

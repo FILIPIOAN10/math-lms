@@ -1,6 +1,7 @@
 package ro.mathlms.e2e;
 
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.openqa.selenium.By;
@@ -16,6 +17,7 @@ import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -124,6 +126,68 @@ abstract class E2eBase {
     protected void clickText(String text) {
         wait.until(ExpectedConditions.elementToBeClickable(By.xpath(
                 "//*[(self::button or self::a) and normalize-space()='" + text + "']"))).click();
+    }
+
+    // --- accounts and emails (the flows that need Mailpit) ---
+
+    /** A fresh address for one run, never seen by the app or the inbox before. */
+    static String freshEmail(String tag) {
+        return "e2e." + tag + "." + System.nanoTime() + "@mathlms.test";
+    }
+
+    /** Skips the test when Mailpit is not running: a flow that needs an email cannot run without it. */
+    static void assumeMailpit() {
+        Assumptions.assumeTrue(Mailbox.isUp(),
+                "Mailpit nu rulează: docker compose --profile e2e up -d mailpit (docs/TESTING.md, E2E)");
+    }
+
+    /** The path and query of a link from an email or the app, to open against the stack under test. */
+    static String pathOf(String url) {
+        URI uri = URI.create(url);
+        return uri.getRawPath() + (uri.getRawQuery() == null ? "" : "?" + uri.getRawQuery());
+    }
+
+    /** The input labelled {@code label}, for forms whose fields have no test id. */
+    protected WebElement field(String label) {
+        WebElement tag = wait.until(ExpectedConditions.visibilityOfElementLocated(
+                By.xpath("//label[normalize-space()='" + label + "']")));
+        return driver.findElement(By.id(tag.getAttribute("for")));
+    }
+
+    /** Sends the login form without waiting for Acasă: for accounts that land elsewhere (waiting, refused). */
+    protected void submitLogin(String email, String password) {
+        open("/login");
+        wait.until(ExpectedConditions.elementToBeClickable(
+                By.xpath("//*[@role='tab' and normalize-space()='Email și parolă']"))).click();
+        driver.findElement(By.cssSelector("input[type=email]")).sendKeys(email);
+        driver.findElement(By.cssSelector("input[type=password]")).sendKeys(password);
+        driver.findElement(By.cssSelector("button[type=submit]")).click();
+    }
+
+    /** Fills the sign-up form an invite link opened and sends it. */
+    protected void fillSignUp(String fullName, String email, String password, String confirm) {
+        WebElement name = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("fullName")));
+        name.clear();
+        name.sendKeys(fullName);
+        for (String[] input : new String[][] {{"email", email}, {"password", password}, {"confirm", confirm}}) {
+            WebElement element = driver.findElement(By.id(input[0]));
+            element.clear();
+            element.sendKeys(input[1]);
+        }
+        clickText("Creează contul");
+    }
+
+    /**
+     * An active, confirmed student, made over the API the way a newcomer makes one: an E2E class, its invite link,
+     * the sign-up and the link from the confirmation email. Returns the class id.
+     */
+    protected long newStudent(String fullName, String email, String password) {
+        ApiSeeder admin = new ApiSeeder(API_URL);
+        admin.login(ADMIN, PASSWORD);
+        long classId = admin.createClass("E2E invitatie " + System.nanoTime());
+        new ApiSeeder(API_URL).signUp(admin.classInvite(classId, 1), fullName, email, password);
+        new ApiSeeder(API_URL).confirmEmail(Mailbox.linkTo(email, "/verify-email"));
+        return classId;
     }
 
     /** A small generated PNG (a photographed solution, a figure) - no binary file in the repo. */

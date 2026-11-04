@@ -35,6 +35,22 @@ services:
       timeout: 5s
       retries: 5
 
+  # A fake inbox for the browser tests (backend/src/test/java/ro/mathlms/e2e): a backend started with SMTP_HOST=localhost
+  # and SMTP_PORT=1025 sends every email here instead of Gmail, and the tests read the links from it (docs/TESTING.md,
+  # E2E). Opt-in: `docker compose --profile e2e up -d mailpit`. Inbox in the browser: http://localhost:8025
+  mailpit:
+    image: axllent/mailpit:v1.31.0
+    container_name: mathlms-mailpit
+    profiles: ["e2e"]
+    restart: unless-stopped
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: "1"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "1"
+      MP_MAX_MESSAGES: "2000"
+    ports:
+      - "127.0.0.1:1025:1025"
+      - "127.0.0.1:8025:8025"
+
   # The tutor's help chain over HTTP (tutor/), called only by the backend ("Sugerează indicii (AI)" in the question
   # editor). Opt-in: `docker compose --profile tutor up -d --build tutor`. GEMINI_PROJECT and GEMINI_CREDENTIALS_FILE come from tutor/.env; the
   # token must equal the backend's TUTOR_SERVICE_TOKEN. Bound to localhost: the browser never talks to it.
