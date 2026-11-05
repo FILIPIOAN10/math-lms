@@ -312,9 +312,20 @@ final class ApiSeeder {
         return send("POST", "/api/admin/quizzes/" + quizId + "/items", item).get("id").asLong();
     }
 
-    /** Admin: gives the test as homework to a class, due at {@code dueAt}. */
-    void assign(long quizId, long classId, java.time.Instant dueAt) {
-        send("POST", "/api/admin/assignments", Map.of("quizId", quizId, "schoolClassId", classId, "dueAt", dueAt.toString()));
+    /** Admin: gives the test as homework to a class, due at {@code dueAt} (only in the future). Returns the homework's id. */
+    long assign(long quizId, long classId, java.time.Instant dueAt) {
+        return send("POST", "/api/admin/assignments",
+                Map.of("quizId", quizId, "schoolClassId", classId, "dueAt", dueAt.toString())).get("id").asLong();
+    }
+
+    /** Admin: moves a homework's deadline (the server takes only a future one; a refusal throws with its message). */
+    void reschedule(long assignmentId, java.time.Instant dueAt) {
+        send("PUT", "/api/admin/assignments/" + assignmentId, Map.of("dueAt", dueAt.toString()));
+    }
+
+    /** Admin: gives a class to a teacher, who then sees it, its students and its homework. */
+    void giveClassTo(long classId, String teacherEmail) {
+        send("PUT", "/api/admin/classes/" + classId + "/teacher", Map.of("teacherId", userId("TEACHER", teacherEmail)));
     }
 
     /** Teacher: points for one open answer, then the grade is final. */

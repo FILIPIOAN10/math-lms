@@ -227,6 +227,12 @@ testarea de mână cu Gmail, pornește-l din nou fără ele. Fiecare test își 
   în tab nou și sub barem după poză; cronometrul de 1 minut: „mai ai 1 minut” la reluare și predare automată; „Urmează” pe
   Acasă). Testul cu cronometrul durează ~1,5 min și are tagul `slow` (îl sari cu `-DexcludedGroups=slow`). Testele se numesc
   „E2E elev …”, lecția EN „E2E<cifre>”; le șterge `dev-cleanup-e2e.sql`.
+- Capitolul 6: `AssignmentsE2eTest` (4 teste, elevi și profesori noi prin Mailpit: tema pornește încercările de la zero chiar cu
+  o lucrare veche în corectare; Acasă la profesor „1 / 2 predate” și „Lipsește: …”, click → lista temei deschisă; predată după
+  termen → „cu întârziere 1” la profesor și „Predată cu întârziere” la părinte; filtrele „Deschise” / „Cu termen depășit” și
+  „Șterge tema” din ⋯). Serverul nu primește un termen în trecut (nici la mutare: „Termenul trebuie să fie în viitor”), așa
+  că tema întârziată primește un termen peste câteva secunde și testul așteaptă să treacă. Testele se numesc „E2E teme …”.
+  Emailul de reamintire rămâne de mână.
 - Rămân de mână din capitolele 1–2: serverul oprit (1.5–1.6) și Google (2.20).
 
 - `QuizFlowE2eTest`: quiz creat prin REST (`ApiSeeder`) → elevul îl dă (grilă + poză) → profesorul
