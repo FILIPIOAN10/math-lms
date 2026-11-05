@@ -213,6 +213,13 @@ testarea de mână cu Gmail, pornește-l din nou fără ele. Fiecare test își 
   ștergerea refuzată, cu motiv, pentru clasa cu elevi, cartea cu capitole și capitolul cu exerciții; pe telefon fără scroll
   lateral), `ClassTeacherE2eTest` (Mailpit: profesor nou cu „Primii pași (0 din 4)”, clasa dată cu „Schimbă profesorul” devine
   a lui, „(1 din 4)”, iar alt profesor n-o vede). Cărțile lor se numesc „E2E carte …” și le șterge tot `dev-cleanup-e2e.sql`.
+- Capitolul 4: `QuizEditorE2eTest` (11 teste: „Adaugă test” cu clasa, capitolul, „1 încercare” implicit și exersarea → ciornă;
+  grilă cu b) corectă, rezolvare, 2 indicii și capitol EN; grila fără răspuns corect blochează „Publică” cu „Grila 1 nu are
+  răspunsul corect”, iar o variantă goală nu se salvează; răspuns numeric `3/4` (textul refuzat); întrebare cu rezolvare cu
+  a) 2 p + b) 4 p = 6 p și figura sub enunț; „Ce greșeală ascunde” pe varianta greșită; Mută mai sus / jos, Duplică, Șterge
+  întrebarea; „Vezi ca elev” fără încercare; Depublică spune „1 elev lucrează acum la el”, Copiază → „(copie)” ciornă; testul
+  dat e blocat și oferă „Copiază și editează”; „Creează test din capitol”). Testele lor se numesc „E2E editor …” (și copiile
+  „… (copie)”), le șterge `dev-cleanup-e2e.sql`.
 - Rămân de mână din capitolele 1–2: serverul oprit (1.5–1.6) și Google (2.20).
 
 - `QuizFlowE2eTest`: quiz creat prin REST (`ApiSeeder`) → elevul îl dă (grilă + poză) → profesorul

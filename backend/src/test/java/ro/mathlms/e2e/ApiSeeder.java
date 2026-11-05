@@ -280,6 +280,25 @@ final class ApiSeeder {
         return send("POST", "/api/admin/quizzes/" + quizId + "/items", item).get("id").asLong();
     }
 
+    /** A grilă still waiting for its right answer, the way "Importă din text" or the AI import leaves one. */
+    long addChoiceWithoutAnswer(long quizId, int position, String statement) {
+        return send("POST", "/api/admin/quizzes/" + quizId + "/items", Map.of(
+                "type", "SINGLE_CHOICE", "position", position, "statement", statement, "points", 5,
+                "options", List.of(
+                        Map.of("position", 0, "text", "unu", "correct", false),
+                        Map.of("position", 1, "text", "doi", "correct", false)))).get("id").asLong();
+    }
+
+    /** Student side: starts an attempt and leaves it open (a student writing right now). Returns the attempt id. */
+    long startAttempt(long quizId) {
+        return send("POST", "/api/quiz/quizzes/" + quizId + "/attempts", Map.of()).get("attemptId").asLong();
+    }
+
+    /** Admin: whether students already have attempts at this test (its questions are frozen then). */
+    boolean isTaken(long quizId) {
+        return send("GET", "/api/admin/quizzes/" + quizId, null).get("taken").asBoolean();
+    }
+
     /** An open question worth {@code points}. Returns the item id. */
     long addOpen(long quizId, int position, String statement, int points) {
         return send("POST", "/api/admin/quizzes/" + quizId + "/items", Map.of(
