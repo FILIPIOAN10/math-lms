@@ -13,4 +13,7 @@ paths = [
 regexes = [
   # Valoarea de test pentru JWT din .github/workflows/ci.yml
   '''ci-test-secret-at-least-32-characters-long''',
+  # Numele claselor de teste E2E din docs: regula generic-api-key citeste „Cap*api*tolul 2: `SignUpWithApprovalE2eTest`”
+  # ca pe „api…: valoare”. Un nume de clasa de test nu e un secret.
+  '''^[A-Z][A-Za-z0-9]*E2eTest$''',
 ]
