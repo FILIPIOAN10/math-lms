@@ -3,7 +3,8 @@
 -- What counts as E2E data (matched by exact name pattern, nothing else is touched):
 --   * quizzes titled  "E2E flow|clasa|parinte|publica si tema|nota noua|pe subiect|pe întrebare|profesor|offline|IDOR|dublu submit|reload <digits>"
 --     + their items, options, hints, attempts, answers and homework
---   * classes named   "E2E clasa|invitatie|tema|profesor|clasa offline|clasa IDOR|clasa dublu submit|clasa reload <digits>" + their enrollments, homework and invite links
+--   * classes named   "E2E clasa|invitatie|tema|profesor|clasa offline|clasa IDOR|clasa dublu submit|clasa reload <digits>" + their enrollments, homework, invite links
+--     and the books named "E2E carte <digits>" in them, with their chapters and exercises
 --   * the journal rows (F1) about any of the above
 --   * accounts made by the email tests (e2e.<what>.<n>@mathlms.test) + their enrollments and parent links
 -- Kept: every other quiz/class, all users, parent links, your own attempts.
@@ -27,7 +28,8 @@ DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM quizzes WHERE school_class_id IN (SELECT id FROM e2e_class)
                                      AND id NOT IN (SELECT id FROM e2e_quiz))
-     OR EXISTS (SELECT 1 FROM books WHERE school_class_id IN (SELECT id FROM e2e_class)) THEN
+     OR EXISTS (SELECT 1 FROM books WHERE school_class_id IN (SELECT id FROM e2e_class)
+                                   AND title !~ '^E2E carte [0-9]+$') THEN
     RAISE EXCEPTION 'An E2E class contains non-E2E quizzes or books - nothing was deleted';
   END IF;
 END $$;
@@ -47,6 +49,11 @@ DELETE FROM quiz_items     WHERE quiz_id IN (SELECT id FROM e2e_quiz);
 DELETE FROM assignments    WHERE quiz_id IN (SELECT id FROM e2e_quiz) OR school_class_id IN (SELECT id FROM e2e_class);
 DELETE FROM quizzes        WHERE id IN (SELECT id FROM e2e_quiz);
 DELETE FROM enrollments    WHERE school_class_id IN (SELECT id FROM e2e_class);
+-- The content tests' books ("E2E carte <digits>", the only books the guard above lets through), chapters, exercises
+DELETE FROM exercises WHERE chapter_id IN (SELECT c.id FROM chapters c JOIN books b ON b.id = c.book_id
+                                          WHERE b.school_class_id IN (SELECT id FROM e2e_class));
+DELETE FROM chapters WHERE book_id IN (SELECT id FROM books WHERE school_class_id IN (SELECT id FROM e2e_class));
+DELETE FROM books WHERE school_class_id IN (SELECT id FROM e2e_class);
 DELETE FROM school_classes WHERE id IN (SELECT id FROM e2e_class); -- invite links go with it (ON DELETE CASCADE)
 -- The teachers' journal is append-only in the app; on a dev database its E2E rows are just noise.
 DELETE FROM admin_audit_log WHERE label ~ 'E2E (flow|clasa|parinte|publica si tema|nota noua|pe subiect|pe .ntrebare|invitatie|tema|profesor|offline|IDOR|dublu submit|reload) [0-9]+';

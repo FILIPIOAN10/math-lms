@@ -128,6 +128,14 @@ abstract class E2eBase {
                 "//*[(self::button or self::a) and normalize-space()='" + text + "']"))).click();
     }
 
+    /** The ⋯ menu labelled "Mai multe acțiuni pentru {@code of}", then its item {@code item}. */
+    protected void chooseFromMenu(String of, String item) {
+        wait.until(ExpectedConditions.elementToBeClickable(
+                By.cssSelector("button[aria-label='Mai multe acțiuni pentru " + of + "']"))).click();
+        wait.until(ExpectedConditions.elementToBeClickable(
+                By.xpath("//*[@role='menuitem' and normalize-space()='" + item + "']"))).click();
+    }
+
     // --- accounts and emails (the flows that need Mailpit) ---
 
     /** A fresh address for one run, never seen by the app or the inbox before. */

@@ -208,6 +208,11 @@ testarea de mână cu Gmail, pornește-l din nou fără ele. Fiecare test își 
   `ClassSignUpE2eTest` (formularul refuză ce e greșit; cu linkul clasei intri direct în clasă), `TeacherInviteE2eTest`
   (invitație de profesor, aprobare, link folosit și revocat), `ParentInviteE2eTest` (Invită părintele; Leagă, „✓ Legat de …”,
   Schimbă), `PasswordResetE2eTest`, `ExportAndErasureE2eTest` (ZIP-ul cu `manifest.json`, ștergerea elevului și a părintelui).
+- Capitolul 3: `ClassesAndContentE2eTest` (clasă adăugată și editată, elevi adăugați din „Elevii clasei”, „Selectează tot”,
+  Scoate; elevul vede doar clasele lui; carte → capitol → exerciții cu LaTeX randat, editare și ștergere, „Vezi soluția” la elev;
+  ștergerea refuzată, cu motiv, pentru clasa cu elevi, cartea cu capitole și capitolul cu exerciții; pe telefon fără scroll
+  lateral), `ClassTeacherE2eTest` (Mailpit: profesor nou cu „Primii pași (0 din 4)”, clasa dată cu „Schimbă profesorul” devine
+  a lui, „(1 din 4)”, iar alt profesor n-o vede). Cărțile lor se numesc „E2E carte …” și le șterge tot `dev-cleanup-e2e.sql`.
 - Rămân de mână din capitolele 1–2: serverul oprit (1.5–1.6) și Google (2.20).
 
 - `QuizFlowE2eTest`: quiz creat prin REST (`ApiSeeder`) → elevul îl dă (grilă + poză) → profesorul

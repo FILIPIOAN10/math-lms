@@ -51,6 +51,21 @@ final class ApiSeeder {
                 Map.of("parentId", userId("PARENT", parentEmail)));
     }
 
+    /** Admin: a book of a class. Returns its id. */
+    long createBook(long classId, String title) {
+        return send("POST", "/api/admin/classes/" + classId + "/books", Map.of("title", title)).get("id").asLong();
+    }
+
+    /** Admin: a chapter of a book. Returns its id. */
+    long createChapter(long bookId, String title) {
+        return send("POST", "/api/admin/books/" + bookId + "/chapters", Map.of("title", title)).get("id").asLong();
+    }
+
+    /** Admin: an exercise of a chapter (no solution, no difficulty). Returns its id. */
+    long createExercise(long chapterId, String statement) {
+        return send("POST", "/api/admin/chapters/" + chapterId + "/exercises", Map.of("statement", statement)).get("id").asLong();
+    }
+
     // --- accounts made the way newcomers make them: invite link, sign-up, the link from the email ---
 
     /** Admin: a class's invite link for at most {@code maxUses} students. Returns the link's URL. */
