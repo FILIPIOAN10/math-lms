@@ -690,8 +690,9 @@ public class QuizAttemptService {
         Map<Long, Integer> hintCounts = mode == AttemptMode.PRACTICE ? hintCounts(quiz.getId()) : Map.of();
         List<QuizItem> quizItems = itemRepository.findByQuizIdOrderByPosition(quiz.getId());
         Map<Long, List<QuizItemPart>> parts = partsOf(quizItems);
+        Map<Long, List<QuizOption>> options = optionsOf(quizItems); // one query for the whole quiz, not one per question
         List<StudentItemDto> items = quizItems.stream()
-                .map(item -> StudentItemDto.from(item, optionRepository.findByItemIdOrderByPosition(item.getId()),
+                .map(item -> StudentItemDto.from(item, options.getOrDefault(item.getId(), List.of()),
                         hintCounts.getOrDefault(item.getId(), 0), parts.getOrDefault(item.getId(), List.of())))
                 .toList();
         return StudentQuizDto.of(quiz, items);
@@ -928,6 +929,14 @@ public class QuizAttemptService {
     }
 
     /** The requirements a), b)... of each item of a quiz, by item id (most items have none). */
+    private Map<Long, List<QuizOption>> optionsOf(List<QuizItem> items) {
+        if (items.isEmpty()) {
+            return Map.of();
+        }
+        return optionRepository.findByItemIdInOrderByItemIdAscPositionAsc(items.stream().map(QuizItem::getId).toList())
+                .stream().collect(Collectors.groupingBy(o -> o.getItem().getId()));
+    }
+
     private Map<Long, List<QuizItemPart>> partsOf(List<QuizItem> items) {
         if (items.isEmpty()) {
             return Map.of();

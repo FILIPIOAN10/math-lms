@@ -252,7 +252,7 @@ class QuizAttemptServiceTest {
         when(attemptRepository.findByQuizIdAndStudentIdAndStatusAndMode(10L, 1L, QuizAttemptStatus.IN_PROGRESS, AttemptMode.TEST))
                 .thenReturn(Optional.of(existing));
         when(itemRepository.findByQuizIdOrderByPosition(10L)).thenReturn(List.of(item));
-        when(optionRepository.findByItemIdOrderByPosition(100L)).thenReturn(List.of(a));
+        when(optionRepository.findByItemIdInOrderByItemIdAscPositionAsc(List.of(100L))).thenReturn(List.of(a));
 
         StartedAttemptDto dto = service.startAttempt(10L, EMAIL);
 
@@ -261,6 +261,8 @@ class QuizAttemptServiceTest {
         assertThat(dto.quiz().items()).hasSize(1);
         assertThat(dto.quiz().items().get(0).options()).extracting(o -> o.id()).containsExactly(1000L);
         verify(attemptRepository, never()).save(any());
+        // a whole class opens the test at once: the options come in one query, never one per question
+        verify(optionRepository, never()).findByItemIdOrderByPosition(any());
     }
 
     @Test

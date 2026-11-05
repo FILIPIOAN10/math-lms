@@ -97,6 +97,31 @@ class QuizAdminServiceTest {
     }
 
     @Test
+    void theDetailLoadsOptionsHintsAndRequirementsOncePerQuizNotOncePerQuestion() {
+        QuizItem first = new QuizItem(quiz, 1, QuizItemType.SINGLE_CHOICE, "1 + 1 = ?", 5, null);
+        QuizItem second = new QuizItem(quiz, 2, QuizItemType.SINGLE_CHOICE, "2 + 2 = ?", 5, null);
+        ReflectionTestUtils.setField(first, "id", 100L);
+        ReflectionTestUtils.setField(second, "id", 101L);
+        QuizOption firstRight = new QuizOption(first, 1, "2", true);
+        QuizOption secondRight = new QuizOption(second, 1, "4", true);
+        QuizItemHint hint = new QuizItemHint(second, 1, "Numără pe degete.");
+        when(quizRepository.findById(1L)).thenReturn(Optional.of(quiz));
+        when(itemRepository.findByQuizIdOrderByPosition(1L)).thenReturn(List.of(first, second));
+        when(optionRepository.findByItemIdInOrderByItemIdAscPositionAsc(List.of(100L, 101L)))
+                .thenReturn(List.of(firstRight, secondRight));
+        when(hintRepository.findByItemIdInOrderByItemIdAscPositionAsc(List.of(100L, 101L))).thenReturn(List.of(hint));
+
+        List<ItemDto> items = service.getQuizDetail(1L).items();
+
+        assertThat(items.get(0).options()).extracting(o -> o.text()).containsExactly("2");
+        assertThat(items.get(0).hints()).isEmpty();
+        assertThat(items.get(1).options()).extracting(o -> o.text()).containsExactly("4");
+        assertThat(items.get(1).hints()).containsExactly("Numără pe degete.");
+        verify(optionRepository, never()).findByItemIdOrderByPosition(any());
+        verify(hintRepository, never()).findByItemIdOrderByPosition(any());
+    }
+
+    @Test
     void theDetailSaysWhetherStudentsTookTheTest() {
         when(quizRepository.findById(1L)).thenReturn(Optional.of(quiz));
 

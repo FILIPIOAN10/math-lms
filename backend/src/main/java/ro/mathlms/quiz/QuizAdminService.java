@@ -94,14 +94,26 @@ public class QuizAdminService {
                 .orElseThrow(() -> new QuizNotFoundException("Quiz", id));
     }
 
+    /** One query per kind (options, hints, requirements) for the whole quiz, not three per question. */
+    @Transactional(readOnly = true)
     public QuizDetailDto getQuizDetail(Long id) {
         Quiz quiz = getQuiz(id);
         List<QuizItem> quizItems = itemRepository.findByQuizIdOrderByPosition(id);
         EnChapterLinks.Resolved links = linksOf(quizItems);
+        List<Long> itemIds = quizItems.stream().map(QuizItem::getId).toList();
+        Map<Long, List<QuizOption>> options = itemIds.isEmpty() ? Map.of()
+                : optionRepository.findByItemIdInOrderByItemIdAscPositionAsc(itemIds).stream()
+                        .collect(Collectors.groupingBy(o -> o.getItem().getId()));
+        Map<Long, List<QuizItemHint>> hints = itemIds.isEmpty() ? Map.of()
+                : hintRepository.findByItemIdInOrderByItemIdAscPositionAsc(itemIds).stream()
+                        .collect(Collectors.groupingBy(h -> h.getItem().getId()));
+        Map<Long, List<QuizItemPart>> parts = itemIds.isEmpty() ? Map.of()
+                : partRepository.findByItemIdInOrderByItemIdAscPositionAsc(itemIds).stream()
+                        .collect(Collectors.groupingBy(p -> p.getItem().getId()));
         List<ItemDto> items = quizItems.stream()
-                .map(item -> ItemDto.from(item, optionRepository.findByItemIdOrderByPosition(item.getId()),
-                        hintRepository.findByItemIdOrderByPosition(item.getId()),
-                        partRepository.findByItemIdOrderByPosition(item.getId()), links))
+                .map(item -> ItemDto.from(item, options.getOrDefault(item.getId(), List.of()),
+                        hints.getOrDefault(item.getId(), List.of()),
+                        parts.getOrDefault(item.getId(), List.of()), links))
                 .toList();
         return QuizDetailDto.of(quiz, items, quizRepository.countAttempts(id) > 0);
     }

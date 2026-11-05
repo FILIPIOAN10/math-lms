@@ -5,11 +5,15 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 
 public interface QuizItemHintRepository extends JpaRepository<QuizItemHint, Long> {
 
     List<QuizItemHint> findByItemIdOrderByPosition(Long itemId);
+
+    /** The hints of several questions at once (a whole quiz), in order, in one query. */
+    List<QuizItemHint> findByItemIdInOrderByItemIdAscPositionAsc(Collection<Long> itemIds);
 
     /**
      * Deletes with a bulk statement that runs NOW. A derived {@code deleteBy...} would queue the deletes behind the
