@@ -220,6 +220,13 @@ testarea de mână cu Gmail, pornește-l din nou fără ele. Fiecare test își 
   întrebarea; „Vezi ca elev” fără încercare; Depublică spune „1 elev lucrează acum la el”, Copiază → „(copie)” ciornă; testul
   dat e blocat și oferă „Copiază și editează”; „Creează test din capitol”). Testele lor se numesc „E2E editor …” (și copiile
   „… (copie)”), le șterge `dev-cleanup-e2e.sql`.
+- Capitolul 5: `StudentTakesTestE2eTest` (7 teste, fiecare cu un elev nou prin Mailpit: ecranul de reluare „Ai început deja
+  testul: ai răspuns la 1 din 2 întrebări” + „Continuă testul”; „Încercarea 1/2 din 3”, „Lucrarea ta se corectează.”, „Ai
+  folosit toate încercările…”, „nota 10 cea mai mare din 3”; `0,75` și `3/4` notate corect; 5 poze maxim, a 6-a refuzată de
+  server, fișierul text refuzat; exersarea cu „Greșit — răspunsul corect e a)”, „De ce e greșit”, indiciile pe rând, lecția EN
+  în tab nou și sub barem după poză; cronometrul de 1 minut: „mai ai 1 minut” la reluare și predare automată; „Urmează” pe
+  Acasă). Testul cu cronometrul durează ~1,5 min și are tagul `slow` (îl sari cu `-DexcludedGroups=slow`). Testele se numesc
+  „E2E elev …”, lecția EN „E2E<cifre>”; le șterge `dev-cleanup-e2e.sql`.
 - Rămân de mână din capitolele 1–2: serverul oprit (1.5–1.6) și Google (2.20).
 
 - `QuizFlowE2eTest`: quiz creat prin REST (`ApiSeeder`) → elevul îl dă (grilă + poză) → profesorul

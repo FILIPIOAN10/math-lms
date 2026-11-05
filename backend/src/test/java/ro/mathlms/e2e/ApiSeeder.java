@@ -294,6 +294,74 @@ final class ApiSeeder {
         return send("POST", "/api/quiz/quizzes/" + quizId + "/attempts", Map.of()).get("attemptId").asLong();
     }
 
+    // --- chapter 5 (the student takes the test): any test, any question, homework, grading, EN lessons ---
+
+    /** A DRAFT test with every setting the editor has: {@code timeLimitMinutes} and {@code maxAttempts} may be null. */
+    long createQuiz(String title, Long schoolClassId, Integer timeLimitMinutes, boolean practiceAllowed, Integer maxAttempts) {
+        Map<String, Object> quiz = new HashMap<>();
+        quiz.put("title", title);
+        quiz.put("schoolClassId", schoolClassId);
+        quiz.put("timeLimitMinutes", timeLimitMinutes);
+        quiz.put("practiceAllowed", practiceAllowed);
+        quiz.put("maxAttempts", maxAttempts);
+        return send("POST", "/api/admin/quizzes", quiz).get("id").asLong();
+    }
+
+    /** Any question, as the editor sends it (type, statement, points, options, hints, numericAnswer...). Returns its id. */
+    long addItem(long quizId, Map<String, Object> item) {
+        return send("POST", "/api/admin/quizzes/" + quizId + "/items", item).get("id").asLong();
+    }
+
+    /** Admin: gives the test as homework to a class, due at {@code dueAt}. */
+    void assign(long quizId, long classId, java.time.Instant dueAt) {
+        send("POST", "/api/admin/assignments", Map.of("quizId", quizId, "schoolClassId", classId, "dueAt", dueAt.toString()));
+    }
+
+    /** Teacher: points for one open answer, then the grade is final. */
+    void gradeAndFinalize(long attemptId, long openItemId, int points) {
+        send("PUT", "/api/admin/quiz/attempts/" + attemptId + "/responses/" + openItemId + "/grade", Map.of("points", points));
+        send("POST", "/api/admin/quiz/attempts/" + attemptId + "/mark-graded", Map.of());
+    }
+
+    /** Student side: their attempts at this quiz (status, score, maxScore...), oldest first as the server lists them. */
+    List<JsonNode> myAttempts(long quizId) {
+        List<JsonNode> mine = new java.util.ArrayList<>();
+        for (JsonNode attempt : send("GET", "/api/quiz/attempts", null)) {
+            if (attempt.get("quizId").asLong() == quizId) {
+                mine.add(attempt);
+            }
+        }
+        return mine;
+    }
+
+    /** Admin: an EN chapter whose page has one worked example, so a wrong answer links to it ("ready"). Returns its id. */
+    long createEnLesson(String code, String title) {
+        Map<String, Object> chapter = new HashMap<>();
+        chapter.put("code", code);
+        chapter.put("title", title);
+        chapter.put("area", "ALGEBRA");
+        long id = send("POST", "/api/admin/en-chapters", chapter).get("id").asLong();
+        send("POST", "/api/admin/en-chapters/" + id + "/examples",
+                Map.of("statement", "Calculează $\\frac{1}{2}+\\frac{1}{4}$.", "solution", "Numitorul comun e 4: $\\frac{3}{4}$."));
+        return id;
+    }
+
+    /** Admin: removes an EN chapter made by {@link #createEnLesson}: its examples first (a page with content stays). */
+    void deleteEnLesson(long id) {
+        for (JsonNode example : send("GET", "/api/en-chapters/" + id, null).get("examples")) {
+            send("DELETE", "/api/admin/en-chapters/" + id + "/examples/" + example.get("id").asLong(), null);
+        }
+        send("DELETE", "/api/admin/en-chapters/" + id, null);
+    }
+
+    /**
+     * Student side: sends a file as the answer to an open question, the way the photo button does. Returns the HTTP
+     * status and body instead of throwing, so a refusal can be checked.
+     */
+    HttpResponse<String> uploadAnswerPhoto(long attemptId, long itemId, java.nio.file.Path file, String contentType) {
+        return multipart("POST", "/api/quiz/attempts/" + attemptId + "/responses/" + itemId + "/photo", file, contentType);
+    }
+
     /** Admin: whether students already have attempts at this test (its questions are frozen then). */
     boolean isTaken(long quizId) {
         return send("GET", "/api/admin/quizzes/" + quizId, null).get("taken").asBoolean();
@@ -312,29 +380,35 @@ final class ApiSeeder {
 
     /** The picture under a question's statement (multipart, like the editor's "Alege imaginea"). */
     void attachImage(long itemId, java.nio.file.Path png) {
+        HttpResponse<String> response = multipart("PUT", "/api/admin/quiz-items/" + itemId + "/image", png, "image/png");
+        if (response.statusCode() >= 300) {
+            throw new IllegalStateException("PUT image -> " + response.statusCode() + " " + response.body());
+        }
+    }
+
+    /** One file as the multipart field "file", the way the app's upload buttons send it. */
+    private HttpResponse<String> multipart(String method, String path, java.nio.file.Path file, String contentType) {
         try {
             String boundary = "----e2e" + System.nanoTime();
-            byte[] head = ("--" + boundary + "\r\nContent-Disposition: form-data; name=\"file\"; filename=\"figura.png\"\r\n"
-                    + "Content-Type: image/png\r\n\r\n").getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            byte[] head = ("--" + boundary + "\r\nContent-Disposition: form-data; name=\"file\"; filename=\""
+                    + file.getFileName() + "\"\r\nContent-Type: " + contentType + "\r\n\r\n")
+                    .getBytes(java.nio.charset.StandardCharsets.UTF_8);
             byte[] tail = ("\r\n--" + boundary + "--\r\n").getBytes(java.nio.charset.StandardCharsets.UTF_8);
-            byte[] file = java.nio.file.Files.readAllBytes(png);
-            byte[] body = new byte[head.length + file.length + tail.length];
+            byte[] bytes = java.nio.file.Files.readAllBytes(file);
+            byte[] body = new byte[head.length + bytes.length + tail.length];
             System.arraycopy(head, 0, body, 0, head.length);
-            System.arraycopy(file, 0, body, head.length, file.length);
-            System.arraycopy(tail, 0, body, head.length + file.length, tail.length);
-            HttpRequest.Builder request = HttpRequest.newBuilder(URI.create(apiUrl + "/api/admin/quiz-items/" + itemId + "/image"))
+            System.arraycopy(bytes, 0, body, head.length, bytes.length);
+            System.arraycopy(tail, 0, body, head.length + bytes.length, tail.length);
+            HttpRequest.Builder request = HttpRequest.newBuilder(URI.create(apiUrl + path))
                     .header("Content-Type", "multipart/form-data; boundary=" + boundary)
-                    .PUT(HttpRequest.BodyPublishers.ofByteArray(body));
+                    .method(method, HttpRequest.BodyPublishers.ofByteArray(body));
             xsrfToken().ifPresent(token -> request.header("X-XSRF-TOKEN", token));
-            HttpResponse<String> response = http.send(request.build(), HttpResponse.BodyHandlers.ofString());
-            if (response.statusCode() >= 300) {
-                throw new IllegalStateException("PUT image -> " + response.statusCode() + " " + response.body());
-            }
+            return http.send(request.build(), HttpResponse.BodyHandlers.ofString());
         } catch (IOException e) {
-            throw new IllegalStateException("PUT image failed", e);
+            throw new IllegalStateException(method + " " + path + " failed", e);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new IllegalStateException("PUT image interrupted", e);
+            throw new IllegalStateException(method + " " + path + " interrupted", e);
         }
     }
 
