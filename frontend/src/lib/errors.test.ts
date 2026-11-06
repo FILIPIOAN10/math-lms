@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { ApiError } from '@/lib/api'
-import { CONNECTION_MESSAGE, errorMessage, NOT_FOUND_MESSAGE } from '@/lib/errors'
+import { CONNECTION_MESSAGE, errorMessage, NOT_FOUND_MESSAGE, TOO_LARGE_MESSAGE } from '@/lib/errors'
 
 describe('errorMessage', () => {
   it("shows the server's Romanian sentence as is", () => {
@@ -24,8 +24,18 @@ describe('errorMessage', () => {
     expect(message).toMatch(/Contul meu/)
   })
 
+  it('says an upload was too big instead of showing the proxy page', () => {
+    const nginx = '<html> <head><title>413 Request Entity Too Large</title></head> <body></body> </html>'
+    expect(errorMessage(new ApiError(413, nginx))).toBe(TOO_LARGE_MESSAGE)
+    expect(errorMessage(new ApiError(413, '{"status":413}'))).toBe(TOO_LARGE_MESSAGE)
+  })
+
+  it('never shows an HTML page as if it were a sentence', () => {
+    expect(errorMessage(new ApiError(400, '<html><body>Bad Request</body></html>'))).toBe('Operația a eșuat. Reîncearcă.')
+  })
+
   it('hides JSON and anything unexpected behind a generic line', () => {
-    expect(errorMessage(new ApiError(413, '{"status":413}'))).toBe('Operația a eșuat. Reîncearcă.')
+    expect(errorMessage(new ApiError(400, '{"status":400}'))).toBe('Operația a eșuat. Reîncearcă.')
   })
 
   it('says it plainly when the server could not be reached', () => {

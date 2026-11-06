@@ -39,7 +39,7 @@ spring:
   servlet:
     multipart:
       max-file-size: 8MB
-      max-request-size: 8MB
+      max-request-size: 25MB # up to 12 pages of a test from photos (Test din poze), a few hundred KB to 2 MB each
 
   data:
     redis:

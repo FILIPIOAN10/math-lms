@@ -4,6 +4,9 @@ export const NOT_FOUND_MESSAGE = 'Nu am găsit ce cauți — poate a fost șters
 /** The request never got an answer: said as it is, not as "the operation failed". */
 export const CONNECTION_MESSAGE = 'Nu ne putem conecta la server. Verifică internetul.'
 
+/** 413 from the proxy (its own HTML page) or from Spring (JSON): the upload is over the server's limit. */
+export const TOO_LARGE_MESSAGE = 'Fișierele trimise sunt prea mari pentru server. Trimite mai puține pagini odată.'
+
 /** F8: the staff gate answers with a code, not a sentence (TwoFactorEnrolmentGate.SETUP_REQUIRED). */
 const TWO_FACTOR_SETUP_MESSAGE =
   'Activează întâi autentificarea în doi pași din Contul meu — până atunci paginile de profesor nu se deschid.'
@@ -23,13 +26,17 @@ export function errorMessage(e: unknown): string {
   if (e instanceof TypeError || (gateway && (!body || body.trimStart().startsWith('<')))) {
     return CONNECTION_MESSAGE
   }
+  if (status === 413) {
+    return TOO_LARGE_MESSAGE
+  }
   if (status === 404 && (!body || /^No\b/.test(body))) {
     return NOT_FOUND_MESSAGE
   }
   if (body === 'TWO_FACTOR_SETUP_REQUIRED') {
     return TWO_FACTOR_SETUP_MESSAGE
   }
-  if (body && body.length > 0 && body.length < 600 && !body.startsWith('{')) {
+  // A page of HTML (a proxy's error page) is never a sentence for the user, however short.
+  if (body && body.length > 0 && body.length < 600 && !body.startsWith('{') && !body.trimStart().startsWith('<')) {
     return body
   }
   return 'Operația a eșuat. Reîncearcă.'

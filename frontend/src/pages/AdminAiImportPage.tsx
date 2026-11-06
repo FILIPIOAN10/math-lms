@@ -35,6 +35,7 @@ import { PhotoCrop } from '@/components/PhotoCrop'
 import { errorMessage } from '@/lib/errors'
 import { formatDate, optionLetter, roCount } from '@/lib/format'
 import { shrinkImage } from '@/lib/image'
+import { pdfPageImages } from '@/lib/pdfPages'
 import { LoadingCards } from '@/components/LoadingCards'
 import { selectClass } from '@/lib/formClasses'
 
@@ -43,6 +44,32 @@ const POLL_MS = 2000
 
 /** A PDF (scanned pages): sent as it is, the server renders its pages. Some browsers leave its type empty. */
 const isPdf = (f: File) => f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf')
+
+/**
+ * What goes up: photos with their long edge at 2000 px (small print stays readable at a few hundred KB a page), and a
+ * PDF as its pages drawn here the same way - a scanned PDF can be tens of MB, more than the server takes in one
+ * request, while its pages are not. A PDF the browser cannot draw goes as it is: the server draws it then.
+ */
+async function pagesToSend(files: File[], limit: number): Promise<File[]> {
+  const out: File[] = []
+  for (const file of files) {
+    if (!isPdf(file)) {
+      out.push(await shrinkImage(file, 2000, 0.85))
+      continue
+    }
+    try {
+      const drawn: File[] = []
+      for await (const page of pdfPageImages(file)) {
+        drawn.push(page.file)
+        if (out.length + drawn.length > limit) break // already too many: no point drawing the rest
+      }
+      out.push(...drawn)
+    } catch {
+      out.push(file)
+    }
+  }
+  return out
+}
 
 const STATUS_LABEL: Record<AiImport['status'], string> = {
   QUEUED: 'În așteptare',
@@ -131,8 +158,12 @@ function UploadView({ classes, chapters }: { classes: SchoolClass[]; chapters: C
     setBusy(true)
     setError(null)
     try {
-      // Long edge 2000 px keeps small print readable at a few hundred KB a page (a PDF goes as it is).
-      const shrunk = await Promise.all(pages.map((p) => (isPdf(p) ? p : shrinkImage(p, 2000, 0.85))))
+      const shrunk = await pagesToSend(pages, maxPages)
+      if (shrunk.length > maxPages) {
+        setError(`PDF-ul are mai multe pagini decât se pot trimite odată (cel mult ${maxPages}).`)
+        setBusy(false)
+        return
+      }
       const created = await createAiImport(shrunk, classId, chapterId)
       navigate(`/admin/quizzes/ai-import/${created.id}`)
     } catch (e) {

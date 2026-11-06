@@ -18,6 +18,14 @@ const api = vi.hoisted(() => ({
 }))
 vi.mock('@/lib/api', async (original) => ({ ...(await original<typeof import('@/lib/api')>()), ...api }))
 vi.mock('@/lib/image', () => ({ shrinkImage: (file: File) => Promise.resolve(file) }))
+// pdf.js does not run in jsdom: a test sets the pages a PDF renders to; null = the browser cannot render it.
+const pdfPages = vi.hoisted(() => ({ images: null as File[] | null }))
+vi.mock('@/lib/pdfPages', () => ({
+  pdfPageImages: async function* (file: File) {
+    if (pdfPages.images === null) throw new Error(`cannot render ${file.name}`)
+    for (const [i, image] of pdfPages.images.entries()) yield { file: image, page: i + 1, total: pdfPages.images.length }
+  },
+}))
 
 const done = (over: Partial<AiImport> = {}): AiImport => ({
   id: 5, status: 'DONE', pageCount: 1, pagesAvailable: true, itemCount: 2, error: null, schoolClassId: 8,
@@ -81,6 +89,23 @@ describe('AdminAiImportPage', () => {
 
     expect(api.createAiImport).toHaveBeenCalledWith([page], 8, null)
     await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/admin/quizzes/ai-import/5'))
+  })
+
+  it('sends a scanned PDF as its page images, made in the browser, so a big PDF is no bigger than its pages', async () => {
+    const user = userEvent.setup()
+    const pageOne = new File(['jpg1'], 'subiect-p01.jpg', { type: 'image/jpeg' })
+    const pageTwo = new File(['jpg2'], 'subiect-p02.jpg', { type: 'image/jpeg' })
+    pdfPages.images = [pageOne, pageTwo]
+    api.createAiImport.mockResolvedValue(done({ status: 'QUEUED', items: null }))
+    renderAt('/admin/quizzes/ai-import')
+    await screen.findByText(/Azi mai poți trimite/)
+
+    await user.upload(screen.getByTestId('ai-gallery'), new File(['%PDF-1.7'], 'subiect.pdf', { type: 'application/pdf' }))
+    await user.click(screen.getByLabelText(/doar pagini din manual/))
+    await user.click(screen.getByRole('button', { name: 'Citește 1 fișier' }))
+
+    await waitFor(() => expect(api.createAiImport).toHaveBeenCalledWith([pageOne, pageTwo], null, null))
+    pdfPages.images = null
   })
 
   it('takes a scanned PDF as it is, next to photos - the server turns its pages into images', async () => {
