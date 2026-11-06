@@ -286,7 +286,9 @@ Cardul apare doar cât timp așteaptă cineva (rolul e scris în română: Elev 
 - **Respinge** → `status=REJECTED`
 
 ### 4. Admin — legare părinte (`/admin/students`, ca admin)
-- alege un părinte pentru un student → **Leagă** → sub rând „✓ Legat de …”, lista dispare și rămân numele părintelui și
+- un elev fără părinte are pe rând un singur buton: **Adaugă părinte** (cu lista și **Invită părintele** în spatele lui);
+  fără niciun cont de părinte, sau ca profesor, butonul e direct **Invită părintele**
+- **Adaugă părinte** → alege un părinte → **Leagă** → sub rând „✓ Legat de …”, lista dispare și rămân numele părintelui și
   **Schimbă**; în DB `parent_id` setat. **Schimbă** → lista revine, **Leagă** e oprit pe părintele de acum, **Anulează** o
   închide; același părinte ales din nou nu mai scrie rând în Jurnal
 - endpointul: `GET /api/admin/users?role=STUDENT|PARENT`, apoi `POST /api/admin/users/{id}/link-parent`
@@ -320,6 +322,9 @@ Calea simplă (fără aprobare) e la §18; linkul general rămâne pentru cazuri
 Din bara de sus: **Clase**. Navigare arborescentă cu breadcrumb.
 - **Adaugă clasă** → dialog (nume + descriere) → apare în listă
 - **Deschide** o clasă → **Adaugă carte**; deschide cartea → **Adaugă capitol**; deschide capitolul → **Adaugă exercițiu**
+- capitolele unei cărți stau în ordinea cărții, nu alfabetic (V51; cele vechi în ordinea în care au fost adăugate); un capitol
+  nou merge ultimul; ⋯ pe capitol → **Mută mai sus / Mută mai jos** (lipsesc la capete). Aceeași ordine în harta pe capitole
+  și în lista de capitole din dialogul testului
 - La exercițiu: enunț + soluție pot conține LaTeX (`$x^2+1$`, `$$\frac{a}{b}$$`) + dificultate
 - **Editează** / **Șterge** pe fiecare rând (ștergerea cere confirmare). Blochează ștergerea (409, mesajul spune ce și cum): clasa cu cărți sau cu quiz-uri destinate ei, cartea cu capitole, capitolul cu exerciții. Elevii înscriși **nu** blochează: se dezînscriu odată cu clasa. Un test cu încercări **predate** nu se poate șterge (pierderea notelor) → „Depublică”; unul doar **început** de elevi (nepredat): publicat → refuzat („Apasă întâi „Depublică”, apoi „Șterge””), după „Depublică” → se șterge cu tot cu încercările neterminate (jurnal: „cu N încercări neterminate”)
 - Reset complet al bazei de dev (doar cele 4 conturi seed, toate ACTIVE; zero clase/quiz-uri): `Get-Content -Raw deploy\dev-reset.sql | docker exec -i mathlms-postgres psql -U mathlms -d mathlms`
@@ -521,7 +526,8 @@ Buton **Statistici** pe fiecare quiz din `/admin/quizzes`. Doar lucrările **not
 - Calcul: două query-uri agregate pe tot quiz-ul (`findGradedScoresByQuizId`, `findItemStatsByQuizId`), nu câte unul per lucrare
 
 ### 13a. Progres în timp (`/progress` pentru elev; pe pagina copilului pentru părinte)
-Buton pe Dashboard (elev): **Progresul meu**. Graficul arată doar testele **notate** (`GRADED`), cele mai vechi primele, procent din punctajul maxim al fiecărui test; sub grafic, același lucru ca tabel (Test · Data · Nota `13 / 15 (87%)`).
+Buton pe Dashboard (elev): **Progresul meu**. Graficul arată doar testele **notate** (`GRADED`), cele mai vechi primele, pe scara notelor (liniile 1, 5, 7, 9, 10, nota scrisă la fiecare punct); pe telefon textul rămâne lizibil (graficul se desenează la lățimea lui). Sub grafic, același lucru ca tabel (Test · Data · Nota `13 / 15 (87%)`) — dar nu și la părinte și la profesor, unde lista de teste de dedesubt are deja notele.
+- la părinte: testele sunt o singură listă, **Testele date**, iar exersările stau strânse în **Exersări (n)**
 - API: elev `GET /api/quiz/progress`; părinte `GET /api/parent/children/{id}/progress` (copil străin → 403, ca restul API-ului de părinte)
 - Fără teste notate → „Nu există încă teste notate…”. Punctajul maxim vine dintr-un singur query agregat pe toate quiz-urile implicate
 
@@ -813,6 +819,11 @@ conturilor `@mathlms.local`, iar emailurile lor ar rămâne în outbox până la
 
 Lista celor 25 de capitole și de unde vine e în `docs/EN-capitole.md`. De la V35 și V49 fiecare capitol pornește cu teorie (textul de sus) și modele rezolvate, scrise după acel document; le editezi sau le ștergi ca pe ale tale.
 
+Ca elev: textul nu mai repetă titlul capitolului; rândul scurt de deasupra bulinelor („Radicali”) e subtitlu, bulinele sunt
+listă. Jos, **Mai departe**: **← Înapoi** (dacă ai venit din aplicație), **Capitolul următor: …**, **Toate capitolele EN**.
+Pe `/capitole`, un elev cu răspunsuri vede sus „De recapitulat acum: A6 · …” (capitolele sub 50%) și pe fiecare rând nivelul
+lui („Stăpânit · 85%”); părintele și profesorul nu.
+
 | # | Ce faci | Ce trebuie să vezi |
 |---|---|---|
 | 1 | Profesor: **Clase → Capitole EN** (sau linkul de pe Acasă) | 25 de capitole, A1–A15 sub **Algebră**, G1–G10 sub **Geometrie**, fiecare cu „0 poze” și între 4 și 9 modele |
@@ -942,7 +953,7 @@ trimite doar textul întrebării și al variantelor, niciodată ceva despre elev
 | 2 | Sub 6 elevi notați | Nicio alarmă: prea puține răspunsuri |
 | 2a | Același test de la 1, pe **Acasă** și pe **Teste** | Acasă începe cu „De verificat”: „Titlu — 1 întrebare cu răspunsul marcat de verificat…”; rândul testului are „1 răspuns de verificat”; ambele duc la Statistici |
 | 2b | Pe Statistici: click pe „întrebarea 1” din caseta de sus | Pagina coboară la întrebare, cu titlul vizibil sub antet; la varianta aleasă de cei buni **Asta e varianta corectă** e butonul plin; „Greșeli frecvente” nu o mai listează |
-| 3 | La varianta care chiar e corectă: **Asta e varianta corectă** → **Schimbă și recalculează** | „Răspunsul corect e acum b). S-au schimbat n note.”; media și procentele se schimbă |
+| 3 | La o întrebare fără alarmă: **Schimbă răspunsul corect ▾** (jos pe card), apoi la varianta care chiar e corectă: **Asta e varianta corectă** → **Schimbă și recalculează**. „Ce greșeală ascunde?” apare doar la variantele greșite alese de cineva | „Răspunsul corect e acum b). S-au schimbat n note.”; media și procentele se schimbă |
 | 4 | Ca elev cu nota schimbată | Pe Acasă, nota apare iar ca „Nou”, cu punctajul nou |
 | 5 | **Jurnal**, filtrul Teste | „Răspuns corect schimbat · … · răspuns corect a) → b), n note schimbate” |
 

@@ -519,6 +519,11 @@ export async function deleteChapter(id: number): Promise<void> {
   await del(`/admin/chapters/${id}`)
 }
 
+/** One place up or down in its book: the lists follow the textbook, not the alphabet (V51). */
+export async function moveChapter(id: number, up: boolean): Promise<void> {
+  await postJson(`/admin/chapters/${id}/move?up=${up}`, {})
+}
+
 export interface ExerciseInput {
   statement: string
   solution: string | null

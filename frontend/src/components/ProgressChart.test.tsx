@@ -74,7 +74,10 @@ describe('ProgressChart', () => {
 
   it('is drawn at the width it gets, so its labels keep their size on a phone instead of shrinking to 5 px', () => {
     class FakeResizeObserver {
-      constructor(private readonly callback: ResizeObserverCallback) {}
+      private readonly callback: ResizeObserverCallback
+      constructor(callback: ResizeObserverCallback) {
+        this.callback = callback
+      }
       observe(target: Element) {
         this.callback([{ contentRect: { width: 311 } } as ResizeObserverEntry], this as unknown as ResizeObserver)
         void target
