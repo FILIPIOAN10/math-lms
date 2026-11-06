@@ -45,6 +45,28 @@ export interface DraftPart {
   enChapterReason: string | null
 }
 
+/**
+ * Where each kept question will sit in the test, as the teacher finds it on the paper: "SUBIECTUL II · Exercițiul 3",
+ * counted again from 1 under each subject (by the section's first line) the way the test numbers them; a question
+ * left out has no place. Keyed by the draft's key.
+ */
+export function draftPlaces(drafts: DraftItem[]): Map<number, string> {
+  const places = new Map<number, string>()
+  let subject: string | null = null
+  let number = 0
+  for (const d of drafts) {
+    if (!d.include) continue
+    const title = d.section.split('\n')[0].trim()
+    if (title !== subject) {
+      subject = title
+      number = 0
+    }
+    number++
+    places.set(d.key, title ? `${title} · Exercițiul ${number}` : `Exercițiul ${number}`)
+  }
+  return places
+}
+
 /** A question's points: its own, or the sum of its requirements. */
 export const draftPoints = (d: DraftItem) => (d.parts.length > 0 ? d.parts.reduce((s, p) => s + p.points, 0) : d.points)
 

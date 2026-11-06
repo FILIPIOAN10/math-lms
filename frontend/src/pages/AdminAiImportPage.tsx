@@ -29,7 +29,7 @@ import {
   type QuizItemType,
   type SchoolClass,
 } from '@/lib/api'
-import { boxToPhoto, draftPoints, draftProblems, photoToBox, toDrafts, toFigureInputs, toItemInputs, type DraftItem } from '@/lib/aiImport'
+import { boxToPhoto, draftPlaces, draftPoints, draftProblems, photoToBox, toDrafts, toFigureInputs, toItemInputs, type DraftItem } from '@/lib/aiImport'
 import { FigureCropEditor } from '@/components/FigureCropEditor'
 import { PhotoCrop } from '@/components/PhotoCrop'
 import { errorMessage } from '@/lib/errors'
@@ -406,6 +406,7 @@ function Review({ ai, classes, chapters, enChapters, onDiscard }: {
 
   const problems = draftProblems(drafts)
   const kept = drafts.filter((d) => d.include).length
+  const places = draftPlaces(drafts)
   const chapterChoices = classId === null ? chapters : chapters.filter((c) => c.schoolClassId === classId)
   const update = (key: number, change: Partial<DraftItem>) =>
     setDrafts((current) => current.map((d) => (d.key === key ? { ...d, ...change } : d)))
@@ -470,7 +471,7 @@ function Review({ ai, classes, chapters, enChapters, onDiscard }: {
       <ol className="space-y-3">
         {drafts.map((d) => (
           <li key={d.key}>
-            <DraftCard draft={d} enChapters={enChapters} onChange={(change) => update(d.key, change)}
+            <DraftCard draft={d} place={places.get(d.key) ?? null} enChapters={enChapters} onChange={(change) => update(d.key, change)}
                        pageUrl={ai.pagesAvailable ? (page) => aiImportPageUrl(ai.id, page) : null} />
           </li>
         ))}
@@ -498,8 +499,10 @@ function ProposalReason({ reason, shown }: { reason: string | null; shown: boole
   return <p className="text-xs text-muted-foreground">Propus de AI: {reason}</p>
 }
 
-function DraftCard({ draft: d, enChapters, onChange, pageUrl }: {
+function DraftCard({ draft: d, place, enChapters, onChange, pageUrl }: {
   draft: DraftItem
+  /** "SUBIECTUL II · Exercițiul 3": where it sits on the paper and in the test; null when left out. */
+  place: string | null
   enChapters: EnChapterSummary[]
   onChange: (change: Partial<DraftItem>) => void
   /** The page photos, while they are kept (null once gone: then there is nothing to cut from). */
@@ -524,6 +527,10 @@ function DraftCard({ draft: d, enChapters, onChange, pageUrl }: {
   return (
     <Card className={d.include ? undefined : 'opacity-60'} data-testid="ai-draft">
       <CardContent className="space-y-3 pt-4">
+        {/* Which exercise of the paper this is, so it can be checked against the photo at a glance. */}
+        <h3 data-testid="ai-draft-place" className="text-base font-semibold">
+          {place ?? 'Nu intră în test'}
+        </h3>
         <div className="flex flex-wrap items-center gap-3">
           <label className="flex items-center gap-2 text-sm font-medium">
             <input type="checkbox" checked={d.include} onChange={(e) => onChange({ include: e.target.checked })} />

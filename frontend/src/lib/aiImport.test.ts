@@ -1,8 +1,33 @@
 import { describe, expect, it } from 'vitest'
 import type { ExtractedItem } from '@/lib/api'
 import {
-  boxFromDrag, boxToPhoto, draftProblems, moveBox, photoToBox, resizeBox, toDrafts, toFigureInputs, toItemInputs,
+  boxFromDrag, boxToPhoto, draftPlaces, draftProblems, moveBox, photoToBox, resizeBox, toDrafts, toFigureInputs, toItemInputs,
 } from '@/lib/aiImport'
+
+describe('draftPlaces', () => {
+  it('names each kept exercise by its subject and its number in it, counted again under each subject', () => {
+    const drafts = toDrafts([
+      read({ section: 'SUBIECTUL I\nÎncercuiește litera corectă.' }),
+      read({ section: 'SUBIECTUL I\nÎncercuiește litera corectă.' }),
+      read({ section: 'SUBIECTUL II' }),
+      read({ section: 'SUBIECTUL II' }),
+      read({ section: 'SUBIECTUL II' }),
+    ])
+    drafts[3].include = false // left out: not in the test, so not counted
+
+    const places = draftPlaces(drafts)
+
+    expect(drafts.map((d) => places.get(d.key) ?? null)).toEqual([
+      'SUBIECTUL I · Exercițiul 1', 'SUBIECTUL I · Exercițiul 2',
+      'SUBIECTUL II · Exercițiul 1', null, 'SUBIECTUL II · Exercițiul 2',
+    ])
+  })
+
+  it('numbers exercises without a subject on their own', () => {
+    const drafts = toDrafts([read({ section: null }), read({ section: null })])
+    expect(drafts.map((d) => draftPlaces(drafts).get(d.key))).toEqual(['Exercițiul 1', 'Exercițiul 2'])
+  })
+})
 
 const read = (over: Partial<ExtractedItem> = {}): ExtractedItem => ({
   page: 1, section: 'SUBIECTUL I', type: 'SINGLE_CHOICE', statement: 'Cât face $2+3$?', options: ['4', '5', '6'],
