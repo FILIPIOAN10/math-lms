@@ -6,6 +6,9 @@ import { Dialog } from '@/components/ui/dialog'
  * A yes/no question in the app's own dialog instead of `window.confirm`: it is styled, keyboard- and screen-reader
  * friendly, and can offer a third way out (`extraAction`, e.g. "Mergi la subiectul 2"). Escape or the backdrop count as
  * "cancel".
+ *
+ * `quietConfirm` draws the confirm button as an outline: for when the safe choice is the `extraAction`, and saying yes
+ * is the step to think twice about (handing in a paper with questions left empty).
  */
 export function ConfirmDialog({
   open,
@@ -14,6 +17,7 @@ export function ConfirmDialog({
   confirmLabel,
   cancelLabel = 'Anulează',
   destructive = false,
+  quietConfirm = false,
   extraAction,
   finalFocus,
   onConfirm,
@@ -25,6 +29,7 @@ export function ConfirmDialog({
   confirmLabel: string
   cancelLabel?: string
   destructive?: boolean
+  quietConfirm?: boolean
   extraAction?: ReactNode
   finalFocus?: () => HTMLElement | boolean | null
   onConfirm: () => void
@@ -38,7 +43,11 @@ export function ConfirmDialog({
         <Button variant="outline" onClick={onCancel}>
           {cancelLabel}
         </Button>
-        <Button variant={destructive ? 'destructive' : 'default'} onClick={onConfirm} data-testid="confirm-yes">
+        <Button
+          variant={destructive ? 'destructive' : quietConfirm ? 'outline' : 'default'}
+          onClick={onConfirm}
+          data-testid="confirm-yes"
+        >
           {confirmLabel}
         </Button>
       </div>

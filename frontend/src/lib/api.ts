@@ -1554,6 +1554,8 @@ export interface QuizPreview {
   openTest: OpenAttempt | null
   /** The same for a practice, resumed apart from the test. */
   openPractice: OpenAttempt | null
+  /** Questions solved on paper and photographed: the student needs paper and a phone ready. */
+  photoItemCount?: number
 }
 
 /** How far the student got in an attempt they left, and when a timed one closes. */

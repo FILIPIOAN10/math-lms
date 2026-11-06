@@ -73,7 +73,8 @@ public final class StudentQuizDtos {
             int attemptsUsed,
             RetakeBlock blockedBy, // null = the student may start it
             OpenAttemptDto openTest, // null = no test to resume
-            OpenAttemptDto openPractice // null = no practice to resume
+            OpenAttemptDto openPractice, // null = no practice to resume
+            int photoItemCount // questions solved on paper and photographed: the student needs paper and a camera
     ) {}
 
     /**

@@ -202,7 +202,8 @@ public class QuizAttemptService {
         return new QuizPreviewDto(quiz.getId(), quiz.getTitle(), quiz.getDescription(), quiz.getTimeLimitMinutes(),
                 quiz.isPracticeAllowed(), (int) itemRepository.countByQuizId(quizId), maxScore,
                 allowance.maxAttempts(), allowance.used(), allowance.blockedBy(),
-                openAttempt(attempts, AttemptMode.TEST, now), openAttempt(attempts, AttemptMode.PRACTICE, now));
+                openAttempt(attempts, AttemptMode.TEST, now), openAttempt(attempts, AttemptMode.PRACTICE, now),
+                (int) itemRepository.countByQuizIdAndType(quizId, QuizItemType.OPEN));
     }
 
     /** The attempt of this mode the start would resume; one whose time ran out is handed in on start, not resumed. */

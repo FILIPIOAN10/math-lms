@@ -507,6 +507,32 @@ describe('TakeQuizPage', () => {
       expect(await screen.findByTestId('quiz-limit-note')).toHaveTextContent('30 de minute')
     })
 
+    it('puts the clock before everything else it explains, in left-aligned text', async () => {
+      api.getQuizPreview.mockResolvedValue(preview({ timeLimitMinutes: 120, maxAttempts: 1, photoItemCount: 3 }))
+      renderPage('')
+
+      const limit = await screen.findByTestId('quiz-limit-note')
+      for (const later of ['quiz-photo-note', 'quiz-attempt-rule', 'quiz-autosave-note']) {
+        expect(limit.compareDocumentPosition(screen.getByTestId(later)) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      }
+      expect(screen.getByTestId('quiz-notes')).toHaveClass('text-left')
+    })
+
+    it('tells the student to have paper and a phone ready when questions are solved on paper', async () => {
+      api.getQuizPreview.mockResolvedValue(preview({ photoItemCount: 3 }))
+      renderPage('')
+      expect(await screen.findByTestId('quiz-photo-note')).toHaveTextContent(
+        'Pregătește foi și telefonul: la 3 probleme scrii rezolvarea pe hârtie și o fotografiezi.',
+      )
+    })
+
+    it('says nothing about paper when every question is answered on the screen', async () => {
+      api.getQuizPreview.mockResolvedValue(preview({ photoItemCount: 0 }))
+      renderPage('')
+      await screen.findByTestId('quiz-facts')
+      expect(screen.queryByTestId('quiz-photo-note')).not.toBeInTheDocument()
+    })
+
     it('says the student is coming back to a test they started, and how far they got', async () => {
       api.getQuizPreview.mockResolvedValue(preview({ openTest: { answered: 2, deadlineAt: null, serverNow: '2026-10-04T12:00:00Z' } }))
       renderPage('')
@@ -798,6 +824,43 @@ describe('TakeQuizPage', () => {
       await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
       expect(api.submitQuizAttempt).not.toHaveBeenCalled()
       await waitFor(() => expect(document.activeElement).toHaveTextContent('Întrebarea 2'))
+    })
+
+    it('makes going back to the unanswered questions the main button, and handing in anyway the quiet one', async () => {
+      api.startQuizAttempt.mockResolvedValue(startedThree())
+      renderPage('')
+      await userEvent.click(await screen.findByRole('button', { name: 'Începe testul' }))
+      await screen.findByText('Primul subiect')
+
+      await userEvent.click(screen.getByRole('button', { name: 'Trimite lucrarea' }))
+
+      const dialog = await screen.findByRole('dialog', { name: 'Ai 3 întrebări fără răspuns' })
+      expect(within(dialog).getByRole('button', { name: 'Mergi la întrebarea 1' })).toHaveClass('bg-primary')
+      expect(within(dialog).getByRole('button', { name: 'Trimite oricum' })).not.toHaveClass('bg-primary')
+    })
+
+    it('says before an incomplete hand-in that it is the last try', async () => {
+      api.getQuizPreview.mockResolvedValue(preview({ maxAttempts: 1 }))
+      api.startQuizAttempt.mockResolvedValue(startedThree())
+      renderPage('')
+      await userEvent.click(await screen.findByRole('button', { name: 'Începe testul' }))
+      await screen.findByText('Primul subiect')
+
+      await userEvent.click(screen.getByRole('button', { name: 'Trimite lucrarea' }))
+
+      expect(await screen.findByRole('dialog')).toHaveTextContent('Ai o singură încercare: după ce trimiți, nu mai poți da testul din nou.')
+    })
+
+    it('keeps "Trimite" the main button once every question has an answer', async () => {
+      api.startQuizAttempt.mockResolvedValue(started('TEST', [
+        { itemId: 100, selectedOptionId: 1000, photoUploaded: false, feedback: null, photoIds: [] },
+      ]))
+      renderPage('')
+      await begin('Începe testul')
+      await userEvent.click(screen.getByRole('button', { name: 'Trimite lucrarea' }))
+
+      const dialog = await screen.findByRole('dialog', { name: 'Trimiți lucrarea?' })
+      expect(within(dialog).getByRole('button', { name: 'Trimite' })).toHaveClass('bg-primary')
     })
 
     it('hands in only after the student confirms in the dialog', async () => {

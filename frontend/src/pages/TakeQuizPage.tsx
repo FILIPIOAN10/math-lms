@@ -34,7 +34,7 @@ import {
 } from '@/lib/api'
 import { dueCountdown } from '@/lib/assignments'
 import { attemptRule, RETAKE_BLOCK_TEXT } from '@/lib/attempts'
-import { formatClock, secondsLeft } from '@/lib/countdown'
+import { formatClock, formatTimeLeft, secondsLeft } from '@/lib/countdown'
 import { errorMessage } from '@/lib/errors'
 import { formatDate, formatMinutes, optionLetter, roCount } from '@/lib/format'
 import { todoAssignments } from '@/lib/home'
@@ -556,14 +556,14 @@ export function TakeQuizPage() {
     const blocked = !practice ? preview?.blockedBy ?? null : null
     // "Începe" resumes what the student left: say so, and that the clock of a timed test did not wait for them.
     const open = (practice ? preview?.openPractice : preview?.openTest) ?? null
-    const minutesLeft = open?.deadlineAt
-      ? Math.ceil(secondsLeft(open.deadlineAt, open.serverNow, Date.now(), Date.now()) / 60) : null
+    const openSecondsLeft = open?.deadlineAt ? secondsLeft(open.deadlineAt, open.serverNow, Date.now(), Date.now()) : null
+    const photoItems = preview?.photoItemCount ?? 0
     return (
       <div className="min-h-screen bg-muted p-4">
         <div className="mx-auto max-w-xl space-y-4 pt-12">
           <Card>
-            <CardContent className="space-y-4 py-6 text-center">
-              <div className="space-y-1">
+            <CardContent className="space-y-4 py-6">
+              <div className="space-y-1 text-center">
                 <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
                   {practice ? 'Exersare' : 'Test'}
                 </p>
@@ -573,53 +573,62 @@ export function TakeQuizPage() {
                 {preview?.description && <p className="text-sm text-muted-foreground">{preview.description}</p>}
               </div>
               {preview && (
-                <p data-testid="quiz-facts" className="text-sm font-medium">
+                <p data-testid="quiz-facts" className="text-center text-sm font-medium">
                   {roCount(preview.itemCount, 'întrebare', 'întrebări')} · {roCount(preview.maxScore, 'punct', 'puncte')}
                   {!practice && ` · ${limitMinutes !== null ? `⏱ ${formatMinutes(limitMinutes)}` : 'Fără limită de timp'}`}
                 </p>
               )}
-              {preview && !practice && !blocked && (
-                <p data-testid="quiz-attempt-rule" className="text-sm font-medium">
-                  {attemptRule(preview.maxAttempts, preview.attemptsUsed)}
+              {/* What the student must know before the clock starts, most important first, in text that reads left to right. */}
+              <div data-testid="quiz-notes" className="space-y-3 text-left">
+                {blocked && <p data-testid="quiz-blocked" className="text-sm font-medium">{RETAKE_BLOCK_TEXT[blocked]}</p>}
+                {open && preview && (
+                  <p data-testid="quiz-resume" className="rounded-lg bg-primary/10 px-3 py-2 text-sm font-medium">
+                    {resumeLine(practice, open.answered, preview.itemCount)}
+                  </p>
+                )}
+                {!practice && limitMinutes !== null && (
+                  <p className="text-sm font-medium" data-testid="quiz-limit-note">
+                    {openSecondsLeft !== null ? (
+                      <>
+                        ⏱ Cronometrul a pornit când ai început testul și nu se oprește dacă închizi pagina: mai ai{' '}
+                        {formatTimeLeft(openSecondsLeft)}.
+                      </>
+                    ) : (
+                      <>
+                        ⏱ Testul are limită de timp: {formatMinutes(limitMinutes)}. Cronometrul pornește când apeși „Începe
+                        testul” și nu se oprește dacă închizi pagina.
+                      </>
+                    )}
+                  </p>
+                )}
+                {photoItems > 0 && (
+                  <p className="text-sm font-medium" data-testid="quiz-photo-note">
+                    📷 Pregătește foi și telefonul: la {photoItems === 1 ? 'o problemă' : roCount(photoItems, 'problemă', 'probleme')}{' '}
+                    scrii rezolvarea pe hârtie și o fotografiezi.
+                  </p>
+                )}
+                {preview && !practice && !blocked && (
+                  <p data-testid="quiz-attempt-rule" className="text-sm font-medium">
+                    {attemptRule(preview.maxAttempts, preview.attemptsUsed)}
+                  </p>
+                )}
+                {homeworkDue && (
+                  <p data-testid="quiz-homework-due" className="text-sm">
+                    Temă — termen: {formatDate(homeworkDue)} ({dueCountdown(homeworkDue, Date.now())})
+                  </p>
+                )}
+                {practice && (
+                  <p className="text-sm font-medium" data-testid="quiz-practice-note">
+                    Exersare: vezi imediat dacă ai răspuns corect și cum se rezolvă. Nu se acordă notă, nu există
+                    cronometru și nu afectează progresul — poți relua cât vrei.
+                  </p>
+                )}
+                <p className="text-sm text-muted-foreground" data-testid="quiz-autosave-note">
+                  Răspunsurile se salvează automat pe măsură ce lucrezi. Dacă închizi pagina, poți continua
+                  de unde ai rămas din „Testele mele”. Dacă pică internetul, alegerile rămân pe dispozitiv și se trimit
+                  singure când revine{!practice && limitMinutes !== null ? ' — dar după ce expiră timpul nu mai pot fi primite' : ''}.
                 </p>
-              )}
-              {blocked && <p data-testid="quiz-blocked" className="text-sm font-medium">{RETAKE_BLOCK_TEXT[blocked]}</p>}
-              {open && preview && (
-                <p data-testid="quiz-resume" className="rounded-lg bg-primary/10 px-3 py-2 text-sm font-medium">
-                  {resumeLine(practice, open.answered, preview.itemCount)}
-                </p>
-              )}
-              {homeworkDue && (
-                <p data-testid="quiz-homework-due" className="text-sm">
-                  Temă — termen: {formatDate(homeworkDue)} ({dueCountdown(homeworkDue, Date.now())})
-                </p>
-              )}
-              <p className="text-sm text-muted-foreground">
-                Răspunsurile se salvează automat pe măsură ce lucrezi. Dacă închizi pagina, poți continua
-                de unde ai rămas din „Testele mele”. Dacă pică internetul, alegerile rămân pe dispozitiv și se trimit
-                singure când revine{!practice && limitMinutes !== null ? ' — dar după ce expiră timpul nu mai pot fi primite' : ''}.
-              </p>
-              {practice && (
-                <p className="text-sm font-medium" data-testid="quiz-practice-note">
-                  Exersare: vezi imediat dacă ai răspuns corect și cum se rezolvă. Nu se acordă notă, nu există
-                  cronometru și nu afectează progresul — poți relua cât vrei.
-                </p>
-              )}
-              {!practice && limitMinutes !== null && (
-                <p className="text-sm font-medium" data-testid="quiz-limit-note">
-                  {minutesLeft !== null ? (
-                    <>
-                      ⏱ Cronometrul a pornit când ai început testul și nu se oprește dacă închizi pagina:{' '}
-                      {minutesLeft < 1 ? 'mai ai mai puțin de un minut' : `mai ai ${formatMinutes(minutesLeft)}`}.
-                    </>
-                  ) : (
-                    <>
-                      ⏱ Testul are limită de timp: {formatMinutes(limitMinutes)}. Cronometrul pornește când apeși „Începe testul”
-                      și nu se oprește dacă închizi pagina.
-                    </>
-                  )}
-                </p>
-              )}
+              </div>
               {error && <p className="text-sm text-destructive">{error}</p>}
               <div className="flex justify-center gap-2">
                 <Link to="/quizzes" className={buttonVariants({ variant: 'outline' })}>Înapoi</Link>
@@ -666,6 +675,12 @@ export function TakeQuizPage() {
       : askAboutUnanswered
         ? `Ai ${roCount(unanswered.length, 'întrebare', 'întrebări')} fără răspuns`
         : 'Trimiți lucrarea?'
+  // An incomplete hand-in of the last try cannot be made up for with a retake: the dialog says so.
+  const triesLeft = preview && preview.maxAttempts !== null ? preview.maxAttempts - preview.attemptsUsed : null
+  const lastTryLine = triesLeft === null || triesLeft > 1 ? ''
+    : preview?.maxAttempts === 1
+      ? ' Ai o singură încercare: după ce trimiți, nu mai poți da testul din nou.'
+      : ' E ultima ta încercare: după ce trimiți, nu mai poți da testul din nou.'
   const dialogBody = practice
     ? 'Poți relua exersarea oricând.'
     : timeUp
@@ -673,7 +688,7 @@ export function TakeQuizPage() {
       : askAboutUnanswered
         ? `${unanswered.length === 1 ? 'Întrebarea' : 'Întrebările'} ${unanswered.map((u) => u.number).join(', ')} ${
             unanswered.length === 1 ? 'nu are' : 'nu au'
-          } răspuns. Le poți completa acum sau poți trimite lucrarea așa. După trimitere nu mai poți modifica nimic.`
+          } răspuns. Le poți completa acum sau poți trimite lucrarea așa. După trimitere nu mai poți modifica nimic.${lastTryLine}`
         : 'După trimitere nu mai poți modifica răspunsurile.'
 
   return (
@@ -1041,13 +1056,14 @@ export function TakeQuizPage() {
         open={confirming}
         title={dialogTitle}
         confirmLabel={practice ? 'Termină exersarea' : askAboutUnanswered ? 'Trimite oricum' : 'Trimite'}
+        // With questions left empty the safe way is back to them: that is the main button, handing in the quiet one.
+        quietConfirm={askAboutUnanswered}
         onConfirm={() => void submit()}
         onCancel={() => setConfirming(false)}
         finalFocus={() => jumpTarget.current ?? true}
         extraAction={
           askAboutUnanswered && (
             <Button
-              variant="ghost"
               onClick={() => {
                 const first = unanswered[0].item.id
                 jumpTarget.current = document.getElementById(headingId(first))

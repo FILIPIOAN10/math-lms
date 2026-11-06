@@ -89,6 +89,19 @@ class QuizAttemptPreviewServiceTest {
     }
 
     @Test
+    void previewCountsTheQuestionsSolvedOnPaperAndPhotographed() {
+        quiz.publish();
+        studentExists();
+        when(quizRepository.findById(10L)).thenReturn(Optional.of(quiz));
+        when(itemRepository.countByQuizId(10L)).thenReturn(15L);
+        when(itemRepository.countByQuizIdAndType(10L, QuizItemType.OPEN)).thenReturn(3L);
+        when(itemRepository.sumPointsByQuiz(List.of(10L))).thenReturn(List.of(new QuizMaxScore(10L, 75L)));
+
+        // The screen before the test tells the student to have paper and a phone ready.
+        assertThat(service.getPreview(10L, EMAIL).photoItemCount()).isEqualTo(3);
+    }
+
+    @Test
     void previewOfAnUnpublishedQuizIsNotFound() {
         studentExists();
         when(quizRepository.findById(10L)).thenReturn(Optional.of(quiz)); // still a draft

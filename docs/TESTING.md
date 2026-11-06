@@ -360,9 +360,12 @@ Din bara de sus: **Testele mele**.
 - **Statistici** (de pe rândul testului): media ca notă, cu punctele și procentul dedesubt, zecimale cu virgulă; distribuția pe grupe de note (sub 5, 5 – 6,99, 7 – 8,99, 9 – 10)
 - **Contează cea mai mare notă**: pe cardul elevului („cea mai mare din 2”), în media testului, în media clasei, în Statistici (fiecare elev o dată; „Elevi cu notă”) și pe temă (tot prima predare spune dacă a fost la timp)
 - pagina de start (nu creează nimic): numele testului, descrierea, „3 subiecte · 10 puncte · ⏱ 10 minute” (sau „Fără limită de timp”),
-  la teme „Temă — termen: … (peste 2 ore)”
+  la teme „Temă — termen: … (peste 2 ore)”. Textul de sub ele e aliniat la stânga, cu cronometrul primul; la un test cu subiecte
+  rezolvate pe hârtie: „📷 Pregătește foi și telefonul: la 3 probleme scrii rezolvarea pe hârtie și o fotografiezi.” (fără ele nu apare)
 - în timpul testului: bara de jos numerotează subiectele (umplute = cu răspuns), click = sari la subiect;
-  „Trimite lucrarea” deschide dialogul: cu subiecte goale → „Ai 2 întrebări fără răspuns — Întrebările 2, 3…” + **Mergi la întrebarea 2** / **Trimite oricum**
+  „Trimite lucrarea” deschide dialogul: cu subiecte goale → „Ai 2 întrebări fără răspuns — Întrebările 2, 3…” + **Mergi la întrebarea 2**
+  (butonul plin, cel sigur) / **Trimite oricum** (doar conturat); la ultima încercare dialogul adaugă „Ai o singură încercare: după ce
+  trimiți, nu mai poți da testul din nou.” (sau „E ultima ta încercare…”)
 - subiect deschis: butonul „📷 Încarcă poza rezolvării” → miniatura pozei + „✓ Poză încărcată”; altă poză → „Înlocuiește poza”, miniatura se schimbă
 - „Testele mele” → **Începe** (sau **Continuă** dacă ai unul în lucru) → **Începe testul**; la unul în lucru pagina de start scrie
   „Ai început deja testul: ai răspuns la 2 din 4 întrebări.” și butonul e **Continuă testul** (la exersare: **Continuă exersarea**)
