@@ -215,12 +215,23 @@ public final class StudentQuizDtos {
             Integer score,
             AttemptMode mode,
             int maxScore,       // the quiz's total points, so a score reads "8 / 11"
-            boolean newResult   // S3: graded (or newly commented) and not yet opened by the student
+            boolean newResult,  // S3: graded (or newly commented) and not yet opened by the student
+            // When this open timed test closes - the clock runs while the student is away and the paper is then handed
+            // in on its own; null = untimed or already handed in. serverNow lets the browser count from the server's clock.
+            Instant deadlineAt,
+            Instant serverNow
     ) {
-        public static MyAttemptDto from(QuizAttempt attempt, int maxScore) {
+        /** Without the clock (an untimed or handed-in attempt). */
+        public MyAttemptDto(Long attemptId, Long quizId, String quizTitle, QuizAttemptStatus status, Instant startedAt,
+                            Instant submittedAt, Integer score, AttemptMode mode, int maxScore, boolean newResult) {
+            this(attemptId, quizId, quizTitle, status, startedAt, submittedAt, score, mode, maxScore, newResult, null, null);
+        }
+
+        public static MyAttemptDto from(QuizAttempt attempt, int maxScore, Instant now) {
+            Instant deadline = attempt.getStatus() == QuizAttemptStatus.IN_PROGRESS ? attempt.getDeadlineAt() : null;
             return new MyAttemptDto(attempt.getId(), attempt.getQuiz().getId(), attempt.getQuiz().getTitle(),
                     attempt.getStatus(), attempt.getStartedAt(), attempt.getSubmittedAt(), attempt.getScore(),
-                    attempt.getMode(), maxScore, attempt.hasUnseenResult());
+                    attempt.getMode(), maxScore, attempt.hasUnseenResult(), deadline, now);
         }
     }
 

@@ -1386,6 +1386,13 @@ export interface MyAttemptDto {
   maxScore: number
   /** S3: a graded test (or a new teacher comment on it) the student has not opened yet. */
   newResult: boolean
+  /**
+   * When this open timed test closes: its clock runs while the student is away, and the server hands the paper in
+   * then. null = untimed or already handed in.
+   */
+  deadlineAt?: string | null
+  /** The server's clock when the list was made, so the countdown ignores a wrong device clock (see runningClock). */
+  serverNow?: string
 }
 
 /** One point of the progress chart: a graded attempt as points and as a percent of the quiz's max. */

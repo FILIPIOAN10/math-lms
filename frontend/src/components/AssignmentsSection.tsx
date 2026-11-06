@@ -2,6 +2,9 @@ import { useId, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { HeroCard } from '@/components/HeroCard'
+import { ClockLine, ClockPill } from '@/components/TestClock'
+import { clockNote } from '@/lib/countdown'
 import { assignmentBadge, BADGE_TONES, dueCountdown, isHandedIn } from '@/lib/assignments'
 import { formatDate } from '@/lib/format'
 import { formatGrade, GRADE_TEXT, gradeBand, romanianGrade } from '@/lib/grades'
@@ -19,6 +22,9 @@ import { type MyAttemptDto, type StudentAssignment } from '@/lib/api'
  *
  * A handed-in homework no longer counts down to its deadline: with the student's `attempts` at hand it says when it was
  * handed in and, once graded, its grade - the first thing a parent looks for.
+ *
+ * A timed homework the student started and left counts down its own clock instead (`clocks`: seconds left per open
+ * attempt): the paper is handed in when that runs out, maybe days before the homework's deadline.
  */
 export function AssignmentsSection({
   assignments,
@@ -29,6 +35,7 @@ export function AssignmentsSection({
   resultHref,
   emptyText,
   hero = false,
+  clocks,
 }: {
   assignments: StudentAssignment[]
   attempts?: Pick<MyAttemptDto, 'attemptId' | 'score' | 'maxScore' | 'submittedAt'>[]
@@ -37,8 +44,13 @@ export function AssignmentsSection({
   childId?: number
   resultHref?: (attemptId: number) => string
   emptyText?: string
-  /** The first homework still to do becomes the page's one big card: what to do next. Only for the student's own list. */
+  /**
+   * The page's one big card: what to do next - a timed homework whose clock runs, else the first homework still to do.
+   * Only for the student's own list.
+   */
   hero?: boolean
+  /** Seconds left on each open timed attempt, by attempt id. */
+  clocks?: ReadonlyMap<number, number>
 }) {
   const [loadedAt] = useState(() => Date.now()) // "now" is fixed when the list is shown; a test can pass its own
   const headingId = useId()
@@ -50,44 +62,58 @@ export function AssignmentsSection({
       : childId !== undefined ? `/parent/children/${childId}/attempts/${attemptId}`
         : `/quizzes/attempts/${attemptId}/result`
 
-  const heroId = hero && !readOnly ? assignments.find((a) => !isHandedIn(a))?.assignmentId : undefined
+  const clockOf = (a: StudentAssignment) =>
+    a.state === 'IN_PROGRESS' && a.attemptId !== null ? clocks?.get(a.attemptId) ?? null : null
+  // A clock that is still running beats any deadline: the soonest to run out is what the student must go back to.
+  const running = assignments
+    .filter((a) => (clockOf(a) ?? 0) > 0)
+    .sort((x, y) => (clockOf(x) ?? 0) - (clockOf(y) ?? 0))
+  // A test whose time is up hands itself in: nothing to do there, so it never takes the big card.
+  const heroItem = hero && !readOnly
+    ? running[0] ?? assignments.find((a) => !isHandedIn(a) && clockOf(a) !== 0)
+    : undefined
+  const ordered = heroItem ? [heroItem, ...assignments.filter((a) => a !== heroItem)] : assignments
 
   return (
     <section className="space-y-2" data-testid="assignments" aria-labelledby={headingId}>
       <h2 id={headingId} className="font-medium">{title}</h2>
       {assignments.length === 0 && <p className="text-sm text-muted-foreground">{emptyText}</p>}
-      {assignments.map((a) => {
+      {ordered.map((a) => {
         const badge = assignmentBadge(a)
         const done = a.state === 'SUBMITTED' || a.state === 'GRADED'
         const attempt = done ? attempts.find((t) => t.attemptId === a.attemptId) : undefined
         const grade = a.state === 'GRADED' && attempt?.score != null ? romanianGrade(attempt.score, attempt.maxScore) : null
-        if (a.assignmentId === heroId) {
+        const clock = clockOf(a)
+        if (a === heroItem) {
           return (
-            <Card key={a.assignmentId} className="hero-surface relative bg-primary text-white ring-0">
-              {/* A big pale π behind the text: a maths textbook's margin, not an illustration to be read. */}
-              <span aria-hidden="true" className="pointer-events-none absolute -right-3 -bottom-8 text-9xl leading-none font-bold text-white/10 select-none">
-                π
-              </span>
-              <CardContent data-testid="assignment-card" className="relative flex flex-wrap items-center justify-between gap-4 py-3">
-                <div className="min-w-0 flex-1 basis-56 space-y-2">
-                  <p className="text-xs font-medium tracking-wide text-white/80 uppercase">Urmează</p>
-                  <p className="text-xl leading-snug font-semibold break-words">{a.quizTitle}</p>
-                  <p className="flex flex-wrap items-center gap-2 text-sm text-white/90">
-                    <span className="rounded-md bg-white/20 px-2 py-0.5 text-xs font-medium text-white">{badge.text}</span>
-                    <span>{a.schoolClassName}</span>
+            <HeroCard
+              key={a.assignmentId}
+              testId="assignment-card"
+              kicker={clock !== null ? 'Test început' : 'Urmează'}
+              title={a.quizTitle}
+              meta={
+                <>
+                  <span className="rounded-md bg-white/20 px-2 py-0.5 text-xs font-medium text-white">{badge.text}</span>
+                  <span>{a.schoolClassName}</span>
+                  {clock !== null ? (
+                    <ClockPill seconds={clock} />
+                  ) : (
                     <span className="rounded-full bg-warm px-2 py-0.5 text-xs font-semibold text-neutral-900">
                       Termen: {formatDate(a.dueAt)} ({dueCountdown(a.dueAt, now)})
                     </span>
-                  </p>
-                </div>
+                  )}
+                </>
+              }
+              note={clock !== null ? clockNote(clock) : undefined}
+              action={
                 <Link
                   to={`/quizzes/${a.quizId}/take`}
                   className={cn(buttonVariants({ size: 'lg' }), 'bg-white px-5 text-primary hover:bg-white/90')}
                 >
                   {a.state === 'IN_PROGRESS' ? 'Continuă' : 'Începe'}
                 </Link>
-              </CardContent>
-            </Card>
+              }
+            />
           )
         }
         return (
@@ -100,7 +126,9 @@ export function AssignmentsSection({
                   <span className={`rounded-md px-2 py-0.5 text-xs font-medium ${BADGE_TONES[badge.tone]}`}>{badge.text}</span>
                   {attempt?.submittedAt && <span>pe {formatDate(attempt.submittedAt)}</span>}
                   <span>{a.schoolClassName}</span>
-                  {!done ? (
+                  {clock !== null ? (
+                    <ClockLine seconds={clock} />
+                  ) : !done ? (
                     <span>
                       Termen: {formatDate(a.dueAt)} ({dueCountdown(a.dueAt, now)})
                     </span>
@@ -109,7 +137,7 @@ export function AssignmentsSection({
                   )}
                 </p>
               </div>
-              {done && a.attemptId !== null ? (
+              {clock === 0 ? null : done && a.attemptId !== null ? (
                 <div className="flex shrink-0 items-center gap-3">
                   {grade !== null && (
                     <span data-testid="assignment-grade" className="text-sm text-muted-foreground">

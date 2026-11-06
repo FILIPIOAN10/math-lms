@@ -1,6 +1,6 @@
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TakeQuizPage } from '@/pages/TakeQuizPage'
 import {
@@ -104,12 +104,23 @@ async function beginNumeric(answer: StartedAttemptDto, label: string) {
   return screen.findByTestId('item-number')
 }
 
+/** "Testele mele", with what the test page handed it in the navigation state. */
+function ListStub() {
+  const { state } = useLocation()
+  return (
+    <>
+      <p>lista de teste</p>
+      <pre data-testid="list-state">{JSON.stringify(state)}</pre>
+    </>
+  )
+}
+
 function renderPage(query: string) {
   return render(
     <MemoryRouter initialEntries={[`/quizzes/7/take${query}`]}>
       <Routes>
         <Route path="/quizzes/:id/take" element={<TakeQuizPage />} />
-        <Route path="/quizzes" element={<p>lista de teste</p>} />
+        <Route path="/quizzes" element={<ListStub />} />
         <Route path="/quizzes/attempts/:attemptId/result" element={<p>rezultatul</p>} />
       </Routes>
     </MemoryRouter>,
@@ -493,7 +504,7 @@ describe('TakeQuizPage', () => {
     it('warns about the clock of a timed quiz', async () => {
       api.getQuizPreview.mockResolvedValue(preview({ timeLimitMinutes: 30 }))
       renderPage('')
-      expect(await screen.findByTestId('quiz-limit-note')).toHaveTextContent('30 minute')
+      expect(await screen.findByTestId('quiz-limit-note')).toHaveTextContent('30 de minute')
     })
 
     it('says the student is coming back to a test they started, and how far they got', async () => {
@@ -943,6 +954,10 @@ describe('TakeQuizPage', () => {
 
       expect(await screen.findByText('lista de teste')).toBeInTheDocument()
       expect(api.submitQuizAttempt).not.toHaveBeenCalled()
+      // "Testele mele" must not tell the student they can continue "oricând": it shows the clock instead.
+      expect(JSON.parse(screen.getByTestId('list-state').textContent!)).toEqual({
+        savedQuizTitle: 'Simulare EN', savedAttemptId: 50, savedTimed: true,
+      })
     })
 
     it('without internet, says what is still on this device and keeps it there when the student leaves anyway', async () => {

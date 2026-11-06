@@ -937,6 +937,26 @@ class QuizAttemptServiceTest {
         });
     }
 
+    @Test
+    void listMyAttemptsGivesAnOpenTimedTestItsDeadlineAndTheServersClock() {
+        quiz.changeTimeLimit(120);
+        java.time.Instant startedAt = java.time.Instant.parse("2026-11-06T11:45:00Z");
+        QuizAttempt open = withId(new QuizAttempt(quiz, student, startedAt, AttemptMode.TEST), 51L);
+        QuizAttempt handedIn = withId(new QuizAttempt(quiz, student, startedAt.minusSeconds(86_400), AttemptMode.TEST), 50L);
+        handedIn.submit();
+        handedIn.markGraded(7);
+        when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(student));
+        when(attemptRepository.findByStudentIdOrderByStartedAtDesc(1L)).thenReturn(List.of(open, handedIn));
+        java.time.Instant before = java.time.Instant.now();
+
+        List<MyAttemptDto> mine = service.listMyAttempts(EMAIL);
+
+        // The clock keeps running while the student is away: the lists must be able to say how long is left.
+        assertThat(mine.get(0).deadlineAt()).isEqualTo(startedAt.plusSeconds(120 * 60));
+        assertThat(mine.get(0).serverNow()).isBetween(before, java.time.Instant.now());
+        assertThat(mine.get(1).deadlineAt()).as("a handed-in test has no clock any more").isNull();
+    }
+
     // --- Q10: teacher grading views ---
 
     @Test

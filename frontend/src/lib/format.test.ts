@@ -6,10 +6,14 @@ describe('formatMinutes', () => {
     expect(formatMinutes(1)).toBe('1 minut')
   })
 
-  it('uses the plural otherwise', () => {
+  it('uses the plural otherwise, with "de" from 20 on, as Romanian says it', () => {
     expect(formatMinutes(2)).toBe('2 minute')
-    expect(formatMinutes(45)).toBe('45 minute')
-    expect(formatMinutes(600)).toBe('600 minute')
+    expect(formatMinutes(19)).toBe('19 minute')
+    expect(formatMinutes(20)).toBe('20 de minute')
+    expect(formatMinutes(45)).toBe('45 de minute')
+    expect(formatMinutes(120)).toBe('120 de minute')
+    expect(formatMinutes(105)).toBe('105 minute')
+    expect(formatMinutes(600)).toBe('600 de minute')
   })
 })
 

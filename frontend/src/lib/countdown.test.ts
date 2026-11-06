@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatClock, secondsLeft } from './countdown'
+import { formatClock, formatTimeLeft, runningClock, secondsLeft } from './countdown'
 
 const DEADLINE = '2026-10-04T13:00:00Z'
 const SERVER_NOW = '2026-10-04T12:30:00Z' // 30 minutes before the deadline
@@ -43,5 +43,44 @@ describe('formatClock', () => {
 
   it('clamps a negative value to zero', () => {
     expect(formatClock(-5)).toBe('0:00')
+  })
+})
+
+describe('formatTimeLeft', () => {
+  it('says hours and minutes from an hour up', () => {
+    expect(formatTimeLeft(95 * 60)).toBe('1 h 35 min')
+    expect(formatTimeLeft(2 * 3600)).toBe('2 h')
+    expect(formatTimeLeft(3600 + 61)).toBe('1 h 1 min')
+  })
+
+  it('says the minutes under an hour the way Romanian counts them', () => {
+    expect(formatTimeLeft(42 * 60)).toBe('42 de minute')
+    expect(formatTimeLeft(5 * 60)).toBe('5 minute')
+    expect(formatTimeLeft(60)).toBe('1 minut')
+  })
+
+  it('never promises time that is not there: a started minute does not count', () => {
+    expect(formatTimeLeft(3599)).toBe('59 de minute')
+    expect(formatTimeLeft(119)).toBe('1 minut')
+    expect(formatTimeLeft(59)).toBe('mai puțin de un minut')
+  })
+})
+
+describe('runningClock', () => {
+  const open = { mode: 'TEST', status: 'IN_PROGRESS', deadlineAt: DEADLINE, serverNow: SERVER_NOW } as const
+
+  it('counts an open timed test down from the server clock', () => {
+    expect(runningClock(open, 1_000, 61_000)).toBe(1740)
+  })
+
+  it('has no clock for an untimed test, a practice or a handed-in test', () => {
+    expect(runningClock({ ...open, deadlineAt: null }, 0, 0)).toBeNull()
+    expect(runningClock({ ...open, deadlineAt: undefined, serverNow: undefined }, 0, 0)).toBeNull()
+    expect(runningClock({ ...open, mode: 'PRACTICE' }, 0, 0)).toBeNull()
+    expect(runningClock({ ...open, status: 'SUBMITTED' }, 0, 0)).toBeNull()
+  })
+
+  it('is zero once the time is up and the server has not handed the paper in yet', () => {
+    expect(runningClock(open, 0, 31 * 60_000)).toBe(0)
   })
 })

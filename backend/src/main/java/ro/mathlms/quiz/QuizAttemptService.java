@@ -283,8 +283,9 @@ public class QuizAttemptService {
         User student = requireUser(studentEmail);
         List<QuizAttempt> attempts = attemptRepository.findByStudentIdOrderByStartedAtDesc(student.getId());
         Map<Long, Integer> maxScores = maxScores(attempts);
+        Instant now = Instant.now(clock);
         return attempts.stream()
-                .map(a -> MyAttemptDto.from(a, maxScores.getOrDefault(a.getQuiz().getId(), 0)))
+                .map(a -> MyAttemptDto.from(a, maxScores.getOrDefault(a.getQuiz().getId(), 0), now))
                 .toList();
     }
 

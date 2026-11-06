@@ -8,9 +8,9 @@ export function formatDay(iso: string | null): string {
   return iso ? new Date(iso).toLocaleDateString('ro-RO', { dateStyle: 'medium' }) : '—'
 }
 
-/** "1 minut", "45 minute" — Romanian singular only for exactly one. */
+/** "1 minut", "19 minute", "120 de minute": counted the way Romanian counts (see roCount). */
 export function formatMinutes(minutes: number): string {
-  return `${minutes} ${minutes === 1 ? 'minut' : 'minute'}`
+  return roCount(minutes, 'minut', 'minute')
 }
 
 /** "1 subiect", "4 subiecte", "20 de subiecte": Romanian adds "de" when the last two digits are 00 or 20–99. */

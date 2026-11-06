@@ -121,6 +121,46 @@ describe('DashboardPage — student', () => {
     expect(within(started).getByRole('link', { name: 'Continuă' })).toHaveAttribute('href', '/quizzes/9/take')
   })
 
+  // The server's clock says 95 minutes are left on the test the student walked away from.
+  const clockOn = { status: 'IN_PROGRESS' as const, score: null, submittedAt: null, deadlineAt: '2026-11-06T13:45:00Z', serverNow: '2026-11-06T12:10:00Z' }
+
+  it('makes a timed homework the student left the big card, with its clock, ahead of homework due sooner', async () => {
+    api.getMyAssignments.mockResolvedValue([
+      homework(1, 'Ecuații', 'NOT_STARTED'),
+      { ...homework(2, 'Simulare EN', 'IN_PROGRESS'), dueAt: inDays(3), timeLimitMinutes: 120 },
+    ])
+    api.getMyAttempts.mockResolvedValue([attempt({ attemptId: 102, quizId: 2, quizTitle: 'Simulare EN', ...clockOn })])
+    renderHome()
+
+    const todo = await screen.findByRole('region', { name: 'De făcut' })
+    const [first, second] = within(todo).getAllByTestId('assignment-card')
+    expect(first).toHaveTextContent('Test început')
+    expect(first).toHaveTextContent('Simulare EN')
+    expect(first).toHaveTextContent('Mai ai 1 h 35 min')
+    expect(first).toHaveTextContent('Cronometrul merge și cu pagina închisă')
+    expect(first).not.toHaveTextContent('Termen')
+    expect(within(first).getByRole('link', { name: 'Continuă' })).toHaveAttribute('href', '/quizzes/2/take')
+    expect(second).toHaveTextContent('Ecuații')
+    expect(second).not.toHaveTextContent('Urmează')
+  })
+
+  it('makes a timed test that is not homework the big card above the homework, with its clock', async () => {
+    api.getMyAssignments.mockResolvedValue([homework(1, 'Ecuații', 'NOT_STARTED')])
+    api.getMyAttempts.mockResolvedValue([
+      attempt({ attemptId: 9, quizId: 9, quizTitle: 'Test de control', ...clockOn, deadlineAt: '2026-11-06T12:25:00Z' }),
+    ])
+    renderHome()
+
+    const running = await screen.findByTestId('running-test')
+    expect(running).toHaveTextContent('Test de control')
+    expect(running).toHaveTextContent('Mai ai 15 minute')
+    expect(within(running).getByRole('link', { name: 'Continuă' })).toHaveAttribute('href', '/quizzes/9/take')
+    const todo = screen.getByRole('region', { name: 'De făcut' })
+    expect(running.compareDocumentPosition(todo) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(todo).not.toHaveTextContent('Urmează') // one big card on the page, and it is the clock
+    expect(screen.queryByRole('region', { name: 'Teste începute' })).not.toBeInTheDocument()
+  })
+
   it('shows the latest grade out of the maximum, and how many tests wait for the teacher', async () => {
     api.getMyProgress.mockResolvedValue([
       point({ attemptId: 5, quizTitle: 'Vechi', submittedAt: inDays(-10), score: 3, maxScore: 10, percent: 30 }),

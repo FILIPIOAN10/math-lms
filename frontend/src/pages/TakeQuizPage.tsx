@@ -512,8 +512,10 @@ export function TakeQuizPage() {
   }
 
   function backToList() {
-    // The list says the work was saved and where to continue it.
-    navigate('/quizzes', { state: { savedQuizTitle: attempt?.quiz.title } })
+    // The list says the work was saved and where to continue it - and, on a clock, that the clock does not wait.
+    navigate('/quizzes', {
+      state: { savedQuizTitle: attempt?.quiz.title, savedAttemptId: attempt?.attemptId, savedTimed: timeLeft !== null },
+    })
   }
 
   /** Hand-in: first every answer still waiting goes to the server; if some cannot, the student decides. */

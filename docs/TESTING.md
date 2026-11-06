@@ -374,8 +374,14 @@ Din bara de sus: **Testele mele**.
 
 ### 11a. Quiz cronometrat — timer pe server (`/admin/quizzes`, apoi `/quizzes`)
 **Ca admin:** la „Adaugă test” / „Editează” completează **Limită de timp (minute)** (1–600; gol = fără limită). Lista arată „⏱ 45 min”.
-**Ca elev:** în „Testele mele” apare „⏱ 45 minute”; pe pagina testului scrie că cronometrul pornește la „Începe testul”.
-Revino la el după câteva minute: pagina de start scrie „Cronometrul a pornit când ai început testul … mai ai 12 minute”, nu că pornește la apăsare.
+**Ca elev:** în „Testele mele” apare „⏱ 45 de minute” (de la 20 în sus cu „de”); pe pagina testului scrie că cronometrul pornește la „Începe testul”.
+Revino la el după câteva minute: pagina de start scrie „Cronometrul a pornit când ai început testul … mai ai 12 minute” („1 h 35 min” peste o oră), nu că pornește la apăsare.
+- **Testul lăsat cu ceasul pornit nu se pierde din vedere**: pleacă cu **Salvează și ieși** → **Ieși** → pe „Testele mele” mesajul e
+  **chihlimbar**: „Cronometrul merge în continuare: mai ai 1 h 17 min. Revino cu „Continuă” înainte să expire timpul…” (nu „oricând”);
+  cardul testului arată „⏱ Mai ai …” în locul termenului temei și al „⏱ 45 de minute”, roșu în ultimele 10 minute
+- pe **Acasă** testul început e cardul mare („Test început”, „⏱ Mai ai …”, „Cronometrul merge și cu pagina închisă…”), chiar dacă altă
+  temă are termenul mai aproape; un test început care nu e temă stă tot primul, deasupra „De făcut”
+- când timpul a trecut și serverul încă n-a predat lucrarea: „⏱ Timpul a expirat: lucrarea se predă singură”, fără **Continuă**
 - bară sus „⏱ Timp rămas: mm:ss” — **chihlimbar** în ultimele 5 minute, **roșie** în ultimul minut (cititorul de ecran anunță o dată la fiecare prag);
   la **0:00** lucrarea se trimite singură cu ce era salvat → pagina de rezultat
 - serverul e sursa adevărului: după termen + 30 s grație, orice răspuns/poză e respins cu **409** („Timpul pentru acest test a expirat”);

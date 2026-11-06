@@ -21,8 +21,21 @@ import { formatDate, formatDay, formatMinutes } from '@/lib/format'
 import { formatGrade, GRADE_TEXT, gradeBand, romanianGrade, scoreLine } from '@/lib/grades'
 import { buildQuizCards, type QuizCard } from '@/lib/quizCards'
 import { cn } from '@/lib/utils'
+import { formatTimeLeft, runningClock } from '@/lib/countdown'
+import { useNow } from '@/lib/useNow'
 import { PageHeader } from '@/components/PageHeader'
 import { LoadingCards } from '@/components/LoadingCards'
+import { ClockLine } from '@/components/TestClock'
+
+/** What "Salvează și ieși" in a test hands this page: the test, its attempt, and whether a clock keeps running. */
+interface SavedState {
+  savedQuizTitle?: string
+  savedAttemptId?: number
+  savedTimed?: boolean
+}
+
+/** How often the clocks on the cards move: minutes are all they show. */
+const CLOCK_TICK_MS = 15_000
 
 function StatePill({ tone, children }: { tone: BadgeTone; children: string }) {
   return <span data-testid="quiz-state" className={`rounded-md px-2 py-0.5 text-xs font-medium ${BADGE_TONES[tone]}`}>{children}</span>
@@ -83,7 +96,13 @@ function AttemptHistory({ attempts }: { attempts: MyAttemptDto[] }) {
  * One quiz, whatever it is to the student (homework, a free test, something already graded), and what to do next: its
  * title, one line and the grade. What it was about only matters while it is still to do; the points are on the result.
  */
-function QuizCardView({ card, now, showClass }: { card: QuizCard; now: number; showClass: boolean }) {
+function QuizCardView({ card, now, showClass, clock }: {
+  card: QuizCard
+  now: number
+  showClass: boolean
+  /** Seconds left on the test the student started and left; null = no clock running. */
+  clock: number | null
+}) {
   const { assignment, shown, counted } = card
   const open = card.state === 'todo' || card.state === 'in-progress'
   const grade = card.state === 'graded' && counted?.score != null ? romanianGrade(counted.score, counted.maxScore) : null
@@ -102,14 +121,17 @@ function QuizCardView({ card, now, showClass }: { card: QuizCard; now: number; s
             {card.newResult && <NewResultBadge />}
             {!open && assignment?.late && <StatePill tone="warning">Predată cu întârziere</StatePill>}
             {showClass && assignment && <span>{assignment.schoolClassName}</span>}
-            {open && assignment && !isHandedIn(assignment) && (
+            {/* A running clock hands the paper in before any homework deadline: it replaces both the deadline and the full time. */}
+            {open && assignment && !isHandedIn(assignment) && clock === null && (
               <span>Termen: {formatDate(assignment.dueAt)} ({dueCountdown(assignment.dueAt, now)})</span>
             )}
             {!open && shown?.submittedAt && <span>{formatDay(shown.submittedAt)}</span>}
             {card.maxAttempts !== null && card.maxAttempts > 1 && card.attemptsUsed > 0 && (
               <span data-testid="quiz-attempts">{card.attemptsUsed} din {card.maxAttempts} încercări</span>
             )}
-            {open && card.timeLimitMinutes !== null && (
+            {clock !== null ? (
+              <ClockLine seconds={clock} testId="quiz-time-left" />
+            ) : open && card.timeLimitMinutes !== null && (
               <span data-testid="quiz-time-limit" className="text-xs font-medium">⏱ {formatMinutes(card.timeLimitMinutes)}</span>
             )}
           </p>
@@ -131,9 +153,12 @@ function QuizCardView({ card, now, showClass }: { card: QuizCard; now: number; s
             </Link>
           )}
           {open ? (
-            <Link to={takeUrl} data-testid="quiz-open" className={buttonVariants({ size: 'sm' })}>
-              {card.state === 'in-progress' ? 'Continuă' : 'Începe'}
-            </Link>
+            // Time up: the server hands the paper in with what was saved, there is nothing left to continue.
+            clock !== 0 && (
+              <Link to={takeUrl} data-testid="quiz-open" className={buttonVariants({ size: 'sm' })}>
+                {card.state === 'in-progress' ? 'Continuă' : 'Începe'}
+              </Link>
+            )
           ) : (
             <>
               {card.available && card.state !== 'waiting' && card.blockedBy === null && (
@@ -166,11 +191,14 @@ export function StudentQuizListPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [loadedAt] = useState(() => Date.now()) // deadlines count down from when the list was shown
+  const [receivedAt, setReceivedAt] = useState(0) // when the attempts arrived: open timed tests count down from there
+  const now = useNow(CLOCK_TICK_MS)
   // Set by "Salvează și ieși" in a test: the work it saved, so the student knows it is safe and where to pick it up.
   // Read once, then dropped from the history entry, so coming Back here later does not repeat it.
   const location = useLocation()
   const navigate = useNavigate()
-  const [savedQuizTitle] = useState(() => (location.state as { savedQuizTitle?: string } | null)?.savedQuizTitle ?? null)
+  const [saved] = useState(() => (location.state as SavedState | null) ?? null)
+  const savedQuizTitle = saved?.savedQuizTitle ?? null
   useEffect(() => {
     if (savedQuizTitle) navigate(location.pathname, { replace: true, state: null })
   }, [savedQuizTitle, navigate, location.pathname])
@@ -183,6 +211,7 @@ export function StudentQuizListPage() {
           setQuizzes(q)
           setAttempts(a)
           setAssignments(hw)
+          setReceivedAt(Date.now())
         }
       })
       .catch((e) => !cancelled && setError(errorMessage(e)))
@@ -195,6 +224,12 @@ export function StudentQuizListPage() {
   const { todo, done } = buildQuizCards(quizzes, assignments, attempts)
   // Naming the class says nothing to a student who has only one.
   const showClass = new Set(assignments.map((a) => a.schoolClassName)).size > 1
+  const clockOf = (a: MyAttemptDto | undefined) => (a ? runningClock(a, receivedAt, now) : null)
+  const openTestClock = (card: QuizCard) =>
+    card.state === 'in-progress' ? clockOf(card.attempts.find((a) => a.mode === 'TEST' && a.status === 'IN_PROGRESS')) : null
+  // Leaving a timed test does not stop its clock: the notice must not say "oricând".
+  const savedClock = saved?.savedAttemptId != null ? clockOf(attempts.find((a) => a.attemptId === saved.savedAttemptId)) : null
+  const savedTimed = saved?.savedTimed === true || savedClock !== null
 
   return (
     <div className="p-4">
@@ -205,9 +240,22 @@ export function StudentQuizListPage() {
           <p
             role="status"
             data-testid="saved-notice"
-            className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-3 text-sm text-emerald-900 dark:text-emerald-100"
+            className={cn(
+              'rounded-lg border p-3 text-sm',
+              savedTimed
+                ? 'border-amber-500/50 bg-amber-500/10 text-amber-950 dark:text-amber-100'
+                : 'border-emerald-500/40 bg-emerald-500/10 text-emerald-900 dark:text-emerald-100',
+            )}
           >
-            Am salvat ce ai lucrat la „{savedQuizTitle}”. Continui oricând cu „Continuă”.
+            Am salvat ce ai lucrat la „{savedQuizTitle}”.{' '}
+            {savedTimed ? (
+              <>
+                Cronometrul merge în continuare{savedClock ? `: mai ai ${formatTimeLeft(savedClock)}` : ''}. Revino cu
+                „Continuă” înainte să expire timpul; atunci lucrarea se predă singură cu ce ai salvat.
+              </>
+            ) : (
+              'Continui oricând cu „Continuă”.'
+            )}
           </p>
         )}
         {error && <ErrorState message={error} />}
@@ -224,7 +272,9 @@ export function StudentQuizListPage() {
                     : 'Nimic de făcut acum.'}
                 </p>
               ) : (
-                todo.map((card) => <QuizCardView key={card.quizId} card={card} now={loadedAt} showClass={showClass} />)
+                todo.map((card) => (
+                  <QuizCardView key={card.quizId} card={card} now={loadedAt} showClass={showClass} clock={openTestClock(card)} />
+                ))
               )}
             </section>
 
@@ -236,7 +286,9 @@ export function StudentQuizListPage() {
                   <p className="text-sm text-muted-foreground">Nu ai dat încă niciun test.</p>
                 </div>
               ) : (
-                done.map((card) => <QuizCardView key={card.quizId} card={card} now={loadedAt} showClass={showClass} />)
+                done.map((card) => (
+                  <QuizCardView key={card.quizId} card={card} now={loadedAt} showClass={showClass} clock={openTestClock(card)} />
+                ))
               )}
             </section>
           </>

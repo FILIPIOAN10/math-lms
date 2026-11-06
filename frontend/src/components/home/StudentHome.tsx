@@ -23,12 +23,22 @@ import { GradeFigure } from '@/components/GradeFigure'
 import { NewResultBadge } from '@/components/NewResultBadge'
 import { latestGrade, todoAssignments } from '@/lib/home'
 import { LoadingCards } from '@/components/LoadingCards'
+import { HeroCard } from '@/components/HeroCard'
+import { ClockLine, ClockPill } from '@/components/TestClock'
+import { clockNote, runningClock } from '@/lib/countdown'
+import { useNow } from '@/lib/useNow'
+import { cn } from '@/lib/utils'
 
 interface StudentData {
   assignments: StudentAssignment[]
   attempts: MyAttemptDto[]
   progress: ProgressPointDto[]
+  /** When the lists arrived: the clocks of open timed tests count down from there (see runningClock). */
+  receivedAt: number
 }
+
+/** How often the clocks on the page move: minutes are all they show. */
+const CLOCK_TICK_MS = 15_000
 
 /** New grades, in one row however many there are: they are news, and must not push the homework off the screen. */
 function NewGrades({ results }: { results: MyAttemptDto[] }) {
@@ -56,19 +66,22 @@ function NewGrades({ results }: { results: MyAttemptDto[] }) {
 }
 
 /**
- * The student's start page answers "what do I do now?": homework still to hand in (soonest first), tests started
- * and not handed in, then any new grades (above them only when there is nothing to do), how the last graded test went
- * and how many wait for the teacher.
+ * The student's start page answers "what do I do now?": a timed test they left while its clock runs comes first (it
+ * hands itself in when the time is up), then homework still to hand in (soonest first), tests started and not handed
+ * in, then any new grades (above them only when there is nothing to do), how the last graded test went and how many
+ * wait for the teacher.
  */
 export function StudentHome() {
   const [data, setData] = useState<StudentData | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [review, setReview] = useState<ReviewToday | null>(null)
+  const now = useNow(CLOCK_TICK_MS)
 
   useEffect(() => {
     let cancelled = false
     Promise.all([getMyAssignments(), getMyAttempts(), getMyProgress()])
-      .then(([assignments, attempts, progress]) => !cancelled && setData({ assignments, attempts, progress }))
+      .then(([assignments, attempts, progress]) =>
+        !cancelled && setData({ assignments, attempts, progress, receivedAt: Date.now() }))
       .catch((e) => !cancelled && setError(errorMessage(e)))
     getReviewToday()
       .then((r) => !cancelled && setReview(r))
@@ -83,10 +96,22 @@ export function StudentHome() {
 
   const todo = todoAssignments(data.assignments)
   const homeworkQuizIds = new Set(todo.map((a) => a.quizId))
+  // Seconds left on every open timed test: its clock kept running while the student was away.
+  const clocks = new Map(
+    data.attempts.flatMap((a) => {
+      const left = runningClock(a, data.receivedAt, now)
+      return left === null ? [] : [[a.attemptId, left] as const]
+    }),
+  )
   // Homework in progress already has its own "Continuă"; practice sessions are not something left unfinished.
   const started = data.attempts.filter(
     (a) => a.mode === 'TEST' && a.status === 'IN_PROGRESS' && !homeworkQuizIds.has(a.quizId),
   )
+  // A test that is not homework, with its clock running: it leads the page, the soonest to run out as the big card.
+  const runningElsewhere = started
+    .filter((a) => (clocks.get(a.attemptId) ?? 0) > 0)
+    .sort((x, y) => clocks.get(x.attemptId)! - clocks.get(y.attemptId)!)
+  const startedRest = started.filter((a) => !runningElsewhere.includes(a))
   const awaiting = data.attempts.filter((a) => a.mode === 'TEST' && a.status === 'SUBMITTED').length
   const last = latestGrade(data.progress)
 
@@ -98,9 +123,41 @@ export function StudentHome() {
     <HomeColumns
       main={
         <>
+      {runningElsewhere.map((a, i) => {
+        const left = clocks.get(a.attemptId)!
+        const go = (
+          <Link
+            to={`/quizzes/${a.quizId}/take`}
+            className={cn(buttonVariants({ size: i === 0 ? 'lg' : 'sm' }), i === 0 && 'bg-white px-5 text-primary hover:bg-white/90')}
+          >
+            Continuă
+          </Link>
+        )
+        return i === 0 ? (
+          <HeroCard
+            key={a.attemptId}
+            testId="running-test"
+            kicker="Test început"
+            title={a.quizTitle}
+            meta={<ClockPill seconds={left} />}
+            note={clockNote(left)}
+            action={go}
+          />
+        ) : (
+          <Card key={a.attemptId}>
+            <CardContent className="flex flex-wrap items-center justify-between gap-3 py-3">
+              <div className="min-w-0 flex-1 basis-48">
+                <p className="truncate font-medium">{a.quizTitle}</p>
+                <p className="text-sm"><ClockLine seconds={left} /></p>
+              </div>
+              {go}
+            </CardContent>
+          </Card>
+        )
+      })}
       {nothingToDo && grades}
       {todo.length > 0 ? (
-        <AssignmentsSection assignments={todo} title="De făcut" hero />
+        <AssignmentsSection assignments={todo} title="De făcut" hero={runningElsewhere.length === 0} clocks={clocks} />
       ) : (
         <HomeSection title="De făcut">
           <HomeEmpty
@@ -115,21 +172,28 @@ export function StudentHome() {
           </HomeEmpty>
         </HomeSection>
       )}
-      {started.length > 0 && (
+      {startedRest.length > 0 && (
         <HomeSection title="Teste începute">
-          {started.map((a) => (
-            <Card key={a.attemptId}>
-              <CardContent className="flex items-center justify-between gap-3 py-3">
-                <div className="min-w-0">
-                  <p className="truncate font-medium">{a.quizTitle}</p>
-                  <p className="text-sm text-muted-foreground">Început: {formatDate(a.startedAt)}</p>
-                </div>
-                <Link to={`/quizzes/${a.quizId}/take`} className={buttonVariants({ size: 'sm' })}>
-                  Continuă
-                </Link>
-              </CardContent>
-            </Card>
-          ))}
+          {startedRest.map((a) => {
+            const left = clocks.get(a.attemptId) // here only untimed, or a clock already at zero
+            return (
+              <Card key={a.attemptId}>
+                <CardContent className="flex items-center justify-between gap-3 py-3">
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">{a.quizTitle}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {left !== undefined ? <ClockLine seconds={left} /> : <>Început: {formatDate(a.startedAt)}</>}
+                    </p>
+                  </div>
+                  {left !== 0 && (
+                    <Link to={`/quizzes/${a.quizId}/take`} className={buttonVariants({ size: 'sm' })}>
+                      Continuă
+                    </Link>
+                  )}
+                </CardContent>
+              </Card>
+            )
+          })}
         </HomeSection>
       )}
       {!nothingToDo && grades}

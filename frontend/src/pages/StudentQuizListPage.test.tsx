@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { StudentQuizListPage } from '@/pages/StudentQuizListPage'
@@ -268,5 +268,60 @@ describe('StudentQuizListPage', () => {
     expect(await screen.findByTestId('saved-notice')).toHaveTextContent(
       'Am salvat ce ai lucrat la „Simulare EN”. Continui oricând cu „Continuă”.',
     )
+  })
+
+  // 95 minutes left on the server's clock when the list was made
+  const running = { status: 'IN_PROGRESS' as const, score: null, submittedAt: null, deadlineAt: '2026-11-06T13:45:00Z', serverNow: '2026-11-06T12:10:00Z' }
+
+  it('counts down a timed test the student left, instead of its full time and the homework deadline', async () => {
+    api.getStudentQuizzes.mockResolvedValue([quiz(1, 'Simulare EN', { timeLimitMinutes: 120 })])
+    api.getMyAssignments.mockResolvedValue([
+      { ...homework(1, 'IN_PROGRESS'), quizTitle: 'Simulare EN', attemptId: 10, timeLimitMinutes: 120 },
+    ])
+    api.getMyAttempts.mockResolvedValue([attempt({ attemptId: 10, quizId: 1, quizTitle: 'Simulare EN', ...running })])
+    renderPage()
+
+    const c = await card('Simulare EN')
+    expect(within(c).getByTestId('quiz-time-left')).toHaveTextContent('Mai ai 1 h 35 min')
+    expect(within(c).queryByTestId('quiz-time-limit')).not.toBeInTheDocument()
+    expect(c).not.toHaveTextContent('Termen:') // the paper is handed in when its clock runs out, days before that
+    expect(within(c).getByRole('link', { name: 'Continuă' })).toHaveAttribute('href', '/quizzes/1/take')
+  })
+
+  it('says a timed test whose time ran out hands itself in, and offers no "Continuă"', async () => {
+    api.getStudentQuizzes.mockResolvedValue([quiz(1, 'Simulare EN', { timeLimitMinutes: 120 })])
+    api.getMyAttempts.mockResolvedValue([
+      attempt({ attemptId: 10, quizId: 1, quizTitle: 'Simulare EN', ...running, deadlineAt: '2026-11-06T12:09:00Z' }),
+    ])
+    renderPage()
+
+    const c = await card('Simulare EN')
+    expect(within(c).getByTestId('quiz-time-left')).toHaveTextContent('Timpul a expirat: lucrarea se predă singură')
+    expect(within(c).queryByRole('link', { name: 'Continuă' })).not.toBeInTheDocument()
+  })
+
+  it('still shows the full time of a timed test not started yet', async () => {
+    api.getStudentQuizzes.mockResolvedValue([quiz(1, 'Simulare EN', { timeLimitMinutes: 120 })])
+    api.getMyAttempts.mockResolvedValue([])
+    renderPage()
+
+    expect(within(await card('Simulare EN')).getByTestId('quiz-time-limit')).toHaveTextContent('⏱ 120 de minute')
+  })
+
+  it('after "Salvează și ieși" from a timed test, says the clock keeps running and how long is left, not "oricând"', async () => {
+    api.getStudentQuizzes.mockResolvedValue([quiz(1, 'Simulare EN', { timeLimitMinutes: 120 })])
+    api.getMyAttempts.mockResolvedValue([attempt({ attemptId: 10, quizId: 1, quizTitle: 'Simulare EN', ...running })])
+    render(
+      <MemoryRouter
+        initialEntries={[{ pathname: '/quizzes', state: { savedQuizTitle: 'Simulare EN', savedAttemptId: 10, savedTimed: true } }]}
+      >
+        <StudentQuizListPage />
+      </MemoryRouter>,
+    )
+
+    const notice = await screen.findByTestId('saved-notice')
+    await waitFor(() => expect(notice).toHaveTextContent('Cronometrul merge în continuare: mai ai 1 h 35 min.'))
+    expect(notice).toHaveTextContent('Revino cu „Continuă” înainte să expire timpul; atunci lucrarea se predă singură')
+    expect(notice).not.toHaveTextContent('oricând')
   })
 })
