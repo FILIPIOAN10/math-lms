@@ -42,9 +42,9 @@ function Where() {
   return <p data-testid="where">{useLocation().pathname}</p>
 }
 
-function renderAt(path: string) {
+function renderAt(path: string, state?: unknown) {
   return render(
-    <MemoryRouter initialEntries={[path]}>
+    <MemoryRouter initialEntries={[state === undefined ? path : { pathname: path, state }]}>
       <Routes>
         <Route path="/admin/quizzes" element={<><AdminQuizzesPage /><Where /></>} />
         <Route path="/admin/quizzes/:quizId" element={<><AdminQuizzesPage /><Where /></>} />
@@ -77,6 +77,12 @@ describe('AdminQuizzesPage', () => {
     api.getAiGradingSettings.mockResolvedValue({ enabled: false, baremMaxPages: 0, baremDailyPageLimit: 0, baremPagesUsedToday: 0 })
     api.getQuizActivity.mockResolvedValue({ studentsWriting: 0, homeworkClasses: 0 })
     api.setQuizPublished.mockResolvedValue(summary(7, 'Simulare EN', 'DRAFT'))
+  })
+
+  it('says what the AI import did when it lands here, once', async () => {
+    renderAt('/admin/quizzes/7', { notice: { text: 'Testul e creat, dar nu l-am dat ca temă: Clasa nu are elevi.', homework: false, warn: true } })
+
+    expect(await screen.findByText(/Testul e creat, dar nu l-am dat ca temă: Clasa nu are elevi./)).toHaveTextContent(/^⚠/)
   })
 
   describe('încercări', () => {

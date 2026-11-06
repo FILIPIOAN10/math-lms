@@ -59,3 +59,10 @@ export function isoToLocalInput(iso: string): string {
   const p = (n: number) => String(n).padStart(2, '0')
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`
 }
+
+/** A week from now at 20:00: the usual "for next lesson" deadline, easy to change. As a datetime-local value. */
+export function defaultHomeworkDue(nowMs: number): string {
+  const d = new Date(nowMs + 7 * 86_400_000)
+  d.setHours(20, 0, 0, 0)
+  return isoToLocalInput(d.toISOString())
+}

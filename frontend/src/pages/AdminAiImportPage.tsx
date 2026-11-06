@@ -22,6 +22,7 @@ import {
   listEnChapters,
   type EnChapterSummary,
   listClasses,
+  publishAndAssign,
   retryAiImport,
   type AiImport,
   type AiImportSettings,
@@ -32,6 +33,7 @@ import {
 import { boxToPhoto, draftPlaces, draftPoints, draftProblems, photoToBox, toDrafts, toFigureInputs, toItemInputs, type DraftItem } from '@/lib/aiImport'
 import { FigureCropEditor } from '@/components/FigureCropEditor'
 import { PhotoCrop } from '@/components/PhotoCrop'
+import { defaultHomeworkDue, localInputToIso } from '@/lib/assignments'
 import { errorMessage } from '@/lib/errors'
 import { formatDate, optionLetter, roCount } from '@/lib/format'
 import { shrinkImage } from '@/lib/image'
@@ -404,25 +406,56 @@ function Review({ ai, classes, chapters, enChapters, onDiscard }: {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const [assign, setAssign] = useState(false)
+  const [due, setDue] = useState(() => defaultHomeworkDue(Date.now()))
+
   const problems = draftProblems(drafts)
   const kept = drafts.filter((d) => d.include).length
+  // Publishing (and so homework) waits for every grilă's answer: the barem can still give it after the test is made.
+  const unanswered = drafts.filter((d) => d.include && d.type === 'SINGLE_CHOICE'
+    && (d.correct === null || (d.options[d.correct] ?? '').trim() === '')).length
+  const homeworkClass = classes.find((c) => c.id === classId) ?? null
+  const canAssign = homeworkClass !== null && unanswered === 0
+  const assigning = assign && canAssign
   const places = draftPlaces(drafts)
   const chapterChoices = classId === null ? chapters : chapters.filter((c) => c.schoolClassId === classId)
   const update = (key: number, change: Partial<DraftItem>) =>
     setDrafts((current) => current.map((d) => (d.key === key ? { ...d, ...change } : d)))
 
   async function create() {
-    setBusy(true)
     setError(null)
+    if (assigning && Date.parse(localInputToIso(due)) <= Date.now()) {
+      setError('Termenul trebuie să fie în viitor.')
+      return
+    }
+    setBusy(true)
+    let quizId: number
     try {
-      const quizId = await createQuizFromAiImport(ai.id, {
+      quizId = await createQuizFromAiImport(ai.id, {
         title: title.trim(), schoolClassId: classId, chapterId, items: toItemInputs(drafts, enChapters),
         figures: toFigureInputs(drafts),
       })
-      navigate(`/admin/quizzes/${quizId}`)
     } catch (e) {
       setError(errorMessage(e))
       setBusy(false)
+      return
+    }
+    if (!assigning) {
+      navigate(`/admin/quizzes/${quizId}`)
+      return
+    }
+    // The test exists by now: whatever the homework's fate, the teacher goes on in its editor (not here, where
+    // trying again would make a second test).
+    try {
+      const assigned = await publishAndAssign(quizId, { schoolClassId: homeworkClass!.id, dueAt: localInputToIso(due) })
+      navigate(`/admin/quizzes/${quizId}`, { state: { notice: {
+        text: `„${title.trim()}” e publicat și dat ca temă clasei ${assigned.schoolClassName}, termen ${formatDate(assigned.dueAt)}.`,
+        homework: true,
+      } } })
+    } catch (e) {
+      navigate(`/admin/quizzes/${quizId}`, { state: { notice: {
+        text: `Testul e creat, dar nu l-am dat ca temă: ${errorMessage(e)}`, homework: false, warn: true,
+      } } })
     }
   }
 
@@ -495,10 +528,33 @@ function Review({ ai, classes, chapters, enChapters, onDiscard }: {
           {problems.map((p) => <li key={p}>{p}</li>)}
         </ul>
       )}
+      <div className="space-y-2 rounded-lg border p-3" data-testid="ai-homework">
+        <label className="flex items-center gap-2 text-sm font-medium">
+          <input type="checkbox" checked={assigning} disabled={!canAssign} onChange={(e) => setAssign(e.target.checked)} />
+          Dă-l și ca temă{homeworkClass ? ` clasei ${homeworkClass.name}` : ''}
+        </label>
+        {homeworkClass === null ? (
+          <p className="text-xs text-muted-foreground">Alege clasa testului (sus) ca să-l poți da direct ca temă.</p>
+        ) : unanswered > 0 ? (
+          <p className="text-xs text-muted-foreground">
+            {roCount(unanswered, 'grilă fără răspuns', 'grile fără răspuns')}: marchează varianta corectă ca să-l dai
+            direct ca temă, sau creează testul și pune baremul din poze.
+          </p>
+        ) : null}
+        {assigning && (
+          <div className="flex flex-col gap-1 sm:w-64">
+            <Label htmlFor="ai-due">Termen</Label>
+            <Input id="ai-due" type="datetime-local" value={due} onChange={(e) => setDue(e.target.value)} />
+          </div>
+        )}
+      </div>
+
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
       <div className="flex flex-wrap gap-2">
-        <Button onClick={() => void create()} disabled={busy || kept === 0 || problems.length > 0 || title.trim() === ''}>
-          {busy ? 'Se creează...' : `Creează testul (${roCount(kept, 'întrebare', 'întrebări')})`}
+        <Button onClick={() => void create()}
+                disabled={busy || kept === 0 || problems.length > 0 || title.trim() === '' || (assigning && due === '')}>
+          {busy ? 'Se creează...'
+            : `${assigning ? 'Creează și dă ca temă' : 'Creează testul'} (${roCount(kept, 'întrebare', 'întrebări')})`}
         </Button>
         <Button variant="outline" onClick={onDiscard} disabled={busy}>Renunță</Button>
       </div>
@@ -741,7 +797,8 @@ function DraftCard({ draft: d, place, enChapters, onChange, pageUrl }: {
                   </>
                 )}
               </div>
-            ) : (
+            ) : (editing || d.imageRequired) && (
+              // Read view: only for a question that has one (so it can be unticked); the form always offers it.
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={d.imageRequired} onChange={(e) => onChange({ imageRequired: e.target.checked })} />
                 Are desen (îl adaugi ca imagine după ce creezi testul)

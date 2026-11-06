@@ -15,6 +15,7 @@ const api = vi.hoisted(() => ({
   retryAiImport: vi.fn(),
   discardAiImport: vi.fn(),
   createQuizFromAiImport: vi.fn(),
+  publishAndAssign: vi.fn(),
 }))
 vi.mock('@/lib/api', async (original) => ({ ...(await original<typeof import('@/lib/api')>()), ...api }))
 vi.mock('@/lib/image', () => ({ shrinkImage: (file: File) => Promise.resolve(file) }))
@@ -40,7 +41,13 @@ const done = (over: Partial<AiImport> = {}): AiImport => ({
 })
 
 function Where() {
-  return <p data-testid="where">{useLocation().pathname}</p>
+  const location = useLocation()
+  return (
+    <>
+      <p data-testid="where">{location.pathname}</p>
+      <p data-testid="where-state">{JSON.stringify(location.state ?? null)}</p>
+    </>
+  )
 }
 
 function renderAt(path: string) {
@@ -197,6 +204,45 @@ describe('AdminAiImportPage', () => {
 
     const [grila] = await screen.findAllByTestId('ai-draft')
     expect(within(grila).getByLabelText('Enunțul')).toBeInTheDocument()
+  })
+
+  it('gives the test as homework in the same step once every grilă has its answer', async () => {
+    const user = userEvent.setup()
+    api.createQuizFromAiImport.mockResolvedValue(9)
+    api.publishAndAssign.mockResolvedValue({ id: 3, schoolClassName: 'Clasa a 8-a', dueAt: '2030-01-10T18:00:00Z' })
+    renderAt('/admin/quizzes/ai-import/5')
+
+    const [grila] = await screen.findAllByTestId('ai-draft')
+    const homework = screen.getByLabelText(/Dă-l și ca temă clasei Clasa a 8-a/)
+    expect(homework).toBeDisabled() // a grilă still without its answer: publishing would be refused
+    expect(screen.getByText(/1 grilă fără răspuns/)).toBeInTheDocument()
+
+    await user.click(within(grila).getByLabelText('Varianta b) e corectă'))
+    await user.click(homework)
+    await user.clear(screen.getByLabelText('Termen'))
+    await user.type(screen.getByLabelText('Termen'), '2030-01-10T20:00')
+    await user.click(screen.getByRole('button', { name: 'Creează și dă ca temă (2 întrebări)' }))
+
+    await waitFor(() => expect(api.publishAndAssign).toHaveBeenCalledWith(9, {
+      schoolClassId: 8, dueAt: new Date('2030-01-10T20:00').toISOString(),
+    }))
+    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/admin/quizzes/9'))
+    expect(screen.getByTestId('where-state')).toHaveTextContent('dat ca temă clasei Clasa a 8-a')
+  })
+
+  it('a test made but not given as homework opens in its editor, saying why', async () => {
+    const user = userEvent.setup()
+    api.createQuizFromAiImport.mockResolvedValue(9)
+    api.publishAndAssign.mockRejectedValue({ status: 409, body: 'Clasa nu are elevi.' })
+    renderAt('/admin/quizzes/ai-import/5')
+
+    const [grila] = await screen.findAllByTestId('ai-draft')
+    await user.click(within(grila).getByLabelText('Varianta b) e corectă'))
+    await user.click(screen.getByLabelText(/Dă-l și ca temă/))
+    await user.click(screen.getByRole('button', { name: 'Creează și dă ca temă (2 întrebări)' }))
+
+    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/admin/quizzes/9'))
+    expect(screen.getByTestId('where-state')).toHaveTextContent('Testul e creat, dar nu l-am dat ca temă: Clasa nu are elevi.')
   })
 
   it('puts the drawing the AI cut out under its question; the teacher keeps it or takes it out', async () => {

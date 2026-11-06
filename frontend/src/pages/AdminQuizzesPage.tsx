@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type ClipboardEvent, type FormEvent, type KeyboardEvent } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { ErrorState } from '@/components/ErrorState'
 import { Card, CardContent } from '@/components/ui/card'
@@ -883,11 +883,17 @@ export function ItemDialog({
 
 // ---------- Page ----------
 
+/** What just happened, said in words; `warn` = it only partly worked (amber, no tick). */
+interface Notice { text: string; homework: boolean; warn?: boolean }
+
 /** The confirmation after "Publică": what happened, and the way to the homework when one was given. */
-function PublishedNotice({ notice, onClose }: { notice: { text: string; homework: boolean }; onClose: () => void }) {
+function PublishedNotice({ notice, onClose }: { notice: Notice; onClose: () => void }) {
   return (
-    <div role="status" className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-800 dark:text-emerald-200">
-      <span>✓ {notice.text}</span>
+    <div role="status" className={`flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm ${
+      notice.warn
+        ? 'border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-200'
+        : 'border-emerald-500/40 bg-emerald-500/10 text-emerald-800 dark:text-emerald-200'}`}>
+      <span>{notice.warn ? '⚠' : '✓'} {notice.text}</span>
       <span className="flex items-center gap-3">
         {notice.homework && <Link to="/admin/assignments" className="font-medium underline-offset-4 hover:underline">Vezi tema</Link>}
         <button type="button" onClick={onClose} aria-label="Închide mesajul" className="text-lg leading-none">×</button>
@@ -936,7 +942,13 @@ export function AdminQuizzesPage() {
   // "Publică" opens a dialog that can give the quiz as homework in the same step (T3).
   const [publishing, setPublishing] = useState<{ id: number; title: string; classId: number | null } | null>(null)
   // What just happened, said in words: "published and given as homework to Clasa a 8-a, due …".
-  const [notice, setNotice] = useState<{ text: string; homework: boolean } | null>(null)
+  // It can also come with the page: "Creează și dă ca temă" on the AI import lands here with what it did.
+  const location = useLocation()
+  const [notice, setNotice] = useState<Notice | null>(() => (location.state as { notice?: Notice } | null)?.notice ?? null)
+  useEffect(() => {
+    // said once: a reload or coming back later does not say it again
+    if ((location.state as { notice?: Notice } | null)?.notice) navigate(location.pathname, { replace: true, state: null })
+  }, [location.state, location.pathname, navigate])
   // Faza 3: the "Din poze (AI)" button only where the server has the reader switched on.
   const [aiImportOn, setAiImportOn] = useState(false)
   // "Barem din poze (AI)": only where the server has the barem reader (and the AI grading) switched on.

@@ -9,16 +9,9 @@ import {
   type AssignmentSummary,
   type SchoolClass,
 } from '@/lib/api'
-import { isoToLocalInput, localInputToIso } from '@/lib/assignments'
+import { defaultHomeworkDue, localInputToIso } from '@/lib/assignments'
 import { errorMessage } from '@/lib/errors'
 import { selectClass } from '@/lib/formClasses'
-
-/** A week from now at 20:00 — the usual "for next lesson" deadline, easy to change. */
-function defaultDue(nowMs: number): string {
-  const d = new Date(nowMs + 7 * 86_400_000)
-  d.setHours(20, 0, 0, 0)
-  return isoToLocalInput(d.toISOString())
-}
 
 interface Props {
   open: boolean
@@ -51,7 +44,7 @@ export function PublishDialog({
 }: Props) {
   const [assign, setAssign] = useState(classes.length > 0)
   const [classId, setClassId] = useState(quizClassId !== null ? String(quizClassId) : '')
-  const [due, setDue] = useState(() => defaultDue(Date.now()))
+  const [due, setDue] = useState(() => defaultHomeworkDue(Date.now()))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
