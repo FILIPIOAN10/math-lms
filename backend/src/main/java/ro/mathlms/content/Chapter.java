@@ -42,10 +42,22 @@ public class Chapter {
     @Column(length = 1000)
     private String description;
 
+    /** Its place in the book, from 0: lists follow the textbook, not the alphabet (V51). */
+    @Column(nullable = false)
+    private int position;
+
     public Chapter(Book book, String title, String description) {
         this.book = Objects.requireNonNull(book, "book");
         this.title = requireNonBlank(title, "title");
         this.description = description;
+    }
+
+    /** Puts the chapter at a place in its book; the service keeps the places of a book 0, 1, 2… */
+    public void placeAt(int position) {
+        if (position < 0) {
+            throw new IllegalArgumentException("position must not be negative");
+        }
+        this.position = position;
     }
 
     /** Updates the editable fields; the owning book does not change. */

@@ -30,6 +30,7 @@ import {
   listClasses,
   listExercises,
   listRoster,
+  moveChapter,
   unenroll,
   updateBook,
   updateChapter,
@@ -54,6 +55,7 @@ import { LoadingCards } from '@/components/LoadingCards'
 import { selectClass } from '@/lib/formClasses'
 
 const DIFFICULTIES: Difficulty[] = ['EASY', 'MEDIUM', 'HARD']
+
 /** Create/edit dialog for a class, book or chapter (name/title + optional description). */
 function TitleDescriptionDialog({
   open,
@@ -335,12 +337,10 @@ type Dialogs =
 export function AdminContentPage() {
   const { user } = useAuth()
   const isAdmin = user?.role === 'ADMIN'
-  // ADMIN only: who may own a class (teachers and admins), for the "Profesor" picker on each class row.
   const [teachers, setTeachers] = useState<AdminUserSummary[]>([])
   const navigate = useNavigate()
   const { confirm, dialog: confirmDialog } = useConfirm()
   const [classes, setClasses] = useState<SchoolClass[]>([])
-  // The numbers on each class card; a card simply shows none if they could not be loaded.
   const [summaries, setSummaries] = useState<Record<number, ClassSummary>>({})
   const [cls, setCls] = useState<SchoolClass | null>(null)
   const [books, setBooks] = useState<Book[]>([])
@@ -370,7 +370,7 @@ export function AdminContentPage() {
     if (!isAdmin) return
     Promise.all([listActiveUsers('TEACHER'), listActiveUsers('ADMIN')])
       .then(([t, a]) => setTeachers([...t, ...a]))
-      .catch(() => undefined) // the picker is a help: without it the classes still work
+      .catch(() => undefined)
   }, [isAdmin])
 
   const reloadClasses = () => Promise.all([listClasses().then(setClasses), loadSummaries()])
@@ -428,6 +428,16 @@ export function AdminContentPage() {
     try {
       await run()
       await reload()
+    } catch (e) {
+      setError(errorMessage(e))
+    }
+  }
+
+  async function handleMoveChapter(chapterId: number, up: boolean) {
+    setError(null)
+    try {
+      await moveChapter(chapterId, up)
+      await reloadChapters()
     } catch (e) {
       setError(errorMessage(e))
     }
@@ -511,11 +521,13 @@ export function AdminContentPage() {
         {!loading && book && !chapter && (
           chapters.length === 0 ? <p className="text-muted-foreground">Niciun capitol.</p> : (
             <RowList
-              rows={chapters.map((c) => ({
+              rows={chapters.map((c, i) => ({
                 id: c.id, title: c.title, description: c.description,
                 onOpen: () => openChapter(c),
                 onEdit: () => setDialog({ kind: 'chapter', item: c }),
                 onDelete: () => removeWithConfirm(`capitolul „${c.title}"`, () => deleteChapter(c.id), reloadChapters),
+                onMoveUp: i > 0 ? () => handleMoveChapter(c.id, true) : undefined,
+                onMoveDown: i < chapters.length - 1 ? () => handleMoveChapter(c.id, false) : undefined,
               }))}
             />
           )
@@ -639,13 +651,15 @@ interface AdminRow {
   onOpen: () => void
   onEdit: () => void
   onDelete: () => void
+  onMoveUp?: () => void
+  onMoveDown?: () => void
 }
 
 function RowList({ rows }: { rows: AdminRow[] }) {
   return (
     <div className="space-y-2">
       {rows.map((row) => (
-        <Card key={row.id}>
+        <Card key={row.id} data-testid="content-row">
           <CardContent className="flex items-center justify-between gap-3 py-3">
             <div className="min-w-0">
               <p className="truncate font-medium">{row.title}</p>
@@ -656,6 +670,8 @@ function RowList({ rows }: { rows: AdminRow[] }) {
               <RowMenu
                 label={`Mai multe acțiuni pentru ${row.title}`}
                 items={[
+                  ...(row.onMoveUp ? [{ label: 'Mută mai sus', onClick: row.onMoveUp }] : []),
+                  ...(row.onMoveDown ? [{ label: 'Mută mai jos', onClick: row.onMoveDown }] : []),
                   { label: 'Editează', onClick: row.onEdit },
                   { label: 'Șterge', destructive: true, onClick: row.onDelete },
                 ]}
@@ -668,15 +684,9 @@ function RowList({ rows }: { rows: AdminRow[] }) {
   )
 }
 
-/**
- * One class: its name, how big it is and how it is doing (students, tests, mean grade in the grade's colour), and two
- * buttons - open it, invite students. Everything else (roster, chapters map, teacher, edit, delete) is in the ⋯ menu,
- * so the row reads at a glance instead of being a wall of equal buttons.
- */
 function ClassCard({ schoolClass, summary, teacherName, onOpen, onInvite, menu }: {
   schoolClass: SchoolClass
   summary: ClassSummary | null
-  /** ADMIN only: who owns the class. */
   teacherName: string | null
   onOpen: () => void
   onInvite: () => void
@@ -720,7 +730,6 @@ function ClassCard({ schoolClass, summary, teacherName, onOpen, onInvite, menu }
   )
 }
 
-/** ADMIN: hands a class to another teacher (or admin), who then sees it, its students and its homework. */
 function TeacherDialog({ schoolClass, teachers, onClose, onSave }: {
   schoolClass: SchoolClass
   teachers: AdminUserSummary[]

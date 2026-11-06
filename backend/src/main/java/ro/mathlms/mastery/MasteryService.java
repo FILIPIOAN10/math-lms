@@ -79,9 +79,11 @@ public class MasteryService {
         this.responseRepository = responseRepository;
     }
 
+    /** Class, book, then the book's own order (V51); the title only breaks a tie. */
     private static final Comparator<Chapter> CHAPTER_ORDER = Comparator
             .comparing((Chapter c) -> c.getBook().getSchoolClass().getName(), NaturalOrder.BY_NAME)
             .thenComparing(c -> c.getBook().getTitle(), NaturalOrder.BY_NAME)
+            .thenComparingInt(Chapter::getPosition)
             .thenComparing(Chapter::getTitle, NaturalOrder.BY_NAME);
 
     /**

@@ -61,6 +61,8 @@ DELETE FROM admin_audit_log WHERE label ~ 'E2E (flow|clasa|parinte|publica si te
 -- EN lessons the student tests make (code E2E<digits>), when a test failed before removing its own
 DELETE FROM en_chapter_examples WHERE chapter_id IN (SELECT id FROM en_chapters WHERE code ~ '^E2E[0-9]+$');
 DELETE FROM en_chapters WHERE code ~ '^E2E[0-9]+$';
+-- Comment bank (V30): GradeByItemAndJournalE2eTest removes its own snippet, unless it failed half-way
+DELETE FROM comment_snippets WHERE text ~ '^E2E atenție la pașii de demonstrație [0-9]+$';
 -- Corectură (V43): coloanele reale pentru 2FA
 DELETE FROM totp_recovery_codes WHERE user_id IN (SELECT id FROM users WHERE email = 'admin2fa@mathlms.local');
 UPDATE users SET totp_secret = NULL, totp_enabled_at = NULL, totp_last_step = NULL WHERE email = 'admin2fa@mathlms.local';

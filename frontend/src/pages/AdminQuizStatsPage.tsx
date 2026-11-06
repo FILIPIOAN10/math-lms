@@ -47,12 +47,15 @@ function goToItem(itemId: number) {
 
 /**
  * What each option of a grilă drew, so the teacher sees which mistake the class made, not just how many went wrong.
- * On a suspect question the option the strongest students chose carries the fix as the main button.
+ * On a suspect question the option the strongest students chose carries the fix as the main button; the other
+ * "Asta e varianta corectă" buttons wait behind the question's "Schimbă răspunsul corect" (`keyOpen`), so a page of
+ * numbers is not a page of buttons. A wrong option nobody chose has no mistake to explain.
  */
-function OptionCounts({ item, graded, aiOn, onMakeCorrect, onMistakeSaved }: {
+function OptionCounts({ item, graded, aiOn, keyOpen, onMakeCorrect, onMistakeSaved }: {
   item: QuizItemStat
   graded: number
   aiOn: boolean
+  keyOpen: boolean
   onMakeCorrect: (option: OptionStat) => void
   onMistakeSaved: () => void
 }) {
@@ -74,14 +77,16 @@ function OptionCounts({ item, graded, aiOn, onMakeCorrect, onMistakeSaved }: {
             <span className="shrink-0 tabular-nums text-muted-foreground">{roCount(option.chosen, 'elev', 'elevi')}</span>
           </div>
           <Bar fraction={graded === 0 ? 0 : option.chosen / graded} fill={GRADE_FILL[option.correct ? 'high' : 'low']} />
-          {!option.correct && (
+          {!option.correct && (option.chosen > 0 || option.mistake || keyOpen || item.suspect?.letter === option.letter) && (
             <div className="flex flex-wrap items-start gap-1">
-              <MistakeEditor option={option} aiOn={aiOn} onSaved={onMistakeSaved} />
+              {(option.chosen > 0 || option.mistake) && (
+                <MistakeEditor option={option} aiOn={aiOn} onSaved={onMistakeSaved} />
+              )}
               {item.suspect?.letter === option.letter ? (
                 <Button type="button" size="xs" data-testid="stats-suggested-fix" onClick={() => onMakeCorrect(option)}>
                   Asta e varianta corectă
                 </Button>
-              ) : (
+              ) : keyOpen && (
                 <Button type="button" size="xs" variant="ghost" onClick={() => onMakeCorrect(option)}>
                   Asta e varianta corectă
                 </Button>
@@ -97,10 +102,14 @@ function OptionCounts({ item, graded, aiOn, onMakeCorrect, onMistakeSaved }: {
   )
 }
 
-/** The numbers typed for a numeric question, the same value counted once however it was written. */
-function NumberCounts({ item, graded, onMakeCorrect }: {
+/**
+ * The numbers typed for a numeric question, the same value counted once however it was written. "Asta e răspunsul
+ * corect" waits behind the question's "Schimbă răspunsul corect" (`keyOpen`).
+ */
+function NumberCounts({ item, graded, keyOpen, onMakeCorrect }: {
   item: QuizItemStat
   graded: number
+  keyOpen: boolean
   onMakeCorrect: (number: NumberStat) => void
 }) {
   const blank = Math.max(0, graded - item.numbers.reduce((sum, n) => sum + n.chosen, 0))
@@ -123,7 +132,7 @@ function NumberCounts({ item, graded, onMakeCorrect }: {
               <span className="shrink-0 tabular-nums text-muted-foreground">{roCount(number.chosen, 'elev', 'elevi')}</span>
             </div>
             <Bar fraction={graded === 0 ? 0 : number.chosen / graded} fill={GRADE_FILL[number.correct ? 'high' : 'low']} />
-            {!number.correct && isNumber(number.value) && (
+            {keyOpen && !number.correct && isNumber(number.value) && (
               <Button type="button" size="xs" variant="ghost" onClick={() => onMakeCorrect(number)}>
                 Asta e răspunsul corect
               </Button>
@@ -144,6 +153,15 @@ export function AdminQuizStatsPage() {
   const [notice, setNotice] = useState<string | null>(null)
   const { confirm, dialog: confirmDialog } = useConfirm()
   const [aiOn, setAiOn] = useState(false) // "Propune cu AI" only where the server has the AI switched on
+  // The questions whose "Asta e varianta corectă" buttons the teacher opened.
+  const [keyOpen, setKeyOpen] = useState<ReadonlySet<number>>(new Set())
+  const toggleKey = (itemId: number) =>
+    setKeyOpen((open) => {
+      const next = new Set(open)
+      if (next.has(itemId)) next.delete(itemId)
+      else next.add(itemId)
+      return next
+    })
 
   const load = useCallback(() => getQuizStats(Number(quizId)), [quizId])
 
@@ -327,6 +345,7 @@ export function AdminQuizStatsPage() {
                         item={item}
                         graded={stats.gradedAttempts}
                         aiOn={aiOn}
+                        keyOpen={keyOpen.has(item.itemId)}
                         onMakeCorrect={(option) => void makeCorrect(label, `${option.letter})`, () => correctAnswerKey(item.itemId, option.id))}
                         onMistakeSaved={() => void load().then(setStats).catch((e) => setError(errorMessage(e)))}
                       />
@@ -335,15 +354,30 @@ export function AdminQuizStatsPage() {
                       <NumberCounts
                         item={item}
                         graded={stats.gradedAttempts}
+                        keyOpen={keyOpen.has(item.itemId)}
                         onMakeCorrect={(number) => void makeCorrect(label, number.value, () => correctAnswerNumber(item.itemId, number.value))}
                       />
                     )}
-                    {item.averagePoints !== null && (
-                      <p className="text-xs text-muted-foreground">
-                        {item.correctRate !== null ? 'răspuns corect · ' : ''}
-                        în medie {formatPoints(item.averagePoints)} / {item.points} p
-                      </p>
-                    )}
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      {item.averagePoints !== null && (
+                        <p className="text-xs text-muted-foreground">
+                          {item.correctRate !== null ? 'răspuns corect · ' : ''}
+                          în medie {formatPoints(item.averagePoints)} / {item.points} p
+                        </p>
+                      )}
+                      {stats.gradedAttempts > 0 && (item.options.length > 0 || item.type === 'NUMERIC') && (
+                        <Button
+                          type="button"
+                          size="xs"
+                          variant="ghost"
+                          aria-expanded={keyOpen.has(item.itemId)}
+                          className="ml-auto"
+                          onClick={() => toggleKey(item.itemId)}
+                        >
+                          Schimbă răspunsul corect <span aria-hidden="true">{keyOpen.has(item.itemId) ? '▴' : '▾'}</span>
+                        </Button>
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
                 </Fragment>

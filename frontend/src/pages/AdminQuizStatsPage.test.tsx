@@ -121,7 +121,8 @@ describe('AdminQuizStatsPage', () => {
     api.correctAnswerKey.mockResolvedValue({ changedGrades: 3 })
     renderPage()
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Asta e varianta corectă' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Schimbă răspunsul corect' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Asta e varianta corectă' }))
     expect(screen.getByText('Schimbi răspunsul corect la întrebarea 1?')).toBeInTheDocument()
     expect(api.correctAnswerKey).not.toHaveBeenCalled()
     await userEvent.click(screen.getByRole('button', { name: 'Schimbă și recalculează' }))
@@ -129,6 +130,35 @@ describe('AdminQuizStatsPage', () => {
     expect(await screen.findByTestId('stats-notice')).toHaveTextContent('Răspunsul corect e acum b). S-au schimbat 3 note.')
     expect(api.correctAnswerKey).toHaveBeenCalledWith(2, 21)
     expect(screen.getByTestId('stats-average-points')).toHaveTextContent('15 / 25 p')
+  })
+
+  it('keeps the answer-key buttons folded on a question nobody flagged: one "Schimbă răspunsul corect" per question', async () => {
+    api.getQuizStats.mockResolvedValue(stats({ items: [grila()] }))
+    renderPage()
+
+    const toggle = await screen.findByRole('button', { name: 'Schimbă răspunsul corect' })
+    expect(screen.queryByRole('button', { name: 'Asta e varianta corectă' })).not.toBeInTheDocument()
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+
+    await userEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getAllByRole('button', { name: 'Asta e varianta corectă' })).toHaveLength(1) // the one wrong option
+  })
+
+  it('offers to explain a wrong option only when someone chose it, and keeps an explanation already written', async () => {
+    const item = grila()
+    item.options.push(
+      { id: 22, letter: 'c', text: '1/8', correct: false, chosen: 0, mistake: null },
+      { id: 23, letter: 'd', text: '2/8', correct: false, chosen: 0, mistake: 'Ai înmulțit.' },
+    )
+    api.getQuizStats.mockResolvedValue(stats({ items: [item] }))
+    renderPage()
+
+    await screen.findByTestId('stats-options')
+    const [, b, c, d] = screen.getAllByTestId('stats-option')
+    expect(within(b).getByRole('button', { name: 'Ce greșeală ascunde?' })).toBeInTheDocument()
+    expect(within(c).queryByRole('button', { name: 'Ce greșeală ascunde?' })).not.toBeInTheDocument()
+    expect(within(d).getByTestId('option-mistake')).toHaveTextContent('Ai înmulțit.')
   })
 
   it('lists the wrong options most students chose, with what the teacher wrote about them', async () => {
@@ -161,6 +191,7 @@ describe('AdminQuizStatsPage', () => {
     expect(screen.getByText(/Răspuns numeric/)).toBeInTheDocument()
 
     // Only one button: "nu știu" is not a number that could be the answer.
+    await userEvent.click(screen.getByRole('button', { name: 'Schimbă răspunsul corect' }))
     await userEvent.click(screen.getByRole('button', { name: 'Asta e răspunsul corect' }))
     await userEvent.click(screen.getByRole('button', { name: 'Schimbă și recalculează' }))
 

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { Navigate, useParams, useSearchParams } from 'react-router-dom'
-import { Button } from '@/components/ui/button'
+import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { ErrorState } from '@/components/ErrorState'
 import { Card, CardContent } from '@/components/ui/card'
 import { MarkdownText } from '@/components/MarkdownText'
@@ -12,11 +12,13 @@ import {
   enChapterPhotoUrl,
   enExampleImageUrl,
   getEnChapter,
+  listEnChapters,
   type EnChapterPage as EnChapterPageDto,
+  type EnChapterSummary,
   type EnExample,
   type EnSection,
 } from '@/lib/api'
-import { photoIndexOf } from '@/lib/enChapters'
+import { nextEnChapter, photoIndexOf, withoutRepeatedTitle } from '@/lib/enChapters'
 import { errorMessage } from '@/lib/errors'
 import { LoadingCards } from '@/components/LoadingCards'
 
@@ -87,7 +89,11 @@ export function EnChapterPage() {
   const [viewing, setViewing] = useState<number | null>(null)
   const [photosShown, setPhotosShown] = useState(false)
   const [contentsShown, setContentsShown] = useState(false)
+  const [next, setNext] = useState<EnChapterSummary | null>(null)
   const openedFor = useRef<number | null>(null)
+  const navigate = useNavigate()
+  // Arrived from inside the app (a result's "revezi capitolul", the list): "Înapoi" returns there.
+  const cameFromApp = useLocation().key !== 'default'
 
   useEffect(() => {
     let cancelled = false
@@ -95,6 +101,10 @@ export function EnChapterPage() {
     getEnChapter(chapterId)
       .then((p) => !cancelled && setPage(p))
       .catch((e) => !cancelled && setError(errorMessage(e)))
+    // Only for "Capitolul următor": the page works without it.
+    listEnChapters()
+      .then((list) => !cancelled && setNext(nextEnChapter(list, chapterId)))
+      .catch(() => undefined)
     return () => {
       cancelled = true
     }
@@ -144,6 +154,8 @@ export function EnChapterPage() {
   const photosOpen = photosShown || written.length === 0
   const contentsOpen = contentsShown || written.length === 0
   const photoUrl = page ? (photoId: number) => enChapterPhotoUrl(page.id, photoId) : undefined
+  // The text repeats the chapter's name on its first line; the page title says it already.
+  const pageNotes = page?.notes ? withoutRepeatedTitle(page.notes, page.title) : ''
 
   return (
     <div className="p-4">
@@ -156,10 +168,10 @@ export function EnChapterPage() {
         {!page && !error && <LoadingCards />}
         {empty && <p className="text-muted-foreground">Profesorul n-a pus încă materia pentru acest capitol.</p>}
 
-        {page?.notes && (
+        {pageNotes.trim() !== '' && (
           <Card>
             <CardContent className="py-4">
-              <MarkdownText photoUrl={photoUrl}>{page.notes}</MarkdownText>
+              <MarkdownText photoUrl={photoUrl} headingLevel={2}>{pageNotes}</MarkdownText>
             </CardContent>
           </Card>
         )}
@@ -215,7 +227,7 @@ export function EnChapterPage() {
                   </h3>
                   {chapter.notes && (
                     <div className="mt-3">
-                      <MarkdownText photoUrl={photoUrl}>{chapter.notes}</MarkdownText>
+                      <MarkdownText photoUrl={photoUrl} headingLevel={4}>{chapter.notes}</MarkdownText>
                     </div>
                   )}
                   <div className="space-y-8 pt-6">
@@ -231,7 +243,7 @@ export function EnChapterPage() {
                               </Button>
                             )}
                           </div>
-                          <MarkdownText photoUrl={photoUrl}>{point.notes!}</MarkdownText>
+                          <MarkdownText photoUrl={photoUrl} headingLevel={5}>{point.notes!}</MarkdownText>
                         </article>
                       )
                     })}
@@ -277,6 +289,25 @@ export function EnChapterPage() {
               ))}
             </div>
           </HomeSection>
+        )}
+
+        {/* Not a dead end: back to where the student came from, on to the next chapter, or to all of them. */}
+        {page && (
+          <nav aria-label="Mai departe" className="flex flex-wrap items-center gap-2 border-t pt-4">
+            {cameFromApp && (
+              <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
+                ← Înapoi
+              </Button>
+            )}
+            {next && (
+              <Link to={`/capitole/${next.id}`} className={buttonVariants({ size: 'sm' })}>
+                Capitolul următor: {next.code} · {next.title}
+              </Link>
+            )}
+            <Link to="/capitole" className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
+              Toate capitolele EN
+            </Link>
+          </nav>
         )}
 
         <PhotoViewer

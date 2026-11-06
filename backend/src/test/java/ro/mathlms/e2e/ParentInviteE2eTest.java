@@ -33,6 +33,7 @@ class ParentInviteE2eTest extends E2eBase {
         long childId = admin.getUserIdForTest("STUDENT", child);
         login(ADMIN, PASSWORD);
         open("/admin/students");
+        openParentControls("Copil Invitat");
         byTestId("parent-invite-" + childId).click();
         String register = pathOf(field("Link pentru părintele lui Copil Invitat").getDomProperty("value"));
         logout();
@@ -69,6 +70,8 @@ class ParentInviteE2eTest extends E2eBase {
         login(ADMIN, PASSWORD);
         open("/admin/students");
         WebElement row = rowOf("Al Doilea Copil");
+        assertThat(row.findElements(By.tagName("select"))).as("one button per row until it is pressed").isEmpty();
+        openParentControls("Al Doilea Copil");
         new Select(row.findElement(By.tagName("select"))).selectByVisibleText("Parinte Existent (" + parent + ")");
         row.findElement(By.xpath(".//button[normalize-space()='Leagă']")).click();
 
@@ -83,6 +86,17 @@ class ParentInviteE2eTest extends E2eBase {
         assertThat(link.isEnabled()).isFalse();
         row.findElement(By.xpath(".//button[normalize-space()='Anulează']")).click();
         assertThat(row.findElements(By.tagName("select"))).isEmpty();
+    }
+
+    /**
+     * A row with no parent shows one button, "Adaugă părinte", with the list and "Invită părintele" behind it (while
+     * no parent account exists, "Invită părintele" is the button itself).
+     */
+    private void openParentControls(String studentName) {
+        WebElement row = rowOf(studentName);
+        for (WebElement add : row.findElements(By.xpath(".//button[@aria-label='Adaugă un părinte pentru " + studentName + "']"))) {
+            add.click();
+        }
     }
 
     /** The Elevi table row of a student, found by the name that links to their page. */

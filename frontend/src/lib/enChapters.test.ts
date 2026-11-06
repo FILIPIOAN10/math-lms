@@ -1,6 +1,35 @@
 import { describe, expect, it } from 'vitest'
-import { baremLessons, revisionLinks, revisionSentence, enPageForStudents } from '@/lib/enChapters'
-import type { EnChapterLink, GradedPart, ItemResultDto } from '@/lib/api'
+import {
+  baremLessons, nextEnChapter, revisionLinks, revisionSentence, enPageForStudents, withoutRepeatedTitle,
+} from '@/lib/enChapters'
+import type { EnChapterLink, EnChapterSummary, GradedPart, ItemResultDto } from '@/lib/api'
+
+describe('withoutRepeatedTitle', () => {
+  it('drops a first line that only repeats the chapter title, however it is spaced or capitalised', () => {
+    expect(withoutRepeatedTitle('Numere reale: radicali\n\nRadicali\n• a', 'Numere reale: radicali')).toBe('Radicali\n• a')
+    expect(withoutRepeatedTitle('  NUMERE  reale: radicali.\nRadicali', 'Numere reale: radicali')).toBe('Radicali')
+  })
+
+  it('keeps a text that starts with something else', () => {
+    expect(withoutRepeatedTitle('Radicali\n• a', 'Numere reale')).toBe('Radicali\n• a')
+  })
+})
+
+describe('nextEnChapter', () => {
+  const summary = (id: number, over: Partial<EnChapterSummary> = {}): EnChapterSummary => ({
+    id, code: `A${id}`, title: `Capitolul ${id}`, area: 'ALGEBRA', position: id, parentId: null, bookPage: null,
+    photoCount: 0, exampleCount: 1, ...over,
+  })
+
+  it('is the next chapter with something to read, in the order of the list: algebra, then geometry', () => {
+    const list = [
+      summary(1), summary(2, { exampleCount: 0 }), summary(3, { parentId: 1 }),
+      summary(9, { code: 'G1', area: 'GEOMETRY', position: 1 }),
+    ]
+    expect(nextEnChapter(list, 1)?.code).toBe('G1') // A2 is empty, A3 is a section of A1
+    expect(nextEnChapter(list, 9)).toBeNull()
+  })
+})
 
 const A1: EnChapterLink = { id: 1, code: 'A1', title: 'Ordinea efectuării operațiilor', ready: true, revisionTopic: null }
 const G8: EnChapterLink = { id: 19, code: 'G8', title: 'Corpuri geometrice: arii și volume', ready: true, revisionTopic: null }

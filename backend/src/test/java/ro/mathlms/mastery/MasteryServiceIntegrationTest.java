@@ -188,6 +188,18 @@ class MasteryServiceIntegrationTest {
     }
 
     @Test
+    void theMapFollowsTheOrderOfTheBookOnceTheChaptersHaveTheirPlaces() {
+        World w = seed("m6");
+        w.geometrie().placeAt(0);
+        w.fractii().placeAt(1);
+        w.ecuatii().placeAt(2);
+        chapterRepository.saveAll(List.of(w.geometrie(), w.fractii(), w.ecuatii()));
+
+        assertThat(service.forClass(w.cls().getId()).chapters()).extracting(MasteryDtos.ChapterRefDto::title)
+                .containsExactly("Geometrie", "Fracții", "Ecuații");
+    }
+
+    @Test
     void theClassGridHasEveryStudentAgainstEveryChapterOfTheClass() {
         World w = seed("m4");
         Quiz quiz = new Quiz("Fracții m4", null);

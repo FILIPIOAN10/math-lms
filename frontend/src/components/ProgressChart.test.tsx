@@ -1,5 +1,5 @@
 import { render, screen, within } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { ProgressChart } from '@/components/ProgressChart'
 import type { ProgressPointDto } from '@/lib/api'
 
@@ -54,10 +54,50 @@ describe('ProgressChart', () => {
     expect(screen.getAllByTestId('progress-row')[1]).toHaveTextContent(/8,80\s*13 \/ 15 \(87%\)/)
   })
 
-  it('gives the chart an accessible summary with the average and the latest result', () => {
-    render(<ProgressChart points={[point({ attemptId: 1, percent: 50 }), point({ attemptId: 2, percent: 90 })]} />)
+  it('gives the chart an accessible summary in grades: the average and the latest', () => {
+    render(<ProgressChart points={[
+      point({ attemptId: 1, score: 5, maxScore: 10, percent: 50 }),
+      point({ attemptId: 2, score: 9, maxScore: 10, percent: 90 }),
+    ]} />)
 
-    expect(screen.getByRole('img')).toHaveAccessibleName('Progres: 2 teste notate, media 70%, ultimul 90%')
+    expect(screen.getByRole('img')).toHaveAccessibleName('Progres: 2 teste notate, media notelor 7,30, ultima notă 9,10')
+  })
+
+  it('reads in grades: the axis marks 1, 5, 7, 9 and 10, the bands of the grades, not percents', () => {
+    const { container } = render(<ProgressChart points={[point({})]} />)
+
+    const axis = [...container.querySelectorAll('[data-testid="axis-grade"]')].map((t) => t.textContent)
+    expect(axis).toEqual(['1', '5', '7', '9', '10'])
+    // No percent is drawn on the chart (the hover tooltip may still give it, with the points).
+    expect([...container.querySelectorAll('svg text')].map((t) => t.textContent).join(' ')).not.toContain('%')
+  })
+
+  it('is drawn at the width it gets, so its labels keep their size on a phone instead of shrinking to 5 px', () => {
+    class FakeResizeObserver {
+      constructor(private readonly callback: ResizeObserverCallback) {}
+      observe(target: Element) {
+        this.callback([{ contentRect: { width: 311 } } as ResizeObserverEntry], this as unknown as ResizeObserver)
+        void target
+      }
+      disconnect() {}
+      unobserve() {}
+    }
+    vi.stubGlobal('ResizeObserver', FakeResizeObserver)
+    try {
+      const { container } = render(<ProgressChart points={[point({ attemptId: 1 }), point({ attemptId: 2 })]} />)
+
+      expect(container.querySelector('svg')).toHaveAttribute('viewBox', '0 0 311 260')
+      expect(container.querySelector('[data-testid="axis-grade"]')).toHaveClass('text-xs')
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('leaves its table out where the page lists the same tests with their grades already', () => {
+    render(<ProgressChart points={[point({})]} table={false} />)
+
+    expect(screen.getByRole('img')).toBeInTheDocument()
+    expect(screen.queryByTestId('progress-row')).not.toBeInTheDocument()
   })
 
   it('draws one marker per attempt and a single attempt still renders', () => {

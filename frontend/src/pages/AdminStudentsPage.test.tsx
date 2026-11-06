@@ -191,7 +191,25 @@ describe('AdminStudentsPage', () => {
       expect(within(radu).getByRole('button', { name: 'Schimbă părintele lui Radu Nou' })).toBeInTheDocument()
       expect(within(radu).queryByRole('combobox')).not.toBeInTheDocument()
       expect(within(radu).queryByRole('button', { name: 'Leagă' })).not.toBeInTheDocument()
-      expect(within(await rowOf('Ana Pop')).getByRole('combobox')).toBeInTheDocument()
+    })
+
+    it('gives a student with no parent one button, and the list and the invite only once it is pressed', async () => {
+      const user = userEvent.setup()
+      renderPage()
+
+      const ana = await rowOf('Ana Pop')
+      const parentCell = ana.querySelectorAll('td')[3]
+      expect(within(parentCell).getAllByRole('button')).toHaveLength(1)
+      expect(within(ana).queryByRole('combobox')).not.toBeInTheDocument()
+      expect(within(ana).queryByTestId('parent-invite-1')).not.toBeInTheDocument()
+
+      await user.click(within(ana).getByRole('button', { name: 'Adaugă un părinte pentru Ana Pop' }))
+      expect(within(ana).getByRole('combobox')).toBeInTheDocument()
+      expect(within(ana).getByRole('button', { name: 'Leagă' })).toBeInTheDocument()
+      expect(within(ana).getByTestId('parent-invite-1')).toHaveTextContent('Invită părintele')
+
+      await user.click(within(ana).getByRole('button', { name: 'Anulează' }))
+      expect(within(ana).queryByRole('combobox')).not.toBeInTheDocument()
     })
 
     it('links a parent, says so, and puts the list away', async () => {
@@ -199,6 +217,7 @@ describe('AdminStudentsPage', () => {
       renderPage()
 
       const ana = await rowOf('Ana Pop')
+      await user.click(within(ana).getByRole('button', { name: 'Adaugă un părinte pentru Ana Pop' }))
       await user.selectOptions(within(ana).getByRole('combobox'), '99')
       await user.click(within(ana).getByRole('button', { name: 'Leagă' }))
 

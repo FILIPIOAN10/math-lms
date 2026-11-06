@@ -59,9 +59,36 @@ function WorkOnNow({ homework, chapters }: { homework: StudentAssignment[]; chap
   )
 }
 
+/** One test or practice of the child: state, date and points, and its result once handed in. */
+function ChildAttemptCard({ attempt: a, childId }: { attempt: MyAttemptDto; childId: string }) {
+  return (
+    <Card>
+      <CardContent className="flex items-center justify-between gap-3 py-3" data-testid="child-attempt">
+        <div className="min-w-0 space-y-1">
+          <p className="truncate font-medium">{a.quizTitle}</p>
+          <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+            {a.mode === 'PRACTICE' ? <AttemptModeBadge mode={a.mode} /> : <AttemptStatusBadge status={a.status} />}
+            <span>{formatDate(a.submittedAt ?? a.startedAt)}</span>
+            {a.score !== null && <span className="text-foreground">{scoreLine(a.score, a.maxScore)}</span>}
+          </p>
+        </div>
+        {a.status !== 'IN_PROGRESS' && (
+          <Link
+            to={`/parent/children/${childId}/attempts/${a.attemptId}`}
+            className={buttonVariants({ size: 'sm', variant: 'outline' })}
+          >
+            Vezi rezultatul
+          </Link>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
 /**
  * One child, read-only, in the order a parent reads it: what to work on now, how it is going over time, the homework,
- * then the chapters folded away and the tests. A child that is not yours answers 403, shown as the error.
+ * then the chapters folded away and the tests - once, under their heading, practice folded. A child that is not yours
+ * answers 403, shown as the error.
  */
 export function ParentChildPage() {
   const { childId } = useParams<{ childId: string }>()
@@ -100,6 +127,9 @@ export function ParentChildPage() {
     }
   }, [childId])
 
+  const tests = attempts?.filter((a) => a.mode !== 'PRACTICE') ?? []
+  const practice = attempts?.filter((a) => a.mode === 'PRACTICE') ?? []
+
   return (
     <div className="p-4">
       <div className="mx-auto max-w-3xl space-y-4">
@@ -122,7 +152,8 @@ export function ParentChildPage() {
               <Card>
                 <CardContent className="space-y-2 py-4">
                   <h2 className="font-medium">Progres în timp</h2>
-                  <ProgressChart points={progress} />
+                  {/* The tests with their grades are listed below: the chart's own table would say it all twice. */}
+                  <ProgressChart points={progress} table={false} />
                 </CardContent>
               </Card>
             )}
@@ -158,32 +189,27 @@ export function ParentChildPage() {
                 </div>
               </details>
             )}
-            {attempts && attempts.length === 0 && (
-              <p className="text-sm text-muted-foreground">Copilul nu a dat încă niciun test.</p>
+            {attempts && (
+              <HomeSection title="Testele date">
+                {tests.length === 0 && (
+                  <p className="text-sm text-muted-foreground">Copilul nu a dat încă niciun test.</p>
+                )}
+                {tests.map((a) => (
+                  <ChildAttemptCard key={a.attemptId} attempt={a} childId={childId!} />
+                ))}
+                {/* Practice is effort, not a grade: there, but folded, so the tests stay one short list. */}
+                {practice.length > 0 && (
+                  <details data-testid="child-practice" className="space-y-2">
+                    <summary className="cursor-pointer text-sm font-medium">Exersări ({practice.length})</summary>
+                    <div className="mt-2 space-y-2">
+                      {practice.map((a) => (
+                        <ChildAttemptCard key={a.attemptId} attempt={a} childId={childId!} />
+                      ))}
+                    </div>
+                  </details>
+                )}
+              </HomeSection>
             )}
-
-            {attempts?.map((a) => (
-              <Card key={a.attemptId}>
-                <CardContent className="flex items-center justify-between gap-3 py-3" data-testid="child-attempt">
-                  <div className="min-w-0 space-y-1">
-                    <p className="truncate font-medium">{a.quizTitle}</p>
-                    <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                      {a.mode === 'PRACTICE' ? <AttemptModeBadge mode={a.mode} /> : <AttemptStatusBadge status={a.status} />}
-                      <span>{formatDate(a.submittedAt ?? a.startedAt)}</span>
-                      {a.score !== null && <span className="text-foreground">{scoreLine(a.score, a.maxScore)}</span>}
-                    </p>
-                  </div>
-                  {a.status !== 'IN_PROGRESS' && (
-                    <Link
-                      to={`/parent/children/${childId}/attempts/${a.attemptId}`}
-                      className={buttonVariants({ size: 'sm', variant: 'outline' })}
-                    >
-                      Vezi rezultatul
-                    </Link>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
           </>
         )}
       </div>

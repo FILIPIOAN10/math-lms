@@ -37,6 +37,21 @@ describe('parseBlocks', () => {
 })
 
 describe('figures', () => {
+  it('reads a short line over bullets as a heading over a list, the way the chapter texts are written', () => {
+    expect(parseBlocks('Radicali\n• $\\sqrt{4}=2$\n• Doar radicali asemenea se adună.')).toEqual([
+      { kind: 'heading', text: 'Radicali' },
+      { kind: 'list', items: ['$\\sqrt{4}=2$', 'Doar radicali asemenea se adună.'] },
+    ])
+  })
+
+  it('keeps a sentence before bullets a sentence, and reads "- " as a bullet too', () => {
+    expect(parseBlocks('Reținem:\n- unu\n- doi\n\nAltceva.')).toEqual([
+      { kind: 'paragraph', text: 'Reținem:' },
+      { kind: 'list', items: ['unu', 'doi'] },
+      { kind: 'paragraph', text: 'Altceva.' },
+    ])
+  })
+
   it('reads a figure line as the part of a photo, apart from the text around it', () => {
     expect(parseBlocks('Text.\n\n![Axa](poza:42?x=0.078&y=0.396&w=0.844&h=0.061)\n\nDupă.')).toEqual([
       { kind: 'paragraph', text: 'Text.' },
@@ -71,6 +86,15 @@ describe('MarkdownText', () => {
     expect(within(table).getAllByRole('columnheader').map((c) => c.textContent)).toEqual(['Zeci', 'Sute'])
     expect(within(table).getAllByRole('cell').map((c) => c.textContent)).toEqual(['38 780', '38 700'])
     expect(container.querySelector('.katex')).not.toBeNull()
+  })
+
+  it('sets a heading as a real heading at the level it is given, and bullets as a list', () => {
+    const { container } = render(<MarkdownText headingLevel={4}>{'Radicali\n• unu\n• doi $x^2$'}</MarkdownText>)
+
+    expect(screen.getByRole('heading', { level: 4, name: 'Radicali' })).toBeInTheDocument()
+    expect(within(screen.getByRole('list')).getAllByRole('listitem')).toHaveLength(2)
+    expect(container).not.toHaveTextContent('•') // the list draws its own bullets, with the wrapped lines indented
+    expect(container.querySelector('li .katex')).not.toBeNull()
   })
 
   it('never turns the text into HTML', () => {

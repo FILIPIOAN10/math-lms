@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -66,6 +67,15 @@ public class ChapterController {
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         scope.requireChapter(id);
         service.delete(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    /** One place up or down in its book: the lists follow the textbook, not the alphabet. */
+    @PostMapping("/api/admin/chapters/{id}/move")
+    @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
+    public ResponseEntity<Void> move(@PathVariable Long id, @RequestParam boolean up) {
+        scope.requireChapter(id);
+        service.move(id, up);
         return ResponseEntity.noContent().build();
     }
 }

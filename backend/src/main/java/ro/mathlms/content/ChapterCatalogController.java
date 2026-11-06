@@ -19,18 +19,20 @@ public class ChapterCatalogController {
 
     /** One choice: the chapter plus where it lives, so the select can group and label it. */
     public record ChapterOptionDto(Long id, String title, Long bookId, String bookTitle, Long schoolClassId,
-                                   String schoolClassName) {
+                                   String schoolClassName, int position) {
         static ChapterOptionDto from(Chapter chapter) {
             Book book = chapter.getBook();
             SchoolClass cls = book.getSchoolClass();
             return new ChapterOptionDto(chapter.getId(), chapter.getTitle(), book.getId(), book.getTitle(),
-                    cls.getId(), cls.getName());
+                    cls.getId(), cls.getName(), chapter.getPosition());
         }
     }
 
+    /** Class, book (natural order, "a 9-a" before "a 10-a"), then the book's own order of chapters (V51). */
     static final Comparator<ChapterOptionDto> ORDER = Comparator
             .comparing(ChapterOptionDto::schoolClassName, NaturalOrder.BY_NAME)
             .thenComparing(ChapterOptionDto::bookTitle, NaturalOrder.BY_NAME)
+            .thenComparingInt(ChapterOptionDto::position)
             .thenComparing(ChapterOptionDto::title, NaturalOrder.BY_NAME);
 
     private final ChapterRepository chapterRepository;

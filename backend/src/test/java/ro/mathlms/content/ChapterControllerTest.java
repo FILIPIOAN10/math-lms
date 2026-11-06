@@ -64,4 +64,12 @@ class ChapterControllerTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
         verify(service).delete(9L);
     }
+
+    @Test
+    void moveReturns204AndDelegates() {
+        ResponseEntity<Void> response = controller.move(9L, true);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        verify(service).move(9L, true);
+    }
 }

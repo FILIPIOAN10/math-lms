@@ -7,7 +7,8 @@ import ro.mathlms.audit.AuditEvent;
 import ro.mathlms.audit.AuditLog;
 import ro.mathlms.audit.AuditText;
 
-import java.util.Comparator;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /** CRUD for chapters within a book (writes are journalled). */
@@ -29,10 +30,10 @@ public class ChapterService {
         return chapter.getTitle() + " (" + chapter.getBook().getTitle() + ")";
     }
 
+    /** A book's chapters in the book's order, as the teacher placed them (V51). */
     public List<Chapter> listByBook(Long bookId) {
         requireBook(bookId);
-        return chapterRepository.findByBookIdOrderByTitle(bookId).stream()
-                .sorted(Comparator.comparing(Chapter::getTitle, NaturalOrder.BY_NAME)).toList();
+        return chapterRepository.findByBookIdOrderByPositionAscIdAsc(bookId);
     }
 
     public Chapter get(Long id) {
@@ -47,9 +48,36 @@ public class ChapterService {
             throw new DuplicateContentException(
                     "A chapter titled '" + title + "' already exists in this book");
         }
-        Chapter saved = chapterRepository.save(new Chapter(book, title, description));
+        Chapter chapter = new Chapter(book, title, description);
+        chapter.placeAt(chapterRepository.findMaxPosition(bookId) + 1); // a new chapter is the book's last one
+        Chapter saved = chapterRepository.save(chapter);
         auditLog.record(AuditEvent.of(AuditAction.CHAPTER_CREATED, saved.getId(), label(saved)));
         return saved;
+    }
+
+    /**
+     * Moves a chapter one place up or down in its book, so the lists and the mastery map follow the textbook. The
+     * book's places are numbered again from 0, which also mends any gap or tie left by older data.
+     */
+    @Transactional
+    public void move(Long id, boolean up) {
+        Chapter chapter = get(id);
+        List<Chapter> chapters = new ArrayList<>(chapterRepository.findByBookIdOrderByPositionAscIdAsc(chapter.getBook().getId()));
+        int from = chapters.indexOf(chapter);
+        int to = up ? from - 1 : from + 1;
+        if (to < 0) {
+            throw new ContentInUseException("Capitolul „" + chapter.getTitle() + "” e deja primul în carte.");
+        }
+        if (to >= chapters.size()) {
+            throw new ContentInUseException("Capitolul „" + chapter.getTitle() + "” e deja ultimul în carte.");
+        }
+        Collections.swap(chapters, from, to);
+        for (int place = 0; place < chapters.size(); place++) {
+            chapters.get(place).placeAt(place);
+        }
+        chapterRepository.saveAll(chapters);
+        auditLog.record(AuditEvent.of(AuditAction.CHAPTER_UPDATED, id, label(chapter))
+                .details(up ? "mutat mai sus" : "mutat mai jos"));
     }
 
     @Transactional

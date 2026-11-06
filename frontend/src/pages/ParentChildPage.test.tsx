@@ -92,6 +92,34 @@ describe('ParentChildPage', () => {
     expect(folded).not.toHaveTextContent('A3')
   })
 
+  const attempt = (attemptId: number, quizTitle: string, over: Record<string, unknown> = {}) => ({
+    attemptId, quizId: attemptId, quizTitle, status: 'GRADED', startedAt: '2026-11-06T11:00:00Z',
+    submittedAt: '2026-11-06T11:40:00Z', score: 16, mode: 'TEST', maxScore: 30, newResult: false, ...over,
+  })
+
+  it('lists the tests once, under a heading, with practice folded away and no second table of grades', async () => {
+    api.getChildProgress.mockResolvedValue([
+      { attemptId: 1, quizId: 1, quizTitle: 'Calcul algebric', submittedAt: '2026-11-06T11:40:00Z', score: 16, maxScore: 30, percent: 53 },
+    ])
+    api.getChildAttempts.mockResolvedValue([
+      attempt(1, 'Calcul algebric'),
+      attempt(2, 'Numere reale', { mode: 'PRACTICE', score: null, status: 'SUBMITTED' }),
+    ])
+    renderPage()
+
+    const tests = await screen.findByRole('region', { name: 'Testele date' })
+    const practice = within(tests).getByTestId('child-practice')
+    const unfolded = within(tests).getAllByTestId('child-attempt').filter((card) => !practice.contains(card))
+    expect(unfolded).toHaveLength(1)
+    expect(unfolded[0]).toHaveTextContent('Calcul algebric')
+    expect(practice).not.toHaveAttribute('open')
+    expect(practice).toHaveTextContent('Exersări (1)')
+    expect(practice).toHaveTextContent('Numere reale')
+    // The chart stays; its table would repeat the list above word for word.
+    expect(await screen.findByTestId('progress-chart')).toBeInTheDocument()
+    expect(screen.queryByTestId('progress-row')).not.toBeInTheDocument()
+  })
+
   it("shows the child's level per chapter", async () => {
     api.getChildMastery.mockResolvedValue([{
       chapterId: 1, chapterTitle: 'Fracții', bookTitle: 'Algebra', schoolClassName: 'Clasa a 8-a',

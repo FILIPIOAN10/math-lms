@@ -12,6 +12,7 @@ export interface InlineRun {
 export type Block =
   | { kind: 'paragraph'; text: string }
   | { kind: 'heading'; text: string }
+  | { kind: 'list'; items: string[] }
   | { kind: 'table'; header: string[]; rows: string[][] }
   /** A drawing: the part (x, y, w, h as fractions) of the page photo `photoId`. */
   | { kind: 'figure'; alt: string; photoId: number; x: number; y: number; w: number; h: number }
@@ -41,6 +42,18 @@ export function inlineRuns(source: string): InlineRun[] {
   return runs
 }
 
+/** "• text" or "- text": the chapter texts write their points as bullets. */
+const BULLET = /^\s*(?:•|-)\s+(.*\S)\s*$/
+
+/**
+ * The line right above bullets names what they are about ("Radicali") when it is short and does not end like a
+ * sentence or a lead-in ("Reținem:"): then it is a heading, not a paragraph.
+ */
+const namesTheBullets = (line: string) => {
+  const text = line.trim()
+  return text.length > 0 && text.length <= 80 && !/[.!?;:,]$/.test(text) && !text.includes('$')
+}
+
 const isTableLine = (line: string) => line.trim().startsWith('|')
 const isSeparator = (line: string) => /^\s*\|?[\s:|-]*-{3,}[\s:|-]*\|?\s*$/.test(line)
 
@@ -48,15 +61,23 @@ function cells(line: string): string[] {
   return line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map((c) => c.trim())
 }
 
-/** The small part of Markdown the transcribed theory uses: paragraphs, headings, bold and pipe tables. */
+/**
+ * The small part of Markdown the transcribed theory uses: paragraphs, headings, bullet lists, bold and pipe tables.
+ * The chapter texts name each group of bullets on the line above them, with no "#": that line becomes a heading.
+ */
 export function parseBlocks(markdown: string): Block[] {
   const blocks: Block[] = []
   let paragraph: string[] = []
+  let list: string[] = []
   let table: string[] = []
 
   const flushParagraph = () => {
     if (paragraph.length > 0) blocks.push({ kind: 'paragraph', text: paragraph.join('\n') })
     paragraph = []
+  }
+  const flushList = () => {
+    if (list.length > 0) blocks.push({ kind: 'list', items: list })
+    list = []
   }
   const flushTable = () => {
     const rows = table.filter((line) => !isSeparator(line)).map(cells)
@@ -67,10 +88,22 @@ export function parseBlocks(markdown: string): Block[] {
   for (const line of markdown.split('\n')) {
     if (isTableLine(line)) {
       flushParagraph()
+      flushList()
       table.push(line)
       continue
     }
     flushTable()
+    const bullet = BULLET.exec(line)
+    if (bullet) {
+      if (paragraph.length === 1 && namesTheBullets(paragraph[0])) {
+        blocks.push({ kind: 'heading', text: paragraph[0].trim() })
+        paragraph = []
+      }
+      flushParagraph()
+      list.push(bullet[1])
+      continue
+    }
+    flushList()
     const figure = FIGURE.exec(line)
     if (figure) {
       flushParagraph()
@@ -96,6 +129,7 @@ export function parseBlocks(markdown: string): Block[] {
     }
   }
   flushParagraph()
+  flushList()
   flushTable()
   return blocks
 }
@@ -118,13 +152,16 @@ function Inline({ text }: { text: string }) {
  * Theory written as text in the app: paragraphs and bold labels, tables as tables and formulas typeset, all as React
  * elements (the text is never inserted as HTML, so nothing in it can inject markup).
  */
-export function MarkdownText({ children, className, photoUrl }: {
+export function MarkdownText({ children, className, photoUrl, headingLevel = 3 }: {
   children: string
   className?: string
   /** Where a page photo is served; without it a figure shows only its description. */
   photoUrl?: (photoId: number) => string
+  /** The level of the text's own headings, one below the heading the text sits under. */
+  headingLevel?: 2 | 3 | 4 | 5 | 6
 }) {
   const blocks = useMemo(() => parseBlocks(children), [children])
+  const Heading = `h${headingLevel}` as const
   return (
     <div className={cn('space-y-3', className)}>
       {blocks.map((block, i) => {
@@ -138,7 +175,16 @@ export function MarkdownText({ children, className, photoUrl }: {
           )
         }
         if (block.kind === 'heading') {
-          return <p key={i} className="font-semibold"><Inline text={block.text} /></p>
+          return <Heading key={i} className="pt-1 text-base font-semibold"><Inline text={block.text} /></Heading>
+        }
+        if (block.kind === 'list') {
+          return (
+            <ul key={i} className="list-disc space-y-1 pl-5 marker:text-muted-foreground">
+              {block.items.map((item, j) => (
+                <li key={j}><Inline text={item} /></li>
+              ))}
+            </ul>
+          )
         }
         if (block.kind === 'table') {
           return (

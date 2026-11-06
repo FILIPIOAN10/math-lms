@@ -12,7 +12,12 @@ public interface ChapterRepository extends JpaRepository<Chapter, Long> {
     @Query("select c.book.schoolClass.id from Chapter c where c.id = :id")
     Optional<Long> findClassIdById(@Param("id") Long id);
 
-    List<Chapter> findByBookIdOrderByTitle(Long bookId);
+    /** A book's chapters in the book's order (the id only breaks a tie). */
+    List<Chapter> findByBookIdOrderByPositionAscIdAsc(Long bookId);
+
+    /** The last place taken in a book, -1 for a book with no chapter: a new chapter goes after it. */
+    @Query("select coalesce(max(c.position), -1) from Chapter c where c.book.id = :bookId")
+    int findMaxPosition(@Param("bookId") Long bookId);
 
     boolean existsByBookIdAndTitle(Long bookId, String title);
 

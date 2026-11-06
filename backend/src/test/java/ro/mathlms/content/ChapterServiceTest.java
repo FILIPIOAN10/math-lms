@@ -1,6 +1,7 @@
 package ro.mathlms.content;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 import ro.mathlms.audit.AuditLog;
 
 import java.util.List;
@@ -25,14 +26,53 @@ class ChapterServiceTest {
     private final Book book = new Book(new SchoolClass("Clasa a 9-a", null), "M1", null);
 
     @Test
-    void chaptersAreListedInNaturalOrderSoChapterTenComesAfterChapterTwo() {
+    void chaptersAreListedInTheOrderOfTheBookNotOfTheAlphabet() {
         when(bookRepository.findById(1L)).thenReturn(Optional.of(book));
-        when(chapterRepository.findByBookIdOrderByTitle(1L)).thenReturn(List.of(
-                new Chapter(book, "Capitolul 10", null), new Chapter(book, "Capitolul 2", null),
-                new Chapter(book, "Capitolul 1", null)));
+        when(chapterRepository.findByBookIdOrderByPositionAscIdAsc(1L)).thenReturn(List.of(
+                new Chapter(book, "Numere reale", null), new Chapter(book, "Calcul algebric", null)));
 
         assertThat(service.listByBook(1L)).extracting(Chapter::getTitle)
-                .containsExactly("Capitolul 1", "Capitolul 2", "Capitolul 10");
+                .containsExactly("Numere reale", "Calcul algebric");
+    }
+
+    @Test
+    void aNewChapterGoesAfterTheLastOneOfItsBook() {
+        when(bookRepository.findById(1L)).thenReturn(Optional.of(book));
+        when(chapterRepository.existsByBookIdAndTitle(1L, "Funcții")).thenReturn(false);
+        when(chapterRepository.findMaxPosition(1L)).thenReturn(3);
+        when(chapterRepository.save(any(Chapter.class))).thenAnswer(i -> i.getArgument(0));
+
+        assertThat(service.create(1L, "Funcții", null).getPosition()).isEqualTo(4);
+    }
+
+    @Test
+    void movingAChapterUpSwapsItWithTheOneBeforeItAndNumbersTheBookAgain() {
+        ReflectionTestUtils.setField(book, "id", 7L);
+        Chapter first = new Chapter(book, "Numere reale", null);
+        Chapter second = new Chapter(book, "Calcul algebric", null);
+        Chapter third = new Chapter(book, "Ecuații", null);
+        when(chapterRepository.findById(3L)).thenReturn(Optional.of(third));
+        when(chapterRepository.findByBookIdOrderByPositionAscIdAsc(7L)).thenReturn(List.of(first, second, third));
+
+        service.move(3L, true);
+
+        assertThat(List.of(first, third, second)).extracting(Chapter::getPosition).containsExactly(0, 1, 2);
+        verify(auditLog).record(any());
+    }
+
+    @Test
+    void theFirstChapterCannotMoveUpNorTheLastDown() {
+        ReflectionTestUtils.setField(book, "id", 7L);
+        Chapter first = new Chapter(book, "Numere reale", null);
+        Chapter last = new Chapter(book, "Funcții", null);
+        when(chapterRepository.findById(1L)).thenReturn(Optional.of(first));
+        when(chapterRepository.findById(2L)).thenReturn(Optional.of(last));
+        when(chapterRepository.findByBookIdOrderByPositionAscIdAsc(7L)).thenReturn(List.of(first, last));
+
+        assertThatThrownBy(() -> service.move(1L, true)).isInstanceOf(ContentInUseException.class)
+                .hasMessageContaining("deja primul");
+        assertThatThrownBy(() -> service.move(2L, false)).isInstanceOf(ContentInUseException.class)
+                .hasMessageContaining("deja ultimul");
     }
 
     @Test

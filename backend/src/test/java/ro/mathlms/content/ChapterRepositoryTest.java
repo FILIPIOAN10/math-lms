@@ -41,14 +41,20 @@ class ChapterRepositoryTest {
     }
 
     @Test
-    void findsChaptersOfABookOrderedByTitle() {
+    void findsChaptersOfABookInTheirPlaceAndTheLastPlaceTaken() {
         Book book = persistBook("M1");
-        chapterRepository.save(new Chapter(book, "Beta", null));
-        chapterRepository.save(new Chapter(book, "Alfa", null));
+        Chapter numere = new Chapter(book, "Numere reale", null);
+        numere.placeAt(0);
+        Chapter calcul = new Chapter(book, "Calcul algebric", null);
+        calcul.placeAt(1);
+        chapterRepository.save(calcul);
+        chapterRepository.save(numere);
 
-        List<Chapter> chapters = chapterRepository.findByBookIdOrderByTitle(book.getId());
+        List<Chapter> chapters = chapterRepository.findByBookIdOrderByPositionAscIdAsc(book.getId());
 
-        assertThat(chapters).extracting(Chapter::getTitle).containsExactly("Alfa", "Beta");
+        assertThat(chapters).extracting(Chapter::getTitle).containsExactly("Numere reale", "Calcul algebric");
+        assertThat(chapterRepository.findMaxPosition(book.getId())).isEqualTo(1);
+        assertThat(chapterRepository.findMaxPosition(persistBook("Goală").getId())).as("an empty book").isEqualTo(-1);
     }
 
     @Test

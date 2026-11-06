@@ -237,9 +237,13 @@ export function AdminStudentsPage() {
                     {visible.map((s) => {
                       const busy = busyIds.has(s.id)
                       const choice = selectedParent[s.id] ?? ''
+                      // The row's parent controls are open: changing a linked parent, or adding one.
                       const editing = editingParent.has(s.id)
-                      // A linked student shows the parent's name and "Schimbă"; the list is for linking or changing.
-                      const canPick = isAdmin && (s.parentId === null || editing)
+                      // One action per row until it is asked for: a linked student shows the parent's name and
+                      // "Schimbă", one without shows "Adaugă părinte" (the list and the invite open behind it). With no
+                      // parent account to pick, or for a teacher, the only way is the invite, so that is the button.
+                      const canPick = isAdmin && parents.length > 0 && editing
+                      const inviteOnly = !isAdmin || parents.length === 0
                       return (
                         <tr key={s.id} className="border-b last:border-0">
                           <td className="py-3 pr-4">
@@ -294,43 +298,8 @@ export function AdminStudentsPage() {
                             {linkedNotes[s.id] && (
                               <p role="status" className="mb-1 text-sm text-emerald-700 dark:text-emerald-300">{linkedNotes[s.id]}</p>
                             )}
-                            {(canPick || s.parentId === null) && (
-                            <div className="flex flex-wrap gap-2">
-                              {canPick && (
-                                <>
-                                  <select
-                                    className={selectClass}
-                                    value={choice}
-                                    disabled={busy || parents.length === 0}
-                                    onChange={(e) =>
-                                      setSelectedParent((prev) => ({
-                                        ...prev,
-                                        [s.id]: e.target.value === '' ? '' : Number(e.target.value),
-                                      }))
-                                    }
-                                  >
-                                    <option value="">Alege un părinte…</option>
-                                    {parents.map((p) => (
-                                      <option key={p.id} value={p.id}>
-                                        {p.fullName} ({p.email})
-                                      </option>
-                                    ))}
-                                  </select>
-                                  <Button
-                                    size="sm"
-                                    disabled={busy || choice === '' || choice === s.parentId}
-                                    onClick={() => handleLink(s.id)}
-                                  >
-                                    Leagă
-                                  </Button>
-                                  {editing && (
-                                    <Button size="sm" variant="ghost" disabled={busy} onClick={() => setEditing(s.id, false)}>
-                                      Anulează
-                                    </Button>
-                                  )}
-                                </>
-                              )}
-                              {s.parentId === null && (
+                            {s.parentId === null && !editing && (
+                              inviteOnly ? (
                                 <Button
                                   size="sm"
                                   variant="outline"
@@ -340,8 +309,61 @@ export function AdminStudentsPage() {
                                 >
                                   Invită părintele
                                 </Button>
-                              )}
-                            </div>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  aria-label={`Adaugă un părinte pentru ${s.fullName}`}
+                                  disabled={busy}
+                                  onClick={() => setEditing(s.id, true)}
+                                >
+                                  Adaugă părinte
+                                </Button>
+                              )
+                            )}
+                            {canPick && (
+                              <div className="flex flex-wrap gap-2">
+                                <select
+                                  className={selectClass}
+                                  aria-label={`Părintele lui ${s.fullName}`}
+                                  value={choice}
+                                  disabled={busy}
+                                  onChange={(e) =>
+                                    setSelectedParent((prev) => ({
+                                      ...prev,
+                                      [s.id]: e.target.value === '' ? '' : Number(e.target.value),
+                                    }))
+                                  }
+                                >
+                                  <option value="">Alege un părinte…</option>
+                                  {parents.map((p) => (
+                                    <option key={p.id} value={p.id}>
+                                      {p.fullName} ({p.email})
+                                    </option>
+                                  ))}
+                                </select>
+                                <Button
+                                  size="sm"
+                                  disabled={busy || choice === '' || choice === s.parentId}
+                                  onClick={() => handleLink(s.id)}
+                                >
+                                  Leagă
+                                </Button>
+                                {s.parentId === null && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    data-testid={`parent-invite-${s.id}`}
+                                    disabled={busy}
+                                    onClick={() => handleParentInvite(s.id)}
+                                  >
+                                    Invită părintele
+                                  </Button>
+                                )}
+                                <Button size="sm" variant="ghost" disabled={busy} onClick={() => setEditing(s.id, false)}>
+                                  Anulează
+                                </Button>
+                              </div>
                             )}
                             {parentLinks[s.id] && s.parentId === null && (
                               <div className="mt-2 max-w-md space-y-1">

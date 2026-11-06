@@ -8,8 +8,12 @@ import { type EnChapterPage as EnChapterPageDto, type EnChapterSummary } from '@
 const api = vi.hoisted(() => ({
   listEnChapters: vi.fn(),
   getEnChapter: vi.fn(),
+  getMyEnMastery: vi.fn(),
 }))
 vi.mock('@/lib/api', async (original) => ({ ...(await original<typeof import('@/lib/api')>()), ...api }))
+
+const auth = vi.hoisted(() => ({ value: { user: { email: 'ana@x.ro', fullName: 'Ana', role: 'STUDENT', status: 'ACTIVE' } } }))
+vi.mock('@/context/AuthContext', () => ({ useAuth: () => auth.value }))
 
 const chapter = (id: number, over: Partial<EnChapterSummary> = {}): EnChapterSummary => ({
   id, code: `A${id}`, title: `Capitolul ${id}`, area: 'ALGEBRA', position: id, parentId: null, bookPage: null,
@@ -34,7 +38,39 @@ function renderAt(url: string) {
 }
 
 describe('EnChaptersPage', () => {
-  beforeEach(() => Object.values(api).forEach((fn) => fn.mockReset()))
+  beforeEach(() => {
+    Object.values(api).forEach((fn) => fn.mockReset())
+    api.getMyEnMastery.mockResolvedValue([])
+    auth.value.user.role = 'STUDENT'
+  })
+
+  const mastered = (chapterId: number, code: string, percent: number | null) => ({
+    chapterId, code, title: `Capitolul ${chapterId}`, area: 'ALGEBRA', earned: 2, possible: 10, percent, questions: 2, ready: true,
+  })
+
+  it("marks the student's own chapters to revise, and names them first", async () => {
+    api.listEnChapters.mockResolvedValue([chapter(1, { exampleCount: 1 }), chapter(2, { exampleCount: 1 }), chapter(3, { exampleCount: 1 })])
+    api.getMyEnMastery.mockResolvedValue([mastered(1, 'A1', 85), mastered(2, 'A2', 30), mastered(3, 'A3', null)])
+    renderAt('/capitole')
+
+    const toRevise = await screen.findByTestId('en-to-revise')
+    expect(toRevise).toHaveTextContent('De recapitulat acum:')
+    expect(within(toRevise).getByRole('link', { name: 'A2 · Capitolul 2' })).toHaveAttribute('href', '/capitole/2')
+    const algebra = screen.getByRole('region', { name: 'Algebră' })
+    expect(within(algebra).getByTestId('en-level-2')).toHaveTextContent('De recapitulat')
+    expect(within(algebra).getByTestId('en-level-1')).toHaveTextContent('Stăpânit')
+    expect(within(algebra).queryByTestId('en-level-3')).not.toBeInTheDocument() // no answers there yet: no label
+  })
+
+  it('asks for nothing personal when a parent or teacher browses the chapters', async () => {
+    auth.value.user.role = 'PARENT'
+    api.listEnChapters.mockResolvedValue([chapter(1, { exampleCount: 1 })])
+    renderAt('/capitole')
+
+    await screen.findByRole('region', { name: 'Algebră' })
+    expect(api.getMyEnMastery).not.toHaveBeenCalled()
+    expect(screen.queryByTestId('en-to-revise')).not.toBeInTheDocument()
+  })
 
   it('lists algebra and geometry apart, and only a page with something on it opens', async () => {
     api.listEnChapters.mockResolvedValue([
@@ -67,7 +103,36 @@ describe('EnChaptersPage', () => {
 })
 
 describe('EnChapterPage', () => {
-  beforeEach(() => Object.values(api).forEach((fn) => fn.mockReset()))
+  beforeEach(() => {
+    Object.values(api).forEach((fn) => fn.mockReset())
+    api.listEnChapters.mockResolvedValue([])
+  })
+
+  it('does not repeat the title at the top of the text, and sets its sub-headings as headings over lists', async () => {
+    api.getEnChapter.mockResolvedValue(page({
+      notes: 'Ordinea efectuării operațiilor\n\nParanteze\n• Întâi parantezele rotunde.\n• Apoi cele drepte.',
+      examples: [{ id: 3, statement: '2 + 3', solution: '5', image: null }],
+    }))
+    renderAt('/capitole/1')
+
+    expect(await screen.findByRole('heading', { level: 2, name: 'Paranteze' })).toBeInTheDocument()
+    expect(screen.queryByText('Ordinea efectuării operațiilor', { exact: true })).not.toBeInTheDocument()
+    expect(screen.getAllByRole('listitem').map((li) => li.textContent)).toContain('Întâi parantezele rotunde.')
+  })
+
+  it('ends with where to go next: back, the next chapter, all the chapters', async () => {
+    api.getEnChapter.mockResolvedValue(page({ examples: [{ id: 3, statement: '2 + 3', solution: '5', image: null }] }))
+    api.listEnChapters.mockResolvedValue([
+      chapter(1, { title: 'Ordinea efectuării operațiilor', exampleCount: 1 }),
+      chapter(2, { title: 'Rapoarte și proporții', exampleCount: 0 }),
+      chapter(3, { title: 'Procente', exampleCount: 2 }),
+    ])
+    renderAt('/capitole/1')
+
+    const next = await screen.findByRole('navigation', { name: 'Mai departe' })
+    expect(await within(next).findByRole('link', { name: 'Capitolul următor: A3 · Procente' })).toHaveAttribute('href', '/capitole/3')
+    expect(within(next).getByRole('link', { name: 'Toate capitolele EN' })).toHaveAttribute('href', '/capitole')
+  })
 
   it('shows the theory photos, then each worked example with its solution hidden until asked for', async () => {
     api.getEnChapter.mockResolvedValue(page({

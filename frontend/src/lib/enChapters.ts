@@ -36,6 +36,30 @@ export function rootsOf(chapters: EnChapterSummary[]): EnChapterSummary[] {
   return chapters.filter((c) => c.parentId === null || !ids.has(c.parentId))
 }
 
+/**
+ * The chapter after this one, in the order the list shows them (algebra, then geometry), that has something to read;
+ * null at the end. It is where a student who finished a chapter goes on to.
+ */
+export function nextEnChapter(chapters: EnChapterSummary[], currentId: number): EnChapterSummary | null {
+  const ordered = EN_AREAS.flatMap((area) => inArea(rootsOf(chapters), area.value))
+  const at = ordered.findIndex((c) => c.id === currentId)
+  if (at === -1) return null
+  return ordered.slice(at + 1).find(hasEnContent) ?? null
+}
+
+const comparable = (text: string) => text.toLocaleLowerCase('ro').replace(/\s+/g, ' ').trim().replace(/[.:]$/, '')
+
+/**
+ * A chapter's written text starts by repeating the chapter's name, which the page already has as its title: the
+ * first line goes when it is only that, so the text starts with what it teaches.
+ */
+export function withoutRepeatedTitle(notes: string, title: string): string {
+  const lines = notes.split('\n')
+  const first = lines.findIndex((line) => line.trim() !== '')
+  if (first === -1 || comparable(lines[first]) !== comparable(title)) return notes
+  return lines.slice(first + 1).join('\n').replace(/^(\s*\n)+/, '')
+}
+
 /** One line of the teacher's list: a page, how deep it sits, and where it stands among its siblings. */
 export interface TreeRow {
   chapter: EnChapterSummary

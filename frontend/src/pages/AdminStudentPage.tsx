@@ -167,7 +167,8 @@ export function AdminStudentPage() {
             <Card>
               <CardContent className="space-y-2 py-4">
                 <h2 className="font-medium">Progres în timp</h2>
-                <ProgressChart points={data.progress} />
+                {/* "Lucrări" below lists the same tests with their points: no second table here. */}
+                <ProgressChart points={data.progress} table={false} />
               </CardContent>
             </Card>
 
