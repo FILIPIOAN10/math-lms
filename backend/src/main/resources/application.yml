@@ -38,7 +38,7 @@ spring:
 
   servlet:
     multipart:
-      max-file-size: 8MB
+      max-file-size: 25MB # a scanned PDF the browser cannot draw goes as it is; the server draws its pages
       max-request-size: 25MB # up to 12 pages of a test from photos (Test din poze), a few hundred KB to 2 MB each
 
   data:

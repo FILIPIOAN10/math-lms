@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import ro.mathlms.gdpr.ErasureNotAllowedException;
 
 /** Maps auth-flow exceptions to HTTP responses without leaking internals. */
@@ -79,9 +80,26 @@ public class ApiExceptionHandler {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid or expired refresh token");
     }
 
-    /** Invalid state transition, e.g. verifying an already-verified account. */
+    /** What an upload over the multipart limits (spring.servlet.multipart) answers, in the app's language. */
+    static final String UPLOAD_TOO_LARGE = "Fișierele trimise sunt prea mari pentru server. Trimite mai puține pagini odată.";
+
+    /**
+     * Invalid state transition, e.g. verifying an already-verified account. Tomcat also reports a file over
+     * max-file-size as an IllegalStateException (around its own size exception): that one is a 413, not a 409 about
+     * the account - a teacher uploading a big PDF read "not valid for the account's current state".
+     */
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<String> handleIllegalState(IllegalStateException ex) {
+        for (Throwable cause = ex.getCause(); cause != null; cause = cause.getCause()) {
+            if (cause.getClass().getSimpleName().contains("SizeLimitExceeded")) {
+                return ResponseEntity.status(HttpStatus.CONTENT_TOO_LARGE).body(UPLOAD_TOO_LARGE);
+            }
+        }
         return ResponseEntity.status(HttpStatus.CONFLICT).body("This action is not valid for the account's current state");
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<String> handleUploadTooLarge(MaxUploadSizeExceededException ex) {
+        return ResponseEntity.status(HttpStatus.CONTENT_TOO_LARGE).body(UPLOAD_TOO_LARGE);
     }
 }

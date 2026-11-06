@@ -25,6 +25,32 @@ class ApiExceptionHandlerTest {
     }
 
     @Test
+    void aFileOverTheUploadLimitIsSaidToBeTooLargeNotAnAccountState() {
+        // Tomcat reports a file over max-file-size as an IllegalStateException around its own size exception.
+        IllegalStateException tomcat = new IllegalStateException(
+                new org.apache.tomcat.util.http.fileupload.impl.FileSizeLimitExceededException("too big", 25_793_189, 8_388_608));
+
+        ResponseEntity<String> response = handler.handleIllegalState(tomcat);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONTENT_TOO_LARGE);
+        assertThat(response.getBody()).contains("prea mari");
+    }
+
+    @Test
+    void springsUploadLimitIsATooLargeToo() {
+        ResponseEntity<String> response = handler.handleUploadTooLarge(
+                new org.springframework.web.multipart.MaxUploadSizeExceededException(26_214_400));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONTENT_TOO_LARGE);
+    }
+
+    @Test
+    void anOtherIllegalStateStaysAConflict() {
+        assertThat(handler.handleIllegalState(new IllegalStateException("already verified")).getStatusCode())
+                .isEqualTo(HttpStatus.CONFLICT);
+    }
+
+    @Test
     void duplicateEmailMapsToConflict() {
         ResponseEntity<String> response =
                 handler.handleDuplicateEmail(new EmailAlreadyRegisteredException("ana@scoala.ro"));
