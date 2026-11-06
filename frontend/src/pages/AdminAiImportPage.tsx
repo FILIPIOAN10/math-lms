@@ -468,14 +468,27 @@ function Review({ ai, classes, chapters, enChapters, onDiscard }: {
         </CardContent>
       </Card>
 
-      <ol className="space-y-3">
-        {drafts.map((d) => (
-          <li key={d.key}>
-            <DraftCard draft={d} place={places.get(d.key) ?? null} enChapters={enChapters} onChange={(change) => update(d.key, change)}
-                       pageUrl={ai.pagesAvailable ? (page) => aiImportPageUrl(ai.id, page) : null} />
-          </li>
-        ))}
-      </ol>
+      {subjectGroups(drafts).map((group) => (
+        <section key={group.drafts[0].key} className="space-y-3">
+          {group.title && (
+            <h2 className="text-lg font-semibold">
+              {group.title}
+              <span className="ml-2 text-sm font-normal text-muted-foreground">
+                · {roCount(group.drafts.filter((d) => d.include).length, 'exercițiu', 'exerciții')}
+              </span>
+            </h2>
+          )}
+          <ol className="space-y-3">
+            {group.drafts.map((d) => (
+              <li key={d.key}>
+                <DraftCard draft={d} place={places.get(d.key) ?? null} enChapters={enChapters}
+                           onChange={(change) => update(d.key, change)}
+                           pageUrl={ai.pagesAvailable ? (page) => aiImportPageUrl(ai.id, page) : null} />
+              </li>
+            ))}
+          </ol>
+        </section>
+      ))}
 
       {problems.length > 0 && (
         <ul className="list-disc space-y-1 pl-5 text-sm text-amber-700 dark:text-amber-400" data-testid="ai-problems">
@@ -493,6 +506,23 @@ function Review({ ai, classes, chapters, enChapters, onDiscard }: {
   )
 }
 
+/** The questions in runs of the same subject (the section's first line), as they follow on the paper. */
+function subjectGroups(drafts: DraftItem[]): { title: string; drafts: DraftItem[] }[] {
+  const groups: { title: string; drafts: DraftItem[] }[] = []
+  for (const d of drafts) {
+    const title = d.section.split('\n')[0].trim()
+    const last = groups[groups.length - 1]
+    if (last && last.title === title) last.drafts.push(d)
+    else groups.push({ title, drafts: [d] })
+  }
+  return groups
+}
+
+/** What the read view cannot show sensibly: the form opens by itself for these. */
+const needsForm = (d: DraftItem) => d.statement.trim() === ''
+  || (d.type === 'SINGLE_CHOICE' && d.options.filter((o) => o.trim() !== '').length < 2)
+  || (d.type === 'OPEN' && d.parts.some((p) => p.statement.trim() === ''))
+
 /** The AI's reason for a proposed chapter, shown under the choice while the proposal is still the one chosen. */
 function ProposalReason({ reason, shown }: { reason: string | null; shown: boolean }) {
   if (!reason || !shown) return null
@@ -509,6 +539,9 @@ function DraftCard({ draft: d, place, enChapters, onChange, pageUrl }: {
   pageUrl: ((page: number) => string) | null
 }) {
   const [editingFigure, setEditingFigure] = useState(false)
+  // Read first: the form is there for the few questions the AI got wrong.
+  const [editing, setEditing] = useState(() => needsForm(d))
+  const enChapter = d.enChapter === '' ? null : enChapters.find((c) => c.code === d.enChapter) ?? null
   // What the AI proposed, to keep showing its reason only while the teacher has not picked something else.
   const [proposed] = useState(() => ({ item: d.enChapter, parts: d.parts.map((p) => p.enChapter) }))
   const id = `ai-item-${d.key}`
@@ -528,26 +561,22 @@ function DraftCard({ draft: d, place, enChapters, onChange, pageUrl }: {
     <Card className={d.include ? undefined : 'opacity-60'} data-testid="ai-draft">
       <CardContent className="space-y-3 pt-4">
         {/* Which exercise of the paper this is, so it can be checked against the photo at a glance. */}
-        <h3 data-testid="ai-draft-place" className="text-base font-semibold">
-          {place ?? 'Nu intră în test'}
-        </h3>
         <div className="flex flex-wrap items-center gap-3">
+          {/* The subject is the group's heading above; here only the exercise's number in it. */}
+          <h3 data-testid="ai-draft-place" className="mr-auto text-base font-semibold">
+            {place ? place.split(' · ').pop() : 'Nu intră în test'}
+          </h3>
+          <span className="text-xs text-muted-foreground">pagina {d.page}</span>
           <label className="flex items-center gap-2 text-sm font-medium">
             <input type="checkbox" checked={d.include} onChange={(e) => onChange({ include: e.target.checked })} />
             Îl includ
           </label>
-          <span className="text-xs text-muted-foreground">pagina {d.page}</span>
-          <select aria-label="Tipul" className={selectClass} value={d.type} disabled={!d.include}
-                  onChange={(e) => setType(e.target.value as QuizItemType)}>
-            <option value="SINGLE_CHOICE">Grilă</option>
-            <option value="OPEN">Rezolvare completă</option>
-          </select>
-          <label className="flex items-center gap-2 text-sm">
-            Puncte
-            <Input type="number" min={0} max={100} className="w-20" value={draftPoints(d)}
-                   disabled={!d.include || d.parts.length > 0}
-                   onChange={(e) => onChange({ points: e.target.value === '' ? 0 : Number(e.target.value) })} />
-          </label>
+          {d.include && (
+            <Button type="button" variant={editing ? 'default' : 'outline'} size="xs" onClick={() => setEditing(!editing)}
+                    disabled={editing && needsForm(d)}>
+              {editing ? 'Gata' : 'Editează'}
+            </Button>
+          )}
         </div>
 
         {d.include && (
@@ -557,6 +586,63 @@ function DraftCard({ draft: d, place, enChapters, onChange, pageUrl }: {
                 {d.warnings.map((w) => <li key={w}>⚠ {w}</li>)}
               </ul>
             )}
+            {!editing && (
+              <div className="space-y-3">
+                <MathContent className="text-sm">{d.statement}</MathContent>
+                {d.type === 'SINGLE_CHOICE' && (
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">
+                      Apasă pe varianta corectă (sau las-o: o pune baremul după ce creezi testul).
+                    </p>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {d.options.map((option, i) => option.trim() !== '' && (
+                        <button key={i} type="button" aria-pressed={d.correct === i}
+                                aria-label={`Varianta ${optionLetter(i)}) e corectă`}
+                                onClick={() => onChange({ correct: d.correct === i ? null : i })}
+                                className={`flex min-h-11 items-center gap-2 rounded-md border px-3 py-2 text-left text-sm ${
+                                  d.correct === i
+                                    ? 'border-green-600 bg-green-50 font-medium dark:bg-green-950/40'
+                                    : 'hover:bg-muted/60'}`}>
+                          <span className="font-semibold">{optionLetter(i)})</span>
+                          <MathContent inline>{option}</MathContent>
+                          {d.correct === i && <span className="ml-auto text-green-700 dark:text-green-400">✓</span>}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {d.type === 'OPEN' && d.parts.length > 0 && (
+                  <ol className="space-y-1 text-sm" data-testid="ai-parts">
+                    {d.parts.map((part, i) => (
+                      <li key={i} className="flex gap-2">
+                        <span className="font-semibold">{String.fromCharCode(97 + i)})</span>
+                        <MathContent className="flex-1">{part.statement}</MathContent>
+                        <span className="shrink-0 text-muted-foreground">{part.points} p</span>
+                      </li>
+                    ))}
+                  </ol>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  {d.type === 'SINGLE_CHOICE' ? 'Grilă' : 'Rezolvare completă'} · {draftPoints(d)} p
+                  {enChapter && <> · Capitol EN {enChapter.code} {enChapter.title}</>}
+                  {d.solution.trim() !== '' && <> · are barem</>}
+                </p>
+              </div>
+            )}
+            {editing && (<>
+            <div className="flex flex-wrap items-center gap-3">
+              <select aria-label="Tipul" className={selectClass} value={d.type}
+                      onChange={(e) => setType(e.target.value as QuizItemType)}>
+                <option value="SINGLE_CHOICE">Grilă</option>
+                <option value="OPEN">Rezolvare completă</option>
+              </select>
+              <label className="flex items-center gap-2 text-sm">
+                Puncte
+                <Input type="number" min={0} max={100} className="w-20" value={draftPoints(d)}
+                       disabled={d.parts.length > 0}
+                       onChange={(e) => onChange({ points: e.target.value === '' ? 0 : Number(e.target.value) })} />
+              </label>
+            </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor={`${id}-section`}>Secțiunea</Label>
               {/* Two lines: the heading, then its instruction ("Încercuiește litera…"), as the quiz builder shows them. */}
@@ -631,6 +717,7 @@ function DraftCard({ draft: d, place, enChapters, onChange, pageUrl }: {
               <Label htmlFor={`${id}-solution`}>Barem / rezolvare (opțional)</Label>
               <Textarea id={`${id}-solution`} rows={2} value={d.solution} onChange={(e) => onChange({ solution: e.target.value })} />
             </div>
+            </>)}
             {d.figure && pageUrl ? (
               <div className="space-y-2" data-testid="ai-figure">
                 <p className="text-sm font-medium">Desenul (decupat automat din pagina {d.figure.page})</p>

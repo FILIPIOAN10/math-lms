@@ -165,6 +165,40 @@ describe('AdminAiImportPage', () => {
     await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/admin/quizzes/9'))
   })
 
+  it('shows each exercise to read, grouped under its subject; the form opens only on Editează', async () => {
+    const user = userEvent.setup()
+    renderAt('/admin/quizzes/ai-import/5')
+
+    const [grila, open] = await screen.findAllByTestId('ai-draft')
+    expect(screen.getByRole('heading', { name: /SUBIECTUL I\b.*1 exercițiu/ })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /SUBIECTUL al II-lea.*1 exercițiu/ })).toBeInTheDocument()
+    expect(within(grila).getByRole('heading', { name: 'Exercițiul 1' })).toBeInTheDocument()
+    expect(within(grila).queryByRole('textbox')).not.toBeInTheDocument() // nothing to fill in by default
+    expect(within(grila).getByText(/Cât face/)).toBeInTheDocument()
+
+    const b = within(grila).getByLabelText('Varianta b) e corectă')
+    expect(b).toHaveAttribute('aria-pressed', 'false')
+    await user.click(b)
+    expect(b).toHaveAttribute('aria-pressed', 'true')
+
+    await user.click(within(open).getByRole('button', { name: 'Editează' }))
+    await user.clear(within(open).getByLabelText('Enunțul'))
+    await user.type(within(open).getByLabelText('Enunțul'), 'Calculează perimetrul.')
+    await user.click(within(open).getByRole('button', { name: 'Gata' }))
+    expect(within(open).queryByLabelText('Enunțul')).not.toBeInTheDocument()
+    expect(within(open).getByText('Calculează perimetrul.')).toBeInTheDocument()
+  })
+
+  it('opens the form by itself for a grilă that cannot go in as read', async () => {
+    const items = done().items!
+    items[0] = { ...items[0], options: ['7'] }
+    api.getAiImport.mockResolvedValue(done({ items }))
+    renderAt('/admin/quizzes/ai-import/5')
+
+    const [grila] = await screen.findAllByTestId('ai-draft')
+    expect(within(grila).getByLabelText('Enunțul')).toBeInTheDocument()
+  })
+
   it('puts the drawing the AI cut out under its question; the teacher keeps it or takes it out', async () => {
     const user = userEvent.setup()
     api.createQuizFromAiImport.mockResolvedValue(9)
