@@ -95,6 +95,25 @@ describe('AdminQuizzesPage', () => {
       await waitFor(() => expect(api.createQuiz).toHaveBeenCalledWith(expect.objectContaining({ maxAttempts: 3 })))
     })
 
+    it('asks only for the title and the class; the rest waits folded under Setări, saying what it is set to', async () => {
+      renderAt('/admin/quizzes')
+      await userEvent.click(await screen.findByRole('button', { name: 'Adaugă test' }))
+      const dialog = await screen.findByRole('dialog', { name: 'Adaugă test' })
+
+      const settings = within(dialog).getByTestId('quiz-settings')
+      expect(settings).not.toHaveAttribute('open')
+      expect(settings).toContainElement(within(dialog).getByLabelText('Câte încercări are elevul'))
+      expect(settings).toContainElement(within(dialog).getByLabelText('Limită de timp (minute, opțional)'))
+      expect(settings).not.toContainElement(within(dialog).getByLabelText('Titlu'))
+      expect(settings).not.toContainElement(within(dialog).getByLabelText('Pentru clasa'))
+      expect(within(dialog).getByTestId('quiz-settings-summary')).toHaveTextContent('1 încercare · fără limită de timp')
+
+      await userEvent.click(within(settings).getByText('Setări'))
+      await userEvent.type(within(dialog).getByLabelText('Limită de timp (minute, opțional)'), '30')
+      await userEvent.click(within(dialog).getByLabelText('Permite exersarea'))
+      expect(within(dialog).getByTestId('quiz-settings-summary')).toHaveTextContent('1 încercare · 30 min · cu exersare')
+    })
+
     it('tells the teacher what more attempts mean', async () => {
       renderAt('/admin/quizzes')
       await userEvent.click(await screen.findByRole('button', { name: 'Adaugă test' }))

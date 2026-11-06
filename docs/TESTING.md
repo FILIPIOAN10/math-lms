@@ -86,7 +86,7 @@ Apoi, logat ca **admin**, construiește datele de mai jos (fiecare pas exerseaz�
 | D2 | Clasa a 8-a → **Elevi** | înscrie **Ana** și **Radu** (înscriere în masă) |
 | D3 | Clasa a 8-a → **Adaugă carte** | **Algebra 8** → capitolul **Fracții** → 2 exerciții cu LaTeX (`$\frac{3}{4}+\frac{1}{8}$`) |
 | D4 | **Elevi** | leagă **Maria Parinte → Ana** |
-| D5 | **Teste → Adaugă test** | **Fracții — exersare**: toți elevii, fără limită, **„Permite exersarea” bifat**, **Capitol: Fracții** (pentru harta pe capitole) |
+| D5 | **Teste → Adaugă test** | **Fracții — exersare**: toți elevii; la **Setări**: fără limită, **„Permite exersarea” bifat**, **Capitol: Fracții** (pentru harta pe capitole) |
 | D6 | în editorul lui → **Importă din text** | lipește blocul **A** |
 | D7 | **Adaugă test** | **Simulare EN**: Clasa a 8-a, **10 minute**, fără practică, **Capitol: Fracții** → importă blocul **B**; apoi la subiectul 3 alege **Capitol** = un al doilea capitol (ex. adaugă „Procente” în Algebra 8) |
 | D8 | **Adaugă test** | **Ciornă goală** — fără întrebări |
@@ -381,7 +381,7 @@ Din bara de sus: **Testele mele**.
 - ca admin sau părinte, `/quizzes` te trimite acasă (RoleRoute)
 
 ### 11a. Quiz cronometrat — timer pe server (`/admin/quizzes`, apoi `/quizzes`)
-**Ca admin:** la „Adaugă test” / „Editează” completează **Limită de timp (minute)** (1–600; gol = fără limită). Lista arată „⏱ 45 min”.
+**Ca admin:** la „Adaugă test” / „Editează” deschide **Setări** și completează **Limită de timp (minute)** (1–600; gol = fără limită). Lista arată „⏱ 45 min”.
 **Ca elev:** în „Testele mele” apare „⏱ 45 de minute” (de la 20 în sus cu „de”); pe pagina testului scrie că cronometrul pornește la „Începe testul”.
 Revino la el după câteva minute: pagina de start scrie „Cronometrul a pornit când ai început testul … mai ai 12 minute” („1 h 35 min” peste o oră), nu că pornește la apăsare.
 - **Testul lăsat cu ceasul pornit nu se pierde din vedere**: pleacă cu **Salvează și ieși** → **Ieși** → pe „Testele mele” mesajul e
@@ -404,7 +404,7 @@ Verificare rapidă fără să aștepți: pornește o încercare, apoi
 Config (opțional): `app.quiz.expiry-job.enabled` (true), `.interval-ms` (30000), `.initial-delay-ms` (20000).
 
 ### 11b. Mod practică (E2) — `/admin/quizzes`, apoi `/quizzes`
-**Ca admin:** în dialogul quiz-ului bifează **Permite exersarea** (implicit nebifat). Lista arată „· exersare permisă”. Practica *dezvăluie* răspunsurile,
+**Ca admin:** în dialogul testului, la **Setări**, bifează **Permite exersarea** (implicit nebifat). Lista arată „· exersare permisă”. Practica *dezvăluie* răspunsurile,
 de aceea e opt-in per quiz: bifeaz-o doar pentru materiale de exersare, nu pentru un test care trebuie să rămână corect.
 **Ca elev:** pe quiz-urile bifate apare lângă **Începe** butonul **Exersează** (sau **Continuă exersarea**).
 - pagina de start: „Mod practică … nu se acordă notă, nu există cronometru”; bandă violet „Mod practică” sus; **niciun cronometru**, chiar dacă quiz-ul are limită

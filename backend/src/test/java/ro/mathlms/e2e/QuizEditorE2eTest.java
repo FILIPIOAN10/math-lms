@@ -64,6 +64,14 @@ class QuizEditorE2eTest extends E2eBase {
         }
     }
 
+    /** The test dialog's "Setări" (description, chapter, time limit, attempts, practice), unfolded. */
+    private void openTestSettings() {
+        WebElement settings = byTestId("quiz-settings");
+        if (settings.getAttribute("open") == null) {
+            settings.findElement(By.tagName("summary")).click();
+        }
+    }
+
     /** The question dialog's own "Salvează", then the dialog is gone. */
     private void saveQuestion() {
         driver.findElement(DIALOG).findElement(By.xpath(".//button[@type='submit' and normalize-space()='Salvează']")).click();
@@ -116,6 +124,7 @@ class QuizEditorE2eTest extends E2eBase {
         wait.until(ExpectedConditions.presenceOfElementLocated(
                 By.xpath("//select[@id='qclass']/option[normalize-space()='" + className + "']")));
         new Select(driver.findElement(By.id("qclass"))).selectByVisibleText(className);
+        openTestSettings();
         new Select(driver.findElement(By.id("qchapter"))).selectByVisibleText(chapter);
         Select attempts = new Select(driver.findElement(By.id("qattempts")));
         assertThat(attempts.getFirstSelectedOption().getText()).isEqualTo("1 încercare");

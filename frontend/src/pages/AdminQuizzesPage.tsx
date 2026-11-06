@@ -139,6 +139,14 @@ function QuizDialog({
   const offered = classId === '' ? chapters : chapters.filter((c) => String(c.schoolClassId) === classId)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const chapterTitle = chapters.find((c) => String(c.id) === chapterId)?.title
+  const settingsSummary = [
+    attemptsLabel(maxAttempts === '' ? null : Number(maxAttempts)),
+    timeLimit.trim() === '' ? 'fără limită de timp' : `${timeLimit.trim()} min`,
+    practiceAllowed ? 'cu exersare' : null,
+    chapterTitle ? `capitol ${chapterTitle}` : null,
+    description.trim() ? 'descriere' : null,
+  ].filter((x): x is string => x !== null).join(' · ')
 
   async function submit(e: FormEvent) {
     e.preventDefault()
@@ -170,10 +178,6 @@ function QuizDialog({
           <Input id="qtitle" value={title} onChange={(e) => setTitle(e.target.value)} required autoFocus />
         </div>
         <div className="flex flex-col gap-2">
-          <Label htmlFor="qdesc">Descriere (opțional)</Label>
-          <Textarea id="qdesc" value={description} onChange={(e) => setDescription(e.target.value)} />
-        </div>
-        <div className="flex flex-col gap-2">
           <Label htmlFor="qclass">Pentru clasa</Label>
           <select
             id="qclass"
@@ -196,62 +200,77 @@ function QuizDialog({
             „Toți elevii” = orice elev activ îl vede. Altfel, doar elevii înscriși în clasa aleasă.
           </p>
         </div>
-        {chapters.length > 0 && (
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="qchapter">Capitol (pentru harta pe capitole)</Label>
-            <ChapterSelect id="qchapter" value={chapterId} onChange={setChapterId} chapters={offered} emptyLabel="— niciunul —" />
-            <p className="text-xs text-muted-foreground">
-              Întrebările testului contează la acest capitol pe harta elevului, dacă nu le alegi altul fiecăruia.
-            </p>
+        {/* What a test rarely changes waits folded; the folded line says what it is set to. */}
+        <details data-testid="quiz-settings" className="rounded-lg border px-3 py-2">
+          <summary className="cursor-pointer text-sm font-medium">
+            Setări
+            <span data-testid="quiz-settings-summary" className="ml-2 font-normal text-muted-foreground">
+              ({settingsSummary})
+            </span>
+          </summary>
+          <div className="mt-3 flex flex-col gap-4">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="qdesc">Descriere (opțional)</Label>
+              <Textarea id="qdesc" value={description} onChange={(e) => setDescription(e.target.value)} />
+            </div>
+            {chapters.length > 0 && (
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="qchapter">Capitol (pentru harta pe capitole)</Label>
+                <ChapterSelect id="qchapter" value={chapterId} onChange={setChapterId} chapters={offered} emptyLabel="— niciunul —" />
+                <p className="text-xs text-muted-foreground">
+                  Întrebările testului contează la acest capitol pe harta elevului, dacă nu le alegi altul fiecăruia.
+                </p>
+              </div>
+            )}
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="qlimit">Limită de timp (minute, opțional)</Label>
+              <Input
+                id="qlimit"
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={600}
+                step={1}
+                placeholder="fără limită"
+                value={timeLimit}
+                onChange={(e) => setTimeLimit(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Cronometrul pornește când elevul începe testul, iar serverul respinge răspunsurile după expirare.
+                Încercările deja începute își păstrează timpul inițial.
+              </p>
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="qattempts">Câte încercări are elevul</Label>
+              <select id="qattempts" className={selectClass} value={maxAttempts} onChange={(e) => setMaxAttempts(e.target.value)}>
+                {attemptChoices.map((n) => (
+                  <option key={n} value={n}>{attemptsLabel(n)}</option>
+                ))}
+                <option value="">Oricâte</option>
+              </select>
+              <p className="text-xs text-muted-foreground">
+                După fiecare încercare elevul vede răspunsurile corecte și baremul. Dacă dai mai multe, contează cea mai mare
+                notă. Exersarea nu se numără, iar când dai testul ca temă încercările pornesc din nou.
+              </p>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label htmlFor="qpractice" className="flex items-center gap-2 text-sm font-medium">
+                <input
+                  id="qpractice"
+                  type="checkbox"
+                  checked={practiceAllowed}
+                  onChange={(e) => setPracticeAllowed(e.target.checked)}
+                />
+                Permite exersarea
+              </label>
+              <p className="text-xs text-muted-foreground">
+                Elevii pot exersa testul fără notă, cu răspunsul corect afișat imediat după fiecare întrebare, fără cronometru
+                și fără efect asupra progresului sau statisticilor. Atenție: exersarea dezvăluie răspunsurile — bifeaz-o
+                doar pentru teste care pot servi ca material de exersare.
+              </p>
+            </div>
           </div>
-        )}
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="qlimit">Limită de timp (minute, opțional)</Label>
-          <Input
-            id="qlimit"
-            type="number"
-            inputMode="numeric"
-            min={1}
-            max={600}
-            step={1}
-            placeholder="fără limită"
-            value={timeLimit}
-            onChange={(e) => setTimeLimit(e.target.value)}
-          />
-          <p className="text-xs text-muted-foreground">
-            Cronometrul pornește când elevul începe testul, iar serverul respinge răspunsurile după expirare.
-            Încercările deja începute își păstrează timpul inițial.
-          </p>
-        </div>
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="qattempts">Câte încercări are elevul</Label>
-          <select id="qattempts" className={selectClass} value={maxAttempts} onChange={(e) => setMaxAttempts(e.target.value)}>
-            {attemptChoices.map((n) => (
-              <option key={n} value={n}>{attemptsLabel(n)}</option>
-            ))}
-            <option value="">Oricâte</option>
-          </select>
-          <p className="text-xs text-muted-foreground">
-            După fiecare încercare elevul vede răspunsurile corecte și baremul. Dacă dai mai multe, contează cea mai mare
-            notă. Exersarea nu se numără, iar când dai testul ca temă încercările pornesc din nou.
-          </p>
-        </div>
-        <div className="flex flex-col gap-1">
-          <label htmlFor="qpractice" className="flex items-center gap-2 text-sm font-medium">
-            <input
-              id="qpractice"
-              type="checkbox"
-              checked={practiceAllowed}
-              onChange={(e) => setPracticeAllowed(e.target.checked)}
-            />
-            Permite exersarea
-          </label>
-          <p className="text-xs text-muted-foreground">
-            Elevii pot exersa testul fără notă, cu răspunsul corect afișat imediat după fiecare întrebare, fără cronometru
-            și fără efect asupra progresului sau statisticilor. Atenție: exersarea dezvăluie răspunsurile — bifeaz-o
-            doar pentru teste care pot servi ca material de exersare.
-          </p>
-        </div>
+        </details>
         {error && <p className="text-sm text-destructive">{error}</p>}
         <div className="flex justify-end gap-2">
           <Button type="button" variant="outline" onClick={onClose} disabled={busy}>Anulează</Button>
