@@ -23,11 +23,12 @@ import { RevisionNote } from '@/components/RevisionNote'
 import { revisionLinks } from '@/lib/enChapters'
 
 /** The teacher's words, set apart from the app's own text so they read as a note from a person. */
+/** The teacher's words, with their maths set like the statements' (a comment often names the formula to revise). */
 function TeacherNote({ text, testId, title }: { text: string; testId: string; title: string }) {
   return (
     <div data-testid={testId} className="rounded-lg border-l-4 border-sky-500 bg-sky-500/10 p-3 text-sm">
       <p className="text-xs font-medium text-sky-800 dark:text-sky-200">{title}</p>
-      <p className="whitespace-pre-line">{text}</p>
+      <MathContent>{text}</MathContent>
     </div>
   )
 }

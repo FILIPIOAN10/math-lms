@@ -91,6 +91,22 @@ describe('AttemptResultView', () => {
     expect(screen.getByTestId('item-teacher-comment')).toHaveTextContent('Ai uitat unitatea de măsură.')
   })
 
+  it("renders the maths in the teacher's comments, like everywhere else, and keeps the line breaks", () => {
+    const withMath = {
+      ...graded,
+      teacherComment: 'Ai scos factorul comun.\nRevezi $x^2-4=(x-2)(x+2)$.',
+      items: graded.items.map((i) => (i.teacherComment ? { ...i, teacherComment: 'Aici era $\\frac{1}{2}$.' } : i)),
+    }
+    render(<AttemptResultView result={withMath} />, { wrapper: MemoryRouter })
+
+    const paper = screen.getByTestId('teacher-comment')
+    expect(paper.querySelector('.katex')).not.toBeNull()
+    expect(paper).not.toHaveTextContent('$')
+    expect(paper).toHaveTextContent('Ai scos factorul comun.')
+    expect(paper.querySelector('[style*="pre-wrap"]')).not.toBeNull()
+    expect(screen.getByTestId('item-teacher-comment').querySelector('.katex')).not.toBeNull()
+  })
+
   it('shows no comment block when the teacher wrote none', () => {
     render(<AttemptResultView result={{ ...graded, teacherComment: null, items: [graded.items[0]] }} />, { wrapper: MemoryRouter })
 

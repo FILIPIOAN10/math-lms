@@ -2,6 +2,7 @@ import { useEffect, useId, useLayoutEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { CommentBank } from '@/components/grading/CommentBank'
+import { CommentPreview } from '@/components/grading/CommentPreview'
 import { PointsPicker } from '@/components/grading/PointsPicker'
 import { AiProposalPanel } from '@/components/grading/AiProposalPanel'
 import { MathContent } from '@/components/MathContent'
@@ -201,6 +202,7 @@ export function ItemGradeForm({
           placeholder="Ex.: Raționament corect, dar ai uitat unitatea de măsură."
           className="min-h-16"
         />
+        <CommentPreview text={value.comment} />
       </div>
       {!readOnly && (
         <CommentBank

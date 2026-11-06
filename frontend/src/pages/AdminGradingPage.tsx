@@ -12,6 +12,7 @@ import { FilterBar, FilterSelect, NoMatches } from '@/components/FilterBar'
 import { GradeByItem } from '@/components/GradeByItem'
 import { useConfirm } from '@/components/useConfirm'
 import { ItemGradeForm } from '@/components/grading/ItemGradeForm'
+import { CommentPreview } from '@/components/grading/CommentPreview'
 import { SectionHeadingView } from '@/components/SectionHeadingView'
 import { numberItems } from '@/lib/sections'
 import { itemTypeLabel } from '@/lib/numericAnswer'
@@ -181,6 +182,7 @@ function OverallComment({
           onBlur={() => void flush()}
           placeholder="Îl văd elevul și părintele, împreună cu rezultatul. Se salvează singur."
         />
+        <CommentPreview text={value} />
         <p role="status" className="text-sm">
           {status === 'saving' && <span className="text-muted-foreground">Se salvează…</span>}
           {status === 'saved' && <span className="text-emerald-700 dark:text-emerald-300">✓ Comentariu salvat</span>}

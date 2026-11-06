@@ -443,6 +443,8 @@ Din bara de sus: **Corectură** (numărul roșu = lucrări de corectat).
 - „De corectat” → **Corectează** → grilele (corectate automat), poza elevului (click = mărime completă), baremul
 - per subiect deschis: punctaj + **Comentariu pentru elev (opțional)** → **Salvează nota și comentariul** → „✓ notat cu X p”;
   punctaj peste valoarea subiectului → eroare
+- un comentariu cu formulă (`Revezi $x^2-4=(x-2)(x+2)$.`) arată sub căsuță „Așa îl vede elevul:” cu formula scrisă frumos; fără `$`
+  nu apare nimic. Elevul și părintele văd formula la fel în rezultat (ambele comentarii, cu rândurile păstrate)
 - **Comentariu pentru toată lucrarea (opțional)** → **Salvează comentariul** → „✓ Comentariu salvat”; merge și pe o lucrare deja
   notată (inclusiv una doar cu grile, notată automat la predare); gol = șterge comentariul; max 2000 de caractere
 - **Finalizează nota** se deblochează când toate subiectele deschise au punctaj → nota se dă pe loc, fără dialog; sus rămâne „✓ Elev: nota e finalizată” cu **Anulează** → lucrarea trece la „Notate”

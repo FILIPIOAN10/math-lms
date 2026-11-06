@@ -112,6 +112,29 @@ describe('AdminGradingPage', () => {
     expect(screen.getByRole('radio', { name: '3' })).toHaveAttribute('aria-checked', 'true')
   })
 
+  it('shows how a comment with maths will look to the student, and nothing for plain words', async () => {
+    await openAttempt()
+
+    const box = screen.getByLabelText('Comentariu pentru elev (opțional)')
+    await userEvent.type(box, 'Bine')
+    expect(screen.queryByTestId('comment-preview')).not.toBeInTheDocument()
+    await userEvent.type(box, ', dar $x^2-4$ se mai descompune.')
+
+    const preview = await screen.findByTestId('comment-preview')
+    expect(preview).toHaveTextContent('Așa îl vede elevul:')
+    expect(preview.querySelector('.katex')).not.toBeNull()
+  })
+
+  it('shows the same preview under the comment for the whole paper', async () => {
+    await openAttempt()
+
+    await userEvent.type(screen.getByLabelText('Comentariu pentru toată lucrarea (opțional)'), 'Revezi $(a-b)^2$.')
+
+    const previews = await screen.findAllByTestId('comment-preview')
+    expect(previews).toHaveLength(1)
+    expect(previews[0].querySelector('.katex')).not.toBeNull()
+  })
+
   it('saves a comment written after the points when the teacher leaves the box', async () => {
     await openAttempt()
 
