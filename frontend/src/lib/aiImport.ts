@@ -1,5 +1,5 @@
 import type { PhotoBox } from '@/components/PhotoCrop'
-import type { EnChapterSummary, ExtractedItem, FigureInput, ItemInput, QuizItemType } from '@/lib/api'
+import type { EnChapterSummary, ExtractedItem, FigureInput, ItemInput, QuestionBarem, QuestionBaremRequest, QuizItemType } from '@/lib/api'
 
 /** Points a question gets when none are printed next to it (EN: a grilă is 5 p, a full solution usually 10 p). */
 export const DEFAULT_POINTS: Record<QuizItemType, number> = { SINGLE_CHOICE: 5, OPEN: 10, NUMERIC: 5 }
@@ -40,6 +40,8 @@ export interface DraftFigure {
 export interface DraftPart {
   statement: string
   points: number
+  /** This requirement's barem; '' = none (typed, or read from the barem photo). */
+  solution: string
   /** '' = automatic */
   enChapter: string
   enChapterReason: string | null
@@ -86,7 +88,7 @@ export function toDrafts(items: ExtractedItem[]): DraftItem[] {
     warnings: item.warnings,
     parts: item.type === 'OPEN'
       ? (item.parts ?? []).map((p) => ({
-          statement: p.statement, points: p.points ?? 0, enChapter: p.enChapter ?? '', enChapterReason: p.enChapterReason ?? null,
+          statement: p.statement, points: p.points ?? 0, solution: '', enChapter: p.enChapter ?? '', enChapterReason: p.enChapterReason ?? null,
         }))
       : [],
     enChapter: item.enChapter ?? '',
@@ -202,9 +204,32 @@ export function toItemInputs(drafts: DraftItem[], enChapters: EnChapterSummary[]
       section: d.section.trim() === '' ? null : d.section.trim(),
       imageRequired: d.imageRequired,
       parts: d.type === 'OPEN' && d.parts.length > 0
-        ? d.parts.map((p) => ({ statement: p.statement.trim(), points: p.points, solution: null, enChapterId: idOf(p.enChapter) }))
+        ? d.parts.map((p) => ({
+          statement: p.statement.trim(), points: p.points, solution: p.solution.trim() === '' ? null : p.solution.trim(),
+          enChapterId: idOf(p.enChapter),
+        }))
         : null,
       enChapterId: idOf(d.enChapter),
     }
   })
+}
+
+/** An open question as the barem reader is told about it: its text, points and requirements, as the review has them. */
+export function toBaremQuestion(d: DraftItem): QuestionBaremRequest {
+  return {
+    statement: d.statement.trim(),
+    points: draftPoints(d),
+    parts: d.parts.map((p) => ({ statement: p.statement.trim(), points: p.points })),
+  }
+}
+
+/**
+ * What the AI read from the barem photo, put on the question: each requirement gets its own barem (one the photo did
+ * not have keeps what was there), and the question's barem (a question without requirements, or general remarks).
+ */
+export function withQuestionBarem(d: DraftItem, barem: QuestionBarem): Partial<DraftItem> {
+  return {
+    parts: d.parts.map((p, i) => ({ ...p, solution: barem.parts[i]?.barem ?? p.solution })),
+    solution: barem.barem ?? d.solution,
+  }
 }

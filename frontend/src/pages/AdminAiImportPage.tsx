@@ -16,6 +16,7 @@ import {
   createQuizFromAiImport,
   discardAiImport,
   getAiImport,
+  getAiGradingSettings,
   getAiImportSettings,
   listAiImports,
   listChapterOptions,
@@ -30,7 +31,11 @@ import {
   type QuizItemType,
   type SchoolClass,
 } from '@/lib/api'
-import { boxToPhoto, draftPlaces, draftPoints, draftProblems, photoToBox, toDrafts, toFigureInputs, toItemInputs, type DraftItem } from '@/lib/aiImport'
+import {
+  boxToPhoto, draftPlaces, draftPoints, draftProblems, photoToBox, toBaremQuestion, toDrafts, toFigureInputs, toItemInputs,
+  withQuestionBarem, type DraftItem, type DraftPart,
+} from '@/lib/aiImport'
+import { QuestionBaremReader } from '@/components/QuestionBaremReader'
 import { FigureCropEditor } from '@/components/FigureCropEditor'
 import { PhotoCrop } from '@/components/PhotoCrop'
 import { defaultHomeworkDue, localInputToIso } from '@/lib/assignments'
@@ -408,6 +413,15 @@ function Review({ ai, classes, chapters, enChapters, onDiscard }: {
 
   const [assign, setAssign] = useState(false)
   const [due, setDue] = useState(() => defaultHomeworkDue(Date.now()))
+  // "Barem din poză (AI)" on Subiectul III problems: only when the server reads barems; the barem pages chosen once
+  // stay here for every problem of the review (they are never uploaded whole, only the framed part).
+  const [baremOn, setBaremOn] = useState(false)
+  const [baremPhotos, setBaremPhotos] = useState<File[]>([])
+  useEffect(() => {
+    let stopped = false
+    getAiGradingSettings().then((s) => { if (!stopped) setBaremOn(s.enabled) }).catch(() => {})
+    return () => { stopped = true }
+  }, [])
 
   const problems = draftProblems(drafts)
   const kept = drafts.filter((d) => d.include).length
@@ -516,7 +530,8 @@ function Review({ ai, classes, chapters, enChapters, onDiscard }: {
               <li key={d.key}>
                 <DraftCard draft={d} place={places.get(d.key) ?? null} enChapters={enChapters}
                            onChange={(change) => update(d.key, change)}
-                           pageUrl={ai.pagesAvailable ? (page) => aiImportPageUrl(ai.id, page) : null} />
+                           pageUrl={ai.pagesAvailable ? (page) => aiImportPageUrl(ai.id, page) : null}
+                           barem={baremOn ? { photos: baremPhotos, onPhotos: setBaremPhotos } : null} />
               </li>
             ))}
           </ol>
@@ -585,7 +600,7 @@ function ProposalReason({ reason, shown }: { reason: string | null; shown: boole
   return <p className="text-xs text-muted-foreground">Propus de AI: {reason}</p>
 }
 
-function DraftCard({ draft: d, place, enChapters, onChange, pageUrl }: {
+function DraftCard({ draft: d, place, enChapters, onChange, pageUrl, barem = null }: {
   draft: DraftItem
   /** "SUBIECTUL II · Exercițiul 3": where it sits on the paper and in the test; null when left out. */
   place: string | null
@@ -593,6 +608,8 @@ function DraftCard({ draft: d, place, enChapters, onChange, pageUrl }: {
   onChange: (change: Partial<DraftItem>) => void
   /** The page photos, while they are kept (null once gone: then there is nothing to cut from). */
   pageUrl: ((page: number) => string) | null
+  /** "Barem din poză (AI)": the barem pages shared by the review; null when the server does not read barems. */
+  barem?: { photos: File[]; onPhotos: (photos: File[]) => void } | null
 }) {
   const [editingFigure, setEditingFigure] = useState(false)
   // Read first: the form is there for the few questions the AI got wrong.
@@ -681,7 +698,7 @@ function DraftCard({ draft: d, place, enChapters, onChange, pageUrl }: {
                 <p className="text-xs text-muted-foreground">
                   {d.type === 'SINGLE_CHOICE' ? 'Grilă' : 'Rezolvare completă'} · {draftPoints(d)} p
                   {enChapter && <> · Capitol EN {enChapter.code} {enChapter.title}</>}
-                  {d.solution.trim() !== '' && <> · are barem</>}
+                  {(d.solution.trim() !== '' || d.parts.some((p) => p.solution.trim() !== '')) && <> · are barem</>}
                 </p>
               </div>
             )}
@@ -741,7 +758,7 @@ function DraftCard({ draft: d, place, enChapters, onChange, pageUrl }: {
                 <legend className="text-sm font-medium">Cerințe (fiecare se notează separat)</legend>
                 {d.parts.map((part, i) => {
                   const letter = String.fromCharCode(97 + i)
-                  const setPart = (change: Partial<{ statement: string; points: number; enChapter: string }>) =>
+                  const setPart = (change: Partial<DraftPart>) =>
                     onChange({ parts: d.parts.map((p, j) => (j === i ? { ...p, ...change } : p)) })
                   return (
                     <div key={i} className="space-y-1">
@@ -755,6 +772,14 @@ function DraftCard({ draft: d, place, enChapters, onChange, pageUrl }: {
                         <span className="mt-2 text-sm text-muted-foreground">p</span>
                       </div>
                       <MathContent className="ml-7 rounded-md bg-muted/40 p-2 text-sm">{part.statement}</MathContent>
+                      <div className="ml-7 space-y-1">
+                        <Textarea rows={2} value={part.solution} aria-label={`Barem cerința ${letter})`}
+                                  placeholder={`Barem ${letter}) (opțional)`}
+                                  onChange={(e) => setPart({ solution: e.target.value })} />
+                        {part.solution.trim() !== '' && (
+                          <MathContent className="whitespace-pre-line rounded-md bg-muted/40 p-2 text-sm">{part.solution}</MathContent>
+                        )}
+                      </div>
                       {enChapters.length > 0 && (
                         <div className="ml-7 space-y-1">
                           <EnChapterSelect id={`${id}-part-${i}-en`} label={`Capitol EN cerința ${letter})`} by="code"
@@ -768,6 +793,10 @@ function DraftCard({ draft: d, place, enChapters, onChange, pageUrl }: {
                   )
                 })}
               </fieldset>
+            )}
+            {d.type === 'OPEN' && barem && d.statement.trim() !== '' && (
+              <QuestionBaremReader question={toBaremQuestion(d)} photos={barem.photos} onPhotos={barem.onPhotos}
+                                   onRead={(read) => onChange(withQuestionBarem(d, read))} />
             )}
             <div className="flex flex-col gap-2">
               <Label htmlFor={`${id}-solution`}>Barem / rezolvare (opțional)</Label>

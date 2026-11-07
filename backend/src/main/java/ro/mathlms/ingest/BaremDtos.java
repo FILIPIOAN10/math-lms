@@ -40,4 +40,28 @@ public final class BaremDtos {
     public record PartProposal(Long partId, String label, int points, String statement, String currentBarem,
                                String proposedBarem) {
     }
+
+    /**
+     * One open question of an AI import still in review, as the review shows it: its statement, its points and its
+     * requirements a), b)... (in order; labels follow from the place). Sent with the photo of its barem.
+     */
+    public record QuestionRequest(String statement, int points, List<QuestionPart> parts) {
+    }
+
+    public record QuestionPart(String statement, int points) {
+    }
+
+    /** One question's reading; {@code barem} once it is DONE. */
+    public record QuestionBaremReadDto(Long id, AiImportStatus status, String error, QuestionBaremDto barem) {
+    }
+
+    /**
+     * What the AI read for that question: {@code barem} for a question without requirements (or general remarks),
+     * {@code parts} one per requirement in the question's order ({@code barem} null where the photo had none).
+     */
+    public record QuestionBaremDto(String barem, List<QuestionPartBarem> parts, List<String> warnings) {
+    }
+
+    public record QuestionPartBarem(String label, String barem) {
+    }
 }

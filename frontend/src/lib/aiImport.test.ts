@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import type { ExtractedItem } from '@/lib/api'
 import {
-  boxFromDrag, boxToPhoto, draftPlaces, draftProblems, moveBox, photoToBox, resizeBox, toDrafts, toFigureInputs, toItemInputs,
+  boxFromDrag, boxToPhoto, draftPlaces, draftProblems, moveBox, photoToBox, resizeBox, toBaremQuestion, toDrafts, toFigureInputs, toItemInputs,
+  withQuestionBarem,
 } from '@/lib/aiImport'
 
 describe('draftPlaces', () => {
@@ -51,6 +52,32 @@ describe('aiImport', () => {
     })
     problem.parts[0].statement = ' '
     expect(draftProblems([problem])).toEqual(['Întrebarea 1: o cerință nu are enunț.'])
+  })
+
+  it("puts the barem read from the photo on each requirement, and sends it with the test", () => {
+    const [problem] = toDrafts([read({
+      type: 'OPEN', options: [], points: null, statement: ' Într-o pungă sunt bomboane. ',
+      parts: [{ statement: 'Verificați 55.', points: 2 }, { statement: 'Cel mai mic număr.', points: 3 }],
+    })])
+    expect(toBaremQuestion(problem)).toEqual({
+      statement: 'Într-o pungă sunt bomboane.', points: 5,
+      parts: [{ statement: 'Verificați 55.', points: 2 }, { statement: 'Cel mai mic număr.', points: 3 }],
+    })
+    problem.parts[1].solution = 'scris de mână'
+
+    Object.assign(problem, withQuestionBarem(problem, {
+      barem: null, parts: [{ label: 'a', barem: '$55 : 4 = 13$ rest 3 ... 1p' }, { label: 'b', barem: null }], warnings: [],
+    }))
+
+    expect(problem.parts.map((p) => p.solution)).toEqual(['$55 : 4 = 13$ rest 3 ... 1p', 'scris de mână'])
+    expect(toItemInputs([problem])[0].parts?.map((p) => p.solution)).toEqual(['$55 : 4 = 13$ rest 3 ... 1p', 'scris de mână'])
+    expect(toItemInputs([problem])[0].solution).toBeNull()
+  })
+
+  it('puts the barem of a question without requirements on the question', () => {
+    const [problem] = toDrafts([read({ type: 'OPEN', options: [], statement: 'Calculați aria.' })])
+    Object.assign(problem, withQuestionBarem(problem, { barem: 'Aria $= 12$ ... 5p', parts: [], warnings: [] }))
+    expect(toItemInputs([problem])[0].solution).toBe('Aria $= 12$ ... 5p')
   })
 
   it('starts every question included, with no answer marked and printed points kept', () => {

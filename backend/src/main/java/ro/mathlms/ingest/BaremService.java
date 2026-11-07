@@ -20,6 +20,11 @@ import ro.mathlms.ingest.BaremDtos.BaremProposalDto;
 import ro.mathlms.ingest.BaremDtos.BaremReadDto;
 import ro.mathlms.ingest.BaremDtos.ItemProposal;
 import ro.mathlms.ingest.BaremDtos.PartProposal;
+import ro.mathlms.ingest.BaremDtos.QuestionBaremDto;
+import ro.mathlms.ingest.BaremDtos.QuestionBaremReadDto;
+import ro.mathlms.ingest.BaremDtos.QuestionPart;
+import ro.mathlms.ingest.BaremDtos.QuestionPartBarem;
+import ro.mathlms.ingest.BaremDtos.QuestionRequest;
 import ro.mathlms.ingest.BaremReader.Entry;
 import ro.mathlms.ingest.BaremReader.OutlineItem;
 import ro.mathlms.ingest.BaremReader.OutlinePart;
@@ -72,6 +77,9 @@ public class BaremService {
     static final String NO_QUESTIONS = "Testul nu are încă întrebări: adaugă-le, apoi încarcă baremul.";
     private static final TypeReference<List<StoredPage>> PAGES = new TypeReference<>() { };
     private static final TypeReference<List<Entry>> ENTRIES = new TypeReference<>() { };
+    /** The number a single question of the review is given for the reader (the photo may print another). */
+    static final String QUESTION_LABEL = "1";
+    private static final int MAX_PARTS = 10;
     private static final Set<String> TYPES = Set.of("image/png", "image/jpeg", "image/webp");
 
     private final BaremReadRepository repository;
@@ -131,6 +139,44 @@ public class BaremService {
             throw new InvalidQuizException(NO_QUESTIONS);
         }
         User teacher = teacher(email);
+        List<StoredPage> stored = store(teacher, files);
+        BaremRead saved = repository.save(new BaremRead(quizId, teacher.getId(), stored.size(), write(stored),
+                clock.instant()));
+        return dto(saved);
+    }
+
+    /**
+     * The barem of ONE open question of an AI import still in review (there is no test yet): the teacher framed that
+     * problem on the barem photo; the question goes along as the review shows it, so the AI knows what to look for.
+     */
+    @Transactional
+    public QuestionBaremReadDto createForQuestion(String email, List<MultipartFile> files, QuestionRequest question) {
+        requireEnabled();
+        if (question == null || question.statement() == null || question.statement().isBlank()) {
+            throw new InvalidQuizException("Întrebarea nu are enunț: scrie-l, apoi citește baremul.");
+        }
+        List<QuestionPart> parts = question.parts() == null ? List.of() : question.parts();
+        if (parts.size() > MAX_PARTS || parts.stream().anyMatch(p -> p == null || p.statement() == null)) {
+            throw new InvalidQuizException("Cerințele întrebării nu sunt valide.");
+        }
+        User teacher = teacher(email);
+        List<StoredPage> stored = store(teacher, files);
+        String asked = write(new QuestionRequest(question.statement().strip(), question.points(), parts));
+        BaremRead saved = repository.save(BaremRead.forQuestion(asked, teacher.getId(), stored.size(),
+                write(stored), clock.instant()));
+        return questionDto(saved);
+    }
+
+    /** One of the teacher's own readings of a single question; another teacher's is the same 404 as a missing one. */
+    @Transactional(readOnly = true)
+    public QuestionBaremReadDto getForQuestion(String email, Long id) {
+        requireEnabled();
+        return questionDto(repository.findByIdAndTeacherIdAndQuizIdIsNull(id, teacher(email).getId())
+                .orElseThrow(() -> new QuizNotFoundException("BaremRead", id)));
+    }
+
+    /** Checks the photos and the teacher's daily limit, then stores them (deleted again if the request rolls back). */
+    private List<StoredPage> store(User teacher, List<MultipartFile> files) {
         List<MultipartFile> pages = files == null ? List.of() : files.stream().filter(f -> f != null && !f.isEmpty()).toList();
         if (pages.isEmpty()) {
             throw new InvalidQuizException("Alege cel puțin o poză cu baremul.");
@@ -165,9 +211,7 @@ public class BaremService {
                 throw new UncheckedIOException("Nu am putut salva poza", e);
             }
         }
-        BaremRead saved = repository.save(new BaremRead(quizId, teacher.getId(), stored.size(), write(stored),
-                clock.instant()));
-        return dto(saved);
+        return stored;
     }
 
     /** One of the teacher's own readings of this test; another teacher's is the same 404 as a missing one. */
@@ -185,7 +229,9 @@ public class BaremService {
         Optional<Claimed> claimed = tx.execute(status -> repository.claimNext().map(read -> {
             read.start(clock.instant());
             repository.save(read);
-            return new Claimed(read.getId(), parse(read.getPageKeys(), PAGES), outline(read.getQuizId()));
+            List<OutlineItem> questions = read.getQuizId() != null ? outline(read.getQuizId())
+                    : List.of(outlineOf(parse(read.getQuestionJson(), QuestionRequest.class)));
+            return new Claimed(read.getId(), parse(read.getPageKeys(), PAGES), questions);
         }));
         if (claimed == null || claimed.isEmpty()) {
             return false;
@@ -273,6 +319,43 @@ public class BaremService {
                     item.getPoints(), parts));
         }
         return outline;
+    }
+
+    /** A question of the review, as the reader gets it: numbered "1", requirements lettered a), b)... by place. */
+    static OutlineItem outlineOf(QuestionRequest question) {
+        List<OutlinePart> parts = new ArrayList<>();
+        for (int i = 0; i < question.parts().size(); i++) {
+            QuestionPart part = question.parts().get(i);
+            parts.add(new OutlinePart(BaremReading.letter(i), part.statement(), part.points()));
+        }
+        return new OutlineItem(QUESTION_LABEL, QuizItemType.OPEN, question.statement(), List.of(), question.points(),
+                parts);
+    }
+
+    private QuestionBaremReadDto questionDto(BaremRead read) {
+        QuestionBaremDto barem = read.getStatus() == AiImportStatus.DONE && read.getResultJson() != null
+                ? questionBarem(parse(read.getQuestionJson(), QuestionRequest.class), parse(read.getResultJson(), ENTRIES))
+                : null;
+        return new QuestionBaremReadDto(read.getId(), read.getStatus(), read.getError(), barem);
+    }
+
+    /**
+     * The one question's barem: the entry the AI gave (only one question was asked, so whatever number the photo
+     * printed next to it), each requirement by its letter, in the question's order.
+     */
+    static QuestionBaremDto questionBarem(QuestionRequest question, List<Entry> entries) {
+        Entry entry = entries.isEmpty() ? null : entries.getFirst();
+        if (entry == null) {
+            return new QuestionBaremDto(null, List.of(), List.of());
+        }
+        List<PartBarem> read = entry.parts() == null ? List.of() : entry.parts();
+        List<QuestionPartBarem> parts = new ArrayList<>();
+        for (int i = 0; i < question.parts().size(); i++) {
+            String label = BaremReading.letter(i);
+            parts.add(new QuestionPartBarem(label, read.stream().filter(p -> label.equalsIgnoreCase(p.label()))
+                    .map(PartBarem::barem).findFirst().orElse(null)));
+        }
+        return new QuestionBaremDto(entry.barem(), parts, entry.warnings() == null ? List.of() : entry.warnings());
     }
 
     private BaremReadDto dto(BaremRead read) {
@@ -365,6 +448,14 @@ public class BaremService {
             return objectMapper.writeValueAsString(value);
         } catch (JacksonException e) {
             throw new IllegalStateException("Cannot write barem JSON", e);
+        }
+    }
+
+    private <T> T parse(String json, Class<T> type) {
+        try {
+            return objectMapper.readValue(json, type);
+        } catch (JacksonException e) {
+            throw new IllegalStateException("Cannot read barem JSON", e);
         }
     }
 

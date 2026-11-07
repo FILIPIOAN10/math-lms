@@ -11,10 +11,13 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import ro.mathlms.ingest.BaremDtos.AiGradingSettingsDto;
 import ro.mathlms.ingest.BaremDtos.BaremReadDto;
+import ro.mathlms.ingest.BaremDtos.QuestionBaremReadDto;
+import ro.mathlms.ingest.BaremDtos.QuestionRequest;
 import ro.mathlms.quiz.BaremApply;
 import ro.mathlms.quiz.QuizAdminService;
 import ro.mathlms.teaching.TeacherScope;
@@ -55,6 +58,19 @@ public class BaremController {
     public BaremReadDto get(@PathVariable Long quizId, @PathVariable Long id, Authentication auth) {
         scope.requireQuiz(quizId);
         return service.get(auth.getName(), quizId, id);
+    }
+
+    /** The barem of one open question of an AI import still in review (no test yet): the framed photo + the question. */
+    @PostMapping("/api/admin/barem-reads")
+    public ResponseEntity<QuestionBaremReadDto> readForQuestion(@RequestParam(value = "files", required = false) List<MultipartFile> files,
+                                                                @RequestPart("question") QuestionRequest question,
+                                                                Authentication auth) {
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(service.createForQuestion(auth.getName(), files, question));
+    }
+
+    @GetMapping("/api/admin/barem-reads/{id}")
+    public QuestionBaremReadDto getForQuestion(@PathVariable Long id, Authentication auth) {
+        return service.getForQuestion(auth.getName(), id);
     }
 
     @PutMapping("/api/admin/quizzes/{quizId}/barem")

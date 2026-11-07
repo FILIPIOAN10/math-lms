@@ -22,6 +22,9 @@ public interface BaremReadRepository extends JpaRepository<BaremRead, Long> {
 
     Optional<BaremRead> findByIdAndQuizIdAndTeacherId(Long id, Long quizId, Long teacherId);
 
+    /** One question's reading (no test yet), only for the teacher who sent it. */
+    Optional<BaremRead> findByIdAndTeacherIdAndQuizIdIsNull(Long id, Long teacherId);
+
     /** Barem photos one teacher sent since {@code since} (the daily limit). */
     @Query("select coalesce(sum(b.pageCount), 0) from BaremRead b where b.teacherId = :teacherId and b.createdAt >= :since")
     long pagesSince(@Param("teacherId") Long teacherId, @Param("since") Instant since);

@@ -36,3 +36,33 @@ export async function shrinkImage(file: File, maxSide = 2000, quality = 0.85): P
     return file
   }
 }
+
+/**
+ * The part of a photo inside `box` (fractions 0-1 of its width and height) as its own JPEG, long edge at most
+ * `maxSide` px: what the teacher framed is all that goes up. A photo the browser cannot decode goes whole.
+ */
+export async function cropImage(file: File, box: { x: number; y: number; w: number; h: number }, maxSide = 2000,
+  quality = 0.9): Promise<File> {
+  try {
+    const bitmap = await createImageBitmap(file)
+    const sx = Math.round(box.x * bitmap.width)
+    const sy = Math.round(box.y * bitmap.height)
+    const sw = Math.max(1, Math.round(box.w * bitmap.width))
+    const sh = Math.max(1, Math.round(box.h * bitmap.height))
+    const scale = Math.min(1, maxSide / Math.max(sw, sh))
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.max(1, Math.round(sw * scale))
+    canvas.height = Math.max(1, Math.round(sh * scale))
+    const context = canvas.getContext('2d')
+    if (!context) {
+      bitmap.close()
+      return file
+    }
+    context.drawImage(bitmap, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height)
+    bitmap.close()
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality))
+    return blob ? new File([blob], file.name.replace(/\.[^.]+$/, '') + '-barem.jpg', { type: 'image/jpeg' }) : file
+  } catch {
+    return file
+  }
+}

@@ -29,8 +29,13 @@ public class BaremRead {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "quiz_id", nullable = false)
+    /** The test whose barem is read; null for one question of an AI import still in review ({@link #questionJson}). */
+    @Column(name = "quiz_id")
     private Long quizId;
+
+    /** The question (statement, points, requirements) as the review sent it, when there is no test yet (V52). */
+    @Column(name = "question_json", columnDefinition = "TEXT")
+    private String questionJson;
 
     @Column(name = "teacher_id", nullable = false)
     private Long teacherId;
@@ -76,6 +81,18 @@ public class BaremRead {
         this.pageKeys = Objects.requireNonNull(pageKeys, "pageKeys");
         this.status = AiImportStatus.QUEUED;
         this.createdAt = now;
+    }
+
+    /** The barem of one question of an import still in review: there is no test yet, only the question as sent. */
+    public static BaremRead forQuestion(String questionJson, Long teacherId, int pageCount, String pageKeys, Instant now) {
+        BaremRead read = new BaremRead();
+        read.questionJson = Objects.requireNonNull(questionJson, "questionJson");
+        read.teacherId = Objects.requireNonNull(teacherId, "teacherId");
+        read.pageCount = pageCount;
+        read.pageKeys = Objects.requireNonNull(pageKeys, "pageKeys");
+        read.status = AiImportStatus.QUEUED;
+        read.createdAt = now;
+        return read;
     }
 
     void start(Instant now) {

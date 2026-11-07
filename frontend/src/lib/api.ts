@@ -1184,6 +1184,45 @@ export async function getBaremRead(quizId: number, id: number): Promise<BaremRea
   return response.json()
 }
 
+/** One open question of an AI import still in review, as the barem reader is told about it (requirements in order). */
+export interface QuestionBaremRequest {
+  statement: string
+  points: number
+  parts: { statement: string; points: number }[]
+}
+
+/** What the AI read for that question: `barem` without requirements (or general remarks), else one per requirement. */
+export interface QuestionBarem {
+  barem: string | null
+  /** In the question's order, lettered a), b)...; `barem` null where the photo had none. */
+  parts: { label: string; barem: string | null }[]
+  warnings: string[]
+}
+
+export interface QuestionBaremRead {
+  id: number
+  status: AiImportStatus
+  error: string | null
+  barem: QuestionBarem | null
+}
+
+/**
+ * The barem of ONE open question while the test does not exist yet (the review of "Test din poze"): the photo framed
+ * on that problem, and the question. Answers at once (QUEUED); poll getQuestionBaremRead until DONE or FAILED.
+ */
+export async function createQuestionBaremRead(photo: File, question: QuestionBaremRequest): Promise<QuestionBaremRead> {
+  const formData = new FormData()
+  formData.append('files', photo)
+  formData.append('question', new Blob([JSON.stringify(question)], { type: 'application/json' }))
+  const response = await apiFetch('/admin/barem-reads', { method: 'POST', body: formData })
+  return response.json()
+}
+
+export async function getQuestionBaremRead(id: number): Promise<QuestionBaremRead> {
+  const response = await apiFetch(`/admin/barem-reads/${id}`)
+  return response.json()
+}
+
 /** What the teacher kept of one question: the right option, the barem, a requirement's barem. Absent = unchanged. */
 export interface BaremEntry {
   itemId: number

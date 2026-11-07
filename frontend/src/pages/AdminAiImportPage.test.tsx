@@ -16,9 +16,15 @@ const api = vi.hoisted(() => ({
   discardAiImport: vi.fn(),
   createQuizFromAiImport: vi.fn(),
   publishAndAssign: vi.fn(),
+  getAiGradingSettings: vi.fn(),
+  createQuestionBaremRead: vi.fn(),
+  getQuestionBaremRead: vi.fn(),
 }))
 vi.mock('@/lib/api', async (original) => ({ ...(await original<typeof import('@/lib/api')>()), ...api }))
-vi.mock('@/lib/image', () => ({ shrinkImage: (file: File) => Promise.resolve(file) }))
+vi.mock('@/lib/image', () => ({
+  shrinkImage: (file: File) => Promise.resolve(file),
+  cropImage: (file: File) => Promise.resolve(file),
+}))
 // pdf.js does not run in jsdom: a test sets the pages a PDF renders to; null = the browser cannot render it.
 const pdfPages = vi.hoisted(() => ({ images: null as File[] | null }))
 vi.mock('@/lib/pdfPages', () => ({
@@ -70,6 +76,9 @@ describe('AdminAiImportPage', () => {
     api.listClasses.mockResolvedValue([{ id: 8, name: 'Clasa a 8-a', description: null }])
     api.listChapterOptions.mockResolvedValue([])
     api.getAiImport.mockResolvedValue(done())
+    api.getAiGradingSettings.mockResolvedValue({ enabled: false, baremMaxPages: 0, baremDailyPageLimit: 0, baremPagesUsedToday: 0 })
+    URL.createObjectURL = vi.fn(() => 'blob:barem')
+    URL.revokeObjectURL = vi.fn()
   })
 
   it('says how many pages one reading takes, as the server allows', async () => {
@@ -308,5 +317,45 @@ describe('AdminAiImportPage', () => {
 
     expect(api.retryAiImport).toHaveBeenCalledWith(5)
     expect(await screen.findByText('Se citește pagina...')).toBeInTheDocument()
+  })
+
+  it('reads the barem of a Subiectul III problem from a photo and sends it with each requirement', async () => {
+    const user = userEvent.setup()
+    api.getAiGradingSettings.mockResolvedValue({ enabled: true, baremMaxPages: 5, baremDailyPageLimit: 20, baremPagesUsedToday: 0 })
+    api.getAiImport.mockResolvedValue(done({ itemCount: 1, items: [
+      { page: 1, section: 'SUBIECTUL al III-lea', type: 'OPEN', statement: 'Într-o pungă sunt bomboane.', options: [],
+        points: null, hasFigure: false, warnings: [],
+        parts: [{ statement: 'Verificați 55.', points: 2 }, { statement: 'Cel mai mic număr.', points: 3 }] },
+    ] }))
+    api.createQuestionBaremRead.mockResolvedValue({ id: 4, status: 'QUEUED', error: null, barem: null })
+    api.getQuestionBaremRead.mockResolvedValue({ id: 4, status: 'DONE', error: null, barem: {
+      barem: null, parts: [{ label: 'a', barem: '55 : 4 = 13 rest 3 ... 1p' }, { label: 'b', barem: 'x = 27 ... 3p' }],
+      warnings: [],
+    } })
+    api.createQuizFromAiImport.mockResolvedValue(9)
+    renderAt('/admin/quizzes/ai-import/5')
+
+    const [problem] = await screen.findAllByTestId('ai-draft')
+    await user.click(within(problem).getByRole('button', { name: 'Editează' }))
+    await user.click(await within(problem).findByRole('button', { name: 'Barem din poză (AI)' }))
+    await user.upload(within(problem).getByLabelText('Poza cu baremul'), new File(['x'], 'barem.jpg', { type: 'image/jpeg' }))
+    await user.click(await within(problem).findByRole('button', { name: 'Citește baremul (AI)' }))
+
+    await waitFor(() => expect(within(problem).getByLabelText('Barem cerința b)')).toHaveValue('x = 27 ... 3p'), { timeout: 4000 })
+    expect(api.createQuestionBaremRead.mock.calls[0][1]).toEqual({
+      statement: 'Într-o pungă sunt bomboane.', points: 5,
+      parts: [{ statement: 'Verificați 55.', points: 2 }, { statement: 'Cel mai mic număr.', points: 3 }],
+    })
+    await user.click(screen.getByRole('button', { name: 'Creează testul (1 întrebare)' }))
+    await waitFor(() => expect(api.createQuizFromAiImport).toHaveBeenCalled())
+    expect(api.createQuizFromAiImport.mock.calls[0][1].items[0].parts.map((p: { solution: string }) => p.solution))
+      .toEqual(['55 : 4 = 13 rest 3 ... 1p', 'x = 27 ... 3p'])
+  })
+
+  it('offers no barem photo when the server does not read barems', async () => {
+    renderAt('/admin/quizzes/ai-import/5')
+    const [, open] = await screen.findAllByTestId('ai-draft')
+    await userEvent.setup().click(within(open).getByRole('button', { name: 'Editează' }))
+    expect(within(open).queryByRole('button', { name: 'Barem din poză (AI)' })).not.toBeInTheDocument()
   })
 })

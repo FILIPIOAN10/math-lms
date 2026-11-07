@@ -33,12 +33,16 @@ const HANDLES: { handle: BoxHandle; left: string; top: string; cursor: string }[
  * from the middle to move it, or drags outside it to draw a new one (mouse or finger); with the box focused, the
  * arrows move it and Shift + arrows resize it. Below, the cut-out as the student will see it; "Gata" keeps it.
  */
-export function FigureCropEditor({ src, box, alt, onDone, onCancel }: {
+export function FigureCropEditor({ src, box, alt, onDone, onCancel, doneLabel = 'Gata', boxLabel = 'Chenarul desenului' }: {
   src: string
   box: PhotoBox
   alt: string
   onDone: (box: PhotoBox) => void
   onCancel: () => void
+  /** The button that keeps the box ("Gata"; the barem reader says what it does next). */
+  doneLabel?: string
+  /** What the box frames, for screen readers. */
+  boxLabel?: string
 }) {
   const area = useRef<HTMLDivElement | null>(null)
   const [current, setCurrent] = useState<PhotoBox>(box)
@@ -105,7 +109,7 @@ export function FigureCropEditor({ src, box, alt, onDone, onCancel }: {
           <div className="absolute shadow-[0_0_0_9999px_rgb(0_0_0/0.45)]" style={placed} />
         </div>
         <div data-box="" data-testid="figure-box" tabIndex={0} role="group" onKeyDown={key}
-             aria-label="Chenarul desenului: săgețile îl mută, Shift și săgețile îi schimbă mărimea"
+             aria-label={`${boxLabel}: săgețile îl mută, Shift și săgețile îi schimbă mărimea`}
              className="absolute cursor-move border-2 border-primary outline-none focus-visible:ring-3 focus-visible:ring-ring/60"
              style={placed}>
           {HANDLES.map(({ handle, left, top, cursor }) => (
@@ -120,7 +124,7 @@ export function FigureCropEditor({ src, box, alt, onDone, onCancel }: {
         <PhotoCrop src={src} box={preview} alt={alt} className="max-h-48 rounded border" />
       </div>
       <div className="flex gap-2">
-        <Button type="button" size="sm" onClick={() => onDone(current)}>Gata</Button>
+        <Button type="button" size="sm" onClick={() => onDone(current)}>{doneLabel}</Button>
         <Button type="button" size="sm" variant="outline" onClick={onCancel}>Anulează</Button>
       </div>
     </div>
