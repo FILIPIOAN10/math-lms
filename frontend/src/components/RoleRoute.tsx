@@ -1,5 +1,6 @@
 import { type ReactNode } from 'react'
 import { Navigate } from 'react-router-dom'
+import { LoginRedirect } from '@/components/LoginRedirect'
 import { useAuth } from '@/context/AuthContext'
 import { type Role } from '@/lib/api'
 
@@ -21,7 +22,7 @@ export function RoleRoute({ role, children }: { role: Role; children: ReactNode 
   }
 
   if (!user) {
-    return <Navigate to="/login" replace />
+    return <LoginRedirect />
   }
 
   if (user.status !== 'ACTIVE') {

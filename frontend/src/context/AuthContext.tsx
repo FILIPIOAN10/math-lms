@@ -9,6 +9,7 @@ import {
   type User,
 } from '@/lib/api'
 import { clearAllAnswerQueues } from '@/lib/answerQueue'
+import { forgetReturnOnSignOut } from '@/lib/returnTo'
 
 interface AuthContextValue {
   user: User | null
@@ -84,6 +85,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function logout() {
     // Answers waiting for a connection belong to this person: the next one on this computer must not send them.
     clearAllAnswerQueues()
+    // The page they leave is theirs: the next person signing in here must not be sent to it.
+    forgetReturnOnSignOut()
     await apiLogout()
     setUser(null)
   }

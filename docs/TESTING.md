@@ -1005,6 +1005,14 @@ V49 adaugă A12–A15 și G10 și completează 17 capitole cu temele cerute de p
 | 6 | La o întrebare alege manual **A14**, apoi elevul o greșește | Pe rezultat apare „Vezi lecția: A14…” |
 | 7 | **Sugerează capitolele (AI)** cu furnizorul `fake`, pe un enunț cu „probabilitatea” | Propune A15 |
 
+### 37. Conectarea te duce unde voiai (orice rol)
+Deconectat, deschide un link din aplicație, de ex. `/capitole/1?x=1` sau linkul „rezultatul e gata” din email → ajungi la **Autentificare**.
+Conectează-te (parolă, cod 2FA sau Google) → ajungi **pe pagina cerută**, cu tot cu `?…`, nu pe Acasă.
+- fără link cerut → Acasă, ca înainte
+- **Ieșire** de pe o pagină, apoi altcineva se conectează pe același calculator → ajunge pe **Acasă**, nu pe pagina celui dinainte
+- un link spre alt site (`//exemplu.ro`) sau spre `/login` nu e păstrat; o pagină pe care rolul tău n-o vede te trimite tot pe Acasă
+- păstrat doar în tab-ul curent (`sessionStorage`, cheia `mathlms-return-to`), șters după ce ajungi
+
 ## E. Debugging — unde te uiți când pică ceva
 
 ```bash

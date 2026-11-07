@@ -1,5 +1,6 @@
 import { type ReactNode } from 'react'
 import { Navigate } from 'react-router-dom'
+import { LoginRedirect } from '@/components/LoginRedirect'
 import { TwoFactorRequired } from '@/components/TwoFactorRequired'
 import { useAuth } from '@/context/AuthContext'
 import { isStaff } from '@/lib/roles'
@@ -22,7 +23,7 @@ export function AdminRoute({ children, adminOnly = false }: { children: ReactNod
   }
 
   if (!user) {
-    return <Navigate to="/login" replace />
+    return <LoginRedirect />
   }
 
   if (user.status !== 'ACTIVE') {

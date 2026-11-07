@@ -1,12 +1,13 @@
 import { lazy, Suspense } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
-import { AuthProvider, useAuth } from '@/context/AuthContext'
+import { AuthProvider } from '@/context/AuthContext'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { AdminRoute } from '@/components/AdminRoute'
 import { AppShell } from '@/components/AppShell'
+import { LoginRoute } from '@/components/LoginRoute'
+import { ReturnAfterSignIn } from '@/components/ReturnAfterSignIn'
 import { RoleRoute } from '@/components/RoleRoute'
 import { ScrollToTop } from '@/components/ScrollToTop'
-import { LoginPage } from '@/pages/LoginPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 
@@ -44,23 +45,12 @@ const AdminEnChapterSlotsPage = lazy(() => import('@/pages/AdminEnChapterSlotsPa
 const AdminEnChapterPage = lazy(() => import('@/pages/AdminEnChapterPage').then((m) => ({ default: m.AdminEnChapterPage })))
 const AdminAiImportPage = lazy(() => import('@/pages/AdminAiImportPage').then((m) => ({ default: m.AdminAiImportPage })))
 
-function LoginRoute() {
-  const { user, loading } = useAuth()
-
-  if (loading) {
-    return null
-  }
-  if (user) {
-    return <Navigate to="/" replace />
-  }
-  return <LoginPage />
-}
-
 function App() {
   return (
     <BrowserRouter>
       <ScrollToTop />
       <AuthProvider>
+        <ReturnAfterSignIn />
         <Suspense fallback={<p className="p-4 text-muted-foreground">Se încarcă...</p>}>
           <Routes>
           <Route path="/login" element={<LoginRoute />} />
