@@ -1023,6 +1023,16 @@ spune „…: 180 de minute, cu timpul tău suplimentar.”; cronometrul din tes
 - serverul primește doar 0, 25, 50, 100 (altceva sau un cont care nu e de elev → 400; un elev care încearcă singur → 403); baza de date are același CHECK
 - ștergerea contului (GDPR) pune timpul suplimentar înapoi la 0
 
+### 39. Exersează capitolul EN — ca elev (`/capitole/:id` → `/capitole/:id/exersare`)
+Pe pagina unui capitol EN, jos la „Mai departe”, primul buton e **Exersează capitolul** (doar pentru elev; profesorul și părintele nu-l văd).
+Deschide până la **5 grile** legate de capitol (sau de un subcapitol al lui), **întâi cele greșite** ultima dată, apoi cele nerezolvate, apoi restul.
+**Verifică** → imediat ✓/✗, varianta corectă marcată, „Ce a greșit” al profesorului și **Rezolvarea**; la final „Ai răspuns corect la 1 din 2.” cu **Încă o dată** și **Înapoi la capitol**.
+- vin **doar** grile din teste pe care elevul **le-a predat** (răspunsurile sunt oricum pe pagina de rezultat) sau din teste cu **Permite exersarea**;
+  niciodată dintr-un test încă nescris sau dintr-unul **început și nepredat**
+- fără nimic de exersat: „Încă nu sunt grile din capitolul acesta pe care să le poți exersa. Apar aici după ce predai un test…”
+- nu se salvează nimic: nu se dă notă, nu mută cutiile din **Recapitulare**, nu schimbă harta de capitole
+- o întrebare din afara exersării (alt capitol, test nepredat) trimisă direct la API → **409**
+
 ## E. Debugging — unde te uiți când pică ceva
 
 ```bash

@@ -844,6 +844,34 @@ export async function answerReview(itemId: number, optionId: number): Promise<Re
   return response.json()
 }
 
+/** Practising one EN chapter: up to five grile linked to it, the ones answered wrong last time first. */
+export interface ChapterPractice {
+  chapterId: number
+  code: string
+  title: string
+  /** How many grile the chapter has for this student in all; 0 = nothing to practise yet. */
+  available: number
+  questions: ReviewQuestion[]
+}
+
+/** One checked answer; nothing is stored, so no box moves. */
+export interface ChapterPracticeResult {
+  correct: boolean
+  correctOptionId: number | null
+  solution: string | null
+  mistake?: string | null
+}
+
+export async function getChapterPractice(chapterId: number): Promise<ChapterPractice> {
+  const response = await apiFetch(`/quiz/en-chapters/${chapterId}/practice`)
+  return response.json()
+}
+
+export async function answerChapterPractice(chapterId: number, itemId: number, optionId: number): Promise<ChapterPracticeResult> {
+  const response = await postJson(`/quiz/en-chapters/${chapterId}/practice/items/${itemId}/answer`, { optionId })
+  return response.json()
+}
+
 export async function getChildReview(childId: number): Promise<ReviewStatus> {
   const response = await apiFetch(`/parent/children/${childId}/review`)
   return response.json()

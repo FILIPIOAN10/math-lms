@@ -106,6 +106,7 @@ describe('EnChapterPage', () => {
   beforeEach(() => {
     Object.values(api).forEach((fn) => fn.mockReset())
     api.listEnChapters.mockResolvedValue([])
+    auth.value.user.role = 'STUDENT'
   })
 
   it('does not repeat the title at the top of the text, and sets its sub-headings as headings over lists', async () => {
@@ -132,6 +133,25 @@ describe('EnChapterPage', () => {
     const next = await screen.findByRole('navigation', { name: 'Mai departe' })
     expect(await within(next).findByRole('link', { name: 'Capitolul următor: A3 · Procente' })).toHaveAttribute('href', '/capitole/3')
     expect(within(next).getByRole('link', { name: 'Toate capitolele EN' })).toHaveAttribute('href', '/capitole')
+  })
+
+  it('offers a student to practise the chapter, as the main step after the theory', async () => {
+    api.getEnChapter.mockResolvedValue(page({ examples: [{ id: 3, statement: '2 + 3', solution: '5', image: null }] }))
+    api.listEnChapters.mockResolvedValue([chapter(1, { exampleCount: 1 })])
+    renderAt('/capitole/1')
+
+    const next = await screen.findByRole('navigation', { name: 'Mai departe' })
+    expect(within(next).getByRole('link', { name: 'Exersează capitolul' })).toHaveAttribute('href', '/capitole/1/exersare')
+  })
+
+  it('does not offer the practice to a teacher reading the page', async () => {
+    auth.value.user.role = 'TEACHER'
+    api.getEnChapter.mockResolvedValue(page({ examples: [{ id: 3, statement: '2 + 3', solution: '5', image: null }] }))
+    api.listEnChapters.mockResolvedValue([chapter(1, { exampleCount: 1 })])
+    renderAt('/capitole/1')
+
+    await screen.findByRole('navigation', { name: 'Mai departe' })
+    expect(screen.queryByRole('link', { name: 'Exersează capitolul' })).not.toBeInTheDocument()
   })
 
   it('shows the theory photos, then each worked example with its solution hidden until asked for', async () => {

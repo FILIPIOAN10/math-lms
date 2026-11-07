@@ -36,6 +36,20 @@ public final class ReviewDtos {
     ) {
     }
 
+    /**
+     * Practising one EN chapter from its page: up to five grile linked to it, the ones answered wrong last time first;
+     * {@code available} = how many the chapter has for this student in all (0 = nothing to practise yet).
+     */
+    public record ChapterPracticeDto(Long chapterId, String code, String title, int available,
+                                     List<ReviewQuestionDto> questions) {
+    }
+
+    /** One checked answer of a chapter practice: nothing is stored, so there is no box to move. */
+    public record ChapterPracticeResultDto(boolean correct, Long correctOptionId, String solution,
+                                           String mistake // the teacher's words about the wrong option chosen; null = none
+    ) {
+    }
+
     /** How a student keeps up, for the parent. */
     public record ReviewStatusDto(int doneToday, int remainingToday, int streak, int totalCards, int mastered,
                                   LocalDate lastReviewOn) {

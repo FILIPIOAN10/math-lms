@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { ErrorState } from '@/components/ErrorState'
+import { useAuth } from '@/context/AuthContext'
 import { Card, CardContent } from '@/components/ui/card'
 import { MarkdownText } from '@/components/MarkdownText'
 import { MathContent } from '@/components/MathContent'
@@ -94,6 +95,8 @@ export function EnChapterPage() {
   const navigate = useNavigate()
   // Arrived from inside the app (a result's "revezi capitolul", the list): "Înapoi" returns there.
   const cameFromApp = useLocation().key !== 'default'
+  // After the theory a student practises it (Khan's "practice this unit"); staff and parents only read the page.
+  const student = useAuth().user?.role === 'STUDENT'
 
   useEffect(() => {
     let cancelled = false
@@ -299,8 +302,13 @@ export function EnChapterPage() {
                 ← Înapoi
               </Button>
             )}
+            {student && (
+              <Link to={`/capitole/${page.id}/exersare`} data-testid="chapter-practice" className={buttonVariants({ size: 'sm' })}>
+                Exersează capitolul
+              </Link>
+            )}
             {next && (
-              <Link to={`/capitole/${next.id}`} className={buttonVariants({ size: 'sm' })}>
+              <Link to={`/capitole/${next.id}`} className={buttonVariants({ size: 'sm', variant: student ? 'outline' : 'default' })}>
                 Capitolul următor: {next.code} · {next.title}
               </Link>
             )}

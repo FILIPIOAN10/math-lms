@@ -40,6 +40,7 @@ const ParentAttemptResultPage = lazy(() => import('@/pages/ParentAttemptResultPa
 const AdminAuditPage = lazy(() => import('@/pages/AdminAuditPage').then((m) => ({ default: m.AdminAuditPage })))
 const EnChaptersPage = lazy(() => import('@/pages/EnChaptersPage').then((m) => ({ default: m.EnChaptersPage })))
 const EnChapterPage = lazy(() => import('@/pages/EnChapterPage').then((m) => ({ default: m.EnChapterPage })))
+const ChapterPracticePage = lazy(() => import('@/pages/ChapterPracticePage').then((m) => ({ default: m.ChapterPracticePage })))
 const AdminEnChaptersPage = lazy(() => import('@/pages/AdminEnChaptersPage').then((m) => ({ default: m.AdminEnChaptersPage })))
 const AdminEnChapterSlotsPage = lazy(() => import('@/pages/AdminEnChapterSlotsPage').then((m) => ({ default: m.AdminEnChapterSlotsPage })))
 const AdminEnChapterPage = lazy(() => import('@/pages/AdminEnChapterPage').then((m) => ({ default: m.AdminEnChapterPage })))
@@ -250,6 +251,14 @@ function App() {
                 <ProtectedRoute>
                   <EnChapterPage />
                 </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/capitole/:id/exersare"
+              element={
+                <RoleRoute role="STUDENT">
+                  <ChapterPracticePage />
+                </RoleRoute>
               }
             />
             <Route

@@ -1,0 +1,221 @@
+import { useEffect, useState } from 'react'
+import { Link, useParams } from 'react-router-dom'
+import { EmptyArt } from '@/components/EmptyArt'
+import { ErrorState } from '@/components/ErrorState'
+import { LoadingCards } from '@/components/LoadingCards'
+import { MathContent } from '@/components/MathContent'
+import { MistakeNote } from '@/components/MistakeNote'
+import { OptionLetter } from '@/components/OptionLetter'
+import { PageHeader } from '@/components/PageHeader'
+import { QuestionImage } from '@/components/QuestionImage'
+import { Button, buttonVariants } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { answerChapterPractice, getChapterPractice, type ChapterPractice, type ChapterPracticeResult } from '@/lib/api'
+import { errorMessage } from '@/lib/errors'
+import { optionRadioClass, optionRowClass, readingTextClass } from '@/lib/formClasses'
+import { cn } from '@/lib/utils'
+import { usePageTitle } from '@/lib/usePageTitle'
+
+/**
+ * Practising one EN chapter, from its page: up to five grile linked to it, the ones the student got wrong last time
+ * first, each checked at once with the solution - the "practice this unit" step after reading the theory. Only
+ * questions whose answers the student may already see (handed-in tests, tests open for practice); nothing is graded.
+ */
+export function ChapterPracticePage() {
+  const chapterId = Number(useParams<{ id: string }>().id)
+  const [practice, setPractice] = useState<ChapterPractice | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [index, setIndex] = useState(0)
+  const [selected, setSelected] = useState<number | null>(null)
+  const [result, setResult] = useState<ChapterPracticeResult | null>(null)
+  const [right, setRight] = useState(0)
+  const [finished, setFinished] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  usePageTitle(practice ? `Exersează ${practice.code}` : 'Exersează capitolul')
+
+  // "Încă o dată" asks the server again: the ones answered wrong this round may come first next time.
+  const [round, setRound] = useState(0)
+
+  useEffect(() => {
+    let cancelled = false
+    getChapterPractice(chapterId)
+      .then((p) => !cancelled && setPractice(p))
+      .catch((e) => !cancelled && setLoadError(errorMessage(e)))
+    return () => {
+      cancelled = true
+    }
+  }, [chapterId, round])
+
+  function again() {
+    setPractice(null)
+    setLoadError(null)
+    setIndex(0)
+    setSelected(null)
+    setResult(null)
+    setRight(0)
+    setFinished(false)
+    setRound((r) => r + 1)
+  }
+
+  const question = practice && !finished ? practice.questions[index] ?? null : null
+  const isLast = practice !== null && index === practice.questions.length - 1
+  const chapterHref = `/capitole/${chapterId}`
+
+  async function check() {
+    if (!question || selected === null) return
+    setBusy(true)
+    setError(null)
+    try {
+      const checked = await answerChapterPractice(chapterId, question.itemId, selected)
+      setResult(checked)
+      if (checked.correct) setRight((r) => r + 1)
+    } catch (e) {
+      setError(errorMessage(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  function next() {
+    if (isLast) {
+      setFinished(true)
+      return
+    }
+    setIndex((i) => i + 1)
+    setSelected(null)
+    setResult(null)
+    setError(null)
+  }
+
+  const title = practice ? `Exersează: ${practice.code} · ${practice.title}` : 'Exersează capitolul'
+
+  return (
+    <div className="p-4">
+      <div className="mx-auto max-w-4xl space-y-4">
+        <PageHeader
+          title={title}
+          description="Grile din testele tale despre capitolul acesta, întâi cele greșite. Nu se dă notă."
+          breadcrumbs={[{ label: 'Capitole EN', to: '/capitole' }, { label: practice?.code ?? 'Capitol', to: chapterHref }, { label: 'Exersează' }]}
+        />
+        {loadError && <ErrorState message={loadError} />}
+        {!practice && !loadError && <LoadingCards />}
+
+        {practice && practice.questions.length === 0 && (
+          <Card data-testid="practice-empty">
+            <CardContent className="flex flex-col items-center space-y-3 py-6 text-center">
+              <EmptyArt symbol="?" />
+              <p className="text-muted-foreground">
+                Încă nu sunt grile din capitolul acesta pe care să le poți exersa. Apar aici după ce predai un test cu
+                întrebări din el, sau când profesorul deschide un test pentru exersare.
+              </p>
+              <Link to={chapterHref} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+                Înapoi la capitol
+              </Link>
+            </CardContent>
+          </Card>
+        )}
+
+        {practice && finished && (
+          <Card data-testid="practice-done">
+            <CardContent className="flex flex-col items-center space-y-3 py-6 text-center">
+              <p className="text-lg font-medium">
+                Ai răspuns corect la {right} din {practice.questions.length}.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {right === practice.questions.length
+                  ? 'Foarte bine! Capitolul pare stăpânit.'
+                  : 'Recitește teoria și modelele rezolvate, apoi încearcă din nou: întâi vin cele greșite.'}
+              </p>
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button onClick={again}>Încă o dată</Button>
+                <Link to={chapterHref} className={buttonVariants({ variant: 'outline' })}>
+                  Înapoi la capitol
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {question && practice && (
+          <Card data-testid="practice-card">
+            <CardContent className={cn('space-y-4 py-5', readingTextClass)}>
+              <p className="text-xs font-medium text-muted-foreground">
+                Întrebarea {index + 1} din {practice.questions.length}
+              </p>
+              <p className="text-xs text-muted-foreground">{question.quizTitle}</p>
+              <MathContent>{question.statement}</MathContent>
+              <QuestionImage itemId={question.itemId} image={question.image} />
+
+              <div className="space-y-2">
+                {question.options.map((option, optionIndex) => {
+                  const isRight = result?.correctOptionId === option.id
+                  const isWrongPick = result !== null && !result.correct && selected === option.id
+                  return (
+                    <label
+                      key={option.id}
+                      className={`${optionRowClass} cursor-pointer ${
+                        isRight ? 'border-emerald-500 bg-emerald-500/10'
+                          : isWrongPick ? 'border-destructive bg-destructive/10'
+                            : selected === option.id ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name={`practice-${question.itemId}`}
+                        className={optionRadioClass}
+                        checked={selected === option.id}
+                        disabled={result !== null || busy}
+                        onChange={() => setSelected(option.id)}
+                      />
+                      <OptionLetter index={optionIndex} />
+                      <MathContent inline large>{option.text}</MathContent>
+                      {isRight && (
+                        <span className="ml-auto font-semibold text-emerald-700 dark:text-emerald-300">
+                          <span aria-hidden="true">✓</span>
+                          <span className="sr-only"> (răspunsul corect)</span>
+                        </span>
+                      )}
+                      {isWrongPick && (
+                        <span className="ml-auto font-semibold text-destructive">
+                          <span aria-hidden="true">✗</span>
+                          <span className="sr-only"> (alegerea ta, greșită)</span>
+                        </span>
+                      )}
+                    </label>
+                  )
+                })}
+              </div>
+
+              {result && (
+                <div data-testid="practice-feedback" className="space-y-2 rounded-lg bg-muted p-3 text-sm">
+                  <p className={`font-medium ${result.correct ? 'text-emerald-700 dark:text-emerald-300' : 'text-destructive'}`}>
+                    {result.correct ? '✓ Corect!' : '✗ Greșit — răspunsul corect e marcat cu ✓.'}
+                  </p>
+                  {result.mistake && <MistakeNote text={result.mistake} />}
+                  {result.solution && (
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground">Rezolvare</p>
+                      <MathContent>{result.solution}</MathContent>
+                    </div>
+                  )}
+                </div>
+              )}
+              {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+
+              <div className="flex justify-end">
+                {result ? (
+                  <Button onClick={next}>{isLast ? 'Vezi cum ai mers' : 'Următoarea'}</Button>
+                ) : (
+                  <Button onClick={check} disabled={selected === null || busy}>
+                    {busy ? 'Se verifică...' : 'Verifică'}
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    </div>
+  )
+}
