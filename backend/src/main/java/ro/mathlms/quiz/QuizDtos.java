@@ -13,14 +13,16 @@ public final class QuizDtos {
     /** A quiz in a list (no items). */
     public record QuizSummaryDto(Long id, String title, String description, QuizStatus status,
                                  Long schoolClassId, String schoolClassName, Integer timeLimitMinutes,
-                                 boolean practiceAllowed, Long chapterId, Integer maxAttempts) {
+                                 boolean practiceAllowed, Long chapterId, Integer maxAttempts,
+                                 Long publisherId, String publisherName) {
         public static QuizSummaryDto from(Quiz quiz) {
             SchoolClass schoolClass = quiz.getSchoolClass(); // null = for every student
             return new QuizSummaryDto(quiz.getId(), quiz.getTitle(), quiz.getDescription(), quiz.getStatus(),
                     schoolClass == null ? null : schoolClass.getId(),
                     schoolClass == null ? null : schoolClass.getName(), quiz.getTimeLimitMinutes(),
                     quiz.isPracticeAllowed(), quiz.getChapter() == null ? null : quiz.getChapter().getId(),
-                    quiz.getMaxAttempts());
+                    quiz.getMaxAttempts(), quiz.getPublisher() == null ? null : quiz.getPublisher().getId(),
+                    quiz.getPublisher() == null ? null : quiz.getPublisher().getName());
         }
     }
 
@@ -94,11 +96,13 @@ public final class QuizDtos {
             QuizStatus status,
             List<ItemDto> items,
             Long chapterId, // the default its items inherit
-            boolean taken // students have attempts: its questions and points are frozen, only the texts can change
+            boolean taken, // students have attempts: its questions and points are frozen, only the texts can change
+            String publisherName // the "Editură" (V53); null = none
     ) {
         public static QuizDetailDto of(Quiz quiz, List<ItemDto> items, boolean taken) {
             return new QuizDetailDto(quiz.getId(), quiz.getTitle(), quiz.getDescription(),
-                    quiz.getStatus(), items, quiz.getChapter() == null ? null : quiz.getChapter().getId(), taken);
+                    quiz.getStatus(), items, quiz.getChapter() == null ? null : quiz.getChapter().getId(), taken,
+                    quiz.getPublisher() == null ? null : quiz.getPublisher().getName());
         }
     }
 }

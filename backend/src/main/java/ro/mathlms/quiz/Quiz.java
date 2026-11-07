@@ -16,6 +16,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import ro.mathlms.content.SchoolClass;
 import ro.mathlms.content.Chapter;
+import ro.mathlms.publisher.Publisher;
 
 /**
  * An assessment (e.g. "Simulare EN – Varianta 3") authored directly by an admin: it holds
@@ -84,6 +85,11 @@ public class Quiz {
     @JoinColumn(name = "chapter_id")
     private Chapter chapter;
 
+    /** The publishing house its questions come from (V53); {@code null} = none (e.g. an official EN paper). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "publisher_id")
+    private Publisher publisher;
+
     public Quiz(String title, String description) {
         this.title = requireNonBlank(title, "title");
         this.description = description;
@@ -128,6 +134,11 @@ public class Quiz {
     /** Tags the quiz with the chapter its questions practise, or ({@code null}) removes the tag. */
     public void tagChapter(Chapter chapter) {
         this.chapter = chapter;
+    }
+
+    /** Names the publisher its questions come from, or ({@code null}) none. */
+    public void publishedBy(Publisher publisher) {
+        this.publisher = publisher;
     }
 
     /** Makes the quiz visible to students. Idempotent-safe: publishing a published quiz is a no-op. */

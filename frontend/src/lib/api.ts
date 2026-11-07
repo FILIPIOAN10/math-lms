@@ -593,6 +593,9 @@ export interface QuizSummary {
   chapterId: number | null
   /** How many times a student may hand it in; null = no limit. */
   maxAttempts: number | null
+  /** The publishing house its questions come from (Edituri); null = none, e.g. an official EN paper. */
+  publisherId: number | null
+  publisherName: string | null
 }
 
 /** Why a student may not start another graded attempt. */
@@ -688,6 +691,8 @@ export interface QuizDetail {
   chapterId: number | null
   /** Students have attempts: its questions and points are frozen, only the texts can change. */
   taken: boolean
+  /** The publisher (Edituri); null = none. */
+  publisherName: string | null
 }
 
 export interface OptionInput {
@@ -1004,6 +1009,8 @@ export interface QuizInput {
   chapterId?: number | null
   /** How many times a student may hand it in; null = no limit. */
   maxAttempts: number | null
+  /** The publisher (Edituri); null = none. */
+  publisherId?: number | null
 }
 
 /** T2: a draft quiz of OPEN questions made from the chapter's ticked exercises, for the chapter's class. */
@@ -2343,4 +2350,56 @@ export async function getEnChapterSlots(): Promise<EnChapterSlot[]> {
 /** Replaces the whole list; a place left out has no automatic link any more. */
 export async function saveEnChapterSlots(slots: EnChapterSlot[]): Promise<void> {
   await putJson('/admin/en-chapter-slots', { slots })
+}
+
+// ---------- Edituri (publishers): added by administrators, picked on a test ----------
+
+export interface Publisher {
+  id: number
+  name: string
+  description: string | null
+  hasLogo: boolean
+  /** Changes whenever the logo does: part of its URL, so a replaced logo is never shown from the cache. */
+  logoVersion: number
+  /** How many tests name it. */
+  quizCount: number
+}
+
+export interface PublisherInput {
+  name: string
+  description: string | null
+}
+
+export async function listPublishers(): Promise<Publisher[]> {
+  const response = await apiFetch('/admin/publishers')
+  return response.json()
+}
+
+export async function createPublisher(input: PublisherInput): Promise<Publisher> {
+  const response = await postJson('/admin/publishers', input)
+  return response.json()
+}
+
+export async function updatePublisher(id: number, input: PublisherInput): Promise<Publisher> {
+  const response = await putJson(`/admin/publishers/${id}`, input)
+  return response.json()
+}
+
+export async function deletePublisher(id: number): Promise<void> {
+  await apiFetch(`/admin/publishers/${id}`, { method: 'DELETE' })
+}
+
+export async function setPublisherLogo(id: number, file: File): Promise<void> {
+  const formData = new FormData()
+  formData.append('file', file)
+  await apiFetch(`/admin/publishers/${id}/logo`, { method: 'PUT', body: formData })
+}
+
+export async function removePublisherLogo(id: number): Promise<void> {
+  await apiFetch(`/admin/publishers/${id}/logo`, { method: 'DELETE' })
+}
+
+/** The logo's address (same origin, sent with the session cookie); the version makes a new logo a new address. */
+export function publisherLogoUrl(p: Publisher): string {
+  return `/api/admin/publishers/${p.id}/logo?v=${p.logoVersion}`
 }

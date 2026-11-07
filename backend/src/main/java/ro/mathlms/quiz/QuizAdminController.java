@@ -58,7 +58,7 @@ public class QuizAdminController {
     public ResponseEntity<QuizSummaryDto> create(@Valid @RequestBody QuizRequest request) {
         Quiz created = service.createQuiz(request.title(), request.description(), request.schoolClassId(),
                 request.timeLimitMinutes(), Boolean.TRUE.equals(request.practiceAllowed()), request.chapterId(),
-                request.maxAttempts());
+                request.maxAttempts(), request.publisherId());
         return ResponseEntity.status(HttpStatus.CREATED).body(QuizSummaryDto.from(created));
     }
 
@@ -68,7 +68,7 @@ public class QuizAdminController {
         return QuizSummaryDto.from(
                 service.updateQuiz(id, request.title(), request.description(), request.schoolClassId(),
                         request.timeLimitMinutes(), Boolean.TRUE.equals(request.practiceAllowed()), request.chapterId(),
-                        request.maxAttempts()));
+                        request.maxAttempts(), request.publisherId()));
     }
 
     @PostMapping("/api/admin/quizzes/{id}/copy")

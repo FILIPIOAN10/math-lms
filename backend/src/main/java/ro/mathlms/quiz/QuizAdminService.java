@@ -1,5 +1,8 @@
 package ro.mathlms.quiz;
 
+import ro.mathlms.publisher.Publisher;
+import ro.mathlms.publisher.PublisherRepository;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ro.mathlms.audit.AuditAction;
@@ -48,6 +51,7 @@ public class QuizAdminService {
     private final EnChapterLinks enChapterLinks;
     private final UnfinishedAttempts unfinishedAttempts;
     private final TeacherScope scope;
+    private final PublisherRepository publisherRepository;
 
     public QuizAdminService(QuizRepository quizRepository, QuizItemRepository itemRepository,
                             QuizOptionRepository optionRepository, QuizItemHintRepository hintRepository,
@@ -55,7 +59,8 @@ public class QuizAdminService {
                             ExerciseRepository exerciseRepository, AfterCommitCacheEvictor cacheEvictor,
                             QuestionImageService imageService, AuditLog auditLog, QuizItemPartRepository partRepository,
                             EnChapterLinks enChapterLinks, UnfinishedAttempts unfinishedAttempts,
-                            TeacherScope scope) {
+                            TeacherScope scope, PublisherRepository publisherRepository) {
+        this.publisherRepository = publisherRepository;
         this.enChapterLinks = enChapterLinks;
         this.unfinishedAttempts = unfinishedAttempts;
         this.scope = scope;
@@ -136,7 +141,16 @@ public class QuizAdminService {
     @Transactional
     public Quiz createQuiz(String title, String description, Long schoolClassId, Integer timeLimitMinutes,
                            boolean practiceAllowed, Long chapterId, Integer maxAttempts) {
+        return createQuiz(title, description, schoolClassId, timeLimitMinutes, practiceAllowed, chapterId, maxAttempts,
+                null);
+    }
+
+    /** ...and the publisher its questions come from ({@code null} = none, e.g. an official EN paper). */
+    @Transactional
+    public Quiz createQuiz(String title, String description, Long schoolClassId, Integer timeLimitMinutes,
+                           boolean practiceAllowed, Long chapterId, Integer maxAttempts, Long publisherId) {
         Quiz quiz = new Quiz(title, description);
+        quiz.publishedBy(findPublisher(publisherId));
         SchoolClass target = findClass(schoolClassId);
         quiz.assignToClass(target);
         quiz.tagChapter(chapterFitting(chapterId, target));
@@ -181,7 +195,16 @@ public class QuizAdminService {
     @Transactional
     public Quiz updateQuiz(Long id, String title, String description, Long schoolClassId, Integer timeLimitMinutes,
                            boolean practiceAllowed, Long chapterId, Integer maxAttempts) {
+        Quiz current = getQuiz(id);
+        return updateQuiz(id, title, description, schoolClassId, timeLimitMinutes, practiceAllowed, chapterId, maxAttempts,
+                current.getPublisher() == null ? null : current.getPublisher().getId());
+    }
+
+    @Transactional
+    public Quiz updateQuiz(Long id, String title, String description, Long schoolClassId, Integer timeLimitMinutes,
+                           boolean practiceAllowed, Long chapterId, Integer maxAttempts, Long publisherId) {
         Quiz quiz = getQuiz(id);
+        Publisher publisher = findPublisher(publisherId);
         SchoolClass target = findClass(schoolClassId);
         Chapter chapter = chapterFitting(chapterId, target);
         if (target != null) {
@@ -201,13 +224,16 @@ public class QuizAdminService {
                 .addIfDifferent(quiz.getMaxAttempts(), maxAttempts,
                         "încercări " + attempts(quiz.getMaxAttempts()) + " → " + attempts(maxAttempts))
                 .addIf(quiz.isPracticeAllowed() != practiceAllowed, practiceAllowed ? "exersare permisă" : "exersare oprită")
-                .addIfDifferent(quiz.getChapter() == null ? null : quiz.getChapter().getId(), chapterId, "capitol");
+                .addIfDifferent(quiz.getChapter() == null ? null : quiz.getChapter().getId(), chapterId, "capitol")
+                .addIfDifferent(quiz.getPublisher() == null ? null : quiz.getPublisher().getId(), publisherId,
+                        "editură: " + (publisher == null ? "niciuna" : publisher.getName()));
         quiz.update(title, description);
         quiz.assignToClass(target);
         quiz.changeTimeLimit(timeLimitMinutes); // attempts already running keep their own deadline
         quiz.allowPractice(practiceAllowed);    // practice already in progress simply finishes; no new one can start
         quiz.tagChapter(chapter);               // only bookkeeping for the mastery map: allowed even once taken
         quiz.limitAttempts(maxAttempts);        // decides only the next start: what was handed in stays handed in
+        quiz.publishedBy(publisher);            // bookkeeping only: allowed even once taken
         Quiz saved = quizRepository.save(quiz);
         String renamed = AuditText.renamedFrom(oldTitle, quiz.getTitle());
         String details = renamed == null ? changes.joined()
@@ -236,6 +262,12 @@ public class QuizAdminService {
      * The chapter to tag with, or {@code null}. A quiz for one class may only use that class's chapters (a quiz for
      * every student may use any): otherwise its answers would colour a class map it does not belong to.
      */
+    /** The test's publisher; {@code null} = none. An id that no longer exists is a 404. */
+    private Publisher findPublisher(Long publisherId) {
+        return publisherId == null ? null : publisherRepository.findById(publisherId)
+                .orElseThrow(() -> new QuizNotFoundException("Publisher", publisherId));
+    }
+
     private Chapter chapterFitting(Long chapterId, SchoolClass quizClass) {
         if (chapterId == null) {
             return null;
@@ -322,6 +354,7 @@ public class QuizAdminService {
         copy.allowPractice(source.isPracticeAllowed());
         copy.limitAttempts(source.getMaxAttempts());
         copy.tagChapter(source.getChapter());
+        copy.publishedBy(source.getPublisher());
         copy.ownedBy(scope.currentUserId()); // the copy belongs to whoever made it
         Quiz saved = quizRepository.save(copy);
         for (QuizItem item : itemRepository.findByQuizIdOrderByPosition(id)) {

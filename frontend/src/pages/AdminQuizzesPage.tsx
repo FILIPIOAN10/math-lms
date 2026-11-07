@@ -23,6 +23,7 @@ import { MAX_MISTAKE } from '@/lib/quizStats'
 import { isNumber, itemTypeLabel, MAX_NUMBER_LENGTH } from '@/lib/numericAnswer'
 import { hasVariantsInStatement } from '@/lib/importItems'
 import { useConfirm } from '@/components/useConfirm'
+import { useAuth } from '@/context/AuthContext'
 import {
   addQuizItem,
   copyQuiz,
@@ -36,6 +37,7 @@ import {
   getQuiz,
   getQuizActivity,
   listChapterOptions,
+  listPublishers,
   listClasses,
   listQuizSummaries,
   listQuizzes,
@@ -54,6 +56,7 @@ import {
   type QuizListSummary,
   type QuizSummary,
   type QuizInput,
+  type Publisher,
   type SchoolClass,
   listEnChapters,
   type EnChapterSummary,
@@ -106,8 +109,10 @@ function QuizDialog({
   initialPracticeAllowed,
   initialMaxAttempts,
   initialChapterId = null,
+  initialPublisherId = null,
   classes,
   chapters = [],
+  publishers = [],
   onSubmit,
 }: {
   open: boolean
@@ -120,8 +125,12 @@ function QuizDialog({
   /** null = no limit */
   initialMaxAttempts: number | null
   initialChapterId?: number | null
+  /** null = none (an official EN paper) */
+  initialPublisherId?: number | null
   classes: SchoolClass[]
   chapters?: ChapterOption[]
+  /** Only the ones an administrator added (Edituri). */
+  publishers?: Publisher[]
   onSubmit: (input: QuizInput) => Promise<void>
 }) {
   const [title, setTitle] = useState(initialTitle)
@@ -135,6 +144,7 @@ function QuizDialog({
     ? ATTEMPT_CHOICES
     : [...ATTEMPT_CHOICES, initialMaxAttempts].sort((a, b) => a - b)
   const [chapterId, setChapterId] = useState(initialChapterId === null ? '' : String(initialChapterId))
+  const [publisherId, setPublisherId] = useState(initialPublisherId === null ? '' : String(initialPublisherId))
   // A quiz for one class may only use that class's chapters (the server checks it too).
   const offered = classId === '' ? chapters : chapters.filter((c) => String(c.schoolClassId) === classId)
   const [busy, setBusy] = useState(false)
@@ -161,6 +171,7 @@ function QuizDialog({
         practiceAllowed,
         chapterId: chapterId === '' ? null : Number(chapterId),
         maxAttempts: maxAttempts === '' ? null : Number(maxAttempts),
+        publisherId: publisherId === '' ? null : Number(publisherId),
       })
       onClose()
     } catch (err) {
@@ -198,6 +209,20 @@ function QuizDialog({
           </select>
           <p className="text-xs text-muted-foreground">
             „Toți elevii” = orice elev activ îl vede. Altfel, doar elevii înscriși în clasa aleasă.
+          </p>
+        </div>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="qpublisher">Editură</Label>
+          <select id="qpublisher" className={selectClass} value={publisherId} onChange={(e) => setPublisherId(e.target.value)}>
+            <option value="">Fără editură (subiect oficial EN)</option>
+            {publishers.map((p) => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+          <p className="text-xs text-muted-foreground">
+            {publishers.length === 0
+              ? 'Nu ai adăugat încă nicio editură: le adaugi din pagina Edituri (butonul de sus din Teste).'
+              : 'Doar editurile adăugate în pagina Edituri. Un subiect oficial de Evaluare Națională rămâne fără editură.'}
           </p>
         </div>
         {/* What a test rarely changes waits folded; the folded line says what it is set to. */}
@@ -956,6 +981,9 @@ export function AdminQuizzesPage() {
   const [readingBarem, setReadingBarem] = useState(false)
   // "Sugerează indicii (AI)" in the question editor: only where the server has the tutor switched on.
   const [tutorOn, setTutorOn] = useState(false)
+  // "Editură" on a test: the publishers an administrator added (Edituri).
+  const [publishers, setPublishers] = useState<Publisher[]>([])
+  const { user } = useAuth()
 
   const loadSummaries = () =>
     listQuizSummaries()
@@ -986,6 +1014,9 @@ export function AdminQuizzesPage() {
     getTutorSettings()
       .then((s) => setTutorOn(s.enabled))
       .catch(() => undefined) // the button just stays hidden
+    listPublishers()
+      .then(setPublishers)
+      .catch(() => undefined) // only the publisher choice is missing without it
   }, [])
 
   // The builder follows the address. What is shown is derived from it, so a quiz loaded for an earlier address never
@@ -1164,6 +1195,7 @@ export function AdminQuizzesPage() {
                       {roCount(quiz.items.length, 'întrebare', 'întrebări')} · Total: {quiz.items.reduce((sum, item) => sum + item.points, 0)} p
                     </span>
                     <span>· Capitol: {chapterTitle(quiz.chapterId) ?? 'niciunul'}</span>
+                    <span data-testid="quiz-publisher">· Editură: {quiz.publisherName ?? 'fără (subiect oficial)'}</span>
                   </span>
                 }
                 actions={
@@ -1319,6 +1351,11 @@ export function AdminQuizzesPage() {
               description="Creează teste, publică-le și dă-le ca temă. Deschide un test ca să-i adaugi întrebări."
               actions={
                 <>
+                  {user?.role === 'ADMIN' && (
+                    <Link to="/admin/publishers" className={buttonVariants({ size: 'sm', variant: 'outline' })}>
+                      Edituri
+                    </Link>
+                  )}
                   {aiImportOn && (
                     <Link to="/admin/quizzes/ai-import" className={buttonVariants({ size: 'sm', variant: 'outline' })}>
                       Din poze (AI)
@@ -1384,6 +1421,7 @@ export function AdminQuizzesPage() {
                       </p>
                       <p className="truncate text-xs text-muted-foreground" data-testid="quiz-audience">
                         {q.schoolClassName ? `Clasa: ${q.schoolClassName}` : 'Toți elevii'}
+                        {q.publisherName && ` · ${q.publisherName}`}
                         {q.timeLimitMinutes !== null && ` · ⏱ ${q.timeLimitMinutes} min`}
                         {` · ${attemptsLabel(q.maxAttempts)}`}
                         {q.practiceAllowed && ' · exersare permisă'}
@@ -1441,8 +1479,10 @@ export function AdminQuizzesPage() {
           initialPracticeAllowed={quizDialog.item?.practiceAllowed ?? false}
           initialMaxAttempts={quizDialog.item ? quizDialog.item.maxAttempts : ATTEMPT_CHOICES[0]}
           initialChapterId={quizDialog.item?.chapterId ?? null}
+          initialPublisherId={quizDialog.item?.publisherId ?? null}
           classes={classes}
           chapters={chapters}
+          publishers={publishers}
           onSubmit={async (input) => {
             if (quizDialog.item) {
               await updateQuiz(quizDialog.item.id, input)

@@ -41,7 +41,7 @@ class QuizAdminServiceTest {
             new QuizAdminService(quizRepository, itemRepository, optionRepository, hintRepository, schoolClassRepository,
                     chapterRepository, exerciseRepository, cacheEvictor, mock(QuestionImageService.class), auditLog,
                     mock(QuizItemPartRepository.class), NoEnChapterLinks.create(),
-                    unfinishedAttempts, new TeacherScope(null));
+                    unfinishedAttempts, new TeacherScope(null), mock(ro.mathlms.publisher.PublisherRepository.class));
 
     private final Quiz quiz = new Quiz("Simulare EN", null);
     private final SchoolClass ninth = new SchoolClass("Clasa a 9-a", null);

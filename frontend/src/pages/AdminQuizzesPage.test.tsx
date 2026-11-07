@@ -22,12 +22,15 @@ const api = vi.hoisted(() => ({
   updateQuiz: vi.fn(),
   getAiImportSettings: vi.fn(),
   getAiGradingSettings: vi.fn(),
+  listPublishers: vi.fn(),
 }))
 vi.mock('@/lib/api', async (original) => ({ ...(await original<typeof import('@/lib/api')>()), ...api }))
+const auth = vi.hoisted(() => ({ value: { user: { role: 'ADMIN' } as { role: string } | null } }))
+vi.mock('@/context/AuthContext', () => ({ useAuth: () => auth.value }))
 
 const summary = (id: number, title: string, status: QuizSummary['status'] = 'PUBLISHED'): QuizSummary => ({
   id, title, description: null, status, schoolClassId: null, schoolClassName: null, timeLimitMinutes: null,
-  practiceAllowed: false, chapterId: null, maxAttempts: null,
+  practiceAllowed: false, chapterId: null, maxAttempts: null, publisherId: null, publisherName: null,
 })
 const detail = (over: Partial<QuizDetail> = {}): QuizDetail => ({
   ...summary(7, 'Simulare EN'),
@@ -62,6 +65,8 @@ const row = async (title: string) =>
 describe('AdminQuizzesPage', () => {
   beforeEach(() => {
     Object.values(api).forEach((fn) => fn.mockReset())
+    auth.value = { user: { role: 'ADMIN' } }
+    api.listPublishers.mockResolvedValue([])
     api.listQuizzes.mockResolvedValue([summary(7, 'Simulare EN'), summary(8, 'Ciornă nouă', 'DRAFT')])
     api.listQuizSummaries.mockResolvedValue([])
     api.listClasses.mockResolvedValue([
@@ -99,6 +104,51 @@ describe('AdminQuizzesPage', () => {
       await userEvent.click(within(dialog).getByRole('button', { name: 'Salvează' }))
 
       await waitFor(() => expect(api.createQuiz).toHaveBeenCalledWith(expect.objectContaining({ maxAttempts: 3 })))
+    })
+
+    it('picks the publisher from the ones an administrator added, or none for an official EN paper', async () => {
+      api.listPublishers.mockResolvedValue([
+        { id: 4, name: 'Art Klett', description: null, hasLogo: false, logoVersion: 1, quizCount: 0 },
+        { id: 5, name: 'Intuitext', description: null, hasLogo: false, logoVersion: 1, quizCount: 1 },
+      ])
+      api.createQuiz.mockResolvedValue(summary(9, 'Varianta 1', 'DRAFT'))
+      renderAt('/admin/quizzes')
+      await userEvent.click(await screen.findByRole('button', { name: 'Adaugă test' }))
+      const dialog = await screen.findByRole('dialog', { name: 'Adaugă test' })
+
+      const publisher = within(dialog).getByLabelText('Editură')
+      expect(publisher).toHaveValue('') // none until chosen
+      expect(within(publisher).getAllByRole('option').map((o) => o.textContent))
+        .toEqual(['Fără editură (subiect oficial EN)', 'Art Klett', 'Intuitext'])
+      await userEvent.type(within(dialog).getByLabelText('Titlu'), 'Varianta 1')
+      await userEvent.selectOptions(publisher, '5')
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Salvează' }))
+
+      await waitFor(() => expect(api.createQuiz).toHaveBeenCalledWith(expect.objectContaining({ publisherId: 5 })))
+    })
+
+    it('sends no publisher for an official paper, and says where publishers come from when there are none', async () => {
+      api.createQuiz.mockResolvedValue(summary(9, 'Model EN 2026', 'DRAFT'))
+      renderAt('/admin/quizzes')
+      await userEvent.click(await screen.findByRole('button', { name: 'Adaugă test' }))
+      const dialog = await screen.findByRole('dialog', { name: 'Adaugă test' })
+
+      expect(within(dialog).getByText(/Nu ai adăugat încă nicio editură/)).toBeInTheDocument()
+      await userEvent.type(within(dialog).getByLabelText('Titlu'), 'Model EN 2026')
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Salvează' }))
+
+      await waitFor(() => expect(api.createQuiz).toHaveBeenCalledWith(expect.objectContaining({ publisherId: null })))
+    })
+
+    it('links administrators, and only them, to the Edituri page', async () => {
+      const { unmount } = renderAt('/admin/quizzes')
+      expect(await screen.findByRole('link', { name: 'Edituri' })).toHaveAttribute('href', '/admin/publishers')
+      unmount()
+
+      auth.value = { user: { role: 'TEACHER' } }
+      renderAt('/admin/quizzes')
+      await screen.findByRole('button', { name: 'Adaugă test' })
+      expect(screen.queryByRole('link', { name: 'Edituri' })).not.toBeInTheDocument()
     })
 
     it('asks only for the title and the class; the rest waits folded under Setări, saying what it is set to', async () => {
@@ -548,6 +598,7 @@ describe('AdminQuizzesPage', () => {
 describe('AdminQuizzesPage — chapter tag', () => {
   beforeEach(() => {
     Object.values(api).forEach((fn) => fn.mockReset())
+    api.listPublishers.mockResolvedValue([])
     api.listQuizzes.mockResolvedValue([])
     api.listQuizSummaries.mockResolvedValue([])
     api.listClasses.mockResolvedValue([
