@@ -147,8 +147,6 @@ app:
     question-images-dir: ${QUESTION_IMAGES_DIR:uploads/question-images}
     # EN chapter pages: theory photos and worked-example figures (same uploads volume, so backups include them).
     en-chapter-images-dir: ${EN_CHAPTER_IMAGES_DIR:uploads/en-chapters}
-    # "Edituri": the publishers' logos (same uploads volume, so backups include them).
-    publisher-logos-dir: ${PUBLISHER_LOGOS_DIR:uploads/publisher-logos}
     # F11: FILE_STORAGE_PROVIDER=s3 keeps every file above in a PRIVATE S3 bucket (key = <dir>/<name>, same names as on
     # disk). On EC2 the instance role gives the credentials; keys only for another S3 (a local mock). See docs/DEPLOY.md.
     s3:

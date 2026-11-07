@@ -593,12 +593,6 @@ export interface QuizSummary {
   chapterId: number | null
   /** How many times a student may hand it in; null = no limit. */
   maxAttempts: number | null
-  /** The publishing house its questions come from (Edituri); null = none, e.g. an official EN paper. */
-  publisherId: number | null
-  publisherName: string | null
-  /** The publisher's book it comes from; null = none. */
-  bookId: number | null
-  bookTitle: string | null
 }
 
 /** Why a student may not start another graded attempt. */
@@ -694,10 +688,6 @@ export interface QuizDetail {
   chapterId: number | null
   /** Students have attempts: its questions and points are frozen, only the texts can change. */
   taken: boolean
-  /** The publisher (Edituri); null = none. */
-  publisherName: string | null
-  /** The publisher's book; null = none. */
-  bookTitle: string | null
 }
 
 export interface OptionInput {
@@ -1014,10 +1004,6 @@ export interface QuizInput {
   chapterId?: number | null
   /** How many times a student may hand it in; null = no limit. */
   maxAttempts: number | null
-  /** The publisher (Edituri); null = none. */
-  publisherId?: number | null
-  /** The publisher's book it comes from; its publisher wins. null = none. */
-  bookId?: number | null
 }
 
 /** T2: a draft quiz of OPEN questions made from the chapter's ticked exercises, for the chapter's class. */
@@ -2357,92 +2343,4 @@ export async function getEnChapterSlots(): Promise<EnChapterSlot[]> {
 /** Replaces the whole list; a place left out has no automatic link any more. */
 export async function saveEnChapterSlots(slots: EnChapterSlot[]): Promise<void> {
   await putJson('/admin/en-chapter-slots', { slots })
-}
-
-// ---------- Edituri (publishers): added by administrators, picked on a test ----------
-
-export interface Publisher {
-  id: number
-  name: string
-  description: string | null
-  hasLogo: boolean
-  /** Changes whenever the logo does: part of its URL, so a replaced logo is never shown from the cache. */
-  logoVersion: number
-  /** How many tests name it. */
-  quizCount: number
-  /** Its books, alphabetical. */
-  books: PublisherBook[]
-}
-
-/** A book of a publisher ("Culegere EN 2026"): the tests taken from it live in it. */
-export interface PublisherBook {
-  id: number
-  publisherId: number
-  title: string
-  description: string | null
-  /** How many tests it holds. */
-  quizCount: number
-}
-
-export interface PublisherBookInput {
-  title: string
-  description: string | null
-}
-
-export async function getPublisher(id: number): Promise<Publisher> {
-  const response = await apiFetch(`/admin/publishers/${id}`)
-  return response.json()
-}
-
-export async function createPublisherBook(publisherId: number, input: PublisherBookInput): Promise<PublisherBook> {
-  const response = await postJson(`/admin/publishers/${publisherId}/books`, input)
-  return response.json()
-}
-
-export async function updatePublisherBook(bookId: number, input: PublisherBookInput): Promise<PublisherBook> {
-  const response = await putJson(`/admin/publisher-books/${bookId}`, input)
-  return response.json()
-}
-
-export async function deletePublisherBook(bookId: number): Promise<void> {
-  await apiFetch(`/admin/publisher-books/${bookId}`, { method: 'DELETE' })
-}
-
-export interface PublisherInput {
-  name: string
-  description: string | null
-}
-
-export async function listPublishers(): Promise<Publisher[]> {
-  const response = await apiFetch('/admin/publishers')
-  return response.json()
-}
-
-export async function createPublisher(input: PublisherInput): Promise<Publisher> {
-  const response = await postJson('/admin/publishers', input)
-  return response.json()
-}
-
-export async function updatePublisher(id: number, input: PublisherInput): Promise<Publisher> {
-  const response = await putJson(`/admin/publishers/${id}`, input)
-  return response.json()
-}
-
-export async function deletePublisher(id: number): Promise<void> {
-  await apiFetch(`/admin/publishers/${id}`, { method: 'DELETE' })
-}
-
-export async function setPublisherLogo(id: number, file: File): Promise<void> {
-  const formData = new FormData()
-  formData.append('file', file)
-  await apiFetch(`/admin/publishers/${id}/logo`, { method: 'PUT', body: formData })
-}
-
-export async function removePublisherLogo(id: number): Promise<void> {
-  await apiFetch(`/admin/publishers/${id}/logo`, { method: 'DELETE' })
-}
-
-/** The logo's address (same origin, sent with the session cookie); the version makes a new logo a new address. */
-export function publisherLogoUrl(p: Publisher): string {
-  return `/api/admin/publishers/${p.id}/logo?v=${p.logoVersion}`
 }

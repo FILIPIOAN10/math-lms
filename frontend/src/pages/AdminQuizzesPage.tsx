@@ -23,7 +23,6 @@ import { MAX_MISTAKE } from '@/lib/quizStats'
 import { isNumber, itemTypeLabel, MAX_NUMBER_LENGTH } from '@/lib/numericAnswer'
 import { hasVariantsInStatement } from '@/lib/importItems'
 import { useConfirm } from '@/components/useConfirm'
-import { useAuth } from '@/context/AuthContext'
 import {
   addQuizItem,
   copyQuiz,
@@ -37,7 +36,6 @@ import {
   getQuiz,
   getQuizActivity,
   listChapterOptions,
-  listPublishers,
   listClasses,
   listQuizSummaries,
   listQuizzes,
@@ -56,7 +54,6 @@ import {
   type QuizListSummary,
   type QuizSummary,
   type QuizInput,
-  type Publisher,
   type SchoolClass,
   listEnChapters,
   type EnChapterSummary,
@@ -99,7 +96,7 @@ const ATTEMPT_CHOICES = [1, 2, 3, 5]
 
 // ---------- Quiz create/edit dialog ----------
 
-export function QuizDialog({
+function QuizDialog({
   open,
   onClose,
   initialTitle,
@@ -109,11 +106,8 @@ export function QuizDialog({
   initialPracticeAllowed,
   initialMaxAttempts,
   initialChapterId = null,
-  initialPublisherId = null,
-  initialBookId = null,
   classes,
   chapters = [],
-  publishers = [],
   onSubmit,
 }: {
   open: boolean
@@ -126,14 +120,8 @@ export function QuizDialog({
   /** null = no limit */
   initialMaxAttempts: number | null
   initialChapterId?: number | null
-  /** null = none (an official EN paper) */
-  initialPublisherId?: number | null
-  /** null = no book */
-  initialBookId?: number | null
   classes: SchoolClass[]
   chapters?: ChapterOption[]
-  /** Only the ones an administrator added (Edituri). */
-  publishers?: Publisher[]
   onSubmit: (input: QuizInput) => Promise<void>
 }) {
   const [title, setTitle] = useState(initialTitle)
@@ -147,10 +135,6 @@ export function QuizDialog({
     ? ATTEMPT_CHOICES
     : [...ATTEMPT_CHOICES, initialMaxAttempts].sort((a, b) => a - b)
   const [chapterId, setChapterId] = useState(initialChapterId === null ? '' : String(initialChapterId))
-  const [publisherId, setPublisherId] = useState(initialPublisherId === null ? '' : String(initialPublisherId))
-  const [bookId, setBookId] = useState(initialBookId === null ? '' : String(initialBookId))
-  // Only the chosen publisher's books.
-  const books = publishers.find((p) => String(p.id) === publisherId)?.books ?? []
   // A quiz for one class may only use that class's chapters (the server checks it too).
   const offered = classId === '' ? chapters : chapters.filter((c) => String(c.schoolClassId) === classId)
   const [busy, setBusy] = useState(false)
@@ -177,8 +161,6 @@ export function QuizDialog({
         practiceAllowed,
         chapterId: chapterId === '' ? null : Number(chapterId),
         maxAttempts: maxAttempts === '' ? null : Number(maxAttempts),
-        publisherId: publisherId === '' ? null : Number(publisherId),
-        bookId: bookId === '' ? null : Number(bookId),
       })
       onClose()
     } catch (err) {
@@ -218,32 +200,6 @@ export function QuizDialog({
             „Toți elevii” = orice elev activ îl vede. Altfel, doar elevii înscriși în clasa aleasă.
           </p>
         </div>
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="qpublisher">Editură</Label>
-          <select id="qpublisher" className={selectClass} value={publisherId}
-                  onChange={(e) => { setPublisherId(e.target.value); setBookId('') }}>
-            <option value="">Fără editură (subiect oficial EN)</option>
-            {publishers.map((p) => (
-              <option key={p.id} value={p.id}>{p.name}</option>
-            ))}
-          </select>
-          <p className="text-xs text-muted-foreground">
-            {publishers.length === 0
-              ? 'Nu ai adăugat încă nicio editură: le adaugi din pagina Edituri (butonul de sus din Teste).'
-              : 'Doar editurile adăugate în pagina Edituri. Un subiect oficial de Evaluare Națională rămâne fără editură.'}
-          </p>
-        </div>
-        {books.length > 0 && (
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="qbook">Carte</Label>
-            <select id="qbook" className={selectClass} value={bookId} onChange={(e) => setBookId(e.target.value)}>
-              <option value="">— nicio carte —</option>
-              {books.map((b) => (
-                <option key={b.id} value={b.id}>{b.title}</option>
-              ))}
-            </select>
-          </div>
-        )}
         {/* What a test rarely changes waits folded; the folded line says what it is set to. */}
         <details data-testid="quiz-settings" className="rounded-lg border px-3 py-2">
           <summary className="cursor-pointer text-sm font-medium">
@@ -1000,9 +956,6 @@ export function AdminQuizzesPage() {
   const [readingBarem, setReadingBarem] = useState(false)
   // "Sugerează indicii (AI)" in the question editor: only where the server has the tutor switched on.
   const [tutorOn, setTutorOn] = useState(false)
-  // "Editură" on a test: the publishers an administrator added (Edituri).
-  const [publishers, setPublishers] = useState<Publisher[]>([])
-  const { user } = useAuth()
 
   const loadSummaries = () =>
     listQuizSummaries()
@@ -1033,9 +986,6 @@ export function AdminQuizzesPage() {
     getTutorSettings()
       .then((s) => setTutorOn(s.enabled))
       .catch(() => undefined) // the button just stays hidden
-    listPublishers()
-      .then(setPublishers)
-      .catch(() => undefined) // only the publisher choice is missing without it
   }, [])
 
   // The builder follows the address. What is shown is derived from it, so a quiz loaded for an earlier address never
@@ -1214,9 +1164,6 @@ export function AdminQuizzesPage() {
                       {roCount(quiz.items.length, 'întrebare', 'întrebări')} · Total: {quiz.items.reduce((sum, item) => sum + item.points, 0)} p
                     </span>
                     <span>· Capitol: {chapterTitle(quiz.chapterId) ?? 'niciunul'}</span>
-                    <span data-testid="quiz-publisher">
-                      · Editură: {quiz.publisherName ?? 'fără (subiect oficial)'}{quiz.bookTitle && ` · ${quiz.bookTitle}`}
-                    </span>
                   </span>
                 }
                 actions={
@@ -1372,11 +1319,6 @@ export function AdminQuizzesPage() {
               description="Creează teste, publică-le și dă-le ca temă. Deschide un test ca să-i adaugi întrebări."
               actions={
                 <>
-                  {user?.role === 'ADMIN' && (
-                    <Link to="/admin/publishers" className={buttonVariants({ size: 'sm', variant: 'outline' })}>
-                      Edituri
-                    </Link>
-                  )}
                   {aiImportOn && (
                     <Link to="/admin/quizzes/ai-import" className={buttonVariants({ size: 'sm', variant: 'outline' })}>
                       Din poze (AI)
@@ -1442,7 +1384,6 @@ export function AdminQuizzesPage() {
                       </p>
                       <p className="truncate text-xs text-muted-foreground" data-testid="quiz-audience">
                         {q.schoolClassName ? `Clasa: ${q.schoolClassName}` : 'Toți elevii'}
-                        {q.publisherName && ` · ${q.publisherName}`}{q.bookTitle && ` · ${q.bookTitle}`}
                         {q.timeLimitMinutes !== null && ` · ⏱ ${q.timeLimitMinutes} min`}
                         {` · ${attemptsLabel(q.maxAttempts)}`}
                         {q.practiceAllowed && ' · exersare permisă'}
@@ -1500,11 +1441,8 @@ export function AdminQuizzesPage() {
           initialPracticeAllowed={quizDialog.item?.practiceAllowed ?? false}
           initialMaxAttempts={quizDialog.item ? quizDialog.item.maxAttempts : ATTEMPT_CHOICES[0]}
           initialChapterId={quizDialog.item?.chapterId ?? null}
-          initialPublisherId={quizDialog.item?.publisherId ?? null}
-          initialBookId={quizDialog.item?.bookId ?? null}
           classes={classes}
           chapters={chapters}
-          publishers={publishers}
           onSubmit={async (input) => {
             if (quizDialog.item) {
               await updateQuiz(quizDialog.item.id, input)

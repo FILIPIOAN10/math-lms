@@ -16,8 +16,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import ro.mathlms.content.SchoolClass;
 import ro.mathlms.content.Chapter;
-import ro.mathlms.publisher.Publisher;
-import ro.mathlms.publisher.PublisherBook;
 
 /**
  * An assessment (e.g. "Simulare EN – Varianta 3") authored directly by an admin: it holds
@@ -86,16 +84,6 @@ public class Quiz {
     @JoinColumn(name = "chapter_id")
     private Chapter chapter;
 
-    /** The publishing house its questions come from (V53); {@code null} = none (e.g. an official EN paper). */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "publisher_id")
-    private Publisher publisher;
-
-    /** The publisher's book it comes from (V54); {@code null} = none. Always a book of {@link #publisher}. */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "book_id")
-    private PublisherBook book;
-
     public Quiz(String title, String description) {
         this.title = requireNonBlank(title, "title");
         this.description = description;
@@ -140,20 +128,6 @@ public class Quiz {
     /** Tags the quiz with the chapter its questions practise, or ({@code null}) removes the tag. */
     public void tagChapter(Chapter chapter) {
         this.chapter = chapter;
-    }
-
-    /** Names the publisher its questions come from, or ({@code null}) none; any book goes with it. */
-    public void publishedBy(Publisher publisher) {
-        this.publisher = publisher;
-        this.book = null;
-    }
-
-    /** Puts the test in a publisher's book: the publisher becomes the book's. {@code null} = no book (publisher kept). */
-    public void fromBook(PublisherBook book) {
-        if (book != null) {
-            this.publisher = book.getPublisher();
-        }
-        this.book = book;
     }
 
     /** Makes the quiz visible to students. Idempotent-safe: publishing a published quiz is a no-op. */

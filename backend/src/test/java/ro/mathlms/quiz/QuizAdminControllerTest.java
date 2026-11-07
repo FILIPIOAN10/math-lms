@@ -47,7 +47,7 @@ class QuizAdminControllerTest {
 
     @Test
     void createReturns201() {
-        when(service.createQuiz("Simulare EN", "d", null, null, false, null, 2, null, null)).thenReturn(new Quiz("Simulare EN", "d"));
+        when(service.createQuiz("Simulare EN", "d", null, null, false, null, 2)).thenReturn(new Quiz("Simulare EN", "d"));
 
         ResponseEntity<QuizSummaryDto> response =
                 controller.create(new QuizRequest("Simulare EN", "d", null, null, null, null, 2));
