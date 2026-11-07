@@ -14,6 +14,7 @@ import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import ro.mathlms.user.ExtraTime;
 import ro.mathlms.user.Role;
 import ro.mathlms.user.User;
 
@@ -97,7 +98,9 @@ public class QuizAttempt {
         this.student = student;
         this.startedAt = Objects.requireNonNull(startedAt, "startedAt");
         if (mode == AttemptMode.TEST && quiz.getTimeLimitMinutes() != null) { // a practice never has a clock
-            this.deadlineAt = startedAt.plus(Duration.ofMinutes(quiz.getTimeLimitMinutes()));
+            // The student's own extra time (CES) is added here, once: everything after reads this deadline.
+            this.deadlineAt = startedAt.plus(Duration.ofMinutes(
+                    ExtraTime.minutesFor(quiz.getTimeLimitMinutes(), student.getExtraTimePercent())));
         }
     }
 

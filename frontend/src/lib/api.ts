@@ -1542,6 +1542,16 @@ export interface StudentProfile {
   parentId: number | null
   parentName: string | null
   parentEmail: string | null
+  /** Extra time on timed tests, a share of each test's limit: 0 (none), 25, 50 or 100. */
+  extraTimePercent: number
+}
+
+/** The steps a teacher may give; the server refuses any other. */
+export const EXTRA_TIME_STEPS = [0, 25, 50, 100] as const
+
+/** Sets a student's extra time; it applies to the timed tests they start from now on. */
+export async function setStudentExtraTime(studentId: number, percent: number): Promise<void> {
+  await putJson(`/admin/users/${studentId}/extra-time`, { percent })
 }
 
 export async function getStudentProfile(studentId: number): Promise<StudentProfile> {
@@ -1600,6 +1610,8 @@ export interface QuizPreview {
   openPractice: OpenAttempt | null
   /** Questions solved on paper and photographed: the student needs paper and a phone ready. */
   photoItemCount?: number
+  /** The student's extra time, already counted in `timeLimitMinutes` (0 = none), so the screen can say so. */
+  extraTimePercent?: number
 }
 
 /** How far the student got in an attempt they left, and when a timed one closes. */
@@ -2008,7 +2020,7 @@ export type AuditAction =
   | 'QUESTION_ADDED' | 'QUESTION_UPDATED' | 'QUESTION_DELETED' | 'QUESTION_IMAGE_SET' | 'QUESTION_IMAGE_REMOVED' | 'QUIZ_FROM_PHOTOS'
   | 'ANSWER_GRADED' | 'PAPER_COMMENTED' | 'PAPER_GRADED' | 'PAPER_REOPENED' | 'ANSWER_KEY_CORRECTED'
   | 'HOMEWORK_ASSIGNED' | 'HOMEWORK_RESCHEDULED' | 'HOMEWORK_DELETED'
-  | 'ACCOUNT_APPROVED' | 'ACCOUNT_REJECTED' | 'PARENT_LINKED' | 'STUDENT_ENROLLED' | 'STUDENT_UNENROLLED'
+  | 'ACCOUNT_APPROVED' | 'ACCOUNT_REJECTED' | 'PARENT_LINKED' | 'EXTRA_TIME_CHANGED' | 'STUDENT_ENROLLED' | 'STUDENT_UNENROLLED'
   | 'INVITE_LINK_CREATED' | 'INVITE_LINK_REVOKED' | 'JOINED_BY_INVITE'
 
 /**

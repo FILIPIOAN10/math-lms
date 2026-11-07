@@ -6,6 +6,7 @@ import ro.mathlms.audit.AuditAction;
 import ro.mathlms.audit.AuditEvent;
 import ro.mathlms.audit.AuditLog;
 import ro.mathlms.user.AccountStatus;
+import ro.mathlms.user.ExtraTime;
 import ro.mathlms.user.Role;
 import ro.mathlms.user.User;
 import ro.mathlms.user.UserRepository;
@@ -87,6 +88,28 @@ public class AdminUserService {
             case STUDENT -> "elev";
             case PARENT -> "părinte";
         };
+    }
+
+    /**
+     * Sets a student's extra time on timed tests (see {@link ExtraTime}). It applies to tests they START from now on: a
+     * running attempt keeps its deadline. Setting the same value again changes nothing and writes no journal row.
+     */
+    @Transactional
+    public User changeExtraTime(Long studentId, int percent) {
+        User student = find(studentId);
+        int before = student.getExtraTimePercent();
+        student.changeExtraTime(percent); // refuses a non-student and a step that is not allowed
+        if (before == percent) {
+            return student;
+        }
+        User saved = userRepository.save(student);
+        auditLog.record(AuditEvent.of(AuditAction.EXTRA_TIME_CHANGED, studentId, "Timp suplimentar schimbat").about(saved)
+                .details(extraTimeText(before) + " → " + extraTimeText(percent)));
+        return saved;
+    }
+
+    private static String extraTimeText(int percent) {
+        return percent == 0 ? "fără" : "+" + percent + " %";
     }
 
     private User find(Long id) {

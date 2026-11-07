@@ -40,7 +40,7 @@ class QuizAttemptControllerTest {
         Quiz published = new Quiz("Simulare EN", "d");
         published.publish();
         when(service.listOffered("elev@scoala.ro")).thenReturn(List.of(
-                StudentQuizDtos.OfferedQuizDto.of(published, new AttemptAllowance(2, 1, null))));
+                StudentQuizDtos.OfferedQuizDto.of(published, new AttemptAllowance(2, 1, null), 0)));
 
         List<StudentQuizDtos.OfferedQuizDto> result = controller.list(auth);
 
@@ -128,7 +128,7 @@ class QuizAttemptControllerTest {
 
     @Test
     void previewDelegatesWithPrincipalEmail() {
-        QuizPreviewDto preview = new QuizPreviewDto(10L, "Simulare EN", null, 30, false, 3, 11, 1, 0, null, null, null, 0);
+        QuizPreviewDto preview = new QuizPreviewDto(10L, "Simulare EN", null, 30, false, 3, 11, 1, 0, null, null, null, 0, 0);
         when(service.getPreview(10L, "elev@scoala.ro")).thenReturn(preview);
 
         assertThat(controller.preview(10L, auth)).isEqualTo(preview);

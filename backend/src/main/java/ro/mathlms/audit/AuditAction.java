@@ -61,6 +61,8 @@ public enum AuditAction {
     ACCOUNT_APPROVED(AuditCategory.PEOPLE),
     ACCOUNT_REJECTED(AuditCategory.PEOPLE),
     PARENT_LINKED(AuditCategory.PEOPLE),
+    /** A student's extra time on timed tests set or taken away (CES). */
+    EXTRA_TIME_CHANGED(AuditCategory.PEOPLE),
     STUDENT_ENROLLED(AuditCategory.PEOPLE),
     STUDENT_UNENROLLED(AuditCategory.PEOPLE),
     INVITE_LINK_CREATED(AuditCategory.PEOPLE),

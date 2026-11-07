@@ -55,6 +55,7 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   ACCOUNT_APPROVED: 'Cont aprobat',
   ACCOUNT_REJECTED: 'Cont respins',
   PARENT_LINKED: 'Părinte legat',
+  EXTRA_TIME_CHANGED: 'Timp suplimentar schimbat',
   STUDENT_ENROLLED: 'Înscris în clasă',
   STUDENT_UNENROLLED: 'Scos din clasă',
   INVITE_LINK_CREATED: 'Link de invitație creat',

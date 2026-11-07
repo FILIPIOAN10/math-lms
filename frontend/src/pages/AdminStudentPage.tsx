@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { buttonVariants } from '@/components/ui/button'
 import { ErrorState } from '@/components/ErrorState'
+import { ExtraTimeField } from '@/components/ExtraTimeField'
 import { Card, CardContent } from '@/components/ui/card'
 import { AssignmentsSection } from '@/components/AssignmentsSection'
 import { AttemptModeBadge } from '@/components/AttemptModeBadge'
@@ -133,6 +134,7 @@ export function AdminStudentPage() {
                   )}
                 </p>
                 <ReviewStatusLine review={review} testId="student-review" />
+                <ExtraTimeField studentId={data.profile.id} initial={data.profile.extraTimePercent ?? 0} />
               </CardContent>
             </Card>
 

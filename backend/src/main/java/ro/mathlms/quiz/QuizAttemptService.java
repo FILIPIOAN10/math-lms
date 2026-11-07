@@ -42,6 +42,7 @@ import ro.mathlms.quiz.StudentQuizDtos.StartedAttemptDto;
 import ro.mathlms.quiz.StudentQuizDtos.StudentItemDto;
 import ro.mathlms.quiz.StudentQuizDtos.StudentQuizDto;
 import ro.mathlms.storage.FileService;
+import ro.mathlms.user.ExtraTime;
 import ro.mathlms.user.User;
 import ro.mathlms.user.UserRepository;
 
@@ -159,7 +160,8 @@ public class QuizAttemptService {
         Map<Long, Instant> homework = homeworkGivenAt(student);
         return listPublished(studentEmail).stream()
                 .map(quiz -> OfferedQuizDto.of(quiz, AttemptAllowance.of(quiz.getMaxAttempts(),
-                        attempts.getOrDefault(quiz.getId(), List.of()), homework.get(quiz.getId()))))
+                        attempts.getOrDefault(quiz.getId(), List.of()), homework.get(quiz.getId())),
+                        student.getExtraTimePercent()))
                 .toList();
     }
 
@@ -199,11 +201,13 @@ public class QuizAttemptService {
         List<QuizAttempt> attempts = attemptRepository.findByStudentIdAndQuizIdIn(student.getId(), List.of(quizId));
         AttemptAllowance allowance = AttemptAllowance.of(quiz.getMaxAttempts(), attempts, homeworkGivenAt(student).get(quizId));
         Instant now = Instant.now(clock);
-        return new QuizPreviewDto(quiz.getId(), quiz.getTitle(), quiz.getDescription(), quiz.getTimeLimitMinutes(),
+        return new QuizPreviewDto(quiz.getId(), quiz.getTitle(), quiz.getDescription(),
+                ExtraTime.minutesFor(quiz.getTimeLimitMinutes(), student.getExtraTimePercent()),
                 quiz.isPracticeAllowed(), (int) itemRepository.countByQuizId(quizId), maxScore,
                 allowance.maxAttempts(), allowance.used(), allowance.blockedBy(),
                 openAttempt(attempts, AttemptMode.TEST, now), openAttempt(attempts, AttemptMode.PRACTICE, now),
-                (int) itemRepository.countByQuizIdAndType(quizId, QuizItemType.OPEN));
+                (int) itemRepository.countByQuizIdAndType(quizId, QuizItemType.OPEN),
+                quiz.getTimeLimitMinutes() == null ? 0 : student.getExtraTimePercent());
     }
 
     /** The attempt of this mode the start would resume; one whose time ran out is handed in on start, not resumed. */
@@ -274,7 +278,7 @@ public class QuizAttemptService {
         List<RevealedHintsDto> revealedHints = attempt.getMode() == AttemptMode.PRACTICE
                 ? revealedHints(responses)
                 : List.of();
-        return new StartedAttemptDto(attempt.getId(), attempt.getStatus(), studentQuiz(quiz, attempt.getMode()), answers,
+        return new StartedAttemptDto(attempt.getId(), attempt.getStatus(), studentQuiz(quiz, attempt), answers,
                 attempt.getDeadlineAt(), Instant.now(clock), attempt.getMode(), revealedHints);
     }
 
@@ -688,7 +692,8 @@ public class QuizAttemptService {
     }
 
     /** The quiz as the student sees it; hint counts only exist in a practice - a graded test hides even that. */
-    private StudentQuizDto studentQuiz(Quiz quiz, AttemptMode mode) {
+    private StudentQuizDto studentQuiz(Quiz quiz, QuizAttempt attempt) {
+        AttemptMode mode = attempt.getMode();
         Map<Long, Integer> hintCounts = mode == AttemptMode.PRACTICE ? hintCounts(quiz.getId()) : Map.of();
         List<QuizItem> quizItems = itemRepository.findByQuizIdOrderByPosition(quiz.getId());
         Map<Long, List<QuizItemPart>> parts = partsOf(quizItems);
@@ -697,7 +702,8 @@ public class QuizAttemptService {
                 .map(item -> StudentItemDto.from(item, options.getOrDefault(item.getId(), List.of()),
                         hintCounts.getOrDefault(item.getId(), 0), parts.getOrDefault(item.getId(), List.of())))
                 .toList();
-        return StudentQuizDto.of(quiz, items);
+        // A practice has no clock, so no extra time to show; a test shows the minutes this student really has.
+        return StudentQuizDto.of(quiz, items, mode == AttemptMode.PRACTICE ? 0 : attempt.getStudent().getExtraTimePercent());
     }
 
     private QuizAttempt requireOwnedInProgress(Long attemptId, String studentEmail) {

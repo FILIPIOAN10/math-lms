@@ -146,6 +146,26 @@ class QuizAttemptTest {
     }
 
     @Test
+    void aStudentWithExtraTimeGetsItAddedToTheDeadline() {
+        quiz.changeTimeLimit(120);
+        student.changeExtraTime(50);
+
+        QuizAttempt attempt = new QuizAttempt(quiz, student);
+
+        assertThat(attempt.getDeadlineAt()).isEqualTo(attempt.getStartedAt().plus(Duration.ofMinutes(180)));
+    }
+
+    @Test
+    void extraTimeGivesNoClockToAPractice() {
+        quiz.changeTimeLimit(120);
+        student.changeExtraTime(100);
+
+        QuizAttempt attempt = new QuizAttempt(quiz, student, Instant.now(), AttemptMode.PRACTICE);
+
+        assertThat(attempt.getDeadlineAt()).isNull();
+    }
+
+    @Test
     void changingTheQuizLimitLaterDoesNotMoveARunningAttemptsDeadline() {
         quiz.changeTimeLimit(45);
         QuizAttempt attempt = new QuizAttempt(quiz, student);

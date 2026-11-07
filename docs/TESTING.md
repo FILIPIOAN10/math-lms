@@ -1013,6 +1013,16 @@ Conectează-te (parolă, cod 2FA sau Google) → ajungi **pe pagina cerută**, c
 - un link spre alt site (`//exemplu.ro`) sau spre `/login` nu e păstrat; o pagină pe care rolul tău n-o vede te trimite tot pe Acasă
 - păstrat doar în tab-ul curent (`sessionStorage`, cheia `mathlms-return-to`), șters după ce ajungi
 
+### 38. Timp suplimentar la testele cu cronometru (V56) — ca profesor, apoi ca elev
+**Ca profesor:** **Elevi** → un elev → în cardul de sus „Timp suplimentar la testele cu cronometru”: **fără / +25 % / +50 % / +100 %**.
+Se salvează la alegere: „Salvat. Contează de la următorul test început.”; **Istoric modificări** arată „Timp suplimentar schimbat · fără → +50 %”
+(aceeași valoare aleasă din nou nu scrie alt rând). Un profesor vede doar elevii lui (altfel 404).
+**Ca elev (cu +50 %):** pe un test de 120 de minute, „Testele mele”, Acasă și pagina de start arată **180 de minute**, iar nota de pe pagina de start
+spune „…: 180 de minute, cu timpul tău suplimentar.”; cronometrul din test pornește de la 3:00:00.
+- un test **deja început** își păstrează termenul (schimbarea contează de la următorul start); exersarea nu are cronometru, deci nici timp în plus
+- serverul primește doar 0, 25, 50, 100 (altceva sau un cont care nu e de elev → 400; un elev care încearcă singur → 403); baza de date are același CHECK
+- ștergerea contului (GDPR) pune timpul suplimentar înapoi la 0
+
 ## E. Debugging — unde te uiți când pică ceva
 
 ```bash

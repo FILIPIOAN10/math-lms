@@ -505,6 +505,13 @@ describe('TakeQuizPage', () => {
       api.getQuizPreview.mockResolvedValue(preview({ timeLimitMinutes: 30 }))
       renderPage('')
       expect(await screen.findByTestId('quiz-limit-note')).toHaveTextContent('30 de minute')
+      expect(screen.getByTestId('quiz-limit-note')).not.toHaveTextContent('suplimentar')
+    })
+
+    it('says the minutes include the extra time the student has', async () => {
+      api.getQuizPreview.mockResolvedValue(preview({ timeLimitMinutes: 180, extraTimePercent: 50 }))
+      renderPage('')
+      expect(await screen.findByTestId('quiz-limit-note')).toHaveTextContent('180 de minute, cu timpul tău suplimentar.')
     })
 
     it('puts the clock before everything else it explains, in left-aligned text', async () => {

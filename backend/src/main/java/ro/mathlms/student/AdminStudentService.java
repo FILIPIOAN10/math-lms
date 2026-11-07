@@ -82,7 +82,8 @@ public class AdminStudentService {
                 classes,
                 parent == null ? null : parent.getId(),
                 parent == null ? null : parent.getFullName(),
-                parent == null ? null : parent.getEmail());
+                parent == null ? null : parent.getEmail(),
+                student.getExtraTimePercent());
     }
 
     public List<MyAttemptDto> attempts(Long studentId) {

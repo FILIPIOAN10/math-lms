@@ -17,6 +17,7 @@ vi.mock('@/lib/api', async (original) => ({ ...(await original<typeof import('@/
 const ana: StudentProfile = {
   id: 4, fullName: 'Ana Student', email: 'ana@scoala.ro', status: 'ACTIVE',
   classes: [{ id: 1, name: 'Clasa a 8-a' }], parentId: 7, parentName: 'Maria Parinte', parentEmail: 'maria@scoala.ro',
+  extraTimePercent: 0,
 }
 
 const attempt = (id: number, over: Partial<MyAttemptDto> = {}): MyAttemptDto => ({
@@ -61,6 +62,14 @@ describe('AdminStudentPage', () => {
     expect(about).toHaveTextContent('Maria Parinte (maria@scoala.ro)')
     expect(screen.getByTestId('student-review')).toHaveTextContent('Recapitulare: făcută azi ✓ · seria 3 zile')
     expect(screen.getByRole('heading', { name: 'Ana Student' })).toBeInTheDocument()
+  })
+
+  it('shows the extra time on timed tests, set on this page', async () => {
+    api.getStudentProfile.mockResolvedValue({ ...ana, extraTimePercent: 50 })
+    renderPage()
+
+    const about = await screen.findByTestId('student-about')
+    expect(within(about).getByLabelText(/Timp suplimentar la testele cu cronometru/)).toHaveValue('50')
   })
 
   it("opens the journal filtered to this student (F1: who changed Ana's grades, classes, parent)", async () => {

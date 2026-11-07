@@ -1,6 +1,7 @@
 package ro.mathlms.quiz;
 
 import ro.mathlms.enchapter.EnChapterLinkDto;
+import ro.mathlms.user.ExtraTime;
 
 import java.time.Instant;
 import java.util.List;
@@ -65,7 +66,7 @@ public final class StudentQuizDtos {
             Long id,
             String title,
             String description,
-            Integer timeLimitMinutes, // null = untimed
+            Integer timeLimitMinutes, // null = untimed; this student's minutes, extra time included
             boolean practiceAllowed,
             int itemCount,
             int maxScore,
@@ -74,7 +75,8 @@ public final class StudentQuizDtos {
             RetakeBlock blockedBy, // null = the student may start it
             OpenAttemptDto openTest, // null = no test to resume
             OpenAttemptDto openPractice, // null = no practice to resume
-            int photoItemCount // questions solved on paper and photographed: the student needs paper and a camera
+            int photoItemCount, // questions solved on paper and photographed: the student needs paper and a camera
+            int extraTimePercent // the student's extra time already in timeLimitMinutes (0 = none), so the screen can say so
     ) {}
 
     /**
@@ -99,10 +101,12 @@ public final class StudentQuizDtos {
             int attemptsUsed,
             RetakeBlock blockedBy
     ) {
-        public static OfferedQuizDto of(Quiz quiz, AttemptAllowance allowance) {
+        /** {@code extraTimePercent}: the student's own extra time, so the card shows the minutes they really get. */
+        public static OfferedQuizDto of(Quiz quiz, AttemptAllowance allowance, int extraTimePercent) {
             QuizDtos.QuizSummaryDto summary = QuizDtos.QuizSummaryDto.from(quiz);
             return new OfferedQuizDto(summary.id(), summary.title(), summary.description(), summary.status(),
-                    summary.schoolClassId(), summary.schoolClassName(), summary.timeLimitMinutes(),
+                    summary.schoolClassId(), summary.schoolClassName(),
+                    ExtraTime.minutesFor(summary.timeLimitMinutes(), extraTimePercent),
                     summary.practiceAllowed(), summary.chapterId(), summary.maxAttempts(),
                     allowance.used(), allowance.blockedBy());
         }
@@ -115,9 +119,9 @@ public final class StudentQuizDtos {
             Integer timeLimitMinutes, // null = untimed
             List<StudentItemDto> items
     ) {
-        public static StudentQuizDto of(Quiz quiz, List<StudentItemDto> items) {
+        public static StudentQuizDto of(Quiz quiz, List<StudentItemDto> items, int extraTimePercent) {
             return new StudentQuizDto(quiz.getId(), quiz.getTitle(), quiz.getDescription(),
-                    quiz.getTimeLimitMinutes(), items);
+                    ExtraTime.minutesFor(quiz.getTimeLimitMinutes(), extraTimePercent), items);
         }
     }
 

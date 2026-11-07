@@ -23,6 +23,7 @@ import ro.mathlms.quiz.QuizAttemptRepository;
 import ro.mathlms.quiz.QuizNotFoundException;
 import ro.mathlms.quiz.QuizRepository;
 import ro.mathlms.quiz.QuizStatus;
+import ro.mathlms.user.ExtraTime;
 import ro.mathlms.user.Role;
 import ro.mathlms.user.User;
 import ro.mathlms.user.UserRepository;
@@ -179,7 +180,8 @@ public class AssignmentService {
                     AssignmentProgress p = AssignmentProgress.of(a, attemptsByQuiz.getOrDefault(a.getQuiz().getId(), List.of()));
                     return new Row(a, p, new StudentAssignmentDto(a.getId(), a.getQuiz().getId(), a.getQuiz().getTitle(),
                             a.getSchoolClass().getName(), a.getDueAt(), p.state(), p.late(),
-                            !p.isDone() && a.isOverdue(now), p.attemptId(), a.getQuiz().getTimeLimitMinutes()));
+                            !p.isDone() && a.isOverdue(now), p.attemptId(),
+                            ExtraTime.minutesFor(a.getQuiz().getTimeLimitMinutes(), student.getExtraTimePercent())));
                 })
                 .sorted(Comparator.<Row, Boolean>comparing(r -> r.progress().isDone())
                         .thenComparing(r -> r.assignment().getDueAt()))

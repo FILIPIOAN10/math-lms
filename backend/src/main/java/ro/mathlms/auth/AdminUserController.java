@@ -1,12 +1,14 @@
 package ro.mathlms.auth;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -83,5 +85,20 @@ public class AdminUserController {
                                               @Valid @RequestBody LinkParentRequest request) {
         User student = adminUserService.linkParent(id, request.parentId());
         return ResponseEntity.ok(UserDto.from(student));
+    }
+
+    /** Extra time on timed tests for one student (0, 25, 50 or 100 %); a TEACHER only for their own students. */
+    @PutMapping("/{id}/extra-time")
+    public ResponseEntity<String> changeExtraTime(@PathVariable Long id, @Valid @RequestBody ExtraTimeRequest request) {
+        scope.requireStudent(id);
+        try {
+            adminUserService.changeExtraTime(id, request.percent());
+        } catch (IllegalArgumentException e) { // a step that is not allowed, or an account that is not a student
+            return ResponseEntity.badRequest().body("Timpul suplimentar poate fi doar 0, 25, 50 sau 100 % și doar pentru un elev.");
+        }
+        return ResponseEntity.noContent().build();
+    }
+
+    public record ExtraTimeRequest(@NotNull Integer percent) {
     }
 }

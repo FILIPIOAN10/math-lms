@@ -90,6 +90,10 @@ public class User {
     @Column(name = "invite_link_id")
     private Long inviteLinkId;
 
+    /** Extra time on timed tests, a share of each test's limit (see {@link ExtraTime}); 0 = none. Only a student has it. */
+    @Column(name = "extra_time_percent", nullable = false)
+    private int extraTimePercent = 0;
+
     public User(String email, String fullName, Role role) {
         this.email = requireNonBlank(email, "email");
         this.fullName = requireNonBlank(fullName, "fullName");
@@ -237,6 +241,17 @@ public class User {
         return totpSecret != null;
     }
 
+    /** Sets this student's extra time; anything but a student, or a step not in {@link ExtraTime#ALLOWED}, is refused. */
+    public void changeExtraTime(int percent) {
+        if (role != Role.STUDENT) {
+            throw new IllegalArgumentException("Only a student has extra time, was " + role);
+        }
+        if (!ExtraTime.isAllowed(percent)) {
+            throw new IllegalArgumentException("Extra time must be one of " + ExtraTime.ALLOWED + ", was " + percent);
+        }
+        this.extraTimePercent = percent;
+    }
+
     public void erase(String pseudonymEmail, String pseudonymName) {
         this.email = requireNonBlank(pseudonymEmail, "pseudonymEmail");
         this.fullName = requireNonBlank(pseudonymName, "pseudonymName");
@@ -246,6 +261,7 @@ public class User {
         this.requestedRole = null;
         this.parent = null;
         this.emailVerified = false;
+        this.extraTimePercent = 0; // an accommodation is about the person: it goes with them
         this.erased = true;
         this.erasedAt = Instant.now();
     }

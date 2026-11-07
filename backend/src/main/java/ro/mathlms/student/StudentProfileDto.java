@@ -13,7 +13,8 @@ public record StudentProfileDto(
         List<ClassRef> classes,
         Long parentId,       // null = no parent linked
         String parentName,
-        String parentEmail
+        String parentEmail,
+        int extraTimePercent // extra time on timed tests, 0 = none (see ExtraTime)
 ) {
     public record ClassRef(Long id, String name) {
     }

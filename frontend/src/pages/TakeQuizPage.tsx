@@ -558,6 +558,8 @@ export function TakeQuizPage() {
     const open = (practice ? preview?.openPractice : preview?.openTest) ?? null
     const openSecondsLeft = open?.deadlineAt ? secondsLeft(open.deadlineAt, open.serverNow, Date.now(), Date.now()) : null
     const photoItems = preview?.photoItemCount ?? 0
+    // The minutes already include the student's extra time (CES): say it, so a 180 on a 120-minute simulation is no surprise.
+    const extraTime = (preview?.extraTimePercent ?? 0) > 0
     return (
       <div className="min-h-screen bg-muted p-4">
         <div className="mx-auto max-w-xl space-y-4 pt-12">
@@ -595,7 +597,8 @@ export function TakeQuizPage() {
                       </>
                     ) : (
                       <>
-                        ⏱ Testul are limită de timp: {formatMinutes(limitMinutes)}. Cronometrul pornește când apeși „Începe
+                        ⏱ Testul are limită de timp: {formatMinutes(limitMinutes)}
+                        {extraTime && ', cu timpul tău suplimentar'}. Cronometrul pornește când apeși „Începe
                         testul” și nu se oprește dacă închizi pagina.
                       </>
                     )}
