@@ -17,9 +17,9 @@ vi.mock('@/lib/api', async (original) => ({ ...(await original<typeof import('@/
 vi.mock('@/lib/image', () => ({ shrinkImage: (file: File) => Promise.resolve(file) }))
 
 const artKlett: Publisher = {
-  id: 1, name: 'Art Klett', description: 'Manuale și culegeri', hasLogo: true, logoVersion: 5, quizCount: 2,
+  id: 1, name: 'Art Klett', description: 'Manuale și culegeri', hasLogo: true, logoVersion: 5, quizCount: 2, books: [],
 }
-const litera: Publisher = { id: 2, name: 'Litera', description: null, hasLogo: false, logoVersion: 1, quizCount: 0 }
+const litera: Publisher = { id: 2, name: 'Litera', description: null, hasLogo: false, logoVersion: 1, quizCount: 0, books: [] }
 
 function renderPage() {
   return render(<MemoryRouter><AdminPublishersPage /></MemoryRouter>)
@@ -45,9 +45,10 @@ describe('AdminPublishersPage', () => {
     expect(rows).toHaveLength(2)
     expect(within(rows[0]).getByText('Art Klett')).toBeInTheDocument()
     expect(within(rows[0]).getByText('Manuale și culegeri')).toBeInTheDocument()
-    expect(within(rows[0]).getByText('2 teste')).toBeInTheDocument()
+    expect(within(rows[0]).getByText('nicio carte · 2 teste')).toBeInTheDocument()
+    expect(within(rows[0]).getByRole('link', { name: 'Art Klett' })).toHaveAttribute('href', '/admin/publishers/1')
     expect(within(rows[0]).getByRole('img', { name: 'Sigla Art Klett' })).toHaveAttribute('src', '/api/admin/publishers/1/logo?v=5')
-    expect(within(rows[1]).getByText('niciun test')).toBeInTheDocument()
+    expect(within(rows[1]).getByText('nicio carte · niciun test')).toBeInTheDocument()
   })
 
   it('adds a publisher with a description and a logo', async () => {

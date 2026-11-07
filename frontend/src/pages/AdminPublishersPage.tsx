@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Dialog } from '@/components/ui/dialog'
@@ -21,7 +22,7 @@ import { shrinkImage } from '@/lib/image'
 const testsLabel = (n: number) => (n === 0 ? 'niciun test' : roCount(n, 'test', 'teste'))
 
 /** The logo, or the publisher's initials where it has none. */
-function Logo({ publisher }: { publisher: Publisher }) {
+export function PublisherLogo({ publisher }: { publisher: Publisher }) {
   return publisher.hasLogo ? (
     <img src={publisherLogoUrl(publisher)} alt={`Sigla ${publisher.name}`}
          className="size-12 shrink-0 rounded-md border bg-white object-contain p-1" />
@@ -89,13 +90,19 @@ export function AdminPublishersPage() {
           <li key={p.id}>
             <Card data-testid="publisher">
               <CardContent className="flex items-center gap-4 pt-4">
-                <Logo publisher={p} />
+                <PublisherLogo publisher={p} />
                 <div className="min-w-0 flex-1">
-                  <p className="font-medium">{p.name}</p>
+                  <Link to={`/admin/publishers/${p.id}`} className="font-medium hover:underline">{p.name}</Link>
                   {p.description && <p className="truncate text-sm text-muted-foreground">{p.description}</p>}
-                  <p className="text-xs text-muted-foreground">{testsLabel(p.quizCount)}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {p.books.length === 0 ? 'nicio carte' : roCount(p.books.length, 'carte', 'cărți')} · {testsLabel(p.quizCount)}
+                  </p>
                 </div>
                 <div className="flex shrink-0 gap-2">
+                  <Link to={`/admin/publishers/${p.id}`}
+                        className="inline-flex h-8 items-center rounded-md border px-3 text-sm font-medium hover:bg-muted">
+                    Cărți
+                  </Link>
                   <Button size="sm" variant="outline" onClick={() => setEditing({ item: p })}>Editează</Button>
                   <Button size="sm" variant="ghost" className="text-destructive" onClick={() => void remove(p)}>Șterge</Button>
                 </div>

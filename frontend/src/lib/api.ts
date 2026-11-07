@@ -596,6 +596,9 @@ export interface QuizSummary {
   /** The publishing house its questions come from (Edituri); null = none, e.g. an official EN paper. */
   publisherId: number | null
   publisherName: string | null
+  /** The publisher's book it comes from; null = none. */
+  bookId: number | null
+  bookTitle: string | null
 }
 
 /** Why a student may not start another graded attempt. */
@@ -693,6 +696,8 @@ export interface QuizDetail {
   taken: boolean
   /** The publisher (Edituri); null = none. */
   publisherName: string | null
+  /** The publisher's book; null = none. */
+  bookTitle: string | null
 }
 
 export interface OptionInput {
@@ -1011,6 +1016,8 @@ export interface QuizInput {
   maxAttempts: number | null
   /** The publisher (Edituri); null = none. */
   publisherId?: number | null
+  /** The publisher's book it comes from; its publisher wins. null = none. */
+  bookId?: number | null
 }
 
 /** T2: a draft quiz of OPEN questions made from the chapter's ticked exercises, for the chapter's class. */
@@ -2363,6 +2370,42 @@ export interface Publisher {
   logoVersion: number
   /** How many tests name it. */
   quizCount: number
+  /** Its books, alphabetical. */
+  books: PublisherBook[]
+}
+
+/** A book of a publisher ("Culegere EN 2026"): the tests taken from it live in it. */
+export interface PublisherBook {
+  id: number
+  publisherId: number
+  title: string
+  description: string | null
+  /** How many tests it holds. */
+  quizCount: number
+}
+
+export interface PublisherBookInput {
+  title: string
+  description: string | null
+}
+
+export async function getPublisher(id: number): Promise<Publisher> {
+  const response = await apiFetch(`/admin/publishers/${id}`)
+  return response.json()
+}
+
+export async function createPublisherBook(publisherId: number, input: PublisherBookInput): Promise<PublisherBook> {
+  const response = await postJson(`/admin/publishers/${publisherId}/books`, input)
+  return response.json()
+}
+
+export async function updatePublisherBook(bookId: number, input: PublisherBookInput): Promise<PublisherBook> {
+  const response = await putJson(`/admin/publisher-books/${bookId}`, input)
+  return response.json()
+}
+
+export async function deletePublisherBook(bookId: number): Promise<void> {
+  await apiFetch(`/admin/publisher-books/${bookId}`, { method: 'DELETE' })
 }
 
 export interface PublisherInput {

@@ -17,6 +17,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+import ro.mathlms.publisher.PublisherDtos.BookDto;
+import ro.mathlms.publisher.PublisherDtos.BookRequest;
 import ro.mathlms.publisher.PublisherDtos.PublisherDto;
 import ro.mathlms.publisher.PublisherDtos.PublisherRequest;
 
@@ -41,6 +43,36 @@ public class PublisherController {
     public List<PublisherDto> list() {
         return service.list();
     }
+
+    @GetMapping("/api/admin/publishers/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
+    public PublisherDto get(@PathVariable Long id) {
+        return service.get(id);
+    }
+
+    // --- the publisher's books ---
+
+    @PostMapping("/api/admin/publishers/{id}/books")
+    @PreAuthorize("hasRole('ADMIN')")
+    @ResponseStatus(HttpStatus.CREATED)
+    public BookDto addBook(@PathVariable Long id, @RequestBody BookRequest request) {
+        return service.addBook(id, request);
+    }
+
+    @PutMapping("/api/admin/publisher-books/{bookId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public BookDto updateBook(@PathVariable Long bookId, @RequestBody BookRequest request) {
+        return service.updateBook(bookId, request);
+    }
+
+    @DeleteMapping("/api/admin/publisher-books/{bookId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> deleteBook(@PathVariable Long bookId) {
+        service.deleteBook(bookId);
+        return ResponseEntity.noContent().build();
+    }
+
+    // --- the publishers ---
 
     @PostMapping("/api/admin/publishers")
     @PreAuthorize("hasRole('ADMIN')")

@@ -39,6 +39,8 @@ const ParentAttemptResultPage = lazy(() => import('@/pages/ParentAttemptResultPa
 const AdminAuditPage = lazy(() => import('@/pages/AdminAuditPage').then((m) => ({ default: m.AdminAuditPage })))
 const EnChaptersPage = lazy(() => import('@/pages/EnChaptersPage').then((m) => ({ default: m.EnChaptersPage })))
 const EnChapterPage = lazy(() => import('@/pages/EnChapterPage').then((m) => ({ default: m.EnChapterPage })))
+const AdminPublisherPage = lazy(() => import('@/pages/AdminPublisherPage').then((m) => ({ default: m.AdminPublisherPage })))
+const AdminPublisherBookPage = lazy(() => import('@/pages/AdminPublisherPage').then((m) => ({ default: m.AdminPublisherBookPage })))
 const AdminPublishersPage = lazy(() => import('@/pages/AdminPublishersPage').then((m) => ({ default: m.AdminPublishersPage })))
 const AdminEnChaptersPage = lazy(() => import('@/pages/AdminEnChaptersPage').then((m) => ({ default: m.AdminEnChaptersPage })))
 const AdminEnChapterSlotsPage = lazy(() => import('@/pages/AdminEnChapterSlotsPage').then((m) => ({ default: m.AdminEnChapterSlotsPage })))
@@ -114,6 +116,22 @@ function App() {
               element={
                 <AdminRoute adminOnly>
                   <AdminPublishersPage />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/publishers/:publisherId"
+              element={
+                <AdminRoute adminOnly>
+                  <AdminPublisherPage />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/publishers/:publisherId/books/:bookId"
+              element={
+                <AdminRoute adminOnly>
+                  <AdminPublisherBookPage />
                 </AdminRoute>
               }
             />

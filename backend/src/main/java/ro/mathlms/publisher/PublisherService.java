@@ -9,6 +9,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
+import ro.mathlms.publisher.PublisherDtos.BookDto;
+import ro.mathlms.publisher.PublisherDtos.BookRequest;
 import ro.mathlms.publisher.PublisherDtos.PublisherDto;
 import ro.mathlms.publisher.PublisherDtos.PublisherRequest;
 import ro.mathlms.storage.FileService;
@@ -16,6 +18,7 @@ import ro.mathlms.storage.FileService;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.time.Clock;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,30 +39,66 @@ public class PublisherService {
     private static final Set<String> TYPES = Set.of("image/png", "image/jpeg", "image/webp");
 
     private final PublisherRepository repository;
+    private final PublisherBookRepository bookRepository;
     private final FileService fileService;
     private final Clock clock;
     private final String dir;
 
-    public PublisherService(PublisherRepository repository, FileService fileService, Clock clock,
+    public PublisherService(PublisherRepository repository, PublisherBookRepository bookRepository,
+                            FileService fileService, Clock clock,
                             @Value("${app.storage.publisher-logos-dir}") String dir) {
         this.repository = repository;
+        this.bookRepository = bookRepository;
         this.fileService = fileService;
         this.clock = clock;
         this.dir = dir;
     }
 
+    /** Every publisher with its books (alphabetical): the Edituri page and the test's dropdowns read it at once. */
     @Transactional(readOnly = true)
     public List<PublisherDto> list() {
         Map<Long, Long> counts = counts();
+        Map<Long, List<BookDto>> books = booksByPublisher();
         return repository.findAllByName().stream()
-                .map(p -> PublisherDto.from(p, counts.getOrDefault(p.getId(), 0L))).toList();
+                .map(p -> PublisherDto.from(p, counts.getOrDefault(p.getId(), 0L), books.getOrDefault(p.getId(), List.of())))
+                .toList();
+    }
+
+    /** One publisher's page: itself and its books. */
+    @Transactional(readOnly = true)
+    public PublisherDto get(Long id) {
+        Publisher publisher = find(id);
+        return PublisherDto.from(publisher, counts().getOrDefault(id, 0L), booksByPublisher().getOrDefault(id, List.of()));
+    }
+
+    @Transactional
+    public BookDto addBook(Long publisherId, BookRequest request) {
+        PublisherBook book = new PublisherBook(find(publisherId), request.title(), request.description(), clock.instant());
+        requireFreeTitle(publisherId, book.getTitle(), null);
+        return BookDto.from(bookRepository.save(book), 0);
+    }
+
+    @Transactional
+    public BookDto updateBook(Long bookId, BookRequest request) {
+        PublisherBook book = findBook(bookId);
+        book.rename(request.title(), request.description(), clock.instant());
+        requireFreeTitle(book.getPublisher().getId(), book.getTitle(), bookId);
+        return BookDto.from(book, bookCounts().getOrDefault(bookId, 0L));
+    }
+
+    /** The book goes; its tests stay, without a book but still with the publisher. */
+    @Transactional
+    public void deleteBook(Long bookId) {
+        findBook(bookId);
+        bookRepository.detachQuizzes(bookId);
+        bookRepository.deleteById(bookId);
     }
 
     @Transactional
     public PublisherDto create(PublisherRequest request) {
         Publisher publisher = new Publisher(request.name(), request.description(), clock.instant());
         requireFreeName(publisher.getName(), null);
-        return PublisherDto.from(repository.save(publisher), 0);
+        return PublisherDto.from(repository.save(publisher), 0, List.of());
     }
 
     @Transactional
@@ -67,7 +106,7 @@ public class PublisherService {
         Publisher publisher = find(id);
         publisher.rename(request.name(), request.description(), clock.instant());
         requireFreeName(publisher.getName(), id);
-        return PublisherDto.from(publisher, counts().getOrDefault(id, 0L));
+        return PublisherDto.from(publisher, counts().getOrDefault(id, 0L), booksByPublisher().getOrDefault(id, List.of()));
     }
 
     /** The publisher goes; the tests that named it stay, without a publisher. Its logo file goes after the commit. */
@@ -120,6 +159,34 @@ public class PublisherService {
 
     private Publisher find(Long id) {
         return repository.findById(id).orElseThrow(() -> new PublisherNotFoundException(id));
+    }
+
+    private PublisherBook findBook(Long id) {
+        return bookRepository.findById(id).orElseThrow(() -> new PublisherNotFoundException("Cartea", id));
+    }
+
+    private Map<Long, List<BookDto>> booksByPublisher() {
+        Map<Long, Long> counts = bookCounts();
+        Map<Long, List<BookDto>> books = new HashMap<>();
+        for (PublisherBook b : bookRepository.findAllByTitle()) {
+            books.computeIfAbsent(b.getPublisher().getId(), k -> new ArrayList<>())
+                    .add(BookDto.from(b, counts.getOrDefault(b.getId(), 0L)));
+        }
+        return books;
+    }
+
+    private Map<Long, Long> bookCounts() {
+        Map<Long, Long> counts = new HashMap<>();
+        for (Object[] row : bookRepository.quizCounts()) {
+            counts.put((Long) row[0], (Long) row[1]);
+        }
+        return counts;
+    }
+
+    private void requireFreeTitle(Long publisherId, String title, Long exceptId) {
+        if (bookRepository.titleTaken(publisherId, title, exceptId)) {
+            throw new PublisherConflictException("Există deja cartea „" + title + "” la această editură.");
+        }
     }
 
     private Map<Long, Long> counts() {

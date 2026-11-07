@@ -14,7 +14,7 @@ public final class QuizDtos {
     public record QuizSummaryDto(Long id, String title, String description, QuizStatus status,
                                  Long schoolClassId, String schoolClassName, Integer timeLimitMinutes,
                                  boolean practiceAllowed, Long chapterId, Integer maxAttempts,
-                                 Long publisherId, String publisherName) {
+                                 Long publisherId, String publisherName, Long bookId, String bookTitle) {
         public static QuizSummaryDto from(Quiz quiz) {
             SchoolClass schoolClass = quiz.getSchoolClass(); // null = for every student
             return new QuizSummaryDto(quiz.getId(), quiz.getTitle(), quiz.getDescription(), quiz.getStatus(),
@@ -22,7 +22,9 @@ public final class QuizDtos {
                     schoolClass == null ? null : schoolClass.getName(), quiz.getTimeLimitMinutes(),
                     quiz.isPracticeAllowed(), quiz.getChapter() == null ? null : quiz.getChapter().getId(),
                     quiz.getMaxAttempts(), quiz.getPublisher() == null ? null : quiz.getPublisher().getId(),
-                    quiz.getPublisher() == null ? null : quiz.getPublisher().getName());
+                    quiz.getPublisher() == null ? null : quiz.getPublisher().getName(),
+                    quiz.getBook() == null ? null : quiz.getBook().getId(),
+                    quiz.getBook() == null ? null : quiz.getBook().getTitle());
         }
     }
 
@@ -97,12 +99,14 @@ public final class QuizDtos {
             List<ItemDto> items,
             Long chapterId, // the default its items inherit
             boolean taken, // students have attempts: its questions and points are frozen, only the texts can change
-            String publisherName // the "Editură" (V53); null = none
+            String publisherName, // the "Editură" (V53); null = none
+            String bookTitle // the publisher's book (V54); null = none
     ) {
         public static QuizDetailDto of(Quiz quiz, List<ItemDto> items, boolean taken) {
             return new QuizDetailDto(quiz.getId(), quiz.getTitle(), quiz.getDescription(),
                     quiz.getStatus(), items, quiz.getChapter() == null ? null : quiz.getChapter().getId(), taken,
-                    quiz.getPublisher() == null ? null : quiz.getPublisher().getName());
+                    quiz.getPublisher() == null ? null : quiz.getPublisher().getName(),
+                    quiz.getBook() == null ? null : quiz.getBook().getTitle());
         }
     }
 }

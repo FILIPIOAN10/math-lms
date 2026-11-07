@@ -20,8 +20,8 @@ public interface PublisherRepository extends JpaRepository<Publisher, Long> {
     @Query("select q.publisher.id, count(q) from Quiz q where q.publisher is not null group by q.publisher.id")
     List<Object[]> quizCounts();
 
-    /** Before a publisher goes: its tests stay, without one (the FK does the same; this keeps loaded tests right). */
+    /** Before a publisher goes (its books with it): its tests stay, without either (the FK does the same; this keeps loaded tests right). */
     @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("update Quiz q set q.publisher = null where q.publisher.id = :id")
+    @Query("update Quiz q set q.publisher = null, q.book = null where q.publisher.id = :id")
     int detachQuizzes(@Param("id") Long id);
 }

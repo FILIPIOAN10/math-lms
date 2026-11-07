@@ -30,7 +30,7 @@ vi.mock('@/context/AuthContext', () => ({ useAuth: () => auth.value }))
 
 const summary = (id: number, title: string, status: QuizSummary['status'] = 'PUBLISHED'): QuizSummary => ({
   id, title, description: null, status, schoolClassId: null, schoolClassName: null, timeLimitMinutes: null,
-  practiceAllowed: false, chapterId: null, maxAttempts: null, publisherId: null, publisherName: null,
+  practiceAllowed: false, chapterId: null, maxAttempts: null, publisherId: null, publisherName: null, bookId: null, bookTitle: null,
 })
 const detail = (over: Partial<QuizDetail> = {}): QuizDetail => ({
   ...summary(7, 'Simulare EN'),
@@ -108,8 +108,8 @@ describe('AdminQuizzesPage', () => {
 
     it('picks the publisher from the ones an administrator added, or none for an official EN paper', async () => {
       api.listPublishers.mockResolvedValue([
-        { id: 4, name: 'Art Klett', description: null, hasLogo: false, logoVersion: 1, quizCount: 0 },
-        { id: 5, name: 'Intuitext', description: null, hasLogo: false, logoVersion: 1, quizCount: 1 },
+        { id: 4, name: 'Art Klett', description: null, hasLogo: false, logoVersion: 1, quizCount: 0, books: [] },
+        { id: 5, name: 'Intuitext', description: null, hasLogo: false, logoVersion: 1, quizCount: 1, books: [] },
       ])
       api.createQuiz.mockResolvedValue(summary(9, 'Varianta 1', 'DRAFT'))
       renderAt('/admin/quizzes')

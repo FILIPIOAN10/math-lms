@@ -99,7 +99,7 @@ const ATTEMPT_CHOICES = [1, 2, 3, 5]
 
 // ---------- Quiz create/edit dialog ----------
 
-function QuizDialog({
+export function QuizDialog({
   open,
   onClose,
   initialTitle,
@@ -110,6 +110,7 @@ function QuizDialog({
   initialMaxAttempts,
   initialChapterId = null,
   initialPublisherId = null,
+  initialBookId = null,
   classes,
   chapters = [],
   publishers = [],
@@ -127,6 +128,8 @@ function QuizDialog({
   initialChapterId?: number | null
   /** null = none (an official EN paper) */
   initialPublisherId?: number | null
+  /** null = no book */
+  initialBookId?: number | null
   classes: SchoolClass[]
   chapters?: ChapterOption[]
   /** Only the ones an administrator added (Edituri). */
@@ -145,6 +148,9 @@ function QuizDialog({
     : [...ATTEMPT_CHOICES, initialMaxAttempts].sort((a, b) => a - b)
   const [chapterId, setChapterId] = useState(initialChapterId === null ? '' : String(initialChapterId))
   const [publisherId, setPublisherId] = useState(initialPublisherId === null ? '' : String(initialPublisherId))
+  const [bookId, setBookId] = useState(initialBookId === null ? '' : String(initialBookId))
+  // Only the chosen publisher's books.
+  const books = publishers.find((p) => String(p.id) === publisherId)?.books ?? []
   // A quiz for one class may only use that class's chapters (the server checks it too).
   const offered = classId === '' ? chapters : chapters.filter((c) => String(c.schoolClassId) === classId)
   const [busy, setBusy] = useState(false)
@@ -172,6 +178,7 @@ function QuizDialog({
         chapterId: chapterId === '' ? null : Number(chapterId),
         maxAttempts: maxAttempts === '' ? null : Number(maxAttempts),
         publisherId: publisherId === '' ? null : Number(publisherId),
+        bookId: bookId === '' ? null : Number(bookId),
       })
       onClose()
     } catch (err) {
@@ -213,7 +220,8 @@ function QuizDialog({
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="qpublisher">Editură</Label>
-          <select id="qpublisher" className={selectClass} value={publisherId} onChange={(e) => setPublisherId(e.target.value)}>
+          <select id="qpublisher" className={selectClass} value={publisherId}
+                  onChange={(e) => { setPublisherId(e.target.value); setBookId('') }}>
             <option value="">Fără editură (subiect oficial EN)</option>
             {publishers.map((p) => (
               <option key={p.id} value={p.id}>{p.name}</option>
@@ -225,6 +233,17 @@ function QuizDialog({
               : 'Doar editurile adăugate în pagina Edituri. Un subiect oficial de Evaluare Națională rămâne fără editură.'}
           </p>
         </div>
+        {books.length > 0 && (
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="qbook">Carte</Label>
+            <select id="qbook" className={selectClass} value={bookId} onChange={(e) => setBookId(e.target.value)}>
+              <option value="">— nicio carte —</option>
+              {books.map((b) => (
+                <option key={b.id} value={b.id}>{b.title}</option>
+              ))}
+            </select>
+          </div>
+        )}
         {/* What a test rarely changes waits folded; the folded line says what it is set to. */}
         <details data-testid="quiz-settings" className="rounded-lg border px-3 py-2">
           <summary className="cursor-pointer text-sm font-medium">
@@ -1195,7 +1214,9 @@ export function AdminQuizzesPage() {
                       {roCount(quiz.items.length, 'întrebare', 'întrebări')} · Total: {quiz.items.reduce((sum, item) => sum + item.points, 0)} p
                     </span>
                     <span>· Capitol: {chapterTitle(quiz.chapterId) ?? 'niciunul'}</span>
-                    <span data-testid="quiz-publisher">· Editură: {quiz.publisherName ?? 'fără (subiect oficial)'}</span>
+                    <span data-testid="quiz-publisher">
+                      · Editură: {quiz.publisherName ?? 'fără (subiect oficial)'}{quiz.bookTitle && ` · ${quiz.bookTitle}`}
+                    </span>
                   </span>
                 }
                 actions={
@@ -1421,7 +1442,7 @@ export function AdminQuizzesPage() {
                       </p>
                       <p className="truncate text-xs text-muted-foreground" data-testid="quiz-audience">
                         {q.schoolClassName ? `Clasa: ${q.schoolClassName}` : 'Toți elevii'}
-                        {q.publisherName && ` · ${q.publisherName}`}
+                        {q.publisherName && ` · ${q.publisherName}`}{q.bookTitle && ` · ${q.bookTitle}`}
                         {q.timeLimitMinutes !== null && ` · ⏱ ${q.timeLimitMinutes} min`}
                         {` · ${attemptsLabel(q.maxAttempts)}`}
                         {q.practiceAllowed && ' · exersare permisă'}
@@ -1480,6 +1501,7 @@ export function AdminQuizzesPage() {
           initialMaxAttempts={quizDialog.item ? quizDialog.item.maxAttempts : ATTEMPT_CHOICES[0]}
           initialChapterId={quizDialog.item?.chapterId ?? null}
           initialPublisherId={quizDialog.item?.publisherId ?? null}
+          initialBookId={quizDialog.item?.bookId ?? null}
           classes={classes}
           chapters={chapters}
           publishers={publishers}

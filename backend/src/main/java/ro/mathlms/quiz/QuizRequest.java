@@ -14,16 +14,17 @@ public record QuizRequest(
         Boolean practiceAllowed, // optional: null/false = students cannot practise this quiz
         Long chapterId, // optional: the chapter its questions practise (E6 mastery map)
         @Min(1) @Max(Quiz.MAX_ATTEMPTS) Integer maxAttempts, // optional: null = a student may hand it in as often as they like
-        Long publisherId // optional: the "Editură" (V53); null = none, e.g. an official EN paper
+        Long publisherId, // optional: the "Editură" (V53); null = none, e.g. an official EN paper
+        Long bookId // optional: the publisher's book it comes from (V54); its publisher wins
 ) {
     public QuizRequest(String title, String description, Long schoolClassId, Integer timeLimitMinutes,
                        Boolean practiceAllowed, Long chapterId, Integer maxAttempts) {
-        this(title, description, schoolClassId, timeLimitMinutes, practiceAllowed, chapterId, maxAttempts, null);
+        this(title, description, schoolClassId, timeLimitMinutes, practiceAllowed, chapterId, maxAttempts, null, null);
     }
 
     /** Without a chapter tag (what the builder sent before E6) or a limit on attempts. */
     public QuizRequest(String title, String description, Long schoolClassId, Integer timeLimitMinutes,
                        Boolean practiceAllowed) {
-        this(title, description, schoolClassId, timeLimitMinutes, practiceAllowed, null, null, null);
+        this(title, description, schoolClassId, timeLimitMinutes, practiceAllowed, null, null, null, null);
     }
 }
