@@ -39,6 +39,17 @@ describe('RowMenu', () => {
     expect(items.map((i) => i.textContent)).toEqual(['Statistici', 'Copiază', 'Șterge'])
   })
 
+  it('marks the open trigger data-popup-open, which keeps a hover-lift card raised (index.css)', async () => {
+    renderMenu()
+    const trigger = screen.getByRole('button', { name: 'Mai multe acțiuni pentru Simulare EN' })
+    expect(trigger).not.toHaveAttribute('data-popup-open')
+
+    await userEvent.click(trigger)
+
+    await screen.findAllByRole('menuitem')
+    expect(trigger).toHaveAttribute('data-popup-open')
+  })
+
   it('runs an action and closes', async () => {
     const { onCopy } = renderMenu()
     await userEvent.click(screen.getByRole('button', { name: 'Mai multe acțiuni pentru Simulare EN' }))

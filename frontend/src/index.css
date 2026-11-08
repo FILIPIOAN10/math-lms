@@ -146,16 +146,21 @@
   }
 }
 
-/* A card that opens something rises a little under the mouse. Without motion it only gains the shadow. */
+/* A card that opens something rises a little under the mouse. Without motion it only gains the shadow.
+   It stays raised while a menu in it is open (Base UI marks the trigger data-popup-open): the open menu's backdrop takes
+   the hover away, and a card dropping 2px moved the "⋯" button out from under the pointer, so the menu closed again
+   on mouse-up (Base UI opens on mouse-down and closes on a mouse-up outside the trigger). */
 @utility hover-lift {
   transition: box-shadow 150ms ease, transform 150ms ease;
 
-  &:hover {
+  &:hover,
+  &:has([data-popup-open]) {
     box-shadow: 0 6px 16px -6px oklch(0 0 0 / 18%);
   }
 
   @media (prefers-reduced-motion: no-preference) {
-    &:hover {
+    &:hover,
+    &:has([data-popup-open]) {
       transform: translateY(-2px);
     }
   }
