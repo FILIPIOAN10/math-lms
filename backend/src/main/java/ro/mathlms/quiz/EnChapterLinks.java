@@ -17,9 +17,10 @@ import java.util.stream.Collectors;
 
 /**
  * Which EN chapter page each question (and each requirement a), b)...) points at (V34). The teacher's own choice wins;
- * otherwise the default for its place on the paper: "SUBIECTUL I", question 1 is slot "I.1" → A1, requirement b) of
- * problem 6 under "SUBIECTUL al III-lea" is "III.6.b" → G9, and a requirement without a slot of its own follows its
- * problem. Worked out when read, from the questions as they are now, so reordering never leaves a stale link behind;
+ * otherwise what its words are about ({@link EnChapterDetector}: "nu este prim" → A5, wherever it sits); otherwise the
+ * default for its place on the paper: "SUBIECTUL I", question 1 is slot "I.1" → A1, requirement b) of problem 6 under
+ * "SUBIECTUL al III-lea" is "III.6.b" → G9, and a requirement that says nothing and has no slot of its own follows its
+ * problem. Only questions under EN headings get an automatic link at all. Worked out when read, from the questions as they are now, so reordering never leaves a stale link behind;
  * a test without EN headings simply has no defaults.
  */
 @Component
@@ -48,24 +49,28 @@ public class EnChapterLinks {
     public Snapshot snapshot() {
         Map<String, EnChapter> slots = slotRepository.findAllFetched().stream()
                 .collect(Collectors.toMap(EnChapterSlot::getSlot, EnChapterSlot::getChapter));
-        return new Snapshot(slots, chapterService.readyIds());
+        Map<String, EnChapter> byCode = chapterRepository.findAll().stream()
+                .collect(Collectors.toMap(EnChapter::getCode, Function.identity()));
+        return new Snapshot(slots, byCode, chapterService.readyIds());
     }
 
     /** The automatic links as they are now; resolves any number of quizzes. */
     public static final class Snapshot {
 
         private final Map<String, EnChapter> slots;
+        private final Map<String, EnChapter> byCode;
         private final Set<Long> ready;
 
-        Snapshot(Map<String, EnChapter> slots, Set<Long> ready) {
+        Snapshot(Map<String, EnChapter> slots, Map<String, EnChapter> byCode, Set<Long> ready) {
             this.slots = slots;
+            this.byCode = byCode;
             this.ready = ready;
         }
 
         /** The links of one quiz's questions, all of them in position order. */
         public Resolved resolve(List<QuizItem> items) {
             return new Resolved(items.stream().collect(Collectors.toMap(QuizItem::getId, Function.identity())),
-                    QuestionNumbers.of(items), slots, ready);
+                    QuestionNumbers.of(items), slots, byCode, ready);
         }
     }
 
@@ -88,19 +93,35 @@ public class EnChapterLinks {
         private final Map<Long, QuizItem> items;
         private final Map<Long, String> numbers;
         private final Map<String, EnChapter> slots;
+        private final Map<String, EnChapter> byCode;
         private final Set<Long> ready;
 
-        Resolved(Map<Long, QuizItem> items, Map<Long, String> numbers, Map<String, EnChapter> slots, Set<Long> ready) {
+        Resolved(Map<Long, QuizItem> items, Map<Long, String> numbers, Map<String, EnChapter> slots,
+                 Map<String, EnChapter> byCode, Set<Long> ready) {
             this.items = new HashMap<>(items);
             this.numbers = numbers;
             this.slots = slots;
+            this.byCode = byCode;
             this.ready = ready;
         }
 
-        /** What "automatic" means for this question: the default for its place, or null when it has none. */
+        /** The chapter the words are about, if it exists here; null when they say nothing. */
+        private EnChapter detected(String statement) {
+            String code = EnChapterDetector.detect(statement);
+            return code == null ? null : byCode.get(code);
+        }
+
+        /**
+         * What "automatic" means for this question: what its words are about, else the default for its place; null
+         * outside EN headings.
+         */
         EnChapter itemDefault(QuizItem item) {
             String number = numbers.get(item.getId());
-            return number == null ? null : slots.get(number);
+            if (number == null) {
+                return null;
+            }
+            EnChapter byWords = detected(item.getStatement());
+            return byWords != null ? byWords : slots.get(number);
         }
 
         /** Where the question points: the teacher's choice, else the default for its place. */
@@ -108,11 +129,20 @@ public class EnChapterLinks {
             return item.getEnChapter() != null ? item.getEnChapter() : itemDefault(item);
         }
 
-        /** What "automatic" means for this requirement: its own slot, else wherever its problem points. */
+        /**
+         * What "automatic" means for this requirement: what its own words are about, else its own slot, else wherever
+         * its problem points.
+         */
         EnChapter partDefault(QuizItemPart part) {
             QuizItem item = items.getOrDefault(part.getItem().getId(), part.getItem());
             String number = numbers.get(item.getId());
-            EnChapter own = number == null ? null : slots.get(number + "." + part.label());
+            EnChapter own = null;
+            if (number != null) {
+                own = detected(part.getStatement());
+                if (own == null) {
+                    own = slots.get(number + "." + part.label());
+                }
+            }
             return own != null ? own : itemChapter(item);
         }
 

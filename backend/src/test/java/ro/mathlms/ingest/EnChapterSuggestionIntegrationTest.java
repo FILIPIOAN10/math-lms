@@ -98,7 +98,7 @@ class EnChapterSuggestionIntegrationTest {
         grila.put("enChapterId", chapters.get("A1")); // I.1's automatic link anyway
         Map<String, Object> triangle = new LinkedHashMap<>(grila);
         triangle.put("statement", items.get(1).get("statement").asString());
-        triangle.put("enChapterId", chapters.get("G3")); // not I.2's A2: the teacher's own choice
+        triangle.put("enChapterId", chapters.get("G5")); // not G3, what its words say: the teacher's own choice
         long quizId = json(send(post("/api/admin/ai-imports/" + id + "/quiz"),
                 Map.of("title", "Din manual " + id, "items", List.of(grila, triangle))).andExpect(status().isCreated()))
                 .get("quizId").asLong();
@@ -107,7 +107,7 @@ class EnChapterSuggestionIntegrationTest {
         // The same as automatic stays automatic, so it follows the automatic links when they change.
         assertThat(created.get(0).get("enChapterId").isNull()).isTrue();
         assertThat(created.get(0).get("enChapterAuto").asLong()).isEqualTo(chapters.get("A1"));
-        assertThat(created.get(1).get("enChapterId").asLong()).isEqualTo(chapters.get("G3"));
+        assertThat(created.get(1).get("enChapterId").asLong()).isEqualTo(chapters.get("G5"));
     }
 
     @Test
@@ -125,7 +125,7 @@ class EnChapterSuggestionIntegrationTest {
         problem.put("enChapterId", chapters.get("G9")); // III.1's automatic link is A9: kept
         problem.put("parts", List.of(
                 Map.of("statement", "Aria", "points", 5, "enChapterId", chapters.get("G9")), // = its problem: automatic
-                Map.of("statement", "Volumul", "points", 5, "enChapterId", chapters.get("G8"))));
+                Map.of("statement", "Volumul", "points", 5, "enChapterId", chapters.get("G4")))); // not G8, what "volumul" says
         long quizId = json(send(post("/api/admin/ai-imports/" + id + "/quiz"),
                 Map.of("title", "Din manual " + id, "items", List.of(problem))).andExpect(status().isCreated()))
                 .get("quizId").asLong();
@@ -134,7 +134,7 @@ class EnChapterSuggestionIntegrationTest {
         assertThat(created.get("enChapterId").asLong()).isEqualTo(chapters.get("G9"));
         assertThat(created.get("parts").get(0).get("enChapterId").isNull()).isTrue();
         assertThat(created.get("parts").get(0).get("enChapterAuto").asLong()).isEqualTo(chapters.get("G9"));
-        assertThat(created.get("parts").get(1).get("enChapterId").asLong()).isEqualTo(chapters.get("G8"));
+        assertThat(created.get("parts").get(1).get("enChapterId").asLong()).isEqualTo(chapters.get("G4"));
     }
 
     @Test

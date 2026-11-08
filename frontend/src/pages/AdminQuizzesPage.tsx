@@ -1239,7 +1239,7 @@ export function AdminQuizzesPage() {
                               <span
                                 data-testid="item-en-chapter"
                                 title={`Dacă greșește, elevul e trimis la ${enChapterOf(item)!.code} ${enChapterOf(item)!.title}`
-                                  + (item.enChapterId == null ? ' (automat, după locul din test)' : '')}
+                                  + (item.enChapterId == null ? ' (automat, după enunț sau locul din test)' : '')}
                                 className="ml-2 rounded-md bg-violet-500/15 px-1.5 py-0.5 text-xs font-medium text-violet-800 dark:text-violet-200"
                               >
                                 → {enChapterOf(item)!.code}

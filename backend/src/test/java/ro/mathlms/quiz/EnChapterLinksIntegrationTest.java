@@ -151,6 +151,21 @@ class EnChapterLinksIntegrationTest {
         assertThat(id(cube.get("parts").get(1).get("enChapterAuto"))).isEqualTo(chapters.get("G9"));
     }
 
+    /** A question about primes at S I.1 is about divisibility, whatever S I.1 usually asks; same for S I.2. */
+    @Test
+    void theWordsOfTheQuestionBeatItsPlace() throws Exception {
+        send(put("/api/admin/quiz-items/" + items.get(0)),
+                grila(0, "Dintre numerele 5, 11, 8 și 17, numărul care nu este prim este:", null)).andExpect(status().isOk());
+        send(put("/api/admin/quiz-items/" + items.get(1)),
+                grila(1, "Produsul numerelor întregi din intervalul $[1, 4]$ este egal cu:", null)).andExpect(status().isOk());
+
+        JsonNode list = detail().get("items");
+
+        assertThat(id(list.get(0).get("enChapterAuto"))).isEqualTo(chapters.get("A5"));
+        assertThat(list.get(0).get("enChapterId").isNull()).isTrue(); // still "automatic": the teacher chose nothing
+        assertThat(id(list.get(1).get("enChapterAuto"))).isEqualTo(chapters.get("A5"));
+    }
+
     @Test
     void theTeacherOverridesOneQuestionAndOneRequirement() throws Exception {
         send(put("/api/admin/quiz-items/" + items.get(1)), grila(1, "$\\frac{a}{4} = \\frac{5}{2}$", chapters.get("A3")))
