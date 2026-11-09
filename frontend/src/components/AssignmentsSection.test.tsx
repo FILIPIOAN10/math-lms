@@ -6,7 +6,7 @@ import type { StudentAssignment } from '@/lib/api'
 
 const base: StudentAssignment = {
   assignmentId: 1, quizId: 10, quizTitle: 'Simulare EN', schoolClassName: 'Clasa a 9-a',
-  dueAt: '2026-10-08T15:00:00Z', state: 'NOT_STARTED', late: false, overdue: false, attemptId: null, timeLimitMinutes: null,
+  dueAt: '2026-10-08T15:00:00Z', state: 'NOT_STARTED', late: false, overdue: false, attemptId: null, timeLimitMinutes: null, excused: false,
 }
 const NOW = Date.parse('2026-10-05T10:00:00Z')
 

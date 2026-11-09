@@ -52,6 +52,8 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   HOMEWORK_ASSIGNED: 'Temă dată',
   HOMEWORK_RESCHEDULED: 'Termen mutat',
   HOMEWORK_DELETED: 'Temă ștearsă',
+  HOMEWORK_OVERRIDE_SET: 'Excepție la temă pentru un elev',
+  HOMEWORK_OVERRIDE_REMOVED: 'Elev înapoi la termenul clasei',
   ACCOUNT_APPROVED: 'Cont aprobat',
   ACCOUNT_REJECTED: 'Cont respins',
   PARENT_LINKED: 'Părinte legat',

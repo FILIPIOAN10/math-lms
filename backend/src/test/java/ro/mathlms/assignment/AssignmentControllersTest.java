@@ -31,7 +31,7 @@ class AssignmentControllersTest {
     private final Instant due = Instant.parse("2026-10-12T15:00:00Z");
 
     private AssignmentSummaryDto summary() {
-        return new AssignmentSummaryDto(1L, 10L, "Simulare EN", 5L, "Clasa a 9-a", due, false, 4, 1, 0, 1, 2);
+        return new AssignmentSummaryDto(1L, 10L, "Simulare EN", 5L, "Clasa a 9-a", due, false, 4, 1, 0, 1, 2, 0);
     }
 
     @Test
@@ -69,7 +69,7 @@ class AssignmentControllersTest {
         Authentication auth = mock(Authentication.class);
         when(auth.getName()).thenReturn("ana@scoala.ro");
         List<StudentAssignmentDto> mine = List.of(new StudentAssignmentDto(
-                1L, 10L, "Simulare EN", "Clasa a 9-a", due, State.NOT_STARTED, false, false, null, 30));
+                1L, 10L, "Simulare EN", "Clasa a 9-a", due, State.NOT_STARTED, false, false, null, 30, false));
         when(service.myAssignments("ana@scoala.ro")).thenReturn(mine);
 
         assertThat(student.mine(auth)).isEqualTo(mine);

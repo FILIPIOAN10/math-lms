@@ -128,7 +128,7 @@ export function AssignmentsSection({
                   <span>{a.schoolClassName}</span>
                   {clock !== null ? (
                     <ClockLine seconds={clock} />
-                  ) : !done ? (
+                  ) : !done && !a.excused ? (
                     <span>
                       Termen: {formatDate(a.dueAt)} ({dueCountdown(a.dueAt, now)})
                     </span>

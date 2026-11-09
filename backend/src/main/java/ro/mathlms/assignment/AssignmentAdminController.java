@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import ro.mathlms.assignment.AssignmentDtos.AssignmentRequest;
 import ro.mathlms.assignment.AssignmentDtos.AssignmentSummaryDto;
+import ro.mathlms.assignment.AssignmentDtos.OverrideRequest;
 import ro.mathlms.assignment.AssignmentDtos.PublishAndAssignRequest;
 import ro.mathlms.assignment.AssignmentDtos.RescheduleRequest;
 import ro.mathlms.assignment.AssignmentDtos.StudentStatusDto;
@@ -72,6 +73,18 @@ public class AssignmentAdminController {
         scope.requireAssignment(id);
         service.delete(id);
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * One student's exception: their own deadline and/or excused; neither puts them back on the class deadline. Answers
+     * with the refreshed hand-in list. The service checks the student is in the homework's class (a teacher's own class).
+     */
+    @PutMapping("/api/admin/assignments/{id}/students/{studentId}/override")
+    public List<StudentStatusDto> setOverride(@PathVariable Long id, @PathVariable Long studentId,
+                                              @RequestBody OverrideRequest request) {
+        scope.requireAssignment(id);
+        service.setOverride(id, studentId, request.dueAt(), request.excused());
+        return service.status(id);
     }
 
     @GetMapping("/api/admin/assignments/{id}/status")

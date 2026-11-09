@@ -22,7 +22,7 @@ const attempt = (over: Partial<MyAttemptDto>): MyAttemptDto => ({
 const homework = (quizId: number, state: StudentAssignment['state']): StudentAssignment => ({
   assignmentId: quizId, quizId, quizTitle: `Tema ${quizId}`, schoolClassName: 'Clasa a 8-a',
   dueAt: new Date(Date.now() + 86_400_000).toISOString(), state, late: false, overdue: false,
-  attemptId: null, timeLimitMinutes: null,
+  attemptId: null, timeLimitMinutes: null, excused: false,
 })
 
 function renderPage() {

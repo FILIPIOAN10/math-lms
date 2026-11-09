@@ -1954,6 +1954,8 @@ export interface AssignmentSummary {
   late: number
   inProgress: number
   notStarted: number
+  /** Students excused from it: left out of every count above. */
+  excused: number
 }
 
 /** One student's row in the teacher's per-assignment status. */
@@ -1965,6 +1967,10 @@ export interface AssignmentStudentStatus {
   late: boolean
   score: number | null
   attemptId: number | null
+  /** The student's own deadline; null = the class one. */
+  ownDueAt: string | null
+  /** The homework does not count for this student. */
+  excused: boolean
 }
 
 /** One assignment as a student sees it. */
@@ -1982,6 +1988,8 @@ export interface StudentAssignment {
   /** The open attempt to continue, or the handed-in one whose result to read. */
   attemptId: number | null
   timeLimitMinutes: number | null
+  /** Excused: only the teacher's page for one student lists it unless handed in. `dueAt` is already the student's own. */
+  excused: boolean
 }
 
 export interface AssignmentInput {
@@ -2023,6 +2031,16 @@ export async function deleteAssignment(id: number): Promise<void> {
   await del(`/admin/assignments/${id}`)
 }
 
+/** One student's exception: their own deadline and/or excused; neither puts them back on the class deadline. */
+export async function setAssignmentOverride(
+  id: number,
+  studentId: number,
+  override: { dueAt: string | null; excused: boolean },
+): Promise<AssignmentStudentStatus[]> {
+  const response = await putJson(`/admin/assignments/${id}/students/${studentId}/override`, override)
+  return response.json()
+}
+
 export async function getAssignmentStatus(id: number): Promise<AssignmentStudentStatus[]> {
   const response = await apiFetch(`/admin/assignments/${id}/status`)
   return response.json()
@@ -2047,7 +2065,7 @@ export type AuditAction =
   | 'QUIZ_CREATED' | 'QUIZ_UPDATED' | 'QUIZ_COPIED' | 'QUIZ_PUBLISHED' | 'QUIZ_UNPUBLISHED' | 'QUIZ_DELETED'
   | 'QUESTION_ADDED' | 'QUESTION_UPDATED' | 'QUESTION_DELETED' | 'QUESTION_IMAGE_SET' | 'QUESTION_IMAGE_REMOVED' | 'QUIZ_FROM_PHOTOS'
   | 'ANSWER_GRADED' | 'PAPER_COMMENTED' | 'PAPER_GRADED' | 'PAPER_REOPENED' | 'ANSWER_KEY_CORRECTED'
-  | 'HOMEWORK_ASSIGNED' | 'HOMEWORK_RESCHEDULED' | 'HOMEWORK_DELETED'
+  | 'HOMEWORK_ASSIGNED' | 'HOMEWORK_RESCHEDULED' | 'HOMEWORK_DELETED' | 'HOMEWORK_OVERRIDE_SET' | 'HOMEWORK_OVERRIDE_REMOVED'
   | 'ACCOUNT_APPROVED' | 'ACCOUNT_REJECTED' | 'PARENT_LINKED' | 'EXTRA_TIME_CHANGED' | 'STUDENT_ENROLLED' | 'STUDENT_UNENROLLED'
   | 'INVITE_LINK_CREATED' | 'INVITE_LINK_REVOKED' | 'JOINED_BY_INVITE'
 

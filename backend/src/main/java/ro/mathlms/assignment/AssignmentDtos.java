@@ -17,6 +17,13 @@ public final class AssignmentDtos {
     public record RescheduleRequest(@NotNull Instant dueAt) {
     }
 
+    /**
+     * One student's exception to a homework: their own deadline (null = the class one) and/or excused. Neither clears
+     * the exception.
+     */
+    public record OverrideRequest(Instant dueAt, boolean excused) {
+    }
+
     /** T3: the class and deadline of the homework given together with publishing (the quiz is in the path). */
     public record PublishAndAssignRequest(@NotNull Long schoolClassId, @NotNull Instant dueAt) {
     }
@@ -34,7 +41,8 @@ public final class AssignmentDtos {
             int done,        // handed in, on time or late
             int late,        // of those, handed in after the deadline
             int inProgress,
-            int notStarted
+            int notStarted,
+            int excused      // left out of every count above: the homework does not count for them
     ) {
     }
 
@@ -46,7 +54,9 @@ public final class AssignmentDtos {
             Instant submittedAt,
             boolean late,
             Integer score,
-            Long attemptId
+            Long attemptId,
+            Instant ownDueAt, // the student's own deadline; null = the class one
+            boolean excused
     ) {
     }
 
@@ -56,12 +66,13 @@ public final class AssignmentDtos {
             Long quizId,
             String quizTitle,
             String schoolClassName,
-            Instant dueAt,
+            Instant dueAt,    // the student's own deadline when the teacher gave them one, else the class one
             State state,
             boolean late,     // handed in after the deadline
             boolean overdue,  // deadline passed and not handed in yet
             Long attemptId,   // the open attempt to continue, or the handed-in one whose result to read
-            Integer timeLimitMinutes
+            Integer timeLimitMinutes,
+            boolean excused   // the homework does not count for this student (only the teacher's view lists it)
     ) {
     }
 }

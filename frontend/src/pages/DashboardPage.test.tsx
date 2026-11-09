@@ -45,7 +45,7 @@ const user = (over: Partial<User>): User => ({
 })
 const homework = (id: number, title: string, state: StudentAssignment['state']): StudentAssignment => ({
   assignmentId: id, quizId: id, quizTitle: title, schoolClassName: 'Clasa a 8-a', dueAt: inDays(1), state,
-  late: false, overdue: false, attemptId: state === 'NOT_STARTED' ? null : 100 + id, timeLimitMinutes: null,
+  late: false, overdue: false, attemptId: state === 'NOT_STARTED' ? null : 100 + id, timeLimitMinutes: null, excused: false,
 })
 const attempt = (over: Partial<MyAttemptDto>): MyAttemptDto => ({
   attemptId: 1, quizId: 1, quizTitle: 'Test', status: 'GRADED', startedAt: inDays(-1), submittedAt: inDays(-1),
@@ -268,7 +268,7 @@ describe('DashboardPage — student', () => {
 describe('DashboardPage — teacher', () => {
   const summary = (id: number, title: string, dueInDays: number, over: Partial<AssignmentSummary> = {}): AssignmentSummary => ({
     id, quizId: id, quizTitle: title, schoolClassId: 1, schoolClassName: 'Clasa a 9-a', dueAt: inDays(dueInDays),
-    overdue: dueInDays < 0, enrolled: 20, done: 12, late: 0, inProgress: 2, notStarted: 6, ...over,
+    overdue: dueInDays < 0, enrolled: 20, done: 12, late: 0, inProgress: 2, notStarted: 6, excused: 0, ...over,
   })
   const submitted = (id: number, studentName: string): AdminAttemptSummary => ({
     attemptId: id, quizId: 1, quizTitle: 'Simulare EN', studentId: id, studentName, status: 'SUBMITTED',
@@ -430,7 +430,7 @@ describe('DashboardPage — teacher', () => {
 
   it('names who is still missing when only a few students are left', async () => {
     const status = (studentId: number, fullName: string, state: AssignmentStudentStatus['state']): AssignmentStudentStatus => ({
-      studentId, fullName, state, submittedAt: null, late: false, score: null, attemptId: null,
+      studentId, fullName, state, submittedAt: null, late: false, score: null, attemptId: null, ownDueAt: null, excused: false,
     })
     api.listAssignments.mockResolvedValue([
       summary(1, 'Fracții', 3, { enrolled: 6, done: 4, inProgress: 1, notStarted: 1 }),

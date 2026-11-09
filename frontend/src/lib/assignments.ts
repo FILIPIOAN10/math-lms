@@ -16,7 +16,10 @@ export function isHandedIn(a: Pick<StudentAssignment, 'state'>): boolean {
 }
 
 /** The pill a student sees on an assignment. A late hand-in is "late", not "overdue": overdue means still to do. */
-export function assignmentBadge(a: Pick<StudentAssignment, 'state' | 'late' | 'overdue'>): { text: string; tone: BadgeTone } {
+export function assignmentBadge(
+  a: Pick<StudentAssignment, 'state' | 'late' | 'overdue'> & { excused?: boolean },
+): { text: string; tone: BadgeTone } {
+  if (a.excused) return { text: 'Scutită', tone: 'info' }
   if (isHandedIn(a)) {
     return a.late ? { text: 'Predată cu întârziere', tone: 'warning' } : { text: 'Predată', tone: 'success' }
   }

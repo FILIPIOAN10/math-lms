@@ -166,4 +166,14 @@ class AssignmentProgressTest {
         assertThat(AssignmentProgress.of(assignment, List.of(attempt(1L, AttemptMode.TEST, created.plusSeconds(5)))).isDone()).isFalse();
         assertThat(AssignmentProgress.of(assignment, List.of(submitted(2L, due))).isDone()).isTrue();
     }
+
+    @Test
+    void aStudentsOwnDeadlineDecidesWhetherTheirHandInIsLate() {
+        QuizAttempt dayAfterClassDeadline = submitted(10L, due.plus(Duration.ofDays(1)));
+
+        assertThat(AssignmentProgress.of(assignment, List.of(dayAfterClassDeadline), due.plus(Duration.ofDays(2))).late())
+                .isFalse();
+        assertThat(AssignmentProgress.of(assignment, List.of(dayAfterClassDeadline), due.minus(Duration.ofDays(1))).late())
+                .isTrue();
+    }
 }

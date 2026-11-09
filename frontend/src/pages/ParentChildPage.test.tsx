@@ -17,7 +17,7 @@ vi.mock('@/lib/api', async (original) => ({ ...(await original<typeof import('@/
 const homework = (id: number, title: string, over: Partial<StudentAssignment> = {}): StudentAssignment => ({
   assignmentId: id, quizId: id, quizTitle: title, schoolClassName: 'Clasa a 8-a',
   dueAt: new Date(Date.now() + 86_400_000).toISOString(), state: 'NOT_STARTED', late: false, overdue: false,
-  attemptId: null, timeLimitMinutes: null, ...over,
+  attemptId: null, timeLimitMinutes: null, excused: false, ...over,
 })
 
 function renderPage() {

@@ -14,6 +14,7 @@ import {
   listClasses,
   listQuizzes,
   rescheduleAssignment,
+  setAssignmentOverride,
   type AssignmentInput,
   type AssignmentState,
   type AssignmentStudentStatus,
@@ -48,6 +49,8 @@ type DialogProps =
   | {
       mode: 'reschedule'; currentDueAt: string; quizzes?: undefined; classes?: undefined
       initialQuizId?: undefined; initialClassId?: undefined
+      /** One student's own deadline: "Termen pentru Ana Pop". */
+      studentName?: string
     }
 
 /**
@@ -89,7 +92,11 @@ export function AssignmentDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()} title={create ? 'Dă o temă' : 'Schimbă termenul'}>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => !o && onClose()}
+      title={create ? 'Dă o temă' : props.studentName ? `Termen pentru ${props.studentName}` : 'Schimbă termenul'}
+    >
       <form className="flex flex-col gap-4" onSubmit={submit}>
         {create && (
           <>
@@ -116,10 +123,17 @@ export function AssignmentDialog({
         <div className="flex flex-col gap-2">
           <Label htmlFor="adue">Termen</Label>
           <Input id="adue" type="datetime-local" value={due} onChange={(e) => setDue(e.target.value)} />
+          {props.mode === 'reschedule' && props.studentName ? (
+            <p className="text-xs text-muted-foreground">
+              Doar pentru acest elev (de exemplu după o absență). Restul clasei păstrează termenul temei. Predarea lui se
+              socotește „cu întârziere” abia după termenul de aici.
+            </p>
+          ) : (
           <p className="text-xs text-muted-foreground">
             Termenul e „moale”: elevii pot preda și după el, dar tema apare marcată „cu întârziere”. Cu cel mult 24 de ore
             înainte, elevii care nu au predat primesc un email de reamintire (dacă notificările sunt pornite).
           </p>
+          )}
         </div>
         {error && <p className="text-sm text-destructive">{error}</p>}
         <div className="flex justify-end gap-2">
@@ -146,6 +160,8 @@ export function AdminAssignmentsPage() {
   const preselectedQuizId = Number(searchParams.get('quizId')) || null // set by "Dă ca temă" on the quiz list
   const [creating, setCreating] = useState(preselectedQuizId !== null) // arriving from "Dă ca temă" opens the dialog
   const [moving, setMoving] = useState<AssignmentSummary | null>(null)
+  // One student's own deadline: the homework and the student whose date is being set.
+  const [movingFor, setMovingFor] = useState<{ assignment: AssignmentSummary; student: AssignmentStudentStatus } | null>(null)
   const [openId, setOpenId] = useState<number | null>(null)
   const [status, setStatus] = useState<AssignmentStudentStatus[] | null>(null)
   const [now, setNow] = useState(() => Date.now()) // refreshed whenever the list is (re)loaded
@@ -193,6 +209,32 @@ export function AdminAssignmentsPage() {
     } catch (e) {
       setError(errorMessage(e))
     }
+  }
+
+  /** One student's exception; the answer is the refreshed hand-in list, and the counts on the card follow. */
+  async function setOverride(a: AssignmentSummary, s: AssignmentStudentStatus, dueAt: string | null, excused: boolean,
+                             done: string) {
+    setError(null)
+    try {
+      setStatus(await setAssignmentOverride(a.id, s.studentId, { dueAt, excused }))
+      setNotice(done)
+      await reload()
+    } catch (e) {
+      setError(errorMessage(e))
+    }
+  }
+
+  function studentActions(a: AssignmentSummary, s: AssignmentStudentStatus) {
+    const items = [
+      { label: s.ownDueAt ? 'Schimbă termenul lui/ei' : 'Termen doar pentru el/ea', onClick: () => setMovingFor({ assignment: a, student: s }) },
+      s.excused
+        ? { label: 'Anulează scutirea', onClick: () => void setOverride(a, s, s.ownDueAt, false, `${s.fullName} are din nou tema.`) }
+        : { label: 'Scutește de temă', onClick: () => void setOverride(a, s, s.ownDueAt, true, `${s.fullName} e scutit(ă) de tema „${a.quizTitle}”.`) },
+    ]
+    if (s.ownDueAt && !s.excused) {
+      items.push({ label: 'Înapoi la termenul clasei', onClick: () => void setOverride(a, s, null, false, `${s.fullName} are din nou termenul clasei.`) })
+    }
+    return items
   }
 
   async function remove(a: AssignmentSummary) {
@@ -293,6 +335,7 @@ export function AdminAssignmentsPage() {
                     {a.late > 0 && <> · cu întârziere {a.late}</>}
                     {a.inProgress > 0 && <> · în lucru {a.inProgress}</>}
                     {a.notStarted > 0 && <> · neîncepute {a.notStarted}</>}
+                    {a.excused > 0 && <> · scutiți {a.excused}</>}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -312,24 +355,32 @@ export function AdminAssignmentsPage() {
               {openId === a.id && status && (
                 <table className="w-full text-sm" data-testid="assignment-status">
                   <thead className="text-left text-muted-foreground">
-                    <tr><th className="py-1">Elev</th><th>Stare</th><th>Predat</th><th>Notă</th></tr>
+                    <tr><th className="py-1">Elev</th><th>Stare</th><th>Predat</th><th>Notă</th><th><span className="sr-only">Excepții</span></th></tr>
                   </thead>
                   <tbody>
                     {status.map((s) => (
                       <tr key={s.studentId} className="border-t">
                         <td className="py-1">
                           <Link to={`/admin/students/${s.studentId}`} className="hover:underline">{s.fullName}</Link>
+                          {s.ownDueAt && !s.excused && (
+                            <span data-testid="own-due" className="block text-xs text-muted-foreground">
+                              termen propriu: {formatDate(s.ownDueAt)}
+                            </span>
+                          )}
                         </td>
-                        <td>{STATE_LABEL[s.state]}</td>
+                        <td>{s.excused ? <span className="font-medium text-sky-700 dark:text-sky-300">Scutit</span> : STATE_LABEL[s.state]}</td>
                         <td>
                           {s.submittedAt ? formatDate(s.submittedAt) : '—'}
                           {s.late && <span className="ml-1 text-amber-700 dark:text-amber-300">(cu întârziere)</span>}
                         </td>
                         <td>{s.score ?? '—'}</td>
+                        <td className="text-right">
+                          <RowMenu label={`Excepții pentru ${s.fullName}`} items={studentActions(a, s)} />
+                        </td>
                       </tr>
                     ))}
                     {status.length === 0 && (
-                      <tr><td colSpan={4} className="py-2 text-muted-foreground">Niciun elev înscris în această clasă.</td></tr>
+                      <tr><td colSpan={5} className="py-2 text-muted-foreground">Niciun elev înscris în această clasă.</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -354,6 +405,22 @@ export function AdminAssignmentsPage() {
           onSubmit={async (input) => {
             const created = await createAssignment(input)
             setNotice(`Tema „${created.quizTitle}” a fost dată clasei ${created.schoolClassName}, termen ${formatDate(created.dueAt)}.`)
+            await reload()
+          }}
+        />
+      )}
+      {movingFor && (
+        <AssignmentDialog
+          open
+          mode="reschedule"
+          studentName={movingFor.student.fullName}
+          currentDueAt={movingFor.student.ownDueAt ?? movingFor.assignment.dueAt}
+          onClose={() => setMovingFor(null)}
+          onSubmit={async (input) => {
+            const { assignment, student } = movingFor
+            // Through the dialog's own error line: a refused date keeps the dialog open.
+            setStatus(await setAssignmentOverride(assignment.id, student.studentId, { dueAt: input.dueAt, excused: student.excused }))
+            setNotice(`${student.fullName} are termen propriu: ${formatDate(input.dueAt)}.`)
             await reload()
           }}
         />

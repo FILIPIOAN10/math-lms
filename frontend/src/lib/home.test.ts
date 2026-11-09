@@ -8,12 +8,12 @@ const at = (days: number) => new Date(NOW + days * DAY).toISOString()
 
 const homework = (id: number, state: StudentAssignment['state']): StudentAssignment => ({
   assignmentId: id, quizId: id, quizTitle: `Q${id}`, schoolClassName: 'a 9-a', dueAt: at(1), state,
-  late: false, overdue: false, attemptId: null, timeLimitMinutes: null,
+  late: false, overdue: false, attemptId: null, timeLimitMinutes: null, excused: false,
 })
 
 const assignment = (id: number, dueInDays: number, over: Partial<AssignmentSummary> = {}): AssignmentSummary => ({
   id, quizId: id, quizTitle: `Q${id}`, schoolClassId: 1, schoolClassName: 'a 9-a', dueAt: at(dueInDays),
-  overdue: dueInDays < 0, enrolled: 20, done: 5, late: 0, inProgress: 0, notStarted: 15, ...over,
+  overdue: dueInDays < 0, enrolled: 20, done: 5, late: 0, inProgress: 0, notStarted: 15, excused: 0, ...over,
 })
 
 const point = (attemptId: number, submittedAt: string): ProgressPointDto => ({

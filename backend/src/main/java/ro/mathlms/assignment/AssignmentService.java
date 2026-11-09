@@ -45,6 +45,7 @@ import java.util.stream.Collectors;
 public class AssignmentService {
 
     private final AssignmentRepository assignmentRepository;
+    private final AssignmentOverrideRepository overrideRepository;
     private final QuizRepository quizRepository;
     private final SchoolClassRepository schoolClassRepository;
     private final EnrollmentRepository enrollmentRepository;
@@ -56,7 +57,8 @@ public class AssignmentService {
     private final int reminderLeadHours;
     private final boolean remindParents;
 
-    public AssignmentService(AssignmentRepository assignmentRepository, QuizRepository quizRepository,
+    public AssignmentService(AssignmentRepository assignmentRepository, AssignmentOverrideRepository overrideRepository,
+                             QuizRepository quizRepository,
                              SchoolClassRepository schoolClassRepository, EnrollmentRepository enrollmentRepository,
                              QuizAttemptRepository attemptRepository, UserRepository userRepository,
                              OutboxEventPublisher publisher, AuditLog auditLog, Clock clock,
@@ -64,6 +66,7 @@ public class AssignmentService {
                              @Value("${app.assignments.remind-parents:true}") boolean remindParents) {
         this.auditLog = auditLog;
         this.assignmentRepository = assignmentRepository;
+        this.overrideRepository = overrideRepository;
         this.quizRepository = quizRepository;
         this.schoolClassRepository = schoolClassRepository;
         this.enrollmentRepository = enrollmentRepository;
@@ -123,6 +126,58 @@ public class AssignmentService {
         auditLog.record(AuditEvent.of(AuditAction.HOMEWORK_DELETED, id, label(assignment)));
     }
 
+    /**
+     * One student's exception to the homework (Canvas "Assign To", Google Classroom "Excused"): their own deadline
+     * ({@code dueAt}, null = the class one) and/or excused - the homework does not count for them. Neither removes the
+     * exception. Only a student of the homework's class; an own deadline must be in the future. One journal row per
+     * real change ("termenul clasei → scutit"), none when nothing changes.
+     */
+    @Transactional
+    public void setOverride(Long assignmentId, Long studentId, Instant dueAt, boolean excused) {
+        Assignment assignment = assignmentRepository.findByIdFetched(assignmentId)
+                .orElseThrow(() -> new AssignmentNotFoundException("Nu există tema " + assignmentId));
+        User student = userRepository.findById(studentId)
+                .filter(u -> u.getRole() == Role.STUDENT && !u.isErased())
+                .filter(u -> enrollmentRepository.existsByStudentIdAndSchoolClassId(u.getId(),
+                        assignment.getSchoolClass().getId()))
+                .orElseThrow(() -> new InvalidAssignmentException("Elevul nu este în clasa acestei teme"));
+        if (dueAt != null) {
+            requireFuture(dueAt);
+        }
+        AssignmentOverride existing = overrideRepository.findOne(assignmentId, studentId).orElse(null);
+        String before = describe(existing);
+        AssignmentOverride override = existing != null ? existing
+                : new AssignmentOverride(assignment, student, Instant.now(clock));
+        override.moveDeadline(dueAt);
+        override.excuse(excused);
+        String after = describe(override);
+        if (before.equals(after)) {
+            return;
+        }
+        if (override.isEmpty()) {
+            if (existing != null) {
+                overrideRepository.delete(existing);
+            }
+        } else {
+            overrideRepository.save(override);
+        }
+        auditLog.record(AuditEvent.of(override.isEmpty() ? AuditAction.HOMEWORK_OVERRIDE_REMOVED
+                        : AuditAction.HOMEWORK_OVERRIDE_SET, assignmentId, label(assignment))
+                .about(student)
+                .details(before + " → " + after));
+    }
+
+    /** "termenul clasei", "termen 12.10.2026 13:00", "scutit": what one student's exception says, for the journal. */
+    private static String describe(AssignmentOverride override) {
+        if (override == null || override.isEmpty()) {
+            return "termenul clasei";
+        }
+        if (override.isExcused()) {
+            return "scutit";
+        }
+        return "termen " + AuditText.dateTime(override.getDueAt());
+    }
+
     /** "Teză · Clasa a 9-a": the quiz and the class it was handed to. */
     private static String label(Assignment assignment) {
         return assignment.getQuiz().getTitle() + " · " + assignment.getSchoolClass().getName();
@@ -145,19 +200,30 @@ public class AssignmentService {
         Assignment assignment = assignmentRepository.findByIdFetched(id)
                 .orElseThrow(() -> new AssignmentNotFoundException("Nu există tema " + id));
         List<User> students = rosterOf(assignment);
-        Map<Long, AssignmentProgress> progress = progressOf(assignment, students);
+        Map<Long, AssignmentOverride> overrides = overridesOf(assignment);
+        Map<Long, AssignmentProgress> progress = progressOf(assignment, students, overrides);
         return students.stream().map(student -> {
             AssignmentProgress p = progress.get(student.getId());
+            AssignmentOverride o = overrides.get(student.getId());
             return new StudentStatusDto(student.getId(), student.getFullName(), p.state(), p.submittedAt(), p.late(),
-                    p.score(), p.attemptId());
+                    p.score(), p.attemptId(), o == null ? null : o.getDueAt(), AssignmentOverride.isExcused(o));
         }).toList();
     }
 
     // ---------------------------------------------------------------- student: my homework
 
-    /** The homework of the student's classes: not yet handed in first (soonest deadline first), then the finished ones. */
+    /**
+     * The homework of the student's classes: not yet handed in first (soonest deadline first), then the finished ones.
+     * Each with the student's own deadline when they have one; homework they are excused from is left out unless handed in.
+     */
     @Transactional(readOnly = true)
     public List<StudentAssignmentDto> myAssignments(String studentEmail) {
+        return myAssignments(studentEmail, false);
+    }
+
+    /** The same; {@code includeExcused} keeps excused homework too (flagged) - the teacher's page for one student. */
+    @Transactional(readOnly = true)
+    public List<StudentAssignmentDto> myAssignments(String studentEmail, boolean includeExcused) {
         User student = userRepository.findByEmail(studentEmail).orElse(null);
         if (student == null || student.getRole() != Role.STUDENT) {
             return List.of();
@@ -174,22 +240,30 @@ public class AssignmentService {
         Map<Long, List<QuizAttempt>> attemptsByQuiz = attemptRepository.findByStudentIdAndQuizIdIn(student.getId(), quizIds)
                 .stream().collect(Collectors.groupingBy(a -> a.getQuiz().getId()));
         Instant now = Instant.now(clock);
+        Map<Long, AssignmentOverride> overrides = overrideRepository.findByStudentId(student.getId()).stream()
+                .collect(Collectors.toMap(o -> o.getAssignment().getId(), o -> o));
 
         return assignments.stream()
                 .map(a -> {
-                    AssignmentProgress p = AssignmentProgress.of(a, attemptsByQuiz.getOrDefault(a.getQuiz().getId(), List.of()));
-                    return new Row(a, p, new StudentAssignmentDto(a.getId(), a.getQuiz().getId(), a.getQuiz().getTitle(),
-                            a.getSchoolClass().getName(), a.getDueAt(), p.state(), p.late(),
-                            !p.isDone() && a.isOverdue(now), p.attemptId(),
-                            ExtraTime.minutesFor(a.getQuiz().getTimeLimitMinutes(), student.getExtraTimePercent())));
+                    AssignmentOverride o = overrides.get(a.getId());
+                    Instant dueAt = AssignmentOverride.dueAtFor(a, o);
+                    boolean excused = AssignmentOverride.isExcused(o);
+                    AssignmentProgress p = AssignmentProgress.of(a,
+                            attemptsByQuiz.getOrDefault(a.getQuiz().getId(), List.of()), dueAt);
+                    return new Row(p, dueAt, new StudentAssignmentDto(a.getId(), a.getQuiz().getId(),
+                            a.getQuiz().getTitle(), a.getSchoolClass().getName(), dueAt, p.state(), p.late(),
+                            !excused && !p.isDone() && now.isAfter(dueAt), p.attemptId(),
+                            ExtraTime.minutesFor(a.getQuiz().getTimeLimitMinutes(), student.getExtraTimePercent()),
+                            excused));
                 })
-                .sorted(Comparator.<Row, Boolean>comparing(r -> r.progress().isDone())
-                        .thenComparing(r -> r.assignment().getDueAt()))
+                .filter(r -> includeExcused || !r.dto().excused() || r.progress().isDone())
+                .sorted(Comparator.<Row, Boolean>comparing(r -> r.progress().isDone() || r.dto().excused())
+                        .thenComparing(Row::dueAt))
                 .map(Row::dto)
                 .toList();
     }
 
-    private record Row(Assignment assignment, AssignmentProgress progress, StudentAssignmentDto dto) {
+    private record Row(AssignmentProgress progress, Instant dueAt, StudentAssignmentDto dto) {
     }
 
     // ---------------------------------------------------------------- reminders
@@ -218,9 +292,11 @@ public class AssignmentService {
             return;
         }
         List<User> students = rosterOf(assignment);
-        Map<Long, AssignmentProgress> progress = progressOf(assignment, students);
+        // A student with an exception is not reminded of the class deadline: excused, or working to a date of their own.
+        Map<Long, AssignmentOverride> overrides = overridesOf(assignment);
+        Map<Long, AssignmentProgress> progress = progressOf(assignment, students, overrides);
         for (User student : students) {
-            if (!progress.get(student.getId()).isDone()) {
+            if (!overrides.containsKey(student.getId()) && !progress.get(student.getId()).isDone()) {
                 publisher.publish(OutboxEventTypes.ASSIGNMENT_REMINDER_EMAIL,
                         new AssignmentReminderPayload(assignment.getId(), student.getId()));
                 if (remindParents && student.getParent() != null && !student.getParent().isErased()) {
@@ -254,8 +330,18 @@ public class AssignmentService {
                 .toList();
     }
 
-    /** Progress of each given student on the assignment, from one query for all their attempts at its quiz. */
-    private Map<Long, AssignmentProgress> progressOf(Assignment assignment, List<User> students) {
+    /** The homework's exceptions by student id, from one query. */
+    private Map<Long, AssignmentOverride> overridesOf(Assignment assignment) {
+        return overrideRepository.findByAssignmentId(assignment.getId()).stream()
+                .collect(Collectors.toMap(o -> o.getStudent().getId(), o -> o));
+    }
+
+    /**
+     * Progress of each given student on the assignment, from one query for all their attempts at its quiz; each judged
+     * against their own deadline when they have one.
+     */
+    private Map<Long, AssignmentProgress> progressOf(Assignment assignment, List<User> students,
+                                                     Map<Long, AssignmentOverride> overrides) {
         if (students.isEmpty()) {
             return Map.of();
         }
@@ -264,12 +350,19 @@ public class AssignmentService {
                 .findForAssignment(assignment.getQuiz().getId(), ids, assignment.getCreatedAt()).stream()
                 .collect(Collectors.groupingBy(a -> a.getStudent().getId()));
         return students.stream().collect(Collectors.toMap(User::getId,
-                s -> AssignmentProgress.of(assignment, byStudent.getOrDefault(s.getId(), List.of()))));
+                s -> AssignmentProgress.of(assignment, byStudent.getOrDefault(s.getId(), List.of()),
+                        AssignmentOverride.dueAtFor(assignment, overrides.get(s.getId())))));
     }
 
     private AssignmentSummaryDto summarise(Assignment assignment) {
-        List<User> students = rosterOf(assignment);
-        Map<Long, AssignmentProgress> progress = progressOf(assignment, students);
+        Map<Long, AssignmentOverride> overrides = overridesOf(assignment);
+        // An excused student is left out of every count: the homework does not count for them.
+        List<User> roster = rosterOf(assignment);
+        List<User> students = roster.stream()
+                .filter(s -> !AssignmentOverride.isExcused(overrides.get(s.getId())))
+                .toList();
+        int excused = roster.size() - students.size();
+        Map<Long, AssignmentProgress> progress = progressOf(assignment, students, overrides);
         int done = 0, late = 0, inProgress = 0, notStarted = 0;
         for (AssignmentProgress p : progress.values()) {
             if (p.isDone()) {
@@ -285,6 +378,6 @@ public class AssignmentService {
         }
         return new AssignmentSummaryDto(assignment.getId(), assignment.getQuiz().getId(), assignment.getQuiz().getTitle(),
                 assignment.getSchoolClass().getId(), assignment.getSchoolClass().getName(), assignment.getDueAt(),
-                assignment.isOverdue(Instant.now(clock)), students.size(), done, late, inProgress, notStarted);
+                assignment.isOverdue(Instant.now(clock)), students.size(), done, late, inProgress, notStarted, excused);
     }
 }

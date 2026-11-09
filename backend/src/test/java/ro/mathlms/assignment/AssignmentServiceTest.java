@@ -56,6 +56,7 @@ class AssignmentServiceTest {
     }
 
     private final AssignmentRepository assignmentRepository = mock(AssignmentRepository.class);
+    private final AssignmentOverrideRepository overrideRepository = mock(AssignmentOverrideRepository.class);
     private final QuizRepository quizRepository = mock(QuizRepository.class);
     private final SchoolClassRepository schoolClassRepository = mock(SchoolClassRepository.class);
     private final EnrollmentRepository enrollmentRepository = mock(EnrollmentRepository.class);
@@ -65,7 +66,7 @@ class AssignmentServiceTest {
     private final AuditLog auditLog = mock(AuditLog.class);
     private final SettableClock clock = new SettableClock();
     private final AssignmentService service = new AssignmentService(
-            assignmentRepository, quizRepository, schoolClassRepository, enrollmentRepository,
+            assignmentRepository, overrideRepository, quizRepository, schoolClassRepository, enrollmentRepository,
             attemptRepository, userRepository, publisher, auditLog, clock, 24, true);
 
     private final SchoolClass ninth = withId(new SchoolClass("Clasa a 9-a", null), 5L);
@@ -510,12 +511,193 @@ class AssignmentServiceTest {
     @Test
     void parentsAreLeftOutWhenTheSettingIsOff() {
         AssignmentService withoutParents = new AssignmentService(
-                assignmentRepository, quizRepository, schoolClassRepository, enrollmentRepository,
+                assignmentRepository, overrideRepository, quizRepository, schoolClassRepository, enrollmentRepository,
                 attemptRepository, userRepository, publisher, auditLog, clock, 24, false);
         dueSoonWithRoster(withParent(student(1L, "Ana Pop"), 50L));
 
         withoutParents.queueReminders(1L);
 
         verify(publisher, times(1)).publish(OutboxEventTypes.ASSIGNMENT_REMINDER_EMAIL, new AssignmentReminderPayload(1L, 1L));
+    }
+
+    // --- one student's exception: own deadline, or excused ---
+
+    private AssignmentOverride override(Assignment assignment, User who, Instant ownDue, boolean excused) {
+        AssignmentOverride o = new AssignmentOverride(assignment, who, clock.now);
+        o.moveDeadline(ownDue);
+        o.excuse(excused);
+        return o;
+    }
+
+    private void stubStudentInClass(User who) {
+        when(userRepository.findById(who.getId())).thenReturn(Optional.of(who));
+        when(enrollmentRepository.existsByStudentIdAndSchoolClassId(who.getId(), 5L)).thenReturn(true);
+    }
+
+    @Test
+    void aStudentCanGetTheirOwnLaterDeadline() {
+        Assignment assignment = assignment(1L);
+        User bob = student(2L, "Bob Ionescu");
+        when(assignmentRepository.findByIdFetched(1L)).thenReturn(Optional.of(assignment));
+        stubStudentInClass(bob);
+        Instant ownDue = due.plus(Duration.ofDays(4));
+
+        service.setOverride(1L, 2L, ownDue, false);
+
+        ArgumentCaptor<AssignmentOverride> saved = ArgumentCaptor.forClass(AssignmentOverride.class);
+        verify(overrideRepository).save(saved.capture());
+        assertThat(saved.getValue().getDueAt()).isEqualTo(ownDue);
+        assertThat(saved.getValue().isExcused()).isFalse();
+        assertThat(saved.getValue().getStudent()).isSameAs(bob);
+        // 10:00 UTC is 13:00 in Bucharest in October
+        verify(auditLog).record(new AuditEvent(AuditAction.HOMEWORK_OVERRIDE_SET, 1L, "Simulare EN · Clasa a 9-a",
+                "termenul clasei → termen 12.10.2026 13:00", 2L, null));
+    }
+
+    @Test
+    void aStudentCanBeExcusedAndTheExcuseTakenBack() {
+        Assignment assignment = assignment(1L);
+        User bob = student(2L, "Bob Ionescu");
+        when(assignmentRepository.findByIdFetched(1L)).thenReturn(Optional.of(assignment));
+        stubStudentInClass(bob);
+        AssignmentOverride existing = override(assignment, bob, null, true);
+        when(overrideRepository.findOne(1L, 2L)).thenReturn(Optional.empty(), Optional.of(existing));
+
+        service.setOverride(1L, 2L, null, true);
+        verify(auditLog).record(new AuditEvent(AuditAction.HOMEWORK_OVERRIDE_SET, 1L, "Simulare EN · Clasa a 9-a",
+                "termenul clasei → scutit", 2L, null));
+
+        service.setOverride(1L, 2L, null, false); // nothing left to say: the row goes
+
+        verify(overrideRepository).delete(existing);
+        verify(auditLog).record(new AuditEvent(AuditAction.HOMEWORK_OVERRIDE_REMOVED, 1L, "Simulare EN · Clasa a 9-a",
+                "scutit → termenul clasei", 2L, null));
+    }
+
+    @Test
+    void settingTheSameExceptionAgainWritesNoJournalRow() {
+        Assignment assignment = assignment(1L);
+        User bob = student(2L, "Bob Ionescu");
+        when(assignmentRepository.findByIdFetched(1L)).thenReturn(Optional.of(assignment));
+        stubStudentInClass(bob);
+        when(overrideRepository.findOne(1L, 2L)).thenReturn(Optional.of(override(assignment, bob, null, true)));
+
+        service.setOverride(1L, 2L, null, true);
+
+        verify(auditLog, never()).record(any());
+    }
+
+    @Test
+    void anOwnDeadlineMustBeInTheFuture() {
+        Assignment assignment = assignment(1L);
+        when(assignmentRepository.findByIdFetched(1L)).thenReturn(Optional.of(assignment));
+        stubStudentInClass(student(2L, "Bob Ionescu"));
+
+        assertThatThrownBy(() -> service.setOverride(1L, 2L, clock.now.minusSeconds(1), false))
+                .isInstanceOf(InvalidAssignmentException.class)
+                .hasMessageContaining("viitor");
+        verify(overrideRepository, never()).save(any());
+    }
+
+    @Test
+    void onlyAStudentOfTheHomeworksClassCanGetAnException() {
+        Assignment assignment = assignment(1L);
+        User stranger = student(3L, "Cris Rus");
+        when(assignmentRepository.findByIdFetched(1L)).thenReturn(Optional.of(assignment));
+        when(userRepository.findById(3L)).thenReturn(Optional.of(stranger));
+        when(enrollmentRepository.existsByStudentIdAndSchoolClassId(3L, 5L)).thenReturn(false);
+
+        assertThatThrownBy(() -> service.setOverride(1L, 3L, null, true))
+                .isInstanceOf(InvalidAssignmentException.class)
+                .hasMessageContaining("clasa acestei teme");
+        verify(overrideRepository, never()).save(any());
+    }
+
+    @Test
+    void theStatusJudgesLatenessByTheStudentsOwnDeadlineAndShowsTheException() {
+        Assignment assignment = assignment(1L);
+        User ana = student(1L, "Ana Pop");
+        User bob = student(2L, "Bob Ionescu");
+        stubRoster(assignment, ana, bob);
+        Instant bobsDue = due.plus(Duration.ofDays(3));
+        when(overrideRepository.findByAssignmentId(1L)).thenReturn(List.of(
+                override(assignment, ana, null, true), override(assignment, bob, bobsDue, false)));
+        when(attemptRepository.findForAssignment(eq(10L), any(), eq(assignment.getCreatedAt())))
+                .thenReturn(List.of(attemptOf(bob, 101L, true, due.plus(Duration.ofDays(1)))));
+
+        List<StudentStatusDto> status = service.status(1L);
+
+        assertThat(status).extracting(StudentStatusDto::excused).containsExactly(true, false);
+        assertThat(status).extracting(StudentStatusDto::ownDueAt).containsExactly(null, bobsDue);
+        assertThat(status.get(1).late()).isFalse(); // after the class deadline, before his own
+    }
+
+    @Test
+    void anExcusedStudentIsLeftOutOfTheCounts() {
+        Assignment assignment = assignment(1L);
+        User ana = student(1L, "Ana Pop");
+        User bob = student(2L, "Bob Ionescu");
+        when(assignmentRepository.findAllFetched()).thenReturn(List.of(assignment));
+        when(enrollmentRepository.findBySchoolClassIdFetchStudent(5L))
+                .thenReturn(List.of(ana, bob).stream().map(s -> new Enrollment(s, ninth)).toList());
+        when(overrideRepository.findByAssignmentId(1L)).thenReturn(List.of(override(assignment, bob, null, true)));
+
+        AssignmentSummaryDto summary = service.list().get(0);
+
+        assertThat(summary.enrolled()).isEqualTo(1);
+        assertThat(summary.notStarted()).isEqualTo(1);
+        assertThat(summary.excused()).isEqualTo(1);
+    }
+
+    private void stubMyHomework(User who, Assignment... assignments) {
+        when(userRepository.findByEmail(who.getEmail())).thenReturn(Optional.of(who));
+        when(enrollmentRepository.findClassIdsByStudentId(who.getId())).thenReturn(List.of(5L));
+        when(assignmentRepository.findBySchoolClassIdsFetched(List.of(5L))).thenReturn(List.of(assignments));
+        when(attemptRepository.findByStudentIdAndQuizIdIn(eq(who.getId()), any())).thenReturn(List.of());
+    }
+
+    @Test
+    void aStudentSeesTheirOwnDeadlineAndIsNotOverdueBeforeIt() {
+        User ana = student(1L, "Ana Pop");
+        Assignment assignment = assignment(1L);
+        stubMyHomework(ana, assignment);
+        Instant ownDue = due.plus(Duration.ofDays(5));
+        when(overrideRepository.findByStudentId(1L)).thenReturn(List.of(override(assignment, ana, ownDue, false)));
+        clock.now = due.plus(Duration.ofDays(1)); // past the class deadline
+
+        assertThat(service.myAssignments(ana.getEmail())).singleElement().satisfies(a -> {
+            assertThat(a.dueAt()).isEqualTo(ownDue);
+            assertThat(a.overdue()).isFalse();
+            assertThat(a.excused()).isFalse();
+        });
+    }
+
+    @Test
+    void excusedHomeworkNotHandedInIsHiddenFromTheStudentButShownToTheTeacher() {
+        User ana = student(1L, "Ana Pop");
+        Assignment assignment = assignment(1L);
+        stubMyHomework(ana, assignment);
+        when(overrideRepository.findByStudentId(1L)).thenReturn(List.of(override(assignment, ana, null, true)));
+        clock.now = due.plus(Duration.ofDays(1));
+
+        assertThat(service.myAssignments(ana.getEmail())).isEmpty();
+        assertThat(service.myAssignments(ana.getEmail(), true)).singleElement().satisfies(a -> {
+            assertThat(a.excused()).isTrue();
+            assertThat(a.overdue()).isFalse();
+        });
+    }
+
+    @Test
+    void noReminderGoesToAnExcusedStudentOrOneWithTheirOwnDeadline() {
+        User ana = student(1L, "Ana Pop");
+        User bob = student(2L, "Bob Ionescu");
+        Assignment assignment = dueSoonWithRoster(ana, bob, student(3L, "Cris Rus"));
+        when(overrideRepository.findByAssignmentId(1L)).thenReturn(List.of(
+                override(assignment, ana, null, true), override(assignment, bob, due.plus(Duration.ofDays(9)), false)));
+
+        service.queueReminders(1L);
+
+        verify(publisher, times(1)).publish(any(), any());
+        verify(publisher).publish(OutboxEventTypes.ASSIGNMENT_REMINDER_EMAIL, new AssignmentReminderPayload(1L, 3L));
     }
 }

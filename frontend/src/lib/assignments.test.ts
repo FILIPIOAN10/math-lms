@@ -15,6 +15,11 @@ describe('isHandedIn', () => {
 })
 
 describe('assignmentBadge', () => {
+  it('says "Scutită" for homework the student is excused from, before anything else', () => {
+    expect(assignmentBadge({ state: 'NOT_STARTED', late: false, overdue: false, excused: true }))
+      .toEqual({ text: 'Scutită', tone: 'info' })
+  })
+
   it('says "De făcut" for something not started', () => {
     expect(assignmentBadge({ state: 'NOT_STARTED', late: false, overdue: false })).toEqual({ text: 'De făcut', tone: 'info' })
   })

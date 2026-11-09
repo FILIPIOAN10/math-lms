@@ -91,7 +91,7 @@ public class AdminStudentService {
     }
 
     public List<StudentAssignmentDto> assignments(Long studentId) {
-        return assignmentService.myAssignments(requireStudent(studentId).getEmail());
+        return assignmentService.myAssignments(requireStudent(studentId).getEmail(), true); // excused ones too, flagged
     }
 
     public List<ProgressPointDto> progress(Long studentId) {

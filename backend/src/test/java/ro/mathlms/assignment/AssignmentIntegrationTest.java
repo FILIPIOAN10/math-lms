@@ -178,4 +178,29 @@ class AssignmentIntegrationTest {
                 .singleElement().satisfies(s -> assertThat(s.late()).isTrue());
         assertThat(assignmentService.myAssignments(ana.getEmail()).get(0).late()).isTrue();
     }
+
+    @Test
+    void anExceptionIsStoredPerStudentAndClearingItRemovesTheRow() {
+        Assignment assignment = assignmentService.create(quiz.getId(), schoolClass.getId(), Instant.now().plus(Duration.ofDays(2)));
+        Instant anasDue = Instant.now().plus(Duration.ofDays(6)).truncatedTo(java.time.temporal.ChronoUnit.SECONDS);
+
+        assignmentService.setOverride(assignment.getId(), ana.getId(), anasDue, false);
+        assignmentService.setOverride(assignment.getId(), bob.getId(), null, true);
+
+        assertThat(assignmentService.myAssignments(ana.getEmail())).singleElement()
+                .satisfies(a -> assertThat(a.dueAt()).isEqualTo(anasDue));
+        assertThat(assignmentService.myAssignments(bob.getEmail())).isEmpty();
+        assertThat(assignmentService.summaryOf(assignment.getId())).satisfies(s -> {
+            assertThat(s.enrolled()).isEqualTo(1);
+            assertThat(s.excused()).isEqualTo(1);
+        });
+
+        assignmentService.setOverride(assignment.getId(), bob.getId(), null, false);
+
+        assertThat(assignmentService.myAssignments(bob.getEmail())).singleElement()
+                .satisfies(a -> assertThat(a.excused()).isFalse());
+        assertThat(assignmentService.status(assignment.getId()))
+                .filteredOn(s -> s.studentId().equals(bob.getId())).singleElement()
+                .satisfies(s -> assertThat(s.ownDueAt()).isNull());
+    }
 }

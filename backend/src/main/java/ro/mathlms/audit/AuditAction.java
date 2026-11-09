@@ -57,6 +57,10 @@ public enum AuditAction {
     HOMEWORK_ASSIGNED(AuditCategory.HOMEWORK),
     HOMEWORK_RESCHEDULED(AuditCategory.HOMEWORK),
     HOMEWORK_DELETED(AuditCategory.HOMEWORK),
+    /** One student given their own deadline or excused from a homework (or the exception changed). */
+    HOMEWORK_OVERRIDE_SET(AuditCategory.HOMEWORK),
+    /** One student back on the class deadline. */
+    HOMEWORK_OVERRIDE_REMOVED(AuditCategory.HOMEWORK),
 
     ACCOUNT_APPROVED(AuditCategory.PEOPLE),
     ACCOUNT_REJECTED(AuditCategory.PEOPLE),

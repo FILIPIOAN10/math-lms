@@ -27,6 +27,11 @@ public record AssignmentProgress(State state, Instant submittedAt, boolean late,
 
     /** {@code attempts} are the student's attempts at the assignment's quiz (any mode, any status, any order). */
     public static AssignmentProgress of(Assignment assignment, List<QuizAttempt> attempts) {
+        return of(assignment, attempts, assignment.getDueAt());
+    }
+
+    /** The same, judged against {@code dueAt}: the student's own deadline when the teacher gave them one. */
+    public static AssignmentProgress of(Assignment assignment, List<QuizAttempt> attempts, Instant dueAt) {
         List<QuizAttempt> counted = attempts.stream()
                 .filter(a -> a.getMode() == AttemptMode.TEST)
                 .filter(a -> !a.getStartedAt().isBefore(assignment.getCreatedAt()))
@@ -46,7 +51,7 @@ public record AssignmentProgress(State state, Instant submittedAt, boolean late,
                 .map(first -> new AssignmentProgress(
                         best.isPresent() ? State.GRADED : State.SUBMITTED,
                         first.getSubmittedAt(),
-                        first.getSubmittedAt().isAfter(assignment.getDueAt()),
+                        first.getSubmittedAt().isAfter(dueAt),
                         best.map(QuizAttempt::getScore).orElse(null),
                         best.orElse(first).getId()))
                 .orElseGet(() -> counted.stream()
