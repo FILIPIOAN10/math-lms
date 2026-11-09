@@ -1,5 +1,6 @@
 package ro.mathlms.ingest;
 
+import ro.mathlms.aiusage.AiUsageRecorder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -40,7 +41,7 @@ public class GeminiPageExtractor implements PageExtractor {
 
     @Override
     public ExtractionResult extract(List<PageImage> pages) throws ExtractionException {
-        GeminiClient.Reply reply = client.reply(client.generate(request(pages)));
+        GeminiClient.Reply reply = client.reply(client.generate(request(pages)), AiUsageRecorder.IMPORT);
         List<ExtractedItem> items;
         try {
             items = PageReading.items(objectMapper, reply.text());

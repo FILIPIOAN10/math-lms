@@ -1084,6 +1084,18 @@ testele publicate legate de capitol primele, termen implicit peste o săptămân
   numără doar ce predau de acum („Neînceput” chiar dacă aveau notă), iar limita de încercări le pornește din nou (doar lor,
   nu și colegilor nealeși); tema veche a clasei rămâne neschimbată. O a doua temă pentru toată clasa cu același test: tot 409
 
+### 46. Consumul AI al lunii — ca administrator
+**Jurnal**: deasupra filtrelor, cardul **Consum AI luna aceasta** (doar dacă luna are apeluri AI): pe fiecare rând ce s-a cerut
+(Propuneri de notă, Barem din poze, Import din poze, Sugestii de capitole, Explicații de greșeli), modelul, apelurile și tokenii
+de intrare / ieșire. Contează **fiecare apel plătit**, și cele respinse după („AI-ul nu a găsit în poze o rezolvare”, răspuns tăiat)
+sau cerute din nou — de aceea pot fi mai multe decât propunerile vizibile. Un profesor (rol TEACHER) nu îl vede (403).
+
+### 47. Propuneri AI automate, pe test — ca profesor (cu AI_GRADING_ENABLED=true)
+În **Corectură**, pe o lucrare care așteaptă nota, sub antet: **Propuneri AI automate la acest test**, **oprit** implicit (și pe
+testele vechi). Oprit: predarea nu mai cere nimic singură; „Cere propunere AI” pe un răspuns merge ca înainte. Bifat: se cer
+imediat pentru lucrările acelui test care așteaptă nota („Cerute acum pentru n răspunsuri…”), apoi pentru fiecare lucrare
+predată. Propunerile se gândesc acum pe nivel LOW (`GEMINI_GRADING_THINKING`, înainte MEDIUM): compară câteva cu notele tale.
+
 ## E. Debugging — unde te uiți când pică ceva
 
 ```bash

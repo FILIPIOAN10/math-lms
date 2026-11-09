@@ -1,5 +1,6 @@
 package ro.mathlms.ingest;
 
+import ro.mathlms.aiusage.AiUsageRecorder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -47,7 +48,7 @@ public class GeminiBaremReader implements BaremReader {
 
     @Override
     public Result read(List<PageImage> pages, List<OutlineItem> questions) throws ExtractionException {
-        GeminiClient.Reply reply = client.reply(client.generate(request(pages, questions), model));
+        GeminiClient.Reply reply = client.reply(client.generate(request(pages, questions), model), AiUsageRecorder.BAREM);
         List<Entry> entries;
         try {
             entries = BaremReading.entries(objectMapper, reply.text());

@@ -1,5 +1,6 @@
 package ro.mathlms.ingest;
 
+import ro.mathlms.aiusage.AiUsageRecorder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -35,7 +36,7 @@ public class GeminiChapterSuggester implements ChapterSuggester {
 
     @Override
     public List<Suggestion> suggest(List<Question> questions, List<Choice> chapters) throws ExtractionException {
-        GeminiClient.Reply reply = client.reply(client.generate(request(questions, chapters)));
+        GeminiClient.Reply reply = client.reply(client.generate(request(questions, chapters)), AiUsageRecorder.CHAPTERS);
         // What each call costs, in the log next to the import's own (an import keeps its tokens on its row).
         log.info("Gemini (chapters): {} questions, {} input + {} output tokens, model {}", questions.size(),
                 reply.inputTokens(), reply.outputTokens(), reply.model());

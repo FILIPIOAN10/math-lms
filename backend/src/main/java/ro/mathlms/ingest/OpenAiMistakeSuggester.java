@@ -1,5 +1,6 @@
 package ro.mathlms.ingest;
 
+import ro.mathlms.aiusage.AiUsageRecorder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,6 +27,14 @@ public class OpenAiMistakeSuggester implements MistakeSuggester {
     static final int MAX_OUTPUT_TOKENS = 4_000;
 
     private final RestClient restClient;
+
+    private AiUsageRecorder usageRecorder = AiUsageRecorder.NONE;
+
+    /** Where each billed call is noted (Spring sets the real one; tests may pass their own). */
+    @Autowired(required = false)
+    public void setUsageRecorder(AiUsageRecorder usageRecorder) {
+        this.usageRecorder = usageRecorder == null ? AiUsageRecorder.NONE : usageRecorder;
+    }
     private final ObjectMapper objectMapper;
     private final String apiKey;
     private final String model;
@@ -82,6 +91,7 @@ public class OpenAiMistakeSuggester implements MistakeSuggester {
         if (response == null) {
             throw new ExtractionException(PageReading.UNREADABLE_ANSWER);
         }
+        OpenAiPageExtractor.record(usageRecorder, AiUsageRecorder.MISTAKES, response, model);
         return MistakeReading.cleaned(text(response));
     }
 

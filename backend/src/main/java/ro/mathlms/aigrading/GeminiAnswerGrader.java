@@ -1,5 +1,6 @@
 package ro.mathlms.aigrading;
 
+import ro.mathlms.aiusage.AiUsageRecorder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -34,7 +35,7 @@ public class GeminiAnswerGrader implements AnswerGrader {
 
     public GeminiAnswerGrader(GeminiClient client, ObjectMapper objectMapper,
                               @Value("${app.ai.gemini.strong-model:gemini-4-argon}") String model,
-                              @Value("${app.ai.gemini.grading-thinking-level:MEDIUM}") String thinkingLevel) {
+                              @Value("${app.ai.gemini.grading-thinking-level:LOW}") String thinkingLevel) {
         this.client = client;
         this.objectMapper = objectMapper;
         this.model = model;
@@ -48,7 +49,7 @@ public class GeminiAnswerGrader implements AnswerGrader {
 
     @Override
     public Proposal grade(Task task) throws ExtractionException {
-        GeminiClient.Reply reply = client.reply(client.generate(request(task), model));
+        GeminiClient.Reply reply = client.reply(client.generate(request(task), model), AiUsageRecorder.GRADING);
         try {
             return GradingReading.proposal(objectMapper, reply.text(), task, reply.model(), reply.inputTokens(),
                     reply.outputTokens());

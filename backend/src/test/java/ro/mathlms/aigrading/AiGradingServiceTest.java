@@ -32,7 +32,8 @@ class AiGradingServiceTest {
 
     private AiGradingService service(boolean enabled, int dailyLimit) {
         return new AiGradingService(repository, mock(QuizAttemptRepository.class), mock(QuizItemRepository.class),
-                mock(QuizItemPartRepository.class), mock(ItemResponseRepository.class), mock(FileService.class),
+                mock(QuizItemPartRepository.class), mock(ItemResponseRepository.class),
+                mock(ro.mathlms.quiz.QuizRepository.class), mock(FileService.class),
                 List.of(grader), new AiGradingProperties(enabled, "fake", dailyLimit, 5, 20), new ObjectMapper(),
                 Clock.fixed(Instant.parse("2026-10-26T10:00:00Z"), ZoneOffset.UTC), mock(PlatformTransactionManager.class),
                 "photos", "images");

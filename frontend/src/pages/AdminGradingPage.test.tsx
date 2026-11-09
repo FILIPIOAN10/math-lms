@@ -21,6 +21,8 @@ const api = vi.hoisted(() => ({
   getAiGradingSettings: vi.fn(),
   getAiProposals: vi.fn(),
   requestAiProposal: vi.fn(),
+  getAutoProposals: vi.fn(),
+  setAutoProposals: vi.fn(),
   grantExtraAttempt: vi.fn(),
 }))
 vi.mock('@/lib/api', async (original) => ({ ...(await original<typeof import('@/lib/api')>()), ...api }))
@@ -574,6 +576,21 @@ describe('AdminGradingPage', () => {
 
     beforeEach(() => {
       api.getAiGradingSettings.mockResolvedValue({ enabled: true, baremMaxPages: 5, baremDailyPageLimit: 20, baremPagesUsedToday: 0 })
+      api.getAutoProposals.mockResolvedValue({ auto: false, queued: 0 })
+    })
+
+    it("offers automatic proposals for the open paper's test, off by default", async () => {
+      api.getAiProposals.mockResolvedValue([])
+      api.setAutoProposals.mockResolvedValue({ auto: true, queued: 1 })
+      await openAttempt(enProblem())
+
+      const box = await screen.findByRole('checkbox', { name: 'Propuneri AI automate la acest test' })
+      expect(api.getAutoProposals).toHaveBeenCalledWith(1)
+      expect(box).not.toBeChecked()
+      await userEvent.click(box)
+
+      expect(api.setAutoProposals).toHaveBeenCalledWith(1, true)
+      await waitFor(() => expect(api.getAiProposals).toHaveBeenCalledTimes(2)) // the paper's proposals read again
     })
 
     it('shows what the AI proposes next to each requirement, without grading anything', async () => {

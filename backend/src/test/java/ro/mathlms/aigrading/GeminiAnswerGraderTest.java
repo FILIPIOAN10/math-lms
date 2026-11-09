@@ -79,4 +79,52 @@ class GeminiAnswerGraderTest {
         assertThat(new GeminiAnswerGrader(client, new ObjectMapper(), "gemini-4-argon", " ").request(task)
                 .path("generationConfig").has("thinkingConfig")).isFalse();
     }
+
+    @Test
+    void anAnswerThatIsNotUsableIsStillCountedWithWhatItCost() {
+        RestClient.Builder builder = RestClient.builder().baseUrl(GeminiClient.baseUrl("global"));
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        List<String> recorded = new java.util.ArrayList<>();
+        GeminiClient client = new GeminiClient(builder.build(), () -> "ya29.test", "proj-1", "global", "gemini-3.8-flash");
+        client.setUsageRecorder((feature, model, in, out) -> recorded.add(feature + " " + model + " " + in + " " + out));
+        GeminiAnswerGrader grader = new GeminiAnswerGrader(client, new ObjectMapper(), "gemini-4-argon", "LOW");
+        Task task = new Task("Un teren.", 5, "... 5p", List.of(), null, List.of(new PageImage(new byte[]{1}, "image/jpeg")));
+        String answer = "{\"points\": 0, \"reason\": \"Altă problemă.\", \"confidence\": \"LOW\", \"readable\": false, \"parts\": []}";
+        server.expect(requestTo(URL)).andRespond(withSuccess("""
+                {"candidates": [{"content": {"parts": [{"text": %s}]}, "finishReason": "STOP"}],
+                 "usageMetadata": {"promptTokenCount": 3900, "candidatesTokenCount": 120, "thoughtsTokenCount": 2100},
+                 "modelVersion": "gemini-4-argon"}
+                """.formatted(new ObjectMapper().valueToTree(answer).toString()), MediaType.APPLICATION_JSON));
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> grader.grade(task))
+                .hasMessage(GradingReading.NOT_A_SOLUTION);
+
+        assertThat(recorded).containsExactly("GRADING gemini-4-argon 3900 2220");
+    }
+
+    @Test
+    void aCutOffAnswerIsCountedToo() {
+        RestClient.Builder builder = RestClient.builder().baseUrl(GeminiClient.baseUrl("global"));
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        List<String> recorded = new java.util.ArrayList<>();
+        GeminiClient client = new GeminiClient(builder.build(), () -> "ya29.test", "proj-1", "global", "gemini-3.8-flash");
+        client.setUsageRecorder((feature, model, in, out) -> recorded.add(feature + " " + in + " " + out));
+        GeminiAnswerGrader grader = new GeminiAnswerGrader(client, new ObjectMapper(), "gemini-4-argon", "LOW");
+        server.expect(requestTo(URL)).andRespond(withSuccess("""
+                {"candidates": [{"content": {"parts": []}, "finishReason": "MAX_TOKENS"}],
+                 "usageMetadata": {"promptTokenCount": 4000, "thoughtsTokenCount": 32000}}
+                """, MediaType.APPLICATION_JSON));
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> grader.grade(
+                new Task("P", 5, "b", List.of(), null, List.of(new PageImage(new byte[]{1}, "image/jpeg")))));
+
+        assertThat(recorded).containsExactly("GRADING 4000 32000");
+    }
+
+    @Test
+    void gradingThinksLowUnlessConfiguredOtherwise() throws Exception {
+        org.springframework.beans.factory.annotation.Value value = GeminiAnswerGrader.class.getConstructors()[0]
+                .getParameters()[3].getAnnotation(org.springframework.beans.factory.annotation.Value.class);
+        assertThat(value.value()).isEqualTo("${app.ai.gemini.grading-thinking-level:LOW}");
+    }
 }

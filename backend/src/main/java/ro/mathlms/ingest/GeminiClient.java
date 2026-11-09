@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
+import ro.mathlms.aiusage.AiUsageRecorder;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.node.ObjectNode;
 
@@ -75,6 +76,14 @@ public class GeminiClient {
     private final String location;
     private final String model;
     private final List<Duration> backoff;
+
+    private AiUsageRecorder usageRecorder = AiUsageRecorder.NONE;
+
+    /** Where each billed call is noted (Spring sets the real one; tests may pass their own). */
+    @Autowired(required = false)
+    public void setUsageRecorder(AiUsageRecorder usageRecorder) {
+        this.usageRecorder = usageRecorder == null ? AiUsageRecorder.NONE : usageRecorder;
+    }
 
     @Autowired
     public GeminiClient(RestClient.Builder builder, GoogleAccessTokens accessTokens,
@@ -199,8 +208,18 @@ public class GeminiClient {
         };
     }
 
-    /** The first candidate's visible text; a block, a cut-off or an empty answer is an {@link ExtractionException}. */
-    public Reply reply(JsonNode response) throws ExtractionException {
+    /**
+     * The first candidate's visible text; a block, a cut-off or an empty answer is an {@link ExtractionException}. The
+     * call is noted for {@code feature} first: Google bills it whatever the answer turns out to be.
+     */
+    public Reply reply(JsonNode response, String feature) throws ExtractionException {
+        JsonNode usage = response.path("usageMetadata");
+        Integer input = usage.has("promptTokenCount") ? usage.get("promptTokenCount").asInt() : null;
+        Integer output = usage.has("candidatesTokenCount") || usage.has("thoughtsTokenCount")
+                ? usage.path("candidatesTokenCount").asInt(0) + usage.path("thoughtsTokenCount").asInt(0)
+                : null;
+        String answeredBy = response.path("modelVersion").asString(model);
+        usageRecorder.record(feature, answeredBy, input, output);
         String blockReason = response.path("promptFeedback").path("blockReason").asString("");
         if (!blockReason.isEmpty()) {
             log.warn("Gemini blocked the request: {}", blockReason);
@@ -230,11 +249,6 @@ public class GeminiClient {
             log.warn("Gemini answer without text, finish reason {}", finishReason);
             throw new ExtractionException(PageReading.UNREADABLE_ANSWER);
         }
-        JsonNode usage = response.path("usageMetadata");
-        Integer input = usage.has("promptTokenCount") ? usage.get("promptTokenCount").asInt() : null;
-        Integer output = usage.has("candidatesTokenCount") || usage.has("thoughtsTokenCount")
-                ? usage.path("candidatesTokenCount").asInt(0) + usage.path("thoughtsTokenCount").asInt(0)
-                : null;
-        return new Reply(text.toString(), response.path("modelVersion").asString(model), input, output);
+        return new Reply(text.toString(), answeredBy, input, output);
     }
 }

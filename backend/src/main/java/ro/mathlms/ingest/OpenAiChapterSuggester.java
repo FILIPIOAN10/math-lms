@@ -1,5 +1,6 @@
 package ro.mathlms.ingest;
 
+import ro.mathlms.aiusage.AiUsageRecorder;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.node.ObjectNode;
@@ -34,6 +35,14 @@ public class OpenAiChapterSuggester implements ChapterSuggester {
     private final String apiKey;
     private final String model;
     private final String reasoningEffort;
+
+    private AiUsageRecorder usageRecorder = AiUsageRecorder.NONE;
+
+    /** Where each billed call is noted (Spring sets the real one; tests may pass their own). */
+    @Autowired(required = false)
+    public void setUsageRecorder(AiUsageRecorder usageRecorder) {
+        this.usageRecorder = usageRecorder == null ? AiUsageRecorder.NONE : usageRecorder;
+    }
 
     @Autowired
     public OpenAiChapterSuggester(RestClient.Builder builder, ObjectMapper objectMapper,
@@ -91,7 +100,7 @@ public class OpenAiChapterSuggester implements ChapterSuggester {
         if (response == null) {
             throw new ExtractionException(PageReading.UNREADABLE_ANSWER);
         }
-        // What each call costs, in the log next to the import's own (an import keeps its tokens on its row).
+        OpenAiPageExtractor.record(usageRecorder, AiUsageRecorder.CHAPTERS, response, model);
         JsonNode usage = response.path("usage");
         log.info("OpenAI (chapters): {} questions, {} input + {} output tokens, model {}", questions.size(),
                 usage.path("input_tokens").asLong(), usage.path("output_tokens").asLong(), model);

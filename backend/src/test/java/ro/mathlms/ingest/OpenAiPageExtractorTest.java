@@ -131,4 +131,17 @@ class OpenAiPageExtractorTest {
         assertThat(OpenAiPageExtractor.messageFor(HttpStatus.BAD_GATEWAY)).isEqualTo(OpenAiPageExtractor.UNAVAILABLE);
         assertThat(OpenAiPageExtractor.messageFor(HttpStatus.BAD_REQUEST)).isEqualTo(OpenAiPageExtractor.REJECTED);
     }
+
+    @Test
+    void aCutOffAnswerIsStillCountedWithWhatItCost() {
+        List<String> recorded = new java.util.ArrayList<>();
+        extractor.setUsageRecorder((feature, model, in, out) -> recorded.add(feature + " " + model + " " + in + " " + out));
+        server.expect(requestTo("https://api.openai.com/v1/responses")).andRespond(withSuccess("""
+                {"status": "incomplete", "model": "gpt-6-luna", "usage": {"input_tokens": 2500, "output_tokens": 16000},
+                 "output": []}
+                """, MediaType.APPLICATION_JSON));
+
+        assertThatThrownBy(() -> extractor.extract(PAGES)).hasMessage(PageReading.TOO_LONG);
+        assertThat(recorded).containsExactly("IMPORT gpt-6-luna 2500 16000");
+    }
 }

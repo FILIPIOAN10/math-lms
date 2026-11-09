@@ -70,6 +70,13 @@ public class Quiz {
     @Column(name = "max_attempts")
     private Integer maxAttempts;
 
+    /**
+     * Whether every hand-in asks the AI for grade proposals by itself. Off by default: each proposal is a call to the
+     * strong model, also for papers graded by hand and for every retake; "Cere propunere AI" still works on one answer.
+     */
+    @Column(name = "ai_auto_proposals", nullable = false)
+    private boolean aiAutoProposals;
+
     public static final int MAX_ATTEMPTS = 20;
 
     /** What a test made without the dialog starts with (from photos, from a chapter's exercises). */
@@ -114,6 +121,10 @@ public class Quiz {
             throw new IllegalArgumentException("maxAttempts must be between 1 and " + MAX_ATTEMPTS + ", was " + attempts);
         }
         this.maxAttempts = attempts;
+    }
+
+    public void autoProposeGrades(boolean on) {
+        this.aiAutoProposals = on;
     }
 
     public void allowPractice(boolean allowed) {

@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { PageHeader } from '@/components/PageHeader'
+import { AiUsageCard } from '@/components/AiUsageCard'
 import {
   getAuditLog,
   listActiveUsers,
@@ -143,6 +144,8 @@ export function AdminAuditPage() {
           description="Cine a schimbat ce și când: note, teste, teme, conținut și conturi. Nimic de aici nu se poate modifica."
           breadcrumbs={[{ label: 'Acasă', to: '/' }, { label: 'Jurnal' }]}
         />
+
+        <AiUsageCard />
 
         <Card>
           <CardContent className="flex flex-wrap items-end gap-3 py-4">

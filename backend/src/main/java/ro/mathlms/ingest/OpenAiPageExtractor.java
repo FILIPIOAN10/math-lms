@@ -1,5 +1,6 @@
 package ro.mathlms.ingest;
 
+import ro.mathlms.aiusage.AiUsageRecorder;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.node.ArrayNode;
@@ -51,6 +52,14 @@ public class OpenAiPageExtractor implements PageExtractor {
     private final String model;
     private final String reasoningEffort;
     private final String imageDetail;
+
+    private AiUsageRecorder usageRecorder = AiUsageRecorder.NONE;
+
+    /** Where each billed call is noted (Spring sets the real one; tests may pass their own). */
+    @Autowired(required = false)
+    public void setUsageRecorder(AiUsageRecorder usageRecorder) {
+        this.usageRecorder = usageRecorder == null ? AiUsageRecorder.NONE : usageRecorder;
+    }
 
     @Autowired
     public OpenAiPageExtractor(RestClient.Builder builder, ObjectMapper objectMapper,
@@ -151,6 +160,7 @@ public class OpenAiPageExtractor implements PageExtractor {
     }
 
     ExtractionResult parse(JsonNode response) throws ExtractionException {
+        record(usageRecorder, AiUsageRecorder.IMPORT, response, model);
         if ("incomplete".equals(response.path("status").asString())) {
             log.warn("OpenAI response incomplete: {}", response.path("incomplete_details"));
             throw new ExtractionException(PageReading.TOO_LONG);
@@ -184,6 +194,14 @@ public class OpenAiPageExtractor implements PageExtractor {
         }
         JsonNode usage = response.path("usage");
         return new ExtractionResult(items, response.path("model").asString(model),
+                usage.has("input_tokens") ? usage.get("input_tokens").asInt() : null,
+                usage.has("output_tokens") ? usage.get("output_tokens").asInt() : null);
+    }
+
+    /** Notes one OpenAI call from its {@code usage} block (output includes the reasoning), whatever the answer says. */
+    static void record(AiUsageRecorder recorder, String feature, JsonNode response, String model) {
+        JsonNode usage = response.path("usage");
+        recorder.record(feature, response.path("model").asString(model),
                 usage.has("input_tokens") ? usage.get("input_tokens").asInt() : null,
                 usage.has("output_tokens") ? usage.get("output_tokens").asInt() : null);
     }

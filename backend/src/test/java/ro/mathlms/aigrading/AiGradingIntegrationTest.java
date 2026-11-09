@@ -33,6 +33,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
@@ -86,6 +87,7 @@ class AiGradingIntegrationTest {
         withBarem = items.get(1);
         withoutBarem = items.get(2);
         quizAdminService.setPublished(quiz.getId(), true);
+        service.setAutoProposals(quiz.getId(), true); // automatic proposals are off unless the teacher turns them on
     }
 
     private RequestPostProcessor asTeacher() {
@@ -161,6 +163,7 @@ class AiGradingIntegrationTest {
         }
         List<QuizItem> problems = itemRepository.findByQuizIdOrderByPosition(paper.getId());
         quizAdminService.setPublished(paper.getId(), true);
+        service.setAutoProposals(paper.getId(), true);
         // two students hand in one after the other: queued as (1, A) (1, B) (2, A) (2, B)
         long first = handIn(paper, problems, student);
         long second = handIn(paper, problems, userRepository.save(
@@ -202,5 +205,27 @@ class AiGradingIntegrationTest {
 
         mockMvc.perform(get("/api/admin/quiz/attempts/" + attemptId + "/ai-proposals")
                 .with(user(stranger.getEmail()).roles("TEACHER"))).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void withAutomaticProposalsOffAHandInQueuesNothingUntilTheTeacherTurnsThemOn() throws Exception {
+        service.setAutoProposals(quiz.getId(), false);
+        long attemptId = handIn();
+        assertThat(proposalRepository.findByAttemptIdOrderByItemId(attemptId)).isEmpty();
+        JsonNode off = json(mockMvc.perform(get("/api/admin/quizzes/" + quiz.getId() + "/ai-proposals").with(asTeacher()))
+                .andExpect(status().isOk()));
+        assertThat(off.get("auto").asBoolean()).isFalse();
+
+        JsonNode on = json(mockMvc.perform(put("/api/admin/quizzes/" + quiz.getId() + "/ai-proposals").with(asTeacher())
+                .with(csrf()).contentType(org.springframework.http.MediaType.APPLICATION_JSON).content("{\"auto\": true}"))
+                .andExpect(status().isOk()));
+
+        // turning them on also asks for the papers already waiting for a grade
+        assertThat(on.get("auto").asBoolean()).isTrue();
+        assertThat(on.get("queued").asInt()).isEqualTo(1);
+        assertThat(proposalRepository.findByAttemptIdOrderByItemId(attemptId))
+                .extracting(AiGradeProposal::getItemId).containsExactly(withBarem.getId());
+        // and doing it again queues nothing twice
+        assertThat(service.setAutoProposals(quiz.getId(), true)).isZero();
     }
 }

@@ -29,6 +29,8 @@ import ro.mathlms.quiz.QuizItemPartRepository;
 import ro.mathlms.quiz.QuizItemRepository;
 import ro.mathlms.quiz.QuizItemType;
 import ro.mathlms.quiz.QuizNotFoundException;
+import ro.mathlms.quiz.Quiz;
+import ro.mathlms.quiz.QuizRepository;
 import ro.mathlms.quiz.SubmissionListener;
 import ro.mathlms.storage.FileService;
 import tools.jackson.core.JacksonException;
@@ -84,6 +86,7 @@ public class AiGradingService implements SubmissionListener {
     private final ItemResponseRepository responseRepository;
     private final FileService fileService;
     private final List<AnswerGrader> graders;
+    private final QuizRepository quizRepository;
     private final AiGradingProperties properties;
     private final ObjectMapper objectMapper;
     private final Clock clock;
@@ -93,8 +96,8 @@ public class AiGradingService implements SubmissionListener {
 
     public AiGradingService(AiGradeProposalRepository repository, QuizAttemptRepository attemptRepository,
                             QuizItemRepository itemRepository, QuizItemPartRepository partRepository,
-                            ItemResponseRepository responseRepository, FileService fileService,
-                            List<AnswerGrader> graders, AiGradingProperties properties, ObjectMapper objectMapper,
+                            ItemResponseRepository responseRepository, QuizRepository quizRepository,
+                            FileService fileService, List<AnswerGrader> graders, AiGradingProperties properties, ObjectMapper objectMapper,
                             Clock clock, PlatformTransactionManager transactionManager,
                             @Value("${app.storage.quiz-photos-dir}") String photosDir,
                             @Value("${app.storage.question-images-dir}") String questionImagesDir) {
@@ -103,6 +106,7 @@ public class AiGradingService implements SubmissionListener {
         this.itemRepository = itemRepository;
         this.partRepository = partRepository;
         this.responseRepository = responseRepository;
+        this.quizRepository = quizRepository;
         this.fileService = fileService;
         this.graders = graders;
         this.properties = properties;
@@ -116,19 +120,63 @@ public class AiGradingService implements SubmissionListener {
 
     // --- the hand-in ---
 
-    /** Queues a proposal for every open answer with photos and a barem (inside the hand-in transaction). */
+    /**
+     * Queues a proposal for every open answer with photos and a barem (inside the hand-in transaction) - only on a test
+     * whose teacher turned automatic proposals on.
+     */
     @Override
     public void submitted(QuizAttempt attempt, List<QuizItem> items, Map<Long, ItemResponse> responsesByItem) {
-        if (!properties.enabled()) {
+        if (!properties.enabled() || !attempt.getQuiz().isAiAutoProposals()) {
             return;
         }
+        queue(attempt, items, responsesByItem);
+    }
+
+    /** The new proposals for one paper: open answers with photos and a barem that have none yet. */
+    private int queue(QuizAttempt attempt, List<QuizItem> items, Map<Long, ItemResponse> responsesByItem) {
+        int queued = 0;
         for (QuizItem item : items) {
             ItemResponse response = responsesByItem.get(item.getId());
             if (item.getType() == QuizItemType.OPEN && response != null && response.hasPhotos() && hasBarem(item)
                     && repository.findByAttemptIdAndItemId(attempt.getId(), item.getId()).isEmpty()) {
                 repository.save(new AiGradeProposal(attempt.getId(), item.getId(), clock.instant()));
+                queued++;
             }
         }
+        return queued;
+    }
+
+    /** Whether hand-ins of this test ask for proposals by themselves. */
+    @Transactional(readOnly = true)
+    public boolean autoProposals(Long quizId) {
+        return requireQuiz(quizId).isAiAutoProposals();
+    }
+
+    /**
+     * Turns automatic proposals on or off for one test. Turning them on also asks for the papers of that test already
+     * waiting for a grade (as if they had been handed in now); answers that already have a proposal are left alone.
+     * Answers how many proposals were queued.
+     */
+    @Transactional
+    public int setAutoProposals(Long quizId, boolean on) {
+        Quiz quiz = requireQuiz(quizId);
+        quiz.autoProposeGrades(on);
+        quizRepository.save(quiz);
+        if (!on || !properties.enabled()) {
+            return 0;
+        }
+        List<QuizItem> items = itemRepository.findByQuizIdOrderByPosition(quizId);
+        int queued = 0;
+        for (QuizAttempt attempt : attemptRepository.findByQuizIdAndStatus(quizId, QuizAttemptStatus.SUBMITTED)) {
+            Map<Long, ItemResponse> responses = responseRepository.findByAttemptId(attempt.getId()).stream()
+                    .collect(java.util.stream.Collectors.toMap(r -> r.getItem().getId(), r -> r, (a, b) -> a));
+            queued += queue(attempt, items, responses);
+        }
+        return queued;
+    }
+
+    private Quiz requireQuiz(Long quizId) {
+        return quizRepository.findById(quizId).orElseThrow(() -> new QuizNotFoundException("Quiz", quizId));
     }
 
     private boolean hasBarem(QuizItem item) {

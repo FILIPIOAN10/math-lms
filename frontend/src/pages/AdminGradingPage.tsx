@@ -10,6 +10,7 @@ import { PhotoPages } from '@/components/PhotoPages'
 import { QuestionImage } from '@/components/QuestionImage'
 import { FilterBar, FilterSelect, NoMatches } from '@/components/FilterBar'
 import { GradeByItem } from '@/components/GradeByItem'
+import { AiAutoProposalsSwitch } from '@/components/grading/AiAutoProposalsSwitch'
 import { useConfirm } from '@/components/useConfirm'
 import { ItemGradeForm } from '@/components/grading/ItemGradeForm'
 import { CommentPreview } from '@/components/grading/CommentPreview'
@@ -468,6 +469,8 @@ export function AdminGradingPage({ aiPollMs = AI_POLL_MS }: { aiPollMs?: number 
       .catch(() => undefined) // no proposals shown, grading works as before
   }, [])
   const paperId = detail?.attemptId ?? null
+  // The test of the open paper (the detail itself does not name it; the list it was opened from does).
+  const detailQuizId = attempts.find((a) => a.attemptId === paperId)?.quizId ?? null
   const pending = Object.values(proposals).some((p) => p.status === 'QUEUED' || p.status === 'RUNNING')
   // Once per paper opened...
   useEffect(() => {
@@ -596,6 +599,22 @@ export function AdminGradingPage({ aiPollMs = AI_POLL_MS }: { aiPollMs?: number 
                 </div>
               </CardContent>
             </Card>
+
+            {aiOn && detailQuizId !== null && detail.status === 'SUBMITTED' && detail.items.some((i) => i.type === 'OPEN') && (
+              <Card>
+                <CardContent className="py-2">
+                  <AiAutoProposalsSwitch
+                    key={detailQuizId}
+                    quizId={detailQuizId}
+                    onQueued={() => {
+                      getAiProposals(detail.attemptId)
+                        .then((list) => setProposals(Object.fromEntries(list.map((p) => [p.itemId, p]))))
+                        .catch(() => undefined)
+                    }}
+                  />
+                </CardContent>
+              </Card>
+            )}
 
             {numberItems(detail.items).map(({ item, local, heading }) => (
               <Fragment key={item.itemId}>

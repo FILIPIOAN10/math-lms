@@ -1153,6 +1153,38 @@ export interface AiGradingSettings {
   baremPagesUsedToday: number
 }
 
+/** One feature and model in this month's AI bill (output tokens include the thinking). */
+export interface AiUsageRow {
+  feature: 'IMPORT' | 'BAREM' | 'GRADING' | 'CHAPTERS' | 'MISTAKES' | string
+  model: string
+  calls: number
+  inputTokens: number
+  outputTokens: number
+}
+
+/** Every billed AI call since the 1st of this month (Romanian time), admin only. */
+export async function getAiUsage(): Promise<{ from: string; rows: AiUsageRow[] }> {
+  const response = await apiFetch('/admin/ai-usage')
+  return response.json()
+}
+
+/** Whether hand-ins of this test ask the AI for grade proposals by themselves; `queued` only after turning it on. */
+export interface AutoProposals {
+  auto: boolean
+  queued: number
+}
+
+export async function getAutoProposals(quizId: number): Promise<AutoProposals> {
+  const response = await apiFetch(`/admin/quizzes/${quizId}/ai-proposals`)
+  return response.json()
+}
+
+/** Turning them on also asks for the papers of this test already waiting for a grade. */
+export async function setAutoProposals(quizId: number, auto: boolean): Promise<AutoProposals> {
+  const response = await putJson(`/admin/quizzes/${quizId}/ai-proposals`, { auto })
+  return response.json()
+}
+
 export async function getAiGradingSettings(): Promise<AiGradingSettings> {
   const response = await apiFetch('/admin/ai-grading/settings')
   return response.json()

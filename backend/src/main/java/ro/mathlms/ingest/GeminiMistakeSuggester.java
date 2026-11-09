@@ -1,5 +1,6 @@
 package ro.mathlms.ingest;
 
+import ro.mathlms.aiusage.AiUsageRecorder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -29,7 +30,7 @@ public class GeminiMistakeSuggester implements MistakeSuggester {
 
     @Override
     public String suggest(Question question) throws ExtractionException {
-        GeminiClient.Reply reply = client.reply(client.generate(request(question)));
+        GeminiClient.Reply reply = client.reply(client.generate(request(question)), AiUsageRecorder.MISTAKES);
         log.info("Gemini (mistake): {} input + {} output tokens, model {}", reply.inputTokens(), reply.outputTokens(),
                 reply.model());
         return MistakeReading.cleaned(reply.text());
