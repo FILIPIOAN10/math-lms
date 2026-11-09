@@ -75,14 +75,19 @@ describe('CatchUpDialog', () => {
     expect(onCreated).not.toHaveBeenCalled()
   })
 
-  it("does not offer a quiz already given to the class as homework", () => {
+  it('offers a quiz the class already had as a redo, and says what that means', async () => {
+    const user = userEvent.setup()
     render(
       <CatchUpDialog open onClose={() => {}} grid={grid} column={0} classId={5}
         quizzes={[...quizzes, quiz(9, 'Fracții — a doua', 30)]} givenQuizIds={[8]}
         onCreated={vi.fn()} createCatchUpAssignment={vi.fn()} />,
     )
 
-    expect(screen.getByLabelText('Test')).toHaveValue('9')
-    expect(screen.getByRole('option', { name: 'Fracții — exersare (deja temă clasei)' })).toBeDisabled()
+    expect(screen.getByLabelText('Test')).toHaveValue('8')
+    expect(screen.getByRole('option', { name: 'Fracții — exersare (deja temă clasei — o refac)' })).toBeEnabled()
+    expect(screen.getByText(/elevii aleși îl refac/)).toBeInTheDocument()
+
+    await user.selectOptions(screen.getByLabelText('Test'), '9')
+    expect(screen.queryByText(/elevii aleși îl refac/)).not.toBeInTheDocument()
   })
 })

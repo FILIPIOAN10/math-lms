@@ -73,7 +73,7 @@ class PublishAndAssignIntegrationTest {
                 .andExpect(jsonPath("$.schoolClassName").value(clasa.getName()));
 
         assertThat(statusOf(draft)).isEqualTo(QuizStatus.PUBLISHED);
-        assertThat(assignmentRepository.existsByQuizIdAndSchoolClassId(draft.getId(), clasa.getId())).isTrue();
+        assertThat(assignmentRepository.existsByQuizIdAndSchoolClassIdAndCatchUpFalse(draft.getId(), clasa.getId())).isTrue();
     }
 
     @Test
@@ -83,7 +83,7 @@ class PublishAndAssignIntegrationTest {
                 .andExpect(status().isBadRequest());
 
         assertThat(statusOf(draft)).isEqualTo(QuizStatus.DRAFT);
-        assertThat(assignmentRepository.existsByQuizIdAndSchoolClassId(draft.getId(), clasa.getId())).isFalse();
+        assertThat(assignmentRepository.existsByQuizIdAndSchoolClassIdAndCatchUpFalse(draft.getId(), clasa.getId())).isFalse();
     }
 
     @Test

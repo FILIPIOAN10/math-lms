@@ -32,7 +32,7 @@ export function CatchUpDialog({
   column: number
   classId: number
   quizzes: QuizSummary[]
-  /** Quizzes already homework for this class: one quiz goes to a class once, so these are shown but cannot be picked. */
+  /** Quizzes already homework for this class: still offered (the chosen students redo it), marked as such. */
   givenQuizIds?: number[]
   onCreated: (created: AssignmentSummary) => void
   createCatchUpAssignment: (input: {
@@ -43,7 +43,7 @@ export function CatchUpDialog({
   const choices = catchUpQuizzes(quizzes, chapter.id, classId)
   const [studentIds, setStudentIds] = useState<number[]>(() => weakStudentIds(grid, column))
   const [quizId, setQuizId] = useState(() => {
-    const first = choices.chapter.find((q) => !givenQuizIds.includes(q.id))
+    const first = choices.chapter[0]
     return first ? String(first.id) : ''
   })
   const [due, setDue] = useState(() => defaultCatchUpDue())
@@ -78,8 +78,8 @@ export function CatchUpDialog({
   const noQuiz = choices.chapter.length === 0 && choices.other.length === 0
   const given = (q: QuizSummary) => givenQuizIds.includes(q.id)
   const option = (q: QuizSummary) => (
-    <option key={q.id} value={q.id} disabled={given(q)}>
-      {given(q) ? `${q.title} (deja temă clasei)` : q.title}
+    <option key={q.id} value={q.id}>
+      {given(q) ? `${q.title} (deja temă clasei — o refac)` : q.title}
     </option>
   )
 
@@ -121,10 +121,10 @@ export function CatchUpDialog({
           {noQuiz && (
             <p className="text-xs text-muted-foreground">Niciun test publicat pentru această clasă. Publică unul întâi.</p>
           )}
-          {choices.chapter.some(given) && (
+          {quizId !== '' && givenQuizIds.includes(Number(quizId)) && (
             <p className="text-xs text-muted-foreground">
-              Un test e dat ca temă unei clase o singură dată. Pentru unul „deja temă clasei” folosește ⋯ „Excepții” la
-              Teme (termen nou pentru un elev), sau alege alt test.
+              Clasa a avut deja acest test ca temă: elevii aleși îl refac. Contează doar ce predau de acum încolo, iar
+              limita de încercări o iau de la capăt.
             </p>
           )}
           {!noQuiz && choices.chapter.length === 0 && (

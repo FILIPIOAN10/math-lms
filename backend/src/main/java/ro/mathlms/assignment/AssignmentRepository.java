@@ -13,7 +13,8 @@ import java.util.Optional;
 
 public interface AssignmentRepository extends JpaRepository<Assignment, Long> {
 
-    boolean existsByQuizIdAndSchoolClassId(Long quizId, Long schoolClassId);
+    /** Whether the quiz is already whole-class homework of the class (catch-up homework does not count). */
+    boolean existsByQuizIdAndSchoolClassIdAndCatchUpFalse(Long quizId, Long schoolClassId);
 
     /** Every assignment with its quiz and class loaded (open-in-view is off), the next deadline first. */
     @Query("select a from Assignment a join fetch a.quiz join fetch a.schoolClass order by a.dueAt desc")

@@ -185,7 +185,7 @@ public class QuizAttemptService {
         if (classIds.isEmpty()) {
             return Map.of();
         }
-        return quizRepository.findHomeworkGiven(classIds).stream()
+        return quizRepository.findHomeworkGiven(classIds, student.getId()).stream()
                 .collect(Collectors.toMap(HomeworkGiven::quizId, HomeworkGiven::givenAt));
     }
 

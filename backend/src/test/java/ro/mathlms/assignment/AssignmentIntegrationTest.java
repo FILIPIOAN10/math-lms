@@ -214,7 +214,7 @@ class AssignmentIntegrationTest {
                         assignmentService.createForClasses(quiz.getId(), List.of(schoolClass.getId(), other.getId()), dueAt))
                 .isInstanceOf(AssignmentConflictException.class);
 
-        assertThat(assignmentRepository.existsByQuizIdAndSchoolClassId(quiz.getId(), schoolClass.getId())).isFalse();
+        assertThat(assignmentRepository.existsByQuizIdAndSchoolClassIdAndCatchUpFalse(quiz.getId(), schoolClass.getId())).isFalse();
 
         SchoolClass third = schoolClassRepository.save(new SchoolClass("C " + System.nanoTime(), null));
         assertThat(assignmentService.createForClasses(quiz.getId(), List.of(schoolClass.getId(), third.getId()), dueAt))
@@ -234,5 +234,38 @@ class AssignmentIntegrationTest {
 
         assignmentService.delete(created.getId()); // the student rows go with it (ON DELETE CASCADE)
         assertThat(assignmentRepository.findById(created.getId())).isEmpty();
+    }
+
+    @Test
+    void aTestTheClassAlreadyHadCanBeRedoneByTheChosenStudentsOnly() {
+        quiz.limitAttempts(1);
+        quiz = quizRepository.save(quiz);
+        Instant dueAt = Instant.now().plus(Duration.ofDays(2));
+        assignmentService.create(quiz.getId(), schoolClass.getId(), dueAt);
+        for (User who : List.of(ana, bob)) { // both use their one attempt
+            StartedAttemptDto test = attemptService.startAttempt(quiz.getId(), who.getEmail());
+            attemptService.submit(test.attemptId(), who.getEmail());
+        }
+
+        Assignment redo = assignmentService.createForStudents(quiz.getId(), schoolClass.getId(), List.of(ana.getId()), dueAt);
+
+        // a second whole-class homework of the same test is still refused
+        org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+                assignmentService.create(quiz.getId(), schoolClass.getId(), dueAt))
+                .isInstanceOf(AssignmentConflictException.class);
+        // the redo starts Ana's count again (she may start it), not Bob's (he was not chosen)
+        assertThat(blockedBy(ana)).isNull();
+        assertThat(blockedBy(bob)).isEqualTo(ro.mathlms.quiz.RetakeBlock.NO_ATTEMPTS_LEFT);
+        // and her old hand-in does not count for the redo
+        assertThat(assignmentService.status(redo.getId())).singleElement()
+                .satisfies(s -> assertThat(s.state()).isEqualTo(State.NOT_STARTED));
+        assertThat(assignmentService.myAssignments(ana.getEmail())).hasSize(2);
+        assertThat(assignmentService.myAssignments(bob.getEmail())).hasSize(1);
+    }
+
+    private ro.mathlms.quiz.RetakeBlock blockedBy(User student) {
+        return attemptService.listOffered(student.getEmail()).stream()
+                .filter(q -> q.id().equals(quiz.getId()))
+                .findFirst().orElseThrow().blockedBy();
     }
 }

@@ -87,14 +87,17 @@ public class AssignmentService {
      */
     @Transactional
     public Assignment create(Long quizId, Long schoolClassId, Instant dueAt) {
-        Assignment saved = assignmentRepository.save(build(quizId, schoolClassId, dueAt));
+        Assignment saved = assignmentRepository.save(build(quizId, schoolClassId, dueAt, false));
         auditLog.record(AuditEvent.of(AuditAction.HOMEWORK_ASSIGNED, saved.getId(), label(saved))
                 .details("termen " + AuditText.dateTime(dueAt)));
         return saved;
     }
 
-    /** A new, unsaved homework after every check of {@link #create}. */
-    private Assignment build(Long quizId, Long schoolClassId, Instant dueAt) {
+    /**
+     * A new, unsaved homework after every check of {@link #create}. A catch-up one skips "already given to this class":
+     * re-giving a test the class had is what it is for.
+     */
+    private Assignment build(Long quizId, Long schoolClassId, Instant dueAt, boolean catchUp) {
         Quiz quiz = quizRepository.findById(quizId).orElseThrow(() -> new QuizNotFoundException("Quiz", quizId));
         SchoolClass schoolClass = schoolClassRepository.findById(schoolClassId)
                 .orElseThrow(() -> new QuizNotFoundException("SchoolClass", schoolClassId));
@@ -105,7 +108,7 @@ public class AssignmentService {
             throw new InvalidAssignmentException("Testul este destinat altei clase decât cea aleasă");
         }
         requireFuture(dueAt);
-        if (assignmentRepository.existsByQuizIdAndSchoolClassId(quizId, schoolClassId)) {
+        if (!catchUp && assignmentRepository.existsByQuizIdAndSchoolClassIdAndCatchUpFalse(quizId, schoolClassId)) {
             throw new AssignmentConflictException("Testul este deja dat ca temă acestei clase — modifică termenul");
         }
         return new Assignment(quiz, schoolClass, dueAt, Instant.now(clock));
@@ -127,8 +130,9 @@ public class AssignmentService {
 
     /**
      * Catch-up homework: the quiz for some students of the class only - the rules of {@link #create} plus at least one
-     * student, each an enrolled, not erased student of that class. Named twice counts once. One journal row, saying how
-     * many students (not who: the list is on the homework itself).
+     * student, each an enrolled, not erased student of that class - but a test the class already had may be given again
+     * (the chosen students redo it: only attempts started from now on count, and their attempt limit starts again).
+     * Named twice counts once. One journal row, saying how many students (not who: the list is on the homework itself).
      */
     @Transactional
     public Assignment createForStudents(Long quizId, Long schoolClassId, List<Long> studentIds, Instant dueAt) {
@@ -144,7 +148,7 @@ public class AssignmentService {
         if (!roster.containsAll(ids)) {
             throw new InvalidAssignmentException("Unii dintre elevii aleși nu sunt în clasă");
         }
-        Assignment assignment = build(quizId, schoolClassId, dueAt);
+        Assignment assignment = build(quizId, schoolClassId, dueAt, true);
         assignment.restrictTo(ids);
         Assignment saved = assignmentRepository.save(assignment);
         auditLog.record(AuditEvent.of(AuditAction.HOMEWORK_ASSIGNED, saved.getId(), label(saved))

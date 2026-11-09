@@ -1080,7 +1080,9 @@ testele publicate legate de capitol primele, termen implicit peste o săptămân
 - sub tabel: „Tema „…” a fost dată la n elevi, termen …” + **Vezi tema** (deschide tema în Teme)
 - la **Teme**, rândul are eticheta „Recuperare · doar n elevi”; „Predate x/y” numără doar elevii aleși
 - elevii nealeși nu văd tema (nici părinții lor) și nu primesc reamintirea; excepția „Excepții pentru X” merge doar pe elevii aleși
-- un test deja dat ca temă întregii clase nu poate fi dat și ca recuperare aceleiași clase (409, „deja dat ca temă”)
+- un test deja dat ca temă clasei apare „(deja temă clasei — o refac)” și se poate alege: elevii aleși îl refac — tema nouă
+  numără doar ce predau de acum („Neînceput” chiar dacă aveau notă), iar limita de încercări le pornește din nou (doar lor,
+  nu și colegilor nealeși); tema veche a clasei rămâne neschimbată. O a doua temă pentru toată clasa cu același test: tot 409
 
 ## E. Debugging — unde te uiți când pică ceva
 

@@ -55,10 +55,15 @@ public interface QuizRepository extends JpaRepository<Quiz, Long> {
     @Query("select count(a) from Assignment a where a.quiz.id = :quizId")
     long countHomeworkClasses(@Param("quizId") Long quizId);
 
-    /** When each quiz was last given as homework to one of these classes (not an empty list, see below). */
+    /**
+     * When each quiz was last given as homework to this student in one of these classes (not an empty list, see below):
+     * whole-class homework, or catch-up homework they were chosen for - never one given to other students of the class.
+     */
     @Query("select new ro.mathlms.quiz.HomeworkGiven(a.quiz.id, max(a.createdAt)) from Assignment a"
-            + " where a.schoolClass.id in :classIds group by a.quiz.id")
-    List<HomeworkGiven> findHomeworkGiven(@Param("classIds") Collection<Long> classIds);
+            + " where a.schoolClass.id in :classIds"
+            + " and (a.catchUp = false or :studentId member of a.studentIds) group by a.quiz.id")
+    List<HomeworkGiven> findHomeworkGiven(@Param("classIds") Collection<Long> classIds,
+                                          @Param("studentId") Long studentId);
 
     /** Classes this quiz is homework for, other than {@code classId}: moving the quiz there would strand them. */
     @Query("select a.schoolClass.name from Assignment a where a.quiz.id = :quizId and a.schoolClass.id <> :classId"

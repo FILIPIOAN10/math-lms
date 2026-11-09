@@ -69,6 +69,13 @@ public class Assignment {
     @BatchSize(size = 50)
     private Set<Long> studentIds = new HashSet<>();
 
+    /**
+     * Given to some students only. Unlike whole-class homework, a catch-up one may re-give a test the class already had
+     * (the database keeps one whole-class homework per quiz and class, catch-up ones aside).
+     */
+    @Column(name = "catch_up", nullable = false)
+    private boolean catchUp;
+
     public Assignment(Quiz quiz, SchoolClass schoolClass, Instant dueAt, Instant createdAt) {
         this.quiz = Objects.requireNonNull(quiz, "quiz");
         this.schoolClass = Objects.requireNonNull(schoolClass, "schoolClass");
@@ -90,6 +97,7 @@ public class Assignment {
     public void restrictTo(Collection<Long> students) {
         studentIds.clear();
         studentIds.addAll(Objects.requireNonNull(students, "students"));
+        catchUp = !studentIds.isEmpty();
     }
 
     public Set<Long> getStudentIds() {

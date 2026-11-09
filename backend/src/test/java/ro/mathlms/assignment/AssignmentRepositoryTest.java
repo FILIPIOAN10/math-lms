@@ -86,7 +86,7 @@ class AssignmentRepositoryTest {
         assignmentRepository.save(new Assignment(quiz, a, now.plus(Duration.ofDays(1)), now));
         assignmentRepository.save(new Assignment(quiz, b, now.plus(Duration.ofDays(1)), now)); // another class: fine
         assignmentRepository.flush();
-        assertThat(assignmentRepository.existsByQuizIdAndSchoolClassId(quiz.getId(), a.getId())).isTrue();
+        assertThat(assignmentRepository.existsByQuizIdAndSchoolClassIdAndCatchUpFalse(quiz.getId(), a.getId())).isTrue();
 
         assertThatThrownBy(() -> {
             assignmentRepository.save(new Assignment(quiz, a, now.plus(Duration.ofDays(5)), now));

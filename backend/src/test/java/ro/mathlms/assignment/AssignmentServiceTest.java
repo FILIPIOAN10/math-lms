@@ -167,7 +167,7 @@ class AssignmentServiceTest {
     @Test
     void theSameQuizCannotBeAssignedTwiceToOneClass() {
         stubLookups();
-        when(assignmentRepository.existsByQuizIdAndSchoolClassId(10L, 5L)).thenReturn(true);
+        when(assignmentRepository.existsByQuizIdAndSchoolClassIdAndCatchUpFalse(10L, 5L)).thenReturn(true);
 
         assertThatThrownBy(() -> service.create(10L, 5L, due)).isInstanceOf(AssignmentConflictException.class);
 
@@ -840,5 +840,17 @@ class AssignmentServiceTest {
         assertThatThrownBy(() -> service.setOverride(1L, 2L, null, true))
                 .isInstanceOf(InvalidAssignmentException.class);
         verify(overrideRepository, never()).save(any());
+    }
+
+    @Test
+    void aQuizAlreadyGivenToTheClassCanBeGivenAgainAsCatchUp() {
+        stubLookups();
+        when(assignmentRepository.existsByQuizIdAndSchoolClassIdAndCatchUpFalse(10L, 5L)).thenReturn(true);
+        stubClassRoster(student(1L, "Ana Pop"));
+
+        Assignment created = service.createForStudents(10L, 5L, List.of(1L), due);
+
+        assertThat(created.isCatchUp()).isTrue();
+        assertThatThrownBy(() -> service.create(10L, 5L, due)).isInstanceOf(AssignmentConflictException.class);
     }
 }
