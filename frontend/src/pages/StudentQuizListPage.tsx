@@ -26,6 +26,8 @@ import { useNow } from '@/lib/useNow'
 import { PageHeader } from '@/components/PageHeader'
 import { LoadingCards } from '@/components/LoadingCards'
 import { ClockLine } from '@/components/TestClock'
+import { FilterBar, FilterSelect, NoMatches } from '@/components/FilterBar'
+import { FILTER_FROM, matchesQuery } from '@/lib/search'
 
 /** What "Salvează și ieși" in a test hands this page: the test, its attempt, and whether a clock keeps running. */
 interface SavedState {
@@ -198,6 +200,8 @@ export function StudentQuizListPage() {
   const location = useLocation()
   const navigate = useNavigate()
   const [saved] = useState(() => (location.state as SavedState | null) ?? null)
+  const [doneQuery, setDoneQuery] = useState('')
+  const [doneState, setDoneState] = useState('')
   const savedQuizTitle = saved?.savedQuizTitle ?? null
   useEffect(() => {
     if (savedQuizTitle) navigate(location.pathname, { replace: true, state: null })
@@ -222,6 +226,14 @@ export function StudentQuizListPage() {
   }, [])
 
   const { todo, done } = buildQuizCards(quizzes, assignments, attempts)
+  // "Teste date" grows all year: from five on it can be searched and narrowed by state, like the teacher's lists.
+  const filtering = doneQuery.trim() !== '' || doneState !== ''
+  const shownDone = done.filter((card) =>
+    matchesQuery(doneQuery, card.title) && (doneState === '' || card.state === doneState))
+  const clearDoneFilters = () => {
+    setDoneQuery('')
+    setDoneState('')
+  }
   // Naming the class says nothing to a student who has only one.
   const showClass = new Set(assignments.map((a) => a.schoolClassName)).size > 1
   const clockOf = (a: MyAttemptDto | undefined) => (a ? runningClock(a, receivedAt, now) : null)
@@ -280,13 +292,37 @@ export function StudentQuizListPage() {
 
             <section className="space-y-2" data-testid="quizzes-done">
               <h2 className="font-medium">Teste date</h2>
+              {done.length >= FILTER_FROM && (
+                <FilterBar
+                  label="Caută test"
+                  search={doneQuery}
+                  onSearch={setDoneQuery}
+                  active={filtering}
+                  onClear={clearDoneFilters}
+                  shown={shownDone.length}
+                  total={done.length}
+                >
+                  <FilterSelect
+                    label="Stare"
+                    value={doneState}
+                    onChange={setDoneState}
+                    options={[
+                      { value: '', label: 'Toate' },
+                      { value: 'graded', label: 'Cu notă' },
+                      { value: 'waiting', label: 'Așteaptă nota' },
+                      { value: 'practised', label: 'Doar exersate' },
+                    ]}
+                  />
+                </FilterBar>
+              )}
+              {done.length > 0 && shownDone.length === 0 && <NoMatches onClear={clearDoneFilters} />}
               {done.length === 0 ? (
                 <div className="flex items-center gap-3 rounded-xl border border-dashed bg-background p-4">
                   <EmptyArt symbol="π" />
                   <p className="text-sm text-muted-foreground">Nu ai dat încă niciun test.</p>
                 </div>
               ) : (
-                done.map((card) => (
+                shownDone.map((card) => (
                   <QuizCardView key={card.quizId} card={card} now={loadedAt} showClass={showClass} clock={openTestClock(card)} />
                 ))
               )}

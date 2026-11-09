@@ -1055,6 +1055,24 @@ Pe un test cu **Încercări: 1** (din Setări), un elev l-a predat o dată și n
 - pe un test **fără limită** nu apare nimic (prin API → 400 „Testul nu are limită de încercări”); cel mult **10** încercări în plus per elev și test
 - **Jurnal** (filtru Corectură): „O încercare în plus pentru un elev · încercări 1 → 2”, cu **Vezi lucrarea** spre lucrarea din care ai dat-o
 
+### 42. O temă pentru mai multe clase deodată — ca profesor
+**Teme → Dă o temă**: alegi testul, apoi **bifezi** clasele (cu o singură clasă, e deja bifată) și termenul → butonul spune **Dă tema (2 clase)**.
+Apare câte o temă pe fiecare clasă, cu același termen; anunțul: „Tema „…” a fost dată claselor A, B, termen …”.
+- un test rezervat unei clase arată doar clasa lui, bifată („Testul ales e doar pentru această clasă.”)
+- totul sau nimic: dacă una dintre clase are deja tema (409), nu se creează nici la celelalte
+- API: `POST /api/admin/assignments/batch` {quizId, schoolClassIds, dueAt}; o clasă trimisă de două ori contează o dată
+
+### 43. Schimbă tipul unei întrebări dintr-o ciornă — ca profesor
+Pe un test **Ciornă** pe care nu l-a dat niciun elev, **Editează** la o întrebare arată și **Tip** (grilă / cu rezolvare / numeric),
+cu nota „Se poate schimba cât testul e ciornă. Enunțul rămâne…”. Schimbi tipul, completezi variantele / barem-ul / răspunsul → **Salvează**.
+- enunțul, punctajul și indiciile rămân; un răspuns numeric dispare când întrebarea nu mai e numerică
+- pe un test publicat sau deja dat, **Tip** nu apare; prin API → 400 „…doar cât testul e ciornă și nu l-a dat încă niciun elev.”
+
+### 44. Caută și filtrează „Teste date” — ca elev
+Pe **Testele mele**, de la 5 teste date în sus, deasupra listei „Teste date” apar căutarea **Caută test** și filtrul **Stare**:
+Toate / Cu notă / Așteaptă nota / Doar exersate, cu „x din y”. Fără rezultate: „Niciun rezultat pentru filtrele alese. Șterge filtrele”.
+- căutarea nu ține cont de diacritice („fractii” găsește „Fracții”); „De făcut” nu e filtrat
+
 ## E. Debugging — unde te uiți când pică ceva
 
 ```bash

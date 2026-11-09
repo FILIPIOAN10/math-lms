@@ -324,4 +324,44 @@ describe('StudentQuizListPage', () => {
     expect(notice).toHaveTextContent('Revino cu „Continuă” înainte să expire timpul; atunci lucrarea se predă singură')
     expect(notice).not.toHaveTextContent('oricând')
   })
+
+  describe('the tests already taken, once there are five', () => {
+    const titles = ['Fracții', 'Ecuații', 'Procente', 'Geometrie', 'Funcții', 'Radicali']
+    beforeEach(() => {
+      api.getStudentQuizzes.mockResolvedValue(titles.map((t, i) => quiz(i + 1, t)))
+      api.getMyAttempts.mockResolvedValue(titles.map((t, i) => attempt({
+        attemptId: 100 + i, quizId: i + 1, quizTitle: t,
+        ...(t === 'Radicali' ? { status: 'SUBMITTED' as const, score: null } : {}),
+      })))
+    })
+
+    const doneCards = () => within(screen.getByTestId('quizzes-done')).queryAllByTestId('quiz-card')
+
+    it('narrows them by state and by name', async () => {
+      const user = (await import('@testing-library/user-event')).default.setup()
+      renderPage()
+      await screen.findAllByTestId('quiz-card')
+      expect(doneCards()).toHaveLength(6)
+
+      await user.selectOptions(screen.getByRole('combobox', { name: 'Stare' }), 'waiting')
+      expect(doneCards()).toHaveLength(1)
+      expect(within(doneCards()[0]).getByText('Radicali')).toBeInTheDocument()
+
+      await user.selectOptions(screen.getByRole('combobox', { name: 'Stare' }), '')
+      await user.type(screen.getByRole('searchbox', { name: /Caută test/ }), 'fractii')
+      expect(doneCards()).toHaveLength(1)
+
+      await user.type(screen.getByRole('searchbox', { name: /Caută test/ }), 'xyz')
+      expect(screen.getByTestId('no-matches')).toBeInTheDocument()
+    })
+
+    it('shows no filters while the list is short', async () => {
+      api.getStudentQuizzes.mockResolvedValue([quiz(1, 'Fracții')])
+      api.getMyAttempts.mockResolvedValue([attempt({ attemptId: 9, quizId: 1, quizTitle: 'Fracții' })])
+      renderPage()
+      await screen.findAllByTestId('quiz-card')
+
+      expect(screen.queryByTestId('filter-bar')).not.toBeInTheDocument()
+    })
+  })
 })
