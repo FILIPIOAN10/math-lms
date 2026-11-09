@@ -53,6 +53,8 @@ public enum AuditAction {
     PAPER_GRADED(AuditCategory.GRADING),
     /** A final grade taken back to be corrected; finalising again writes a new PAPER_GRADED row. */
     PAPER_REOPENED(AuditCategory.GRADING),
+    /** One more graded attempt at a test for one student ("+1 încercare"), the limit unchanged for the rest. */
+    ATTEMPT_GRANTED(AuditCategory.GRADING),
 
     HOMEWORK_ASSIGNED(AuditCategory.HOMEWORK),
     HOMEWORK_RESCHEDULED(AuditCategory.HOMEWORK),

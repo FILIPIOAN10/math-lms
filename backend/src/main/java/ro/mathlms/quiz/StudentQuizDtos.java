@@ -107,7 +107,7 @@ public final class StudentQuizDtos {
             return new OfferedQuizDto(summary.id(), summary.title(), summary.description(), summary.status(),
                     summary.schoolClassId(), summary.schoolClassName(),
                     ExtraTime.minutesFor(summary.timeLimitMinutes(), extraTimePercent),
-                    summary.practiceAllowed(), summary.chapterId(), summary.maxAttempts(),
+                    summary.practiceAllowed(), summary.chapterId(), allowance.maxAttempts(), // with their own extra ones
                     allowance.used(), allowance.blockedBy());
         }
     }

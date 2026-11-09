@@ -10,6 +10,7 @@ import {
   createAssignment,
   deleteAssignment,
   getAssignmentStatus,
+  grantExtraAttempt,
   listAssignments,
   listClasses,
   listQuizzes,
@@ -224,6 +225,17 @@ export function AdminAssignmentsPage() {
     }
   }
 
+  async function grantOne(s: AssignmentStudentStatus) {
+    if (s.attemptId === null) return
+    setError(null)
+    try {
+      const { attemptsAllowed } = await grantExtraAttempt(s.attemptId)
+      setNotice(`${s.fullName} poate da testul de ${attemptsAllowed} ori (doar el/ea; restul clasei păstrează limita).`)
+    } catch (e) {
+      setError(errorMessage(e))
+    }
+  }
+
   function studentActions(a: AssignmentSummary, s: AssignmentStudentStatus) {
     const items = [
       { label: s.ownDueAt ? 'Schimbă termenul lui/ei' : 'Termen doar pentru el/ea', onClick: () => setMovingFor({ assignment: a, student: s }) },
@@ -231,6 +243,11 @@ export function AdminAssignmentsPage() {
         ? { label: 'Anulează scutirea', onClick: () => void setOverride(a, s, s.ownDueAt, false, `${s.fullName} are din nou tema.`) }
         : { label: 'Scutește de temă', onClick: () => void setOverride(a, s, s.ownDueAt, true, `${s.fullName} e scutit(ă) de tema „${a.quizTitle}”.`) },
     ]
+    // "+1 încercare" needs a test with a limit and a paper of this student's (whoever ran out of attempts has one).
+    const limited = quizzes.find((q) => q.id === a.quizId)?.maxAttempts != null
+    if (limited && s.attemptId !== null && (s.state === 'SUBMITTED' || s.state === 'GRADED')) {
+      items.push({ label: '+1 încercare', onClick: () => void grantOne(s) })
+    }
     if (s.ownDueAt && !s.excused) {
       items.push({ label: 'Înapoi la termenul clasei', onClick: () => void setOverride(a, s, null, false, `${s.fullName} are din nou termenul clasei.`) })
     }

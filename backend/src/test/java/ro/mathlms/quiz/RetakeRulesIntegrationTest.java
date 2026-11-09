@@ -44,6 +44,7 @@ class RetakeRulesIntegrationTest {
     @Autowired private QuizStatsService statsService;
     @Autowired private AssignmentService assignmentService;
     @Autowired private JdbcTemplate jdbc;
+    @Autowired private AttemptGrantService grantService;
 
     private SchoolClass schoolClass;
     private User ana;
@@ -216,5 +217,26 @@ class RetakeRulesIntegrationTest {
         Double classAverage = schoolClassRepository.summaries().stream()
                 .filter(r -> r.getClassId().equals(schoolClass.getId())).findFirst().orElseThrow().getAverage();
         assertThat(classAverage).isCloseTo(7.75, within(0.001));
+    }
+
+    @Test
+    void oneMoreAttemptForOneStudentOpensARetakeOnlyForThem() {
+        grileTest(1);
+        take(ana, true, false);
+        take(bob, true, false);
+        Long anasPaper = attemptRepository.findByStudentIdOrderByStartedAtDesc(ana.getId()).get(0).getId();
+
+        assertThat(grantService.grantOne(anasPaper)).isEqualTo(2);
+
+        assertThat(offered(ana).blockedBy()).isNull();
+        assertThat(offered(ana).maxAttempts()).isEqualTo(2);
+        assertThat(attemptService.getPreview(quiz.getId(), ana.getEmail()).maxAttempts()).isEqualTo(2);
+        assertThat(attemptService.getAttemptForGrading(anasPaper).attemptsAllowed()).isEqualTo(2);
+        assertThat(attemptService.getAttemptForGrading(anasPaper).attemptsUsed()).isEqualTo(1);
+        assertThat(offered(bob).blockedBy()).isEqualTo(RetakeBlock.NO_ATTEMPTS_LEFT); // the class keeps its limit
+
+        take(ana, true, true);
+
+        assertThat(offered(ana).blockedBy()).isEqualTo(RetakeBlock.NO_ATTEMPTS_LEFT);
     }
 }

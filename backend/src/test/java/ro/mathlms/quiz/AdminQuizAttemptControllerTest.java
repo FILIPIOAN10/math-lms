@@ -201,7 +201,7 @@ class AdminQuizAttemptControllerTest {
     @WithMockUser(roles = "ADMIN")
     void detailReturnsTheAttempt() throws Exception {
         when(service.getAttemptForGrading(1L)).thenReturn(new AdminAttemptDetailDto(
-                1L, "Simulare EN", "Ana", QuizAttemptStatus.SUBMITTED, null, null, 35, List.of(), null));
+                1L, "Simulare EN", "Ana", QuizAttemptStatus.SUBMITTED, null, null, 35, List.of(), null, null, 1));
 
         mockMvc.perform(get("/api/admin/quiz/attempts/1"))
                 .andExpect(status().isOk())

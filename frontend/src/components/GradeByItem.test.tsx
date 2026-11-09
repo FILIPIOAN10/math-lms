@@ -14,7 +14,7 @@ const item = (itemId: number, over: Partial<AdminItemReview> = {}): AdminItemRev
 function paper(attemptId: number, studentName: string, points: [number | null, number | null] = [null, null]): AdminAttemptDetail {
   return {
     attemptId, quizTitle: 'Simulare EN', studentName, status: 'SUBMITTED', submittedAt: '2026-10-11T10:00:00Z',
-    score: null, maxScore: 12, teacherComment: null,
+    score: null, maxScore: 12, teacherComment: null, attemptsAllowed: null, attemptsUsed: 1,
     items: [
       item(1, { type: 'SINGLE_CHOICE', points: 2, awardedPoints: 2, correct: true, photoUploaded: false, photoIds: [] }),
       item(2, { awardedPoints: points[0] }),

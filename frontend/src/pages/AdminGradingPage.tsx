@@ -23,6 +23,7 @@ import {
   getAiGradingSettings,
   getAiProposals,
   getAttemptForGrading,
+  grantExtraAttempt,
   gradeOpenItem,
   gradeOpenItemParts,
   GRADED_PAGE,
@@ -222,6 +223,8 @@ export function AdminGradingPage({ aiPollMs = AI_POLL_MS }: { aiPollMs?: number 
   const [query, setQuery] = useState('')
   const [classFilter, setClassFilter] = useState('')
   const [detail, setDetail] = useState<AdminAttemptDetail | null>(null)
+  const [granting, setGranting] = useState(false)
+  const [granted, setGranted] = useState<string | null>(null) // "Ana mai poate da testul o dată." after "+1 încercare"
   const [loading, setLoading] = useState(true)
   const [finalizing, setFinalizing] = useState(false)
   // The paper finalised last: "Anulează" stays on screen while the teacher moves on, instead of a question per paper.
@@ -417,6 +420,21 @@ export function AdminGradingPage({ aiPollMs = AI_POLL_MS }: { aiPollMs?: number 
     }
   }
 
+  /** One more graded attempt for this student only (a dropped connection, a wrong photo): the class keeps its limit. */
+  async function grantOne(paper: AdminAttemptDetail) {
+    setGranting(true)
+    setError(null)
+    try {
+      const { attemptsAllowed } = await grantExtraAttempt(paper.attemptId)
+      setDetail((d) => d && d.attemptId === paper.attemptId ? { ...d, attemptsAllowed } : d)
+      setGranted(`${paper.studentName} mai poate da testul o dată.`)
+    } catch (e) {
+      setError(errorMessage(e))
+    } finally {
+      setGranting(false)
+    }
+  }
+
   async function askToReopen(attemptId: number) {
     const yes = await confirm({
       title: 'Redeschizi lucrarea?',
@@ -545,6 +563,21 @@ export function AdminGradingPage({ aiPollMs = AI_POLL_MS }: { aiPollMs?: number 
                 <div>
                   <p className="font-medium">{detail.studentName}</p>
                   <p className="text-sm text-muted-foreground">Trimis: {formatDate(detail.submittedAt)}</p>
+                  {detail.attemptsAllowed !== null && (
+                    <p data-testid="attempts-line" className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                      Încercări: {detail.attemptsUsed} din {detail.attemptsAllowed}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        aria-label={`+1 încercare pentru ${detail.studentName}`}
+                        disabled={granting}
+                        onClick={() => void grantOne(detail)}
+                      >
+                        +1 încercare
+                      </Button>
+                    </p>
+                  )}
+                  {granted && <p role="status" className="text-sm text-emerald-700 dark:text-emerald-300">{granted}</p>}
                   {detail.status === 'SUBMITTED' && (
                     <p className="text-xs text-muted-foreground">
                       Din tastatură: <kbd className="rounded border px-1 font-mono">0–9</kbd> dă punctajul și trece la

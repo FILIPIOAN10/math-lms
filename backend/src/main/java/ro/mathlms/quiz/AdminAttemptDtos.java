@@ -75,7 +75,9 @@ public final class AdminAttemptDtos {
             Integer score,
             int maxScore,
             List<AdminItemReviewDto> items,
-            String teacherComment // on the whole paper
+            String teacherComment, // on the whole paper
+            Integer attemptsAllowed, // this student's limit at the test, their extra attempts included; null = no limit
+            int attemptsUsed         // the handed-in tests that count against it
     ) {
     }
 }

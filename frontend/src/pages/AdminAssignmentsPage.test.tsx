@@ -11,6 +11,7 @@ const api = vi.hoisted(() => ({
   listClasses: vi.fn(),
   getAssignmentStatus: vi.fn(),
   setAssignmentOverride: vi.fn(),
+  grantExtraAttempt: vi.fn(),
 }))
 vi.mock('@/lib/api', async (original) => ({ ...(await original<typeof import('@/lib/api')>()), ...api }))
 
@@ -149,5 +150,27 @@ describe('AdminAssignmentsPage', () => {
     renderPage('/admin/assignments')
 
     expect(await screen.findByTestId('assignment-counts')).toHaveTextContent('scutiți 2')
+  })
+
+  it('gives a student who handed in one more attempt when the test has a limit', async () => {
+    const user = userEvent.setup()
+    api.listQuizzes.mockResolvedValue([{
+      id: 1, title: 'Fracții', description: null, status: 'PUBLISHED', schoolClassId: null, schoolClassName: null,
+      timeLimitMinutes: null, practiceAllowed: false, chapterId: null, maxAttempts: 1,
+    }])
+    api.getAssignmentStatus.mockResolvedValue([{ ...status(7, 'Radu Marin', 'GRADED'), attemptId: 300 }])
+    api.grantExtraAttempt.mockResolvedValue({ attemptsAllowed: 2 })
+
+    const items = await openRadusMenu(user)
+    expect(items).toContain('+1 încercare')
+    await user.click(screen.getByRole('menuitem', { name: '+1 încercare' }))
+
+    expect(api.grantExtraAttempt).toHaveBeenCalledWith(300)
+    expect(await screen.findByText(/Radu Marin poate da testul de 2 ori/)).toBeInTheDocument()
+  })
+
+  it('offers no extra attempt when the test has no limit or the student never handed in', async () => {
+    const user = userEvent.setup()
+    expect(await openRadusMenu(user)).not.toContain('+1 încercare')
   })
 })

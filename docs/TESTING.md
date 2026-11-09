@@ -1033,6 +1033,28 @@ Deschide până la **5 grile** legate de capitol (sau de un subcapitol al lui), 
 - nu se salvează nimic: nu se dă notă, nu mută cutiile din **Recapitulare**, nu schimbă harta de capitole
 - o întrebare din afara exersării (alt capitol, test nepredat) trimisă direct la API → **409**
 
+### 40. Excepții la temă pentru un elev: termen propriu sau scutit (V57) — ca profesor, apoi ca elev
+**Ca profesor:** **Teme** → o temă → **Cine a predat** → la un elev, butonul **⋯** („Excepții pentru …”):
+- **Termen doar pentru el/ea** → dialogul „Termen pentru Ana Pop” cu termenul clasei precompletat → alege altă dată → **Salvează**.
+  Sub nume apare „termen propriu: …”; restul clasei păstrează termenul temei.
+- **Scutește de temă** → coloana Stare arată **Scutit**; pe card, „Predate x/y” nu-l mai numără și apare „· scutiți 1”.
+- **Anulează scutirea** / **Înapoi la termenul clasei** → elevul revine la regula clasei (rândul din baza de date dispare).
+- **Jurnal** (filtru Teme): „Excepție la temă pentru un elev · termenul clasei → scutit” (aceeași alegere din nou nu scrie alt rând).
+
+**Ca elev (cu termen propriu):** Acasă și **Testele mele** arată termenul lui; „Termen depășit” abia după el; predat după termenul clasei,
+dar înainte de al lui → **Predată**, nu „cu întârziere”. **Ca elev scutit:** tema nu mai apare deloc (nici la părinte), decât dacă a predat-o deja.
+Pe pagina profesorului pentru acel elev tema apare cu insigna **Scutită**.
+- termen propriu în trecut → „Termenul trebuie să fie în viitor”; un elev din altă clasă → 400 „Elevul nu este în clasa acestei teme”
+- emailul de reamintire al clasei nu pleacă la un elev cu excepție (scutit sau cu termen propriu)
+
+### 41. +1 încercare pentru un singur elev (V58) — ca profesor, apoi ca elev
+Pe un test cu **Încercări: 1** (din Setări), un elev l-a predat o dată și nu-l mai poate începe („Ai folosit toate încercările”).
+- **Corectură** → lucrarea lui: sub „Trimis” apare **Încercări: 1 din 1** și butonul **+1 încercare** → „Ana mai poate da testul o dată.”, rândul devine „1 din 2”.
+- sau **Teme** → **Cine a predat** → **⋯** la elev → **+1 încercare** (doar pe un test cu limită și doar la cine a predat).
+- **Ca elev:** testul se poate începe din nou; pe pagina de start „Încercarea 2 din 2. Contează cea mai mare notă.” Colegii rămân la limita de 1.
+- pe un test **fără limită** nu apare nimic (prin API → 400 „Testul nu are limită de încercări”); cel mult **10** încercări în plus per elev și test
+- **Jurnal** (filtru Corectură): „O încercare în plus pentru un elev · încercări 1 → 2”, cu **Vezi lucrarea** spre lucrarea din care ai dat-o
+
 ## E. Debugging — unde te uiți când pică ceva
 
 ```bash

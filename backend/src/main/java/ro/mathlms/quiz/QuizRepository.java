@@ -16,6 +16,14 @@ import java.util.Optional;
  */
 public interface QuizRepository extends JpaRepository<Quiz, Long> {
 
+    /** Extra attempts one student was given at one test, 0 = none (see {@link AttemptGrant}). */
+    @Query("select coalesce(sum(g.extra), 0) from AttemptGrant g where g.quiz.id = :quizId and g.student.id = :studentId")
+    long extraAttempts(@Param("quizId") Long quizId, @Param("studentId") Long studentId);
+
+    /** Every extra-attempt grant of one student - their quiz list reads them in one query. */
+    @Query("select g from AttemptGrant g where g.student.id = :studentId")
+    List<AttemptGrant> findAttemptGrants(@Param("studentId") Long studentId);
+
     /** Whether this account still owns a test (it must hand it over before erasing itself). */
     boolean existsByTeacherId(Long teacherId);
 

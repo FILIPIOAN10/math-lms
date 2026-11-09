@@ -1822,6 +1822,16 @@ export interface AdminAttemptDetail {
   items: AdminItemReview[]
   /** On the whole paper. */
   teacherComment: string | null
+  /** This student's limit at the test, their extra attempts included; null = no limit. */
+  attemptsAllowed: number | null
+  /** The handed-in tests that count against it. */
+  attemptsUsed: number
+}
+
+/** "+1 încercare": one more graded attempt for the student of this paper; answers with their new limit. */
+export async function grantExtraAttempt(attemptId: number): Promise<{ attemptsAllowed: number }> {
+  const response = await postJson(`/admin/quiz/attempts/${attemptId}/extra-attempt`, {})
+  return response.json()
 }
 
 /** Papers graded per page: GRADED only grows, so it comes newest first, a page at a time (F7). */
@@ -2064,7 +2074,7 @@ export type AuditAction =
   | 'EN_EXAMPLE_ADDED' | 'EN_EXAMPLE_UPDATED' | 'EN_EXAMPLE_DELETED' | 'EN_CHAPTER_SLOTS_UPDATED'
   | 'QUIZ_CREATED' | 'QUIZ_UPDATED' | 'QUIZ_COPIED' | 'QUIZ_PUBLISHED' | 'QUIZ_UNPUBLISHED' | 'QUIZ_DELETED'
   | 'QUESTION_ADDED' | 'QUESTION_UPDATED' | 'QUESTION_DELETED' | 'QUESTION_IMAGE_SET' | 'QUESTION_IMAGE_REMOVED' | 'QUIZ_FROM_PHOTOS'
-  | 'ANSWER_GRADED' | 'PAPER_COMMENTED' | 'PAPER_GRADED' | 'PAPER_REOPENED' | 'ANSWER_KEY_CORRECTED'
+  | 'ANSWER_GRADED' | 'PAPER_COMMENTED' | 'PAPER_GRADED' | 'PAPER_REOPENED' | 'ATTEMPT_GRANTED' | 'ANSWER_KEY_CORRECTED'
   | 'HOMEWORK_ASSIGNED' | 'HOMEWORK_RESCHEDULED' | 'HOMEWORK_DELETED' | 'HOMEWORK_OVERRIDE_SET' | 'HOMEWORK_OVERRIDE_REMOVED'
   | 'ACCOUNT_APPROVED' | 'ACCOUNT_REJECTED' | 'PARENT_LINKED' | 'EXTRA_TIME_CHANGED' | 'STUDENT_ENROLLED' | 'STUDENT_UNENROLLED'
   | 'INVITE_LINK_CREATED' | 'INVITE_LINK_REVOKED' | 'JOINED_BY_INVITE'

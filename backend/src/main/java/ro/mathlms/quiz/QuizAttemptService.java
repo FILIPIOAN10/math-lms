@@ -158,15 +158,23 @@ public class QuizAttemptService {
         Map<Long, List<QuizAttempt>> attempts = attemptRepository.findByStudentIdOrderByStartedAtDesc(student.getId()).stream()
                 .collect(Collectors.groupingBy(a -> a.getQuiz().getId()));
         Map<Long, Instant> homework = homeworkGivenAt(student);
+        Map<Long, Integer> extra = quizRepository.findAttemptGrants(student.getId()).stream()
+                .collect(Collectors.toMap(g -> g.getQuiz().getId(), AttemptGrant::getExtra));
         return listPublished(studentEmail).stream()
-                .map(quiz -> OfferedQuizDto.of(quiz, AttemptAllowance.of(quiz.getMaxAttempts(),
+                .map(quiz -> OfferedQuizDto.of(quiz, AttemptAllowance.of(
+                        AttemptGrant.allowed(quiz.getMaxAttempts(), extra.getOrDefault(quiz.getId(), 0)),
                         attempts.getOrDefault(quiz.getId(), List.of()), homework.get(quiz.getId())),
                         student.getExtraTimePercent()))
                 .toList();
     }
 
+    /** The attempts this student may hand in at the quiz: its limit plus any the teacher gave them (null = no limit). */
+    private Integer allowedAttempts(Quiz quiz, User student) {
+        return AttemptGrant.allowed(quiz.getMaxAttempts(), (int) quizRepository.extraAttempts(quiz.getId(), student.getId()));
+    }
+
     private AttemptAllowance allowanceFor(Quiz quiz, User student) {
-        return AttemptAllowance.of(quiz.getMaxAttempts(),
+        return AttemptAllowance.of(allowedAttempts(quiz, student),
                 attemptRepository.findByStudentIdAndQuizIdIn(student.getId(), List.of(quiz.getId())),
                 homeworkGivenAt(student).get(quiz.getId()));
     }
@@ -199,7 +207,8 @@ public class QuizAttemptService {
         int maxScore = itemRepository.sumPointsByQuiz(List.of(quizId)).stream()
                 .findFirst().map(m -> m.maxScore().intValue()).orElse(0);
         List<QuizAttempt> attempts = attemptRepository.findByStudentIdAndQuizIdIn(student.getId(), List.of(quizId));
-        AttemptAllowance allowance = AttemptAllowance.of(quiz.getMaxAttempts(), attempts, homeworkGivenAt(student).get(quizId));
+        AttemptAllowance allowance = AttemptAllowance.of(allowedAttempts(quiz, student), attempts,
+                homeworkGivenAt(student).get(quizId));
         Instant now = Instant.now(clock);
         return new QuizPreviewDto(quiz.getId(), quiz.getTitle(), quiz.getDescription(),
                 ExtraTime.minutesFor(quiz.getTimeLimitMinutes(), student.getExtraTimePercent()),
@@ -1139,9 +1148,12 @@ public class QuizAttemptService {
                     PartDtos.GradedPartDto.of(partsByItem.getOrDefault(item.getId(), List.of()), response),
                     selectedLetter, correctLetter));
         }
+        // Where the student stands against the limit: the grading page offers "+1 încercare" from here.
+        AttemptAllowance allowance = allowanceFor(attempt.getQuiz(), attempt.getStudent());
         return new AdminAttemptDetailDto(attempt.getId(), attempt.getQuiz().getTitle(),
                 attempt.getStudent().getFullName(), attempt.getStatus(), attempt.getSubmittedAt(),
-                attempt.getScore(), maxScore, reviews, attempt.getTeacherComment());
+                attempt.getScore(), maxScore, reviews, attempt.getTeacherComment(),
+                allowance.maxAttempts(), allowance.used());
     }
 
     /**

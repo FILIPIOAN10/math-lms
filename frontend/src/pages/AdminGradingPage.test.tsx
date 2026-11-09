@@ -21,6 +21,7 @@ const api = vi.hoisted(() => ({
   getAiGradingSettings: vi.fn(),
   getAiProposals: vi.fn(),
   requestAiProposal: vi.fn(),
+  grantExtraAttempt: vi.fn(),
 }))
 vi.mock('@/lib/api', async (original) => ({ ...(await original<typeof import('@/lib/api')>()), ...api }))
 
@@ -30,7 +31,7 @@ const row = (over: Partial<AdminAttemptSummary> = {}): AdminAttemptSummary => ({
 })
 const detail = (over: Partial<AdminAttemptDetail> = {}): AdminAttemptDetail => ({
   attemptId: 50, quizTitle: 'Simulare EN', studentName: 'Ana', status: 'SUBMITTED', submittedAt: '2026-10-09T10:00:00Z',
-  score: null, maxScore: 11, teacherComment: null,
+  score: null, maxScore: 11, teacherComment: null, attemptsAllowed: null, attemptsUsed: 1,
   items: [{
     itemId: 101, position: 1, type: 'OPEN', statement: 'Rezolvă', points: 4, barem: null, selectedOptionText: null,
     correctOptionText: null, correct: null, awardedPoints: null, photoUploaded: false, photoIds: [], teacherComment: null,
@@ -763,5 +764,24 @@ describe('AdminGradingPage', () => {
     expect(within(gradeColumn as HTMLElement).getByText('Barem')).toBeInTheDocument()
     expect(within(gradeColumn as HTMLElement).getByRole('radiogroup', { name: 'Puncte acordate' })).toBeInTheDocument()
     expect(split.className).toMatch(/lg:grid-cols-2/)
+  })
+
+  it('gives the student one more attempt at a test with a limit, and says so', async () => {
+    api.grantExtraAttempt.mockResolvedValue({ attemptsAllowed: 2 })
+    await openAttempt(detail({ attemptsAllowed: 1, attemptsUsed: 1 }))
+
+    expect(screen.getByTestId('attempts-line')).toHaveTextContent('Încercări: 1 din 1')
+    await userEvent.click(screen.getByRole('button', { name: '+1 încercare pentru Ana' }))
+
+    expect(api.grantExtraAttempt).toHaveBeenCalledWith(50)
+    await waitFor(() => expect(screen.getByTestId('attempts-line')).toHaveTextContent('Încercări: 1 din 2'))
+    expect(screen.getByText('Ana mai poate da testul o dată.')).toBeInTheDocument()
+  })
+
+  it('offers no extra attempt on a test without a limit', async () => {
+    await openAttempt(detail({ attemptsAllowed: null }))
+
+    expect(screen.queryByTestId('attempts-line')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /\+1 încercare/ })).not.toBeInTheDocument()
   })
 })
