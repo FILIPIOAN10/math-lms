@@ -24,6 +24,11 @@ public final class AssignmentDtos {
                                               @NotNull Instant dueAt) {
     }
 
+    /** Catch-up homework: one quiz for some students of one class (e.g. the ones weak on a chapter). */
+    public record StudentsAssignmentRequest(@NotNull Long quizId, @NotNull Long schoolClassId,
+                                            @NotEmpty List<@NotNull Long> studentIds, @NotNull Instant dueAt) {
+    }
+
     /**
      * One student's exception to a homework: their own deadline (null = the class one) and/or excused. Neither clears
      * the exception.
@@ -49,7 +54,8 @@ public final class AssignmentDtos {
             int late,        // of those, handed in after the deadline
             int inProgress,
             int notStarted,
-            int excused      // left out of every count above: the homework does not count for them
+            int excused,     // left out of every count above: the homework does not count for them
+            int forStudents  // catch-up homework: how many students it was given to; 0 = the whole class
     ) {
     }
 

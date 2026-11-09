@@ -220,4 +220,19 @@ class AssignmentIntegrationTest {
         assertThat(assignmentService.createForClasses(quiz.getId(), List.of(schoolClass.getId(), third.getId()), dueAt))
                 .hasSize(2);
     }
+
+    @Test
+    void catchUpHomeworkIsStoredWithItsStudentsAndShownOnlyToThem() {
+        Assignment created = assignmentService.createForStudents(quiz.getId(), schoolClass.getId(), List.of(ana.getId()),
+                Instant.now().plus(Duration.ofDays(2)));
+
+        assertThat(assignmentService.status(created.getId()))
+                .extracting(AssignmentDtos.StudentStatusDto::fullName).containsExactly("Ana Pop");
+        assertThat(assignmentService.summaryOf(created.getId()).forStudents()).isEqualTo(1);
+        assertThat(assignmentService.myAssignments(ana.getEmail())).hasSize(1);
+        assertThat(assignmentService.myAssignments(bob.getEmail())).isEmpty();
+
+        assignmentService.delete(created.getId()); // the student rows go with it (ON DELETE CASCADE)
+        assertThat(assignmentRepository.findById(created.getId())).isEmpty();
+    }
 }

@@ -1073,6 +1073,15 @@ Pe **Testele mele**, de la 5 teste date în sus, deasupra listei „Teste date�
 Toate / Cu notă / Așteaptă nota / Doar exersate, cu „x din y”. Fără rezultate: „Niciun rezultat pentru filtrele alese. Șterge filtrele”.
 - căutarea nu ține cont de diacritice („fractii” găsește „Fracții”); „De făcut” nu e filtrat
 
+### 45. Temă de recuperare din harta pe capitole — ca profesor
+**Clase → Pe capitole**: sub „Media clasei” e rândul **Recuperare**, cu un buton pe fiecare capitol: **Temă (n)** = n elevi sub 50%
+acolo (doar „Temă” dacă nu e niciunul). Dialogul „Temă de recuperare — <capitol>”: elevii sub 50% deja bifați (cei „fără date” nu),
+testele publicate legate de capitol primele, termen implicit peste o săptămână la 20:00 → **Dă tema (n elevi)**.
+- sub tabel: „Tema „…” a fost dată la n elevi, termen …” + **Vezi tema** (deschide tema în Teme)
+- la **Teme**, rândul are eticheta „Recuperare · doar n elevi”; „Predate x/y” numără doar elevii aleși
+- elevii nealeși nu văd tema (nici părinții lor) și nu primesc reamintirea; excepția „Excepții pentru X” merge doar pe elevii aleși
+- un test deja dat ca temă întregii clase nu poate fi dat și ca recuperare aceleiași clase (409, „deja dat ca temă”)
+
 ## E. Debugging — unde te uiți când pică ceva
 
 ```bash

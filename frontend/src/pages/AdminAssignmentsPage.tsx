@@ -25,7 +25,7 @@ import {
 } from '@/lib/api'
 import { dueCountdown, isoToLocalInput, localInputToIso } from '@/lib/assignments'
 import { errorMessage } from '@/lib/errors'
-import { formatDate } from '@/lib/format'
+import { formatDate, roCount } from '@/lib/format'
 import { PageHeader } from '@/components/PageHeader'
 import { RowMenu } from '@/components/RowMenu'
 import { FilterBar, FilterSelect, NoMatches } from '@/components/FilterBar'
@@ -375,6 +375,11 @@ export function AdminAssignmentsPage() {
                 <div className="min-w-0">
                   <p className="truncate font-medium">
                     {a.quizTitle} <span className="font-normal text-muted-foreground">· {a.schoolClassName}</span>
+                    {a.forStudents > 0 && (
+                      <span className="ml-2 rounded-full bg-sky-500/15 px-2 py-0.5 text-xs font-medium text-sky-700 dark:text-sky-300">
+                        Recuperare · doar {roCount(a.forStudents, 'elev', 'elevi')}
+                      </span>
+                    )}
                   </p>
                   <p className="text-sm text-muted-foreground">
                     Termen: {formatDate(a.dueAt)} ({dueCountdown(a.dueAt, now)})

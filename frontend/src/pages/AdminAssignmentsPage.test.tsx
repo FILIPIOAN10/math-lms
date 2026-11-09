@@ -18,7 +18,7 @@ vi.mock('@/lib/api', async (original) => ({ ...(await original<typeof import('@/
 
 const summary = (id: number, quizTitle: string): AssignmentSummary => ({
   id, quizId: id, quizTitle, schoolClassId: 1, schoolClassName: 'Clasa a 8-a A', dueAt: new Date(Date.now() + 86_400_000).toISOString(),
-  overdue: false, enrolled: 2, done: 1, late: 0, inProgress: 0, notStarted: 1, excused: 0,
+  overdue: false, enrolled: 2, done: 1, late: 0, inProgress: 0, notStarted: 1, excused: 0, forStudents: 0,
 })
 const status = (studentId: number, fullName: string, state: AssignmentStudentStatus['state']): AssignmentStudentStatus => ({
   studentId, fullName, state, submittedAt: null, late: false, score: null, attemptId: null, ownDueAt: null, excused: false,
@@ -88,6 +88,14 @@ describe('AdminAssignmentsPage', () => {
     expect(within(rows[1]).getByTestId('assignment-status')).toBe(table)
     expect(within(rows[1]).getByRole('button', { name: 'Ascunde' })).toBeInTheDocument()
     expect(within(rows[0]).getByRole('button', { name: 'Cine a predat' })).toBeInTheDocument()
+  })
+
+  it('marks catch-up homework with how many students it is for', async () => {
+    api.listAssignments.mockResolvedValue([summary(1, 'Fracții'), { ...summary(2, 'Ecuații'), forStudents: 3 }])
+    renderPage('/admin/assignments')
+
+    expect(await screen.findByText('Recuperare · doar 3 elevi')).toBeInTheDocument()
+    expect(screen.getAllByText(/Recuperare · doar/)).toHaveLength(1)
   })
 
   it('opens nothing without ?open=', async () => {

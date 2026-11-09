@@ -1,10 +1,14 @@
 import { render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AdminMasteryPage } from '@/pages/AdminMasteryPage'
-import type { ClassMastery } from '@/lib/api'
+import type { AssignmentSummary, ClassMastery, QuizSummary } from '@/lib/api'
 
-const api = vi.hoisted(() => ({ getClassMastery: vi.fn(), listClasses: vi.fn(), getClassReview: vi.fn() }))
+const api = vi.hoisted(() => ({
+  getClassMastery: vi.fn(), listClasses: vi.fn(), getClassReview: vi.fn(), listQuizzes: vi.fn(), listAssignments: vi.fn(),
+  createCatchUpAssignment: vi.fn(),
+}))
 vi.mock('@/lib/api', async (original) => ({ ...(await original<typeof import('@/lib/api')>()), ...api }))
 
 const grid: ClassMastery = {
@@ -107,5 +111,29 @@ describe('AdminMasteryPage', () => {
     })
     renderPage()
     expect(await screen.findByText(/Leagă testele de capitole/)).toBeInTheDocument()
+  })
+
+  it('gives catch-up homework to the students weak on a chapter, from its column', async () => {
+    const user = userEvent.setup()
+    api.listQuizzes.mockReset().mockResolvedValue([
+      { id: 70, title: 'Ecuații — exersare', status: 'PUBLISHED', schoolClassId: null, chapterId: 2 } as QuizSummary,
+    ])
+    api.listAssignments.mockReset().mockResolvedValue([])
+    api.createCatchUpAssignment.mockReset().mockResolvedValue(
+      { id: 12, quizTitle: 'Ecuații — exersare', forStudents: 1, dueAt: '2026-11-16T18:00:00Z' } as AssignmentSummary)
+    renderPage()
+
+    const button = await screen.findByRole('button', { name: 'Temă de recuperare la Ecuații' })
+    expect(button).toHaveTextContent('Temă (1)') // only Ana is below 50% there
+    await user.click(button)
+    expect(await screen.findByLabelText('Ana Student (40%)')).toBeChecked()
+    expect(screen.getByLabelText('Radu Nou (fără date)')).not.toBeChecked()
+    await user.click(screen.getByRole('button', { name: 'Dă tema (1 elev)' }))
+
+    expect(api.createCatchUpAssignment).toHaveBeenCalledWith(
+      expect.objectContaining({ quizId: 70, schoolClassId: 8, studentIds: [4] }))
+    const status = await screen.findByRole('status')
+    expect(status).toHaveTextContent('Tema „Ecuații — exersare” a fost dată la 1 elev')
+    expect(within(status).getByRole('link', { name: 'Vezi tema' })).toHaveAttribute('href', '/admin/assignments?open=12')
   })
 })

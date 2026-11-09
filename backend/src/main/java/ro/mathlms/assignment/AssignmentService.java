@@ -34,6 +34,7 @@ import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -86,6 +87,14 @@ public class AssignmentService {
      */
     @Transactional
     public Assignment create(Long quizId, Long schoolClassId, Instant dueAt) {
+        Assignment saved = assignmentRepository.save(build(quizId, schoolClassId, dueAt));
+        auditLog.record(AuditEvent.of(AuditAction.HOMEWORK_ASSIGNED, saved.getId(), label(saved))
+                .details("termen " + AuditText.dateTime(dueAt)));
+        return saved;
+    }
+
+    /** A new, unsaved homework after every check of {@link #create}. */
+    private Assignment build(Long quizId, Long schoolClassId, Instant dueAt) {
         Quiz quiz = quizRepository.findById(quizId).orElseThrow(() -> new QuizNotFoundException("Quiz", quizId));
         SchoolClass schoolClass = schoolClassRepository.findById(schoolClassId)
                 .orElseThrow(() -> new QuizNotFoundException("SchoolClass", schoolClassId));
@@ -99,10 +108,7 @@ public class AssignmentService {
         if (assignmentRepository.existsByQuizIdAndSchoolClassId(quizId, schoolClassId)) {
             throw new AssignmentConflictException("Testul este deja dat ca temă acestei clase — modifică termenul");
         }
-        Assignment saved = assignmentRepository.save(new Assignment(quiz, schoolClass, dueAt, Instant.now(clock)));
-        auditLog.record(AuditEvent.of(AuditAction.HOMEWORK_ASSIGNED, saved.getId(), label(saved))
-                .details("termen " + AuditText.dateTime(dueAt)));
-        return saved;
+        return new Assignment(quiz, schoolClass, dueAt, Instant.now(clock));
     }
 
     /**
@@ -117,6 +123,34 @@ public class AssignmentService {
             throw new InvalidAssignmentException("Alege cel puțin o clasă");
         }
         return ids.stream().map(classId -> create(quizId, classId, dueAt)).toList();
+    }
+
+    /**
+     * Catch-up homework: the quiz for some students of the class only - the rules of {@link #create} plus at least one
+     * student, each an enrolled, not erased student of that class. Named twice counts once. One journal row, saying how
+     * many students (not who: the list is on the homework itself).
+     */
+    @Transactional
+    public Assignment createForStudents(Long quizId, Long schoolClassId, List<Long> studentIds, Instant dueAt) {
+        List<Long> ids = studentIds == null ? List.of() : studentIds.stream().distinct().toList();
+        if (ids.isEmpty()) {
+            throw new InvalidAssignmentException("Alege cel puțin un elev");
+        }
+        Set<Long> roster = enrollmentRepository.findBySchoolClassIdFetchStudent(schoolClassId).stream()
+                .map(Enrollment::getStudent)
+                .filter(student -> !student.isErased())
+                .map(User::getId)
+                .collect(Collectors.toSet());
+        if (!roster.containsAll(ids)) {
+            throw new InvalidAssignmentException("Unii dintre elevii aleși nu sunt în clasă");
+        }
+        Assignment assignment = build(quizId, schoolClassId, dueAt);
+        assignment.restrictTo(ids);
+        Assignment saved = assignmentRepository.save(assignment);
+        auditLog.record(AuditEvent.of(AuditAction.HOMEWORK_ASSIGNED, saved.getId(), label(saved))
+                .details("termen " + AuditText.dateTime(dueAt) + ", doar pentru " + ids.size()
+                        + (ids.size() == 1 ? " elev" : " elevi")));
+        return saved;
     }
 
     @Transactional
@@ -155,6 +189,9 @@ public class AssignmentService {
                 .filter(u -> enrollmentRepository.existsByStudentIdAndSchoolClassId(u.getId(),
                         assignment.getSchoolClass().getId()))
                 .orElseThrow(() -> new InvalidAssignmentException("Elevul nu este în clasa acestei teme"));
+        if (!assignment.isFor(student.getId())) { // catch-up homework given to other students of the class
+            throw new InvalidAssignmentException("Tema nu este dată acestui elev");
+        }
         if (dueAt != null) {
             requireFuture(dueAt);
         }
@@ -249,6 +286,7 @@ public class AssignmentService {
         // An unpublished quiz cannot be started, so its homework is hidden until it is published again.
         List<Assignment> assignments = assignmentRepository.findBySchoolClassIdsFetched(classIds).stream()
                 .filter(a -> a.getQuiz().getStatus() == QuizStatus.PUBLISHED)
+                .filter(a -> a.isFor(student.getId())) // catch-up homework of their class, given to others
                 .toList();
         List<Long> quizIds = assignments.stream().map(a -> a.getQuiz().getId()).distinct().toList();
         Map<Long, List<QuizAttempt>> attemptsByQuiz = attemptRepository.findByStudentIdAndQuizIdIn(student.getId(), quizIds)
@@ -336,11 +374,15 @@ public class AssignmentService {
         }
     }
 
-    /** The class roster as users, erased (anonymised) accounts left out. */
+    /**
+     * Who the homework is for, as users: the class roster - or, for catch-up homework, the chosen students still in it -
+     * erased (anonymised) accounts left out.
+     */
     private List<User> rosterOf(Assignment assignment) {
         return enrollmentRepository.findBySchoolClassIdFetchStudent(assignment.getSchoolClass().getId()).stream()
                 .map(Enrollment::getStudent)
                 .filter(student -> !student.isErased())
+                .filter(student -> assignment.isFor(student.getId()))
                 .toList();
     }
 
@@ -392,6 +434,7 @@ public class AssignmentService {
         }
         return new AssignmentSummaryDto(assignment.getId(), assignment.getQuiz().getId(), assignment.getQuiz().getTitle(),
                 assignment.getSchoolClass().getId(), assignment.getSchoolClass().getName(), assignment.getDueAt(),
-                assignment.isOverdue(Instant.now(clock)), students.size(), done, late, inProgress, notStarted, excused);
+                assignment.isOverdue(Instant.now(clock)), students.size(), done, late, inProgress, notStarted, excused,
+                assignment.getStudentIds().size());
     }
 }

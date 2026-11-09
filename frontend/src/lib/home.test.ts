@@ -13,7 +13,7 @@ const homework = (id: number, state: StudentAssignment['state']): StudentAssignm
 
 const assignment = (id: number, dueInDays: number, over: Partial<AssignmentSummary> = {}): AssignmentSummary => ({
   id, quizId: id, quizTitle: `Q${id}`, schoolClassId: 1, schoolClassName: 'a 9-a', dueAt: at(dueInDays),
-  overdue: dueInDays < 0, enrolled: 20, done: 5, late: 0, inProgress: 0, notStarted: 15, excused: 0, ...over,
+  overdue: dueInDays < 0, enrolled: 20, done: 5, late: 0, inProgress: 0, notStarted: 15, excused: 0, forStudents: 0, ...over,
 })
 
 const point = (attemptId: number, submittedAt: string): ProgressPointDto => ({

@@ -1966,6 +1966,8 @@ export interface AssignmentSummary {
   notStarted: number
   /** Students excused from it: left out of every count above. */
   excused: number
+  /** Catch-up homework: how many students it was given to; 0 = the whole class. */
+  forStudents: number
 }
 
 /** One student's row in the teacher's per-assignment status. */
@@ -2030,6 +2032,18 @@ export async function publishAndAssign(
 /** The same homework for each chosen class, all or nothing; one summary per class, in the order sent. */
 export async function createAssignments(input: AssignmentInput): Promise<AssignmentSummary[]> {
   const response = await postJson('/admin/assignments/batch', input)
+  return response.json()
+}
+
+/** Catch-up homework: one quiz for some students of one class only (e.g. the ones weak on a chapter). */
+export async function createCatchUpAssignment(input: {
+  quizId: number
+  schoolClassId: number
+  studentIds: number[]
+  /** ISO instant. */
+  dueAt: string
+}): Promise<AssignmentSummary> {
+  const response = await postJson('/admin/assignments/for-students', input)
   return response.json()
 }
 

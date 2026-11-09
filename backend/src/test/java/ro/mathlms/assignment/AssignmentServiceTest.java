@@ -721,4 +721,124 @@ class AssignmentServiceTest {
                 .isInstanceOf(InvalidAssignmentException.class)
                 .hasMessageContaining("cel puțin o clasă");
     }
+
+    // --- catch-up homework for some students only ---
+
+    private void stubClassRoster(User... students) {
+        when(enrollmentRepository.findBySchoolClassIdFetchStudent(5L))
+                .thenReturn(java.util.Arrays.stream(students).map(s -> new Enrollment(s, ninth)).toList());
+    }
+
+    @Test
+    void homeworkForSomeStudentsIsGivenOnlyToThem() {
+        stubLookups();
+        User ana = student(1L, "Ana Pop");
+        User bob = student(2L, "Bob Ionescu");
+        User cris = student(3L, "Cris Rus");
+        stubClassRoster(ana, bob, cris);
+
+        Assignment created = service.createForStudents(10L, 5L, List.of(1L, 3L, 3L), due);
+
+        assertThat(created.getStudentIds()).containsExactlyInAnyOrder(1L, 3L);
+        assertThat(created.isFor(1L)).isTrue();
+        assertThat(created.isFor(2L)).isFalse();
+        ArgumentCaptor<AuditEvent> event = ArgumentCaptor.forClass(AuditEvent.class);
+        verify(auditLog).record(event.capture());
+        assertThat(event.getValue().action()).isEqualTo(AuditAction.HOMEWORK_ASSIGNED);
+        assertThat(event.getValue().details()).contains("doar pentru 2 elevi");
+    }
+
+    @Test
+    void homeworkForSomeStudentsNeedsAtLeastOneStudentOfTheClass() {
+        stubLookups();
+        User ana = student(1L, "Ana Pop");
+        User gone = student(4L, "Cont sters");
+        ReflectionTestUtils.setField(gone, "erased", true);
+        stubClassRoster(ana, gone);
+
+        assertThatThrownBy(() -> service.createForStudents(10L, 5L, List.of(), due))
+                .isInstanceOf(InvalidAssignmentException.class)
+                .hasMessageContaining("cel puțin un elev");
+        assertThatThrownBy(() -> service.createForStudents(10L, 5L, List.of(1L, 99L), due))
+                .isInstanceOf(InvalidAssignmentException.class)
+                .hasMessageContaining("nu sunt în clasă");
+        assertThatThrownBy(() -> service.createForStudents(10L, 5L, List.of(4L), due))
+                .isInstanceOf(InvalidAssignmentException.class);
+
+        verify(assignmentRepository, never()).save(any());
+    }
+
+    @Test
+    void theStatusAndSummaryOfHomeworkForSomeStudentsCountOnlyThem() {
+        Assignment assignment = assignment(1L);
+        assignment.restrictTo(List.of(1L, 3L));
+        User ana = student(1L, "Ana Pop");
+        User bob = student(2L, "Bob Ionescu");
+        User cris = student(3L, "Cris Rus");
+        stubRoster(assignment, ana, bob, cris);
+        when(assignmentRepository.findAllFetched()).thenReturn(List.of(assignment));
+        when(attemptRepository.findForAssignment(eq(10L), any(), eq(assignment.getCreatedAt())))
+                .thenReturn(List.of(attemptOf(ana, 100L, true, due.minus(Duration.ofHours(2)))));
+
+        assertThat(service.status(1L)).extracting(StudentStatusDto::fullName).containsExactly("Ana Pop", "Cris Rus");
+        AssignmentSummaryDto summary = service.list().get(0);
+        assertThat(summary.enrolled()).isEqualTo(2);
+        assertThat(summary.done()).isEqualTo(1);
+        assertThat(summary.notStarted()).isEqualTo(1);
+        assertThat(summary.forStudents()).isEqualTo(2);
+    }
+
+    @Test
+    void aWholeClassHomeworkSaysSoInItsSummary() {
+        Assignment assignment = assignment(1L);
+        when(assignmentRepository.findAllFetched()).thenReturn(List.of(assignment));
+        stubClassRoster(student(1L, "Ana Pop"));
+
+        assertThat(service.list().get(0).forStudents()).isZero();
+    }
+
+    @Test
+    void aStudentNotChosenDoesNotSeeTheHomework() {
+        User ana = student(1L, "Ana Pop");
+        User bob = student(2L, "Bob Ionescu");
+        Assignment catchUp = assignment(1L);
+        catchUp.restrictTo(List.of(1L));
+        when(enrollmentRepository.findClassIdsByStudentId(any())).thenReturn(List.of(5L));
+        when(assignmentRepository.findBySchoolClassIdsFetched(List.of(5L))).thenReturn(List.of(catchUp));
+        when(attemptRepository.findByStudentIdAndQuizIdIn(any(), any())).thenReturn(List.of());
+        when(userRepository.findByEmail(ana.getEmail())).thenReturn(Optional.of(ana));
+        when(userRepository.findByEmail(bob.getEmail())).thenReturn(Optional.of(bob));
+
+        assertThat(service.myAssignments(ana.getEmail())).hasSize(1);
+        assertThat(service.myAssignments(bob.getEmail())).isEmpty();
+        assertThat(service.myAssignments(bob.getEmail(), true)).isEmpty();
+    }
+
+    @Test
+    void theReminderOfHomeworkForSomeStudentsGoesOnlyToThem() {
+        Assignment assignment = withId(new Assignment(quiz, ninth, clock.now.plus(Duration.ofHours(20)), clock.now), 1L);
+        assignment.restrictTo(List.of(2L));
+        when(assignmentRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(assignment));
+        stubClassRoster(student(1L, "Ana Pop"), student(2L, "Bob Ionescu"));
+        when(attemptRepository.findForAssignment(eq(10L), any(), eq(assignment.getCreatedAt()))).thenReturn(List.of());
+
+        service.queueReminders(1L);
+
+        verify(publisher).publish(OutboxEventTypes.ASSIGNMENT_REMINDER_EMAIL, new AssignmentReminderPayload(1L, 2L));
+        verify(publisher, times(1)).publish(any(), any());
+    }
+
+    @Test
+    void anExceptionIsOnlyForAStudentTheHomeworkIsFor() {
+        Assignment assignment = assignment(1L);
+        assignment.restrictTo(List.of(1L));
+        User bob = student(2L, "Bob Ionescu");
+        when(assignmentRepository.findByIdFetched(1L)).thenReturn(Optional.of(assignment));
+        when(userRepository.findById(2L)).thenReturn(Optional.of(bob));
+        when(enrollmentRepository.existsByStudentIdAndSchoolClassId(2L, 5L)).thenReturn(true);
+
+        assertThatThrownBy(() -> service.setOverride(1L, 2L, null, true))
+                .isInstanceOf(InvalidAssignmentException.class);
+        verify(overrideRepository, never()).save(any());
+    }
 }

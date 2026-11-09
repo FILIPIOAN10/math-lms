@@ -18,6 +18,7 @@ import ro.mathlms.assignment.AssignmentDtos.OverrideRequest;
 import ro.mathlms.assignment.AssignmentDtos.PublishAndAssignRequest;
 import ro.mathlms.assignment.AssignmentDtos.RescheduleRequest;
 import ro.mathlms.assignment.AssignmentDtos.StudentStatusDto;
+import ro.mathlms.assignment.AssignmentDtos.StudentsAssignmentRequest;
 import ro.mathlms.teaching.TeacherScope;
 
 import java.util.List;
@@ -60,6 +61,19 @@ public class AssignmentAdminController {
         List<Assignment> created = service.createForClasses(request.quizId(), request.schoolClassIds(), request.dueAt());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(created.stream().map(a -> service.summaryOf(a.getId())).toList());
+    }
+
+    /**
+     * Catch-up homework: a quiz for some students of one class only. The service checks each is a student of that class
+     * (a teacher's own class, checked here).
+     */
+    @PostMapping("/api/admin/assignments/for-students")
+    public ResponseEntity<AssignmentSummaryDto> createForStudents(@Valid @RequestBody StudentsAssignmentRequest request) {
+        scope.requireQuiz(request.quizId());
+        scope.requireClass(request.schoolClassId());
+        Assignment created = service.createForStudents(request.quizId(), request.schoolClassId(), request.studentIds(),
+                request.dueAt());
+        return ResponseEntity.status(HttpStatus.CREATED).body(service.summaryOf(created.getId()));
     }
 
     /** T3: publishes a draft quiz and gives it as homework, all or nothing. */

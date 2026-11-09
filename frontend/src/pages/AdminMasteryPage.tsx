@@ -7,8 +7,14 @@ import { EnMasteryGrid } from '@/components/EnMasteryGrid'
 import { ClassAverageCell } from '@/components/ClassAverageCell'
 import { PageHeader } from '@/components/PageHeader'
 import { HomeSection } from '@/components/home/HomeBits'
-import { getClassEnMastery, getClassMastery, getClassReview, listClasses, type ClassMastery, type EnClassMastery, type StudentReviewStatus } from '@/lib/api'
-import { roCount } from '@/lib/format'
+import {
+  createCatchUpAssignment, getClassEnMastery, getClassMastery, getClassReview, listAssignments, listClasses, listQuizzes,
+  type AssignmentSummary, type ClassMastery, type EnClassMastery, type QuizSummary, type StudentReviewStatus,
+} from '@/lib/api'
+import { Button } from '@/components/ui/button'
+import { CatchUpDialog } from '@/components/CatchUpDialog'
+import { weakStudentIds } from '@/lib/catchUp'
+import { formatDate, roCount } from '@/lib/format'
 import { errorMessage } from '@/lib/errors'
 import { classAverage, MASTERY_LABELS, MASTERY_TONES, masteryLevel } from '@/lib/mastery'
 import { LoadingCards } from '@/components/LoadingCards'
@@ -31,6 +37,25 @@ export function AdminMasteryPage() {
   const [review, setReview] = useState<StudentReviewStatus[] | null>(null)
   const [enGrid, setEnGrid] = useState<EnClassMastery | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // Catch-up homework: the chapter column whose dialog is open, the quizzes it offers (loaded on first open), the result.
+  const [catchUpColumn, setCatchUpColumn] = useState<number | null>(null)
+  const [quizzes, setQuizzes] = useState<QuizSummary[] | null>(null)
+  const [givenQuizIds, setGivenQuizIds] = useState<number[]>([])
+  const [catchUpError, setCatchUpError] = useState<string | null>(null)
+  const [given, setGiven] = useState<AssignmentSummary | null>(null)
+
+  function openCatchUp(column: number) {
+    setGiven(null)
+    setCatchUpError(null)
+    // Fresh each time: a homework given a moment ago must already count as given.
+    Promise.all([quizzes ?? listQuizzes(), listAssignments()])
+      .then(([list, assignments]) => {
+        setQuizzes(list)
+        setGivenQuizIds(assignments.filter((a) => a.schoolClassId === id).map((a) => a.quizId))
+        setCatchUpColumn(column)
+      })
+      .catch((e) => setCatchUpError(errorMessage(e)))
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -135,11 +160,50 @@ export function AdminMasteryPage() {
                         <ClassAverageCell key={chapter.id} average={average(grid, i)} />
                       ))}
                     </tr>
+                    <tr className="border-t">
+                      <th scope="row" className="sticky left-0 z-10 bg-card px-3 py-2 text-left font-medium">Recuperare</th>
+                      {grid.chapters.map((chapter, i) => {
+                        const weak = weakStudentIds(grid, i).length
+                        return (
+                          <td key={chapter.id} className="border-l px-2 py-1 text-center">
+                            <Button type="button" size="sm" variant={weak > 0 ? 'outline' : 'ghost'}
+                                    aria-label={`Temă de recuperare la ${chapter.title}`}
+                                    onClick={() => openCatchUp(i)}>
+                              {weak > 0 ? `Temă (${weak})` : 'Temă'}
+                            </Button>
+                          </td>
+                        )
+                      })}
+                    </tr>
                   </tfoot>
                 </table>
               </CardContent>
             </Card>
             <MasteryLegend />
+            <p className="text-xs text-muted-foreground">
+              „Temă (n)” dă o temă doar celor n elevi sub 50% la capitol; îi poți bifa sau debifa înainte.
+            </p>
+            {catchUpError && <p className="text-sm text-destructive">{catchUpError}</p>}
+            {given && (
+              <p role="status" className="text-sm">
+                Tema „{given.quizTitle}” a fost dată la {roCount(given.forStudents, 'elev', 'elevi')},
+                termen {formatDate(given.dueAt)}.{' '}
+                <Link to={`/admin/assignments?open=${given.id}`} className="underline">Vezi tema</Link>
+              </p>
+            )}
+            {catchUpColumn !== null && quizzes && (
+              <CatchUpDialog
+                open
+                onClose={() => setCatchUpColumn(null)}
+                grid={grid}
+                column={catchUpColumn}
+                classId={id}
+                quizzes={quizzes}
+                givenQuizIds={givenQuizIds}
+                onCreated={setGiven}
+                createCatchUpAssignment={createCatchUpAssignment}
+              />
+            )}
           </>
         )}
 
