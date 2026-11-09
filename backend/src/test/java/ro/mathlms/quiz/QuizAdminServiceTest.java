@@ -219,9 +219,51 @@ class QuizAdminServiceTest {
     }
 
     @Test
-    void updateItemRejectsTypeChange() {
+    void aDraftQuestionCanChangeItsTypeAndKeepsItsStatement() {
+        QuizItem open = new QuizItem(quiz, 1, QuizItemType.OPEN, "Cât face 2 + 2?", 5, "barem");
+        when(itemRepository.findById(9L)).thenReturn(Optional.of(open));
+        when(optionRepository.save(any(QuizOption.class))).thenAnswer(i -> i.getArgument(0));
+
+        ItemDto dto = service.updateItem(9L, new ItemRequest(QuizItemType.SINGLE_CHOICE, 1, "Cât face 2 + 2?", 5, null,
+                List.of(new OptionRequest(0, "4", true), new OptionRequest(1, "5", false))));
+
+        assertThat(dto.type()).isEqualTo(QuizItemType.SINGLE_CHOICE);
+        assertThat(open.getType()).isEqualTo(QuizItemType.SINGLE_CHOICE);
+        assertThat(dto.statement()).isEqualTo("Cât face 2 + 2?");
+        verify(optionRepository, times(2)).save(any());
+    }
+
+    @Test
+    void leavingNumericForgetsTheNumericAnswer() {
+        QuizItem numeric = new QuizItem(quiz, 1, QuizItemType.NUMERIC, "x", 5, null);
+        numeric.expectNumber("4");
+        when(itemRepository.findById(9L)).thenReturn(Optional.of(numeric));
+
+        service.updateItem(9L, new ItemRequest(QuizItemType.OPEN, 1, "x", 5, "barem", List.of()));
+
+        assertThat(numeric.getType()).isEqualTo(QuizItemType.OPEN);
+        assertThat(numeric.getNumericAnswer()).isNull();
+    }
+
+    @Test
+    void aPublishedQuestionKeepsItsType() {
+        quiz.publish();
         QuizItem open = new QuizItem(quiz, 1, QuizItemType.OPEN, "x", 5, null);
         when(itemRepository.findById(9L)).thenReturn(Optional.of(open));
+
+        assertThatThrownBy(() -> service.updateItem(9L, new ItemRequest(
+                QuizItemType.SINGLE_CHOICE, 1, "x", 5, null, List.of())))
+                .isInstanceOf(InvalidQuizException.class)
+                .hasMessageContaining("ciornă");
+        assertThat(open.getType()).isEqualTo(QuizItemType.OPEN);
+    }
+
+    @Test
+    void aTakenDraftQuestionKeepsItsTypeToo() {
+        QuizItem open = new QuizItem(quiz, 1, QuizItemType.OPEN, "x", 5, null);
+        ReflectionTestUtils.setField(quiz, "id", 1L);
+        when(itemRepository.findById(9L)).thenReturn(Optional.of(open));
+        when(quizRepository.countAttempts(1L)).thenReturn(1L); // unpublished after students took it
 
         assertThatThrownBy(() -> service.updateItem(9L, new ItemRequest(
                 QuizItemType.SINGLE_CHOICE, 1, "x", 5, null, List.of())))

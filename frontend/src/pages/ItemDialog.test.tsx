@@ -444,3 +444,28 @@ describe('ItemDialog kept simple', () => {
     expect(screen.getByLabelText('Tip')).toBeInTheDocument()
   })
 })
+
+describe('ItemDialog: changing the type of a draft question', () => {
+  it('offers the type on a draft and keeps the statement when it changes', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined)
+    render(<ItemDialog open onClose={vi.fn()} initial={openItem} onSubmit={onSubmit} typeEditable />)
+
+    expect(screen.getByText(/Enunțul rămâne/)).toBeInTheDocument()
+    await userEvent.selectOptions(screen.getByLabelText('Tip'), 'SINGLE_CHOICE')
+    await userEvent.type(screen.getByPlaceholderText('Varianta a)'), 'x = 2')
+    await userEvent.type(screen.getByPlaceholderText('Varianta b)'), 'x = 3')
+    for (const p of screen.queryAllByPlaceholderText(/^Varianta [c-z]\)$/)) await userEvent.type(p, 'x = 4')
+    await userEvent.click(screen.getByRole('radio', { name: 'Varianta a) corectă' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Salvează' }))
+
+    const input = await submitted(onSubmit)
+    expect(input.type).toBe('SINGLE_CHOICE')
+    expect(input.statement).toBe('Rezolvă ecuația')
+  })
+
+  it('hides the type of a question in a published or taken test', () => {
+    renderDialog(openItem)
+
+    expect(screen.queryByLabelText('Tip')).not.toBeInTheDocument()
+  })
+})

@@ -340,6 +340,7 @@ export function ItemDialog({
   quizChapterTitle = null,
   defaultSection = null,
   tutorOn = false,
+  typeEditable = false,
 }: {
   open: boolean
   onClose: () => void
@@ -356,6 +357,8 @@ export function ItemDialog({
   defaultSection?: string | null
   /** The server has the tutor on: a saved question can ask it for hints ("Sugerează indicii (AI)"). */
   tutorOn?: boolean
+  /** A saved question may change its type: only in a draft no student took (the server checks it again). */
+  typeEditable?: boolean
 }) {
   const [type, setType] = useState<QuizItemType>(initial?.type ?? 'SINGLE_CHOICE')
   const [statement, setStatement] = useState(initial?.statement ?? '')
@@ -551,20 +554,25 @@ export function ItemDialog({
       description="Enunțul, variantele și baremul pot conține LaTeX între $…$."
     >
       <form className="flex max-h-[75vh] flex-col gap-4 overflow-y-auto pr-1" onSubmit={submit} onPaste={onPaste}>
-        {!isEdit && (
+        {(!isEdit || typeEditable) && (
           <div className="flex flex-col gap-2">
             <Label htmlFor="itype">Tip</Label>
             <select
               id="itype"
               className={selectClass}
               value={type}
-              disabled={isEdit}
               onChange={(e) => setType(e.target.value as QuizItemType)}
             >
               <option value="SINGLE_CHOICE">Grilă (o singură variantă corectă)</option>
               <option value="OPEN">Cu rezolvare (elevul trimite poza)</option>
               <option value="NUMERIC">Răspuns numeric (se corectează singur)</option>
             </select>
+            {isEdit && (
+              <p className="text-xs text-muted-foreground">
+                Se poate schimba cât testul e ciornă. Enunțul rămâne; variantele, barem-ul sau răspunsul le completezi pentru
+                noul tip.
+              </p>
+            )}
           </div>
 
         )}
@@ -1486,6 +1494,7 @@ export function AdminQuizzesPage() {
           quizChapterTitle={chapterTitle(quiz.chapterId)}
           defaultSection={quiz.items.at(-1)?.section ?? null}
           tutorOn={tutorOn}
+          typeEditable={quiz.status !== 'PUBLISHED' && !quiz.taken}
           onSubmit={async (input, image) => {
             const saved = itemDialog.item
               ? await updateQuizItem(itemDialog.item.id, input)

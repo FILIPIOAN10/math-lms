@@ -582,7 +582,14 @@ public class QuizAdminService {
     public ItemDto updateItem(Long itemId, ItemRequest request) {
         QuizItem item = getItem(itemId);
         if (item.getType() != request.type()) {
-            throw new InvalidQuizException("The item type cannot be changed");
+            // Only on a draft nobody took: no answer points at its options yet, and options, requirements and the right
+            // answer are replaced wholesale below anyway. The statement, points and hints stay as sent.
+            if (item.getQuiz().getStatus() != QuizStatus.DRAFT
+                    || quizRepository.countAttempts(item.getQuiz().getId()) > 0) {
+                throw new InvalidQuizException(
+                        "Tipul întrebării se poate schimba doar cât testul e ciornă și nu l-a dat încă niciun elev.");
+            }
+            item.changeType(request.type());
         }
         requireValidHints(request.hints());
         requireValidParts(request);

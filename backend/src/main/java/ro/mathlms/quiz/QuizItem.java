@@ -111,6 +111,17 @@ public class QuizItem {
         this.solution = solution;
     }
 
+    /**
+     * Another kind of question with the same statement (a grilă turned into a problem, say). Only the service decides
+     * when that is safe - a draft nobody took; a numeric answer does not outlive the numeric type.
+     */
+    public void changeType(QuizItemType type) {
+        this.type = Objects.requireNonNull(type, "type");
+        if (type != QuizItemType.NUMERIC) {
+            this.numericAnswer = null;
+        }
+    }
+
     /** Sets the right answer of a NUMERIC question; only a number will do. */
     public void expectNumber(String answer) {
         if (type != QuizItemType.NUMERIC) {
