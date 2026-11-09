@@ -1,5 +1,7 @@
 package ro.mathlms.ingest;
 
+import ro.mathlms.common.AiQueue;
+import ro.mathlms.common.AfterTransaction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -7,8 +9,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
@@ -68,7 +68,7 @@ import java.util.Set;
  * questions are sent; the photos are deleted once read.
  */
 @Service
-public class BaremService {
+public class BaremService implements AiQueue {
 
     private static final Logger log = LoggerFactory.getLogger(BaremService.class);
 
@@ -471,31 +471,12 @@ public class BaremService {
         if (pages.isEmpty()) {
             return;
         }
-        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-            pages.forEach(p -> delete(p.key()));
-            return;
-        }
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                pages.forEach(p -> delete(p.key()));
-            }
-        });
+        AfterTransaction.afterCommit(() -> pages.forEach(p -> delete(p.key())));
     }
 
     /** A photo saved for a reading that was then rolled back is deleted with it. */
     private void whenRolledBack(String key) {
-        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-            return;
-        }
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCompletion(int status) {
-                if (status == STATUS_ROLLED_BACK) {
-                    delete(key);
-                }
-            }
-        });
+        AfterTransaction.ifRolledBack(() -> delete(key));
     }
 
     private void delete(String key) {

@@ -1,13 +1,12 @@
 package ro.mathlms.quiz;
 
+import ro.mathlms.common.AfterTransaction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 import ro.mathlms.audit.AuditAction;
 import ro.mathlms.audit.AuditEvent;
@@ -130,16 +129,7 @@ public class QuestionImageService {
         if (imageKey == null) {
             return;
         }
-        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-            delete(imageKey);
-            return;
-        }
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                delete(imageKey);
-            }
-        });
+        AfterTransaction.afterCommit(() -> delete(imageKey));
     }
 
     // --- everyone who may see the question ---
@@ -183,17 +173,7 @@ public class QuestionImageService {
     }
 
     private void whenRolledBack(String imageKey) {
-        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-            return;
-        }
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCompletion(int status) {
-                if (status == STATUS_ROLLED_BACK) {
-                    delete(imageKey);
-                }
-            }
-        });
+        AfterTransaction.ifRolledBack(() -> delete(imageKey));
     }
 
     private void delete(String imageKey) {

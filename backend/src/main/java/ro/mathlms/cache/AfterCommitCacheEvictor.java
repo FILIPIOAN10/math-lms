@@ -1,12 +1,11 @@
 package ro.mathlms.cache;
 
+import ro.mathlms.common.AfterTransaction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * Evicts cache entries only AFTER the surrounding transaction commits. Evicting earlier is wrong both
@@ -52,15 +51,6 @@ public class AfterCommitCacheEvictor {
                 log.warn("Cache eviction failed, entries expire by TTL: {}", e.toString());
             }
         };
-        if (TransactionSynchronizationManager.isSynchronizationActive()) {
-            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                @Override
-                public void afterCommit() {
-                    safe.run();
-                }
-            });
-        } else {
-            safe.run();
-        }
+        AfterTransaction.afterCommit(safe);
     }
 }

@@ -1,5 +1,6 @@
 package ro.mathlms.quiz;
 
+import ro.mathlms.common.AfterTransaction;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.Cacheable;
@@ -7,8 +8,6 @@ import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 import ro.mathlms.audit.AuditAction;
 import ro.mathlms.audit.AuditEvent;
@@ -485,31 +484,12 @@ public class QuizAttemptService {
 
     /** A file stored for a request whose transaction then fails is referenced by nothing: remove it again. */
     private void deleteFileIfRolledBack(String key) {
-        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-            return;
-        }
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCompletion(int status) {
-                if (status == STATUS_ROLLED_BACK) {
-                    deleteQuietly(key);
-                }
-            }
-        });
+        AfterTransaction.ifRolledBack(() -> deleteQuietly(key));
     }
 
     /** Deletes a removed photo's file only once the removal is committed (a rollback keeps the row - and its file). */
     private void deleteFileAfterCommit(String key) {
-        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-            deleteQuietly(key);
-            return;
-        }
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                deleteQuietly(key);
-            }
-        });
+        AfterTransaction.afterCommit(() -> deleteQuietly(key));
     }
 
     private void deleteQuietly(String key) {

@@ -1,5 +1,7 @@
 package ro.mathlms.ingest;
 
+import ro.mathlms.common.AiQueue;
+import ro.mathlms.common.AfterTransaction;
 import tools.jackson.core.JacksonException;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
@@ -11,8 +13,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
@@ -62,7 +62,7 @@ import java.util.Set;
  * result. Only textbook pages are sent (decision 2026-10-12) - never student work or personal data.
  */
 @Service
-public class AiImportService {
+public class AiImportService implements AiQueue {
 
     private static final Logger log = LoggerFactory.getLogger(AiImportService.class);
 
@@ -564,31 +564,12 @@ public class AiImportService {
         if (pages.isEmpty()) {
             return;
         }
-        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-            pages.forEach(p -> delete(p.key()));
-            return;
-        }
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                pages.forEach(p -> delete(p.key()));
-            }
-        });
+        AfterTransaction.afterCommit(() -> pages.forEach(p -> delete(p.key())));
     }
 
     /** A page stored for an upload that then failed is referenced by nothing: remove it again. */
     private void whenRolledBack(String key) {
-        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-            return;
-        }
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCompletion(int status) {
-                if (status == STATUS_ROLLED_BACK) {
-                    delete(key);
-                }
-            }
-        });
+        AfterTransaction.ifRolledBack(() -> delete(key));
     }
 
     private void delete(String key) {

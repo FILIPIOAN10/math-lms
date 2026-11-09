@@ -1,5 +1,6 @@
 package ro.mathlms.aigrading;
 
+import ro.mathlms.common.AiQueue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -55,7 +56,7 @@ import java.util.Optional;
  * by itself. Only the photos, the statement, the figure and the barem are sent: no name, no account.
  */
 @Service
-public class AiGradingService implements SubmissionListener {
+public class AiGradingService implements SubmissionListener, AiQueue {
 
     private static final Logger log = LoggerFactory.getLogger(AiGradingService.class);
 

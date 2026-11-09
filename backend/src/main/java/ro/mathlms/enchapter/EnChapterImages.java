@@ -1,12 +1,11 @@
 package ro.mathlms.enchapter;
 
+import ro.mathlms.common.AfterTransaction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 import ro.mathlms.storage.FileService;
 
@@ -62,16 +61,7 @@ class EnChapterImages {
         if (key == null) {
             return;
         }
-        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-            delete(key);
-            return;
-        }
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                delete(key);
-            }
-        });
+        AfterTransaction.afterCommit(() -> delete(key));
     }
 
     /** The stored file, or empty when it is gone from the disk. */
@@ -84,17 +74,7 @@ class EnChapterImages {
     }
 
     private void whenRolledBack(String key) {
-        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-            return;
-        }
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCompletion(int status) {
-                if (status == STATUS_ROLLED_BACK) {
-                    delete(key);
-                }
-            }
-        });
+        AfterTransaction.ifRolledBack(() -> delete(key));
     }
 
     private void delete(String key) {

@@ -5,12 +5,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.MediaType;
-import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
-import org.springframework.web.client.RestClientResponseException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.node.ObjectNode;
@@ -44,7 +40,7 @@ public class OpenAiMistakeSuggester implements MistakeSuggester {
                                   @Value("${app.ai.openai.api-key:}") String apiKey,
                                   @Value("${app.ai.openai.base-url:https://api.openai.com/v1}") String baseUrl,
                                   @Value("${app.ai.openai.model:gpt-6-luna}") String model) {
-        this(builder.clone().baseUrl(baseUrl).requestFactory(timeouts()).build(), objectMapper, apiKey, model);
+        this(OpenAiResponses.client(builder, baseUrl, TIMEOUT), objectMapper, apiKey, model);
     }
 
     /** For tests: a client bound to a mock server. */
@@ -55,13 +51,6 @@ public class OpenAiMistakeSuggester implements MistakeSuggester {
         this.model = model;
     }
 
-    private static SimpleClientHttpRequestFactory timeouts() {
-        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-        factory.setConnectTimeout(Duration.ofSeconds(10));
-        factory.setReadTimeout(TIMEOUT);
-        return factory;
-    }
-
     @Override
     public String provider() {
         return OpenAiPageExtractor.NAME;
@@ -69,30 +58,9 @@ public class OpenAiMistakeSuggester implements MistakeSuggester {
 
     @Override
     public String suggest(Question question) throws ExtractionException {
-        if (apiKey.isEmpty()) {
-            throw new ExtractionException(OpenAiPageExtractor.NO_KEY);
-        }
-        JsonNode response;
-        try {
-            response = restClient.post().uri("/responses")
-                    .header("Authorization", "Bearer " + apiKey)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(request(question))
-                    .retrieve()
-                    .body(JsonNode.class);
-        } catch (RestClientResponseException e) {
-            log.warn("OpenAI (mistake) answered {}: {}", e.getStatusCode().value(), e.getResponseBodyAsString());
-            throw new ExtractionException(OpenAiPageExtractor.messageFor(e.getStatusCode()), e);
-        } catch (ResourceAccessException e) {
-            log.warn("OpenAI (mistake) could not be reached: {}", e.getMessage());
-            throw new ExtractionException(e.getCause() instanceof java.net.SocketTimeoutException
-                    ? PageReading.TOO_SLOW : OpenAiPageExtractor.UNAVAILABLE, e);
-        }
-        if (response == null) {
-            throw new ExtractionException(PageReading.UNREADABLE_ANSWER);
-        }
+        JsonNode response = OpenAiResponses.post(restClient, apiKey, request(question), "mistake");
         OpenAiPageExtractor.record(usageRecorder, AiUsageRecorder.MISTAKES, response, model);
-        return MistakeReading.cleaned(text(response));
+        return MistakeReading.cleaned(OpenAiResponses.text(response, "mistake"));
     }
 
     ObjectNode request(Question question) {
@@ -105,22 +73,5 @@ public class OpenAiMistakeSuggester implements MistakeSuggester {
         message.put("role", "user");
         message.putArray("content").addObject().put("type", "input_text").put("text", MistakeReading.questionText(question));
         return body;
-    }
-
-    private static String text(JsonNode response) throws ExtractionException {
-        for (JsonNode output : response.path("output")) {
-            if (!"message".equals(output.path("type").asString())) {
-                continue;
-            }
-            for (JsonNode part : output.path("content")) {
-                if ("refusal".equals(part.path("type").asString())) {
-                    throw new ExtractionException(PageReading.REFUSED);
-                }
-                if ("output_text".equals(part.path("type").asString())) {
-                    return part.path("text").asString();
-                }
-            }
-        }
-        return null;
     }
 }

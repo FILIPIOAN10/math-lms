@@ -10,12 +10,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatusCode;
-import org.springframework.http.MediaType;
-import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
-import org.springframework.web.client.RestClientResponseException;
 
 import java.time.Duration;
 import java.util.Base64;
@@ -68,7 +64,7 @@ public class OpenAiPageExtractor implements PageExtractor {
                                @Value("${app.ai.openai.model:gpt-6-luna}") String model,
                                @Value("${app.ai.openai.reasoning-effort:low}") String reasoningEffort,
                                @Value("${app.ai.openai.image-detail:high}") String imageDetail) {
-        this(builder.clone().baseUrl(baseUrl).requestFactory(timeouts()).build(), objectMapper, apiKey, model,
+        this(OpenAiResponses.client(builder, baseUrl, TIMEOUT), objectMapper, apiKey, model,
                 reasoningEffort, imageDetail);
     }
 
@@ -83,13 +79,6 @@ public class OpenAiPageExtractor implements PageExtractor {
         this.imageDetail = imageDetail;
     }
 
-    private static SimpleClientHttpRequestFactory timeouts() {
-        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-        factory.setConnectTimeout(Duration.ofSeconds(10));
-        factory.setReadTimeout(TIMEOUT);
-        return factory;
-    }
-
     @Override
     public String provider() {
         return NAME;
@@ -97,29 +86,7 @@ public class OpenAiPageExtractor implements PageExtractor {
 
     @Override
     public ExtractionResult extract(List<PageImage> pages) throws ExtractionException {
-        if (apiKey.isEmpty()) {
-            throw new ExtractionException(NO_KEY);
-        }
-        JsonNode response;
-        try {
-            response = restClient.post().uri("/responses")
-                    .header("Authorization", "Bearer " + apiKey)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(request(pages))
-                    .retrieve()
-                    .body(JsonNode.class);
-        } catch (RestClientResponseException e) {
-            // The body explains a 400 (bad image, unknown model); it never contains the key.
-            log.warn("OpenAI answered {}: {}", e.getStatusCode().value(), e.getResponseBodyAsString());
-            throw new ExtractionException(messageFor(e.getStatusCode()), e);
-        } catch (ResourceAccessException e) {
-            log.warn("OpenAI could not be reached: {}", e.getMessage());
-            throw new ExtractionException(e.getCause() instanceof java.net.SocketTimeoutException ? PageReading.TOO_SLOW : UNAVAILABLE, e);
-        }
-        if (response == null) {
-            throw new ExtractionException(PageReading.UNREADABLE_ANSWER);
-        }
-        return parse(response);
+        return parse(OpenAiResponses.post(restClient, apiKey, request(pages), "pages"));
     }
 
     static String messageFor(HttpStatusCode status) {
@@ -165,22 +132,7 @@ public class OpenAiPageExtractor implements PageExtractor {
             log.warn("OpenAI response incomplete: {}", response.path("incomplete_details"));
             throw new ExtractionException(PageReading.TOO_LONG);
         }
-        String text = null;
-        for (JsonNode output : response.path("output")) {
-            if (!"message".equals(output.path("type").asString())) {
-                continue; // reasoning items
-            }
-            for (JsonNode part : output.path("content")) {
-                switch (part.path("type").asString()) {
-                    case "refusal" -> {
-                        log.warn("OpenAI refused: {}", part.path("refusal").asString());
-                        throw new ExtractionException(PageReading.REFUSED);
-                    }
-                    case "output_text" -> text = part.path("text").asString();
-                    default -> { }
-                }
-            }
-        }
+        String text = OpenAiResponses.text(response, "pages");
         if (text == null) {
             log.warn("OpenAI response without text, status {}", response.path("status").asString());
             throw new ExtractionException(PageReading.UNREADABLE_ANSWER);

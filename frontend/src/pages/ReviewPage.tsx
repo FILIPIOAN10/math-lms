@@ -2,19 +2,14 @@ import { useCallback, useEffect, useState } from 'react'
 import { Flame } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { EmptyArt } from '@/components/EmptyArt'
-import { Button, buttonVariants } from '@/components/ui/button'
+import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { MathContent } from '@/components/MathContent'
-import { MistakeNote } from '@/components/MistakeNote'
-import { QuestionImage } from '@/components/QuestionImage'
 import { RevisionNote } from '@/components/RevisionNote'
 import { PageHeader } from '@/components/PageHeader'
+import { PracticeQuestionCard } from '@/components/PracticeQuestionCard'
 import { answerReview, getReviewToday, type ReviewResult, type ReviewToday } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
-import { optionRadioClass, optionRowClass, readingTextClass } from '@/lib/formClasses'
-import { cn } from '@/lib/utils'
 import { roCount } from '@/lib/format'
-import { OptionLetter } from '@/components/OptionLetter'
 import { LoadingCards } from '@/components/LoadingCards'
 
 /** "12 oct." from the server's "2026-10-12" (a calendar day, not an instant: no time-zone shift). */
@@ -138,84 +133,26 @@ export function ReviewPage() {
         )}
 
         {today && question && (
-          <Card data-testid="review-card">
-            <CardContent className={cn('space-y-4 py-5', readingTextClass)}>
-              <p className="text-xs font-medium text-muted-foreground">
-                Întrebarea {index + 1} din {today.questions.length}
-              </p>
-              <p className="text-xs text-muted-foreground">{question.quizTitle}</p>
-              <MathContent>{question.statement}</MathContent>
-              <QuestionImage itemId={question.itemId} image={question.image} />
-
-              <div className="space-y-2">
-                {question.options.map((option, optionIndex) => {
-                  const isRight = result?.correctOptionId === option.id
-                  const isWrongPick = result !== null && !result.correct && selected === option.id
-                  return (
-                    <label
-                      key={option.id}
-                      className={`${optionRowClass} cursor-pointer ${
-                        isRight ? 'border-emerald-500 bg-emerald-500/10'
-                          : isWrongPick ? 'border-destructive bg-destructive/10'
-                            : selected === option.id ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted'
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name={`review-${question.itemId}`}
-                        className={optionRadioClass}
-                        checked={selected === option.id}
-                        disabled={result !== null || busy}
-                        onChange={() => setSelected(option.id)}
-                      />
-                      <OptionLetter index={optionIndex} />
-                      <MathContent inline large>{option.text}</MathContent>
-                      {isRight && (
-                        <span className="ml-auto font-semibold text-emerald-700 dark:text-emerald-300">
-                          <span aria-hidden="true">✓</span>
-                          <span className="sr-only"> (răspunsul corect)</span>
-                        </span>
-                      )}
-                      {isWrongPick && (
-                        <span className="ml-auto font-semibold text-destructive">
-                          <span aria-hidden="true">✗</span>
-                          <span className="sr-only"> (alegerea ta, greșită)</span>
-                        </span>
-                      )}
-                    </label>
-                  )
-                })}
-              </div>
-
-              {result && (
-                <div data-testid="review-feedback" className="space-y-2 rounded-lg bg-muted p-3 text-sm">
-                  <p className={`font-medium ${result.correct ? 'text-emerald-700 dark:text-emerald-300' : 'text-destructive'}`}>
-                    {result.correct ? '✓ Corect!' : '✗ Greșit — răspunsul corect e marcat cu ✓.'}
-                  </p>
-                  {result.mistake && <MistakeNote text={result.mistake} />}
-                  {result.solution && (
-                    <div>
-                      <p className="text-xs font-medium text-muted-foreground">Rezolvare</p>
-                      <MathContent>{result.solution}</MathContent>
-                    </div>
-                  )}
-                  {result.enChapter?.ready && <RevisionNote chapter={result.enChapter} newTab />}
-                  <p className="text-xs text-muted-foreground">{whereNext(result)}</p>
-                </div>
-              )}
-              {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-
-              <div className="flex justify-end">
-                {result ? (
-                  <Button onClick={next}>{isLast ? 'Termină' : 'Următoarea'}</Button>
-                ) : (
-                  <Button onClick={check} disabled={selected === null || busy}>
-                    {busy ? 'Se verifică...' : 'Verifică'}
-                  </Button>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+          <PracticeQuestionCard
+            name="review"
+            position={index}
+            total={today.questions.length}
+            question={question}
+            selected={selected}
+            onSelect={setSelected}
+            result={result}
+            busy={busy}
+            error={error}
+            extraFeedback={result && (
+              <>
+                {result.enChapter?.ready && <RevisionNote chapter={result.enChapter} newTab />}
+                <p className="text-xs text-muted-foreground">{whereNext(result)}</p>
+              </>
+            )}
+            nextLabel={isLast ? 'Termină' : 'Următoarea'}
+            onCheck={check}
+            onNext={next}
+          />
         )}
       </div>
     </div>

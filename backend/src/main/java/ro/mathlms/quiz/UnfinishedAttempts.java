@@ -1,9 +1,8 @@
 package ro.mathlms.quiz;
 
+import ro.mathlms.common.AfterTransaction;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 import ro.mathlms.storage.FileService;
 
 import java.io.IOException;
@@ -48,16 +47,7 @@ class UnfinishedAttempts {
 
     /** A rollback keeps the rows - and so their files. */
     private void deleteFileAfterCommit(String key) {
-        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-            deleteQuietly(key);
-            return;
-        }
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                deleteQuietly(key);
-            }
-        });
+        AfterTransaction.afterCommit(() -> deleteQuietly(key));
     }
 
     private void deleteQuietly(String key) {

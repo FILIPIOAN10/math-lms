@@ -1,5 +1,6 @@
 package ro.mathlms.gdpr;
 
+import ro.mathlms.common.AfterTransaction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -7,8 +8,6 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 import ro.mathlms.auth.EmailService;
 import ro.mathlms.auth.RefreshTokenService;
 import ro.mathlms.auth.TokenPurpose;
@@ -192,16 +191,7 @@ public class GdprErasureService {
                 log.warn("Erased photo {} could not be deleted: {}", key, e.toString());
             }
         });
-        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-            delete.run();
-            return;
-        }
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                delete.run();
-            }
-        });
+        AfterTransaction.afterCommit(() -> delete.run());
     }
 
     /** Deterministic, non-reversible handle so retained rows still cluster without revealing who. */

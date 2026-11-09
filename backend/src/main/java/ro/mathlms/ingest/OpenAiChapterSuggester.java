@@ -8,12 +8,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.MediaType;
-import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
-import org.springframework.web.client.RestClientResponseException;
 
 import java.time.Duration;
 import java.util.List;
@@ -50,7 +46,7 @@ public class OpenAiChapterSuggester implements ChapterSuggester {
                                   @Value("${app.ai.openai.base-url:https://api.openai.com/v1}") String baseUrl,
                                   @Value("${app.ai.openai.model:gpt-6-luna}") String model,
                                   @Value("${app.ai.openai.reasoning-effort:low}") String reasoningEffort) {
-        this(builder.clone().baseUrl(baseUrl).requestFactory(timeouts()).build(), objectMapper, apiKey, model,
+        this(OpenAiResponses.client(builder, baseUrl, TIMEOUT), objectMapper, apiKey, model,
                 reasoningEffort);
     }
 
@@ -64,13 +60,6 @@ public class OpenAiChapterSuggester implements ChapterSuggester {
         this.reasoningEffort = reasoningEffort;
     }
 
-    private static SimpleClientHttpRequestFactory timeouts() {
-        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-        factory.setConnectTimeout(Duration.ofSeconds(10));
-        factory.setReadTimeout(TIMEOUT);
-        return factory;
-    }
-
     @Override
     public String provider() {
         return OpenAiPageExtractor.NAME;
@@ -78,28 +67,7 @@ public class OpenAiChapterSuggester implements ChapterSuggester {
 
     @Override
     public List<Suggestion> suggest(List<Question> questions, List<Choice> chapters) throws ExtractionException {
-        if (apiKey.isEmpty()) {
-            throw new ExtractionException(OpenAiPageExtractor.NO_KEY);
-        }
-        JsonNode response;
-        try {
-            response = restClient.post().uri("/responses")
-                    .header("Authorization", "Bearer " + apiKey)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(request(questions, chapters))
-                    .retrieve()
-                    .body(JsonNode.class);
-        } catch (RestClientResponseException e) {
-            log.warn("OpenAI (chapters) answered {}: {}", e.getStatusCode().value(), e.getResponseBodyAsString());
-            throw new ExtractionException(OpenAiPageExtractor.messageFor(e.getStatusCode()), e);
-        } catch (ResourceAccessException e) {
-            log.warn("OpenAI (chapters) could not be reached: {}", e.getMessage());
-            throw new ExtractionException(e.getCause() instanceof java.net.SocketTimeoutException
-                    ? PageReading.TOO_SLOW : OpenAiPageExtractor.UNAVAILABLE, e);
-        }
-        if (response == null) {
-            throw new ExtractionException(PageReading.UNREADABLE_ANSWER);
-        }
+        JsonNode response = OpenAiResponses.post(restClient, apiKey, request(questions, chapters), "chapters");
         OpenAiPageExtractor.record(usageRecorder, AiUsageRecorder.CHAPTERS, response, model);
         JsonNode usage = response.path("usage");
         log.info("OpenAI (chapters): {} questions, {} input + {} output tokens, model {}", questions.size(),
@@ -128,20 +96,7 @@ public class OpenAiChapterSuggester implements ChapterSuggester {
     }
 
     List<Suggestion> parse(JsonNode response, List<Question> questions, List<Choice> chapters) throws ExtractionException {
-        String text = null;
-        for (JsonNode output : response.path("output")) {
-            if (!"message".equals(output.path("type").asString())) {
-                continue;
-            }
-            for (JsonNode part : output.path("content")) {
-                if ("refusal".equals(part.path("type").asString())) {
-                    throw new ExtractionException(PageReading.REFUSED);
-                }
-                if ("output_text".equals(part.path("type").asString())) {
-                    text = part.path("text").asString();
-                }
-            }
-        }
+        String text = OpenAiResponses.text(response, "chapters");
         if (text == null) {
             throw new ExtractionException(PageReading.UNREADABLE_ANSWER);
         }
