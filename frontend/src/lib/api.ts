@@ -2004,7 +2004,8 @@ export interface StudentAssignment {
 
 export interface AssignmentInput {
   quizId: number
-  schoolClassId: number
+  /** One homework per class, all with the same deadline. */
+  schoolClassIds: number[]
   /** ISO instant. */
   dueAt: string
 }
@@ -2026,8 +2027,9 @@ export async function publishAndAssign(
   return response.json()
 }
 
-export async function createAssignment(input: AssignmentInput): Promise<AssignmentSummary> {
-  const response = await postJson('/admin/assignments', input)
+/** The same homework for each chosen class, all or nothing; one summary per class, in the order sent. */
+export async function createAssignments(input: AssignmentInput): Promise<AssignmentSummary[]> {
+  const response = await postJson('/admin/assignments/batch', input)
   return response.json()
 }
 

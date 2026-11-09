@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import ro.mathlms.assignment.AssignmentDtos.AssignmentRequest;
 import ro.mathlms.assignment.AssignmentDtos.AssignmentSummaryDto;
+import ro.mathlms.assignment.AssignmentDtos.MultiClassAssignmentRequest;
 import ro.mathlms.assignment.AssignmentDtos.OverrideRequest;
 import ro.mathlms.assignment.AssignmentDtos.PublishAndAssignRequest;
 import ro.mathlms.assignment.AssignmentDtos.RescheduleRequest;
@@ -48,6 +49,17 @@ public class AssignmentAdminController {
         scope.requireClass(request.schoolClassId());
         Assignment created = service.create(request.quizId(), request.schoolClassId(), request.dueAt());
         return ResponseEntity.status(HttpStatus.CREATED).body(service.summaryOf(created.getId()));
+    }
+
+    /** One quiz to several classes in one go, all or nothing; answers with one summary per class, in the order sent. */
+    @PostMapping("/api/admin/assignments/batch")
+    public ResponseEntity<List<AssignmentSummaryDto>> createForClasses(
+            @Valid @RequestBody MultiClassAssignmentRequest request) {
+        scope.requireQuiz(request.quizId());
+        request.schoolClassIds().forEach(scope::requireClass);
+        List<Assignment> created = service.createForClasses(request.quizId(), request.schoolClassIds(), request.dueAt());
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(created.stream().map(a -> service.summaryOf(a.getId())).toList());
     }
 
     /** T3: publishes a draft quiz and gives it as homework, all or nothing. */

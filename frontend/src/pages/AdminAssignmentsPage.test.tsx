@@ -10,6 +10,7 @@ const api = vi.hoisted(() => ({
   listQuizzes: vi.fn(),
   listClasses: vi.fn(),
   getAssignmentStatus: vi.fn(),
+  createAssignments: vi.fn(),
   setAssignmentOverride: vi.fn(),
   grantExtraAttempt: vi.fn(),
 }))
@@ -172,5 +173,35 @@ describe('AdminAssignmentsPage', () => {
   it('offers no extra attempt when the test has no limit or the student never handed in', async () => {
     const user = userEvent.setup()
     expect(await openRadusMenu(user)).not.toContain('+1 încercare')
+  })
+
+  it('names every class the homework went to', async () => {
+    const user = userEvent.setup()
+    api.listQuizzes.mockResolvedValue([{
+      id: 3, title: 'Procente', description: null, status: 'PUBLISHED', schoolClassId: null, schoolClassName: null,
+      timeLimitMinutes: null, practiceAllowed: false, chapterId: null, maxAttempts: null,
+    }])
+    api.listClasses.mockResolvedValue([
+      { id: 1, name: 'Clasa a 8-a A', description: null, teacherId: 1 },
+      { id: 2, name: 'Clasa a 8-a B', description: null, teacherId: 1 },
+    ])
+    api.createAssignments.mockResolvedValue([
+      { ...summary(3, 'Procente'), schoolClassName: 'Clasa a 8-a A' },
+      { ...summary(4, 'Procente'), schoolClassName: 'Clasa a 8-a B' },
+    ])
+    renderPage('/admin/assignments')
+    await screen.findAllByTestId('assignment-row')
+
+    await user.click(screen.getByTestId('assignment-new'))
+    await user.selectOptions(screen.getByLabelText('Test'), '3')
+    await user.click(screen.getByRole('checkbox', { name: 'Clasa a 8-a A' }))
+    await user.click(screen.getByRole('checkbox', { name: 'Clasa a 8-a B' }))
+    await user.type(screen.getByLabelText('Termen'), '2099-01-15T20:00')
+    await user.click(screen.getByRole('button', { name: 'Dă tema (2 clase)' }))
+
+    expect(api.createAssignments).toHaveBeenCalledWith({
+      quizId: 3, schoolClassIds: [1, 2], dueAt: new Date('2099-01-15T20:00').toISOString(),
+    })
+    expect(await screen.findByText(/a fost dată claselor Clasa a 8-a A, Clasa a 8-a B/)).toBeInTheDocument()
   })
 })

@@ -105,6 +105,20 @@ public class AssignmentService {
         return saved;
     }
 
+    /**
+     * The same homework for several classes in one go (Canvas: one assignment, several sections), each class its own
+     * {@link Assignment} with the same deadline. All or nothing: one refused class (already given, another class's quiz)
+     * leaves none of them created. A class named twice counts once.
+     */
+    @Transactional
+    public List<Assignment> createForClasses(Long quizId, List<Long> schoolClassIds, Instant dueAt) {
+        List<Long> ids = schoolClassIds == null ? List.of() : schoolClassIds.stream().distinct().toList();
+        if (ids.isEmpty()) {
+            throw new InvalidAssignmentException("Alege cel puțin o clasă");
+        }
+        return ids.stream().map(classId -> create(quizId, classId, dueAt)).toList();
+    }
+
     @Transactional
     public Assignment reschedule(Long id, Instant dueAt) {
         Assignment assignment = require(id);

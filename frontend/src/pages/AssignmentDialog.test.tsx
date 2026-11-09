@@ -8,7 +8,10 @@ import { isoToLocalInput } from '@/lib/assignments'
 const quiz = (id: number, title: string, status: QuizSummary['status'] = 'PUBLISHED'): QuizSummary => ({
   id, title, description: null, status, schoolClassId: null, schoolClassName: null, timeLimitMinutes: null, practiceAllowed: false, chapterId: null, maxAttempts: null,
 })
-const quizzes = [quiz(10, 'Simulare EN'), quiz(11, 'Ciorna', 'DRAFT'), quiz(12, 'Teza')]
+const quizzes = [
+  quiz(10, 'Simulare EN'), quiz(11, 'Ciorna', 'DRAFT'), quiz(12, 'Teza'),
+  { ...quiz(13, 'Doar a 10-a'), schoolClassId: 6, schoolClassName: 'Clasa a 10-a' },
+]
 const classes: SchoolClass[] = [
   { id: 5, name: 'Clasa a 9-a', description: null, teacherId: 1 },
   { id: 6, name: 'Clasa a 10-a', description: null, teacherId: 1 },
@@ -33,7 +36,7 @@ describe('AssignmentDialog (create)', () => {
   it('sends the chosen quiz, class and deadline as an ISO instant', async () => {
     const onSubmit = renderCreate()
     await userEvent.selectOptions(screen.getByLabelText('Test'), '12')
-    await userEvent.selectOptions(screen.getByLabelText('Clasa'), '6')
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Clasa a 10-a' }))
     const due = inDays(3)
     await userEvent.type(screen.getByLabelText('Termen'), due)
 
@@ -42,8 +45,30 @@ describe('AssignmentDialog (create)', () => {
     await waitFor(() => expect(onSubmit).toHaveBeenCalled())
     const input = onSubmit.mock.calls[0][0] as AssignmentInput
     expect(input.quizId).toBe(12)
-    expect(input.schoolClassId).toBe(6)
+    expect(input.schoolClassIds).toEqual([6])
     expect(input.dueAt).toBe(new Date(due).toISOString())
+  })
+
+  it('gives the same homework to several classes in one go', async () => {
+    const onSubmit = renderCreate()
+    await userEvent.selectOptions(screen.getByLabelText('Test'), '10')
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Clasa a 9-a' }))
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Clasa a 10-a' }))
+    await userEvent.type(screen.getByLabelText('Termen'), inDays(3))
+
+    await userEvent.click(screen.getByRole('button', { name: 'Dă tema (2 clase)' }))
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled())
+    expect((onSubmit.mock.calls[0][0] as AssignmentInput).schoolClassIds).toEqual([5, 6])
+  })
+
+  it('offers only its own class for a quiz reserved to one, already ticked', async () => {
+    renderCreate()
+    await userEvent.selectOptions(screen.getByLabelText('Test'), '13')
+
+    const boxes = screen.getAllByRole('checkbox')
+    expect(boxes).toHaveLength(1)
+    expect(screen.getByRole('checkbox', { name: 'Clasa a 10-a' })).toBeChecked()
   })
 
   it('will not submit without a quiz, a class and a deadline', async () => {
@@ -51,7 +76,7 @@ describe('AssignmentDialog (create)', () => {
 
     expect(screen.getByRole('button', { name: 'Dă tema' })).toBeDisabled()
     await userEvent.selectOptions(screen.getByLabelText('Test'), '10')
-    await userEvent.selectOptions(screen.getByLabelText('Clasa'), '5')
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Clasa a 9-a' }))
     expect(screen.getByRole('button', { name: 'Dă tema' })).toBeDisabled() // still no deadline
     expect(onSubmit).not.toHaveBeenCalled()
   })
@@ -59,7 +84,7 @@ describe('AssignmentDialog (create)', () => {
   it('refuses a deadline in the past before asking the server', async () => {
     const onSubmit = renderCreate()
     await userEvent.selectOptions(screen.getByLabelText('Test'), '10')
-    await userEvent.selectOptions(screen.getByLabelText('Clasa'), '5')
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Clasa a 9-a' }))
     await userEvent.type(screen.getByLabelText('Termen'), inDays(-1))
 
     await userEvent.click(screen.getByRole('button', { name: 'Dă tema' }))
@@ -72,7 +97,7 @@ describe('AssignmentDialog (create)', () => {
     const onSubmit = vi.fn().mockRejectedValue({ body: 'Quiz-ul este deja dat ca temă acestei clase — modifică termenul' })
     renderCreate(onSubmit)
     await userEvent.selectOptions(screen.getByLabelText('Test'), '10')
-    await userEvent.selectOptions(screen.getByLabelText('Clasa'), '5')
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Clasa a 9-a' }))
     await userEvent.type(screen.getByLabelText('Termen'), inDays(2))
 
     await userEvent.click(screen.getByRole('button', { name: 'Dă tema' }))

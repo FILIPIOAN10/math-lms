@@ -203,4 +203,21 @@ class AssignmentIntegrationTest {
                 .filteredOn(s -> s.studentId().equals(bob.getId())).singleElement()
                 .satisfies(s -> assertThat(s.ownDueAt()).isNull());
     }
+
+    @Test
+    void severalClassesAreAllOrNothing() {
+        SchoolClass other = schoolClassRepository.save(new SchoolClass("B " + System.nanoTime(), null));
+        Instant dueAt = Instant.now().plus(Duration.ofDays(2));
+        assignmentService.create(quiz.getId(), other.getId(), dueAt); // already given to the second class
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+                        assignmentService.createForClasses(quiz.getId(), List.of(schoolClass.getId(), other.getId()), dueAt))
+                .isInstanceOf(AssignmentConflictException.class);
+
+        assertThat(assignmentRepository.existsByQuizIdAndSchoolClassId(quiz.getId(), schoolClass.getId())).isFalse();
+
+        SchoolClass third = schoolClassRepository.save(new SchoolClass("C " + System.nanoTime(), null));
+        assertThat(assignmentService.createForClasses(quiz.getId(), List.of(schoolClass.getId(), third.getId()), dueAt))
+                .hasSize(2);
+    }
 }

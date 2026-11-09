@@ -7,7 +7,7 @@ import { Dialog } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
-  createAssignment,
+  createAssignments,
   deleteAssignment,
   getAssignmentStatus,
   grantExtraAttempt,
@@ -65,13 +65,29 @@ export function AssignmentDialog({
   ...props
 }: { open: boolean; onClose: () => void; onSubmit: (input: AssignmentInput) => Promise<void> } & DialogProps) {
   const [quizId, setQuizId] = useState(props.initialQuizId ? String(props.initialQuizId) : '')
-  const [classId, setClassId] = useState(props.initialClassId ? String(props.initialClassId) : '')
+  // Several classes at once (Canvas: one assignment, several sections); with a single class it is already ticked.
+  const [classIds, setClassIds] = useState<number[]>(
+    props.initialClassId ? [props.initialClassId] : props.classes?.length === 1 ? [props.classes[0].id] : [],
+  )
   const [due, setDue] = useState(props.mode === 'reschedule' ? isoToLocalInput(props.currentDueAt) : '')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const create = props.mode === 'create'
-  const ready = due !== '' && (!create || (quizId !== '' && classId !== ''))
+  const ready = due !== '' && (!create || (quizId !== '' && classIds.length > 0))
+  // A quiz reserved for one class can only go to that class.
+  const reservedFor = props.quizzes?.find((q) => String(q.id) === quizId)?.schoolClassId ?? null
+  const classChoices = (props.classes ?? []).filter((c) => reservedFor === null || c.id === reservedFor)
+
+  function pickQuiz(id: string) {
+    setQuizId(id)
+    const reserved = props.quizzes?.find((q) => String(q.id) === id)?.schoolClassId ?? null
+    if (reserved !== null) setClassIds([reserved])
+  }
+
+  function toggleClass(id: number) {
+    setClassIds((prev) => (prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]))
+  }
 
   async function submit(e: FormEvent) {
     e.preventDefault()
@@ -83,7 +99,9 @@ export function AssignmentDialog({
     }
     setBusy(true)
     try {
-      await onSubmit({ quizId: Number(quizId), schoolClassId: Number(classId), dueAt: iso })
+      // In the order the classes are listed, whatever order they were ticked in.
+      const chosen = classChoices.map((c) => c.id).filter((id) => classIds.includes(id))
+      await onSubmit({ quizId: Number(quizId), schoolClassIds: chosen, dueAt: iso })
       onClose()
     } catch (err) {
       setError(errorMessage(err))
@@ -103,22 +121,35 @@ export function AssignmentDialog({
           <>
             <div className="flex flex-col gap-2">
               <Label htmlFor="aquiz">Test</Label>
-              <select id="aquiz" className={selectClass} value={quizId} onChange={(e) => setQuizId(e.target.value)}>
+              <select id="aquiz" className={selectClass} value={quizId} onChange={(e) => pickQuiz(e.target.value)}>
                 <option value="">Alege un test publicat…</option>
                 {props.quizzes.filter((q) => q.status === 'PUBLISHED').map((q) => (
                   <option key={q.id} value={q.id}>{q.title}</option>
                 ))}
               </select>
             </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="aclass">Clasa</Label>
-              <select id="aclass" className={selectClass} value={classId} onChange={(e) => setClassId(e.target.value)}>
-                <option value="">Alege clasa…</option>
-                {props.classes.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
-            </div>
+            <fieldset className="flex flex-col gap-2">
+              <legend className="mb-2 text-sm font-medium">Clase</legend>
+              {classChoices.map((c) => (
+                <label key={c.id} className="flex min-h-11 items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="size-4"
+                    checked={classIds.includes(c.id)}
+                    onChange={() => toggleClass(c.id)}
+                  />
+                  {c.name}
+                </label>
+              ))}
+              {reservedFor !== null && (
+                <p className="text-xs text-muted-foreground">Testul ales e doar pentru această clasă.</p>
+              )}
+              {reservedFor === null && classChoices.length > 1 && (
+                <p className="text-xs text-muted-foreground">
+                  Bifează mai multe clase ca să le dai aceeași temă, cu același termen.
+                </p>
+              )}
+            </fieldset>
           </>
         )}
         <div className="flex flex-col gap-2">
@@ -139,7 +170,9 @@ export function AssignmentDialog({
         {error && <p className="text-sm text-destructive">{error}</p>}
         <div className="flex justify-end gap-2">
           <Button type="button" variant="outline" onClick={onClose} disabled={busy}>Anulează</Button>
-          <Button type="submit" disabled={busy || !ready}>{create ? 'Dă tema' : 'Salvează'}</Button>
+          <Button type="submit" disabled={busy || !ready}>
+            {!create ? 'Salvează' : classIds.length > 1 ? `Dă tema (${classIds.length} clase)` : 'Dă tema'}
+          </Button>
         </div>
       </form>
     </Dialog>
@@ -420,8 +453,11 @@ export function AdminAssignmentsPage() {
             if (preselectedQuizId) setSearchParams({}, { replace: true })
           }}
           onSubmit={async (input) => {
-            const created = await createAssignment(input)
-            setNotice(`Tema „${created.quizTitle}” a fost dată clasei ${created.schoolClassName}, termen ${formatDate(created.dueAt)}.`)
+            const created = await createAssignments(input)
+            const [first] = created
+            setNotice(created.length === 1
+              ? `Tema „${first.quizTitle}” a fost dată clasei ${first.schoolClassName}, termen ${formatDate(first.dueAt)}.`
+              : `Tema „${first.quizTitle}” a fost dată claselor ${created.map((a) => a.schoolClassName).join(', ')}, termen ${formatDate(first.dueAt)}.`)
             await reload()
           }}
         />

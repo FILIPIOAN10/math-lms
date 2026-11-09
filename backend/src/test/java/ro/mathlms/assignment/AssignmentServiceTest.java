@@ -700,4 +700,25 @@ class AssignmentServiceTest {
         verify(publisher, times(1)).publish(any(), any());
         verify(publisher).publish(OutboxEventTypes.ASSIGNMENT_REMINDER_EMAIL, new AssignmentReminderPayload(1L, 3L));
     }
+
+    // --- one homework for several classes at once ---
+
+    @Test
+    void oneDialogGivesTheHomeworkToEachChosenClass() {
+        stubLookups();
+        SchoolClass tenth = withId(new SchoolClass("Clasa a 10-a", null), 6L);
+        when(schoolClassRepository.findById(6L)).thenReturn(Optional.of(tenth));
+
+        List<Assignment> created = service.createForClasses(10L, List.of(5L, 6L, 5L), due); // a repeat counts once
+
+        assertThat(created).extracting(a -> a.getSchoolClass().getName()).containsExactly("Clasa a 9-a", "Clasa a 10-a");
+        verify(assignmentRepository, times(2)).save(any(Assignment.class));
+    }
+
+    @Test
+    void atLeastOneClassIsNeeded() {
+        assertThatThrownBy(() -> service.createForClasses(10L, List.of(), due))
+                .isInstanceOf(InvalidAssignmentException.class)
+                .hasMessageContaining("cel puțin o clasă");
+    }
 }

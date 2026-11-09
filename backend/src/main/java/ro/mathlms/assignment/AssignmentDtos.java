@@ -1,9 +1,11 @@
 package ro.mathlms.assignment;
 
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import ro.mathlms.assignment.AssignmentProgress.State;
 
 import java.time.Instant;
+import java.util.List;
 
 /** Request and response shapes of the homework API. */
 public final class AssignmentDtos {
@@ -15,6 +17,11 @@ public final class AssignmentDtos {
     }
 
     public record RescheduleRequest(@NotNull Instant dueAt) {
+    }
+
+    /** One quiz given to several classes at once, each with the same deadline. */
+    public record MultiClassAssignmentRequest(@NotNull Long quizId, @NotEmpty List<@NotNull Long> schoolClassIds,
+                                              @NotNull Instant dueAt) {
     }
 
     /**
