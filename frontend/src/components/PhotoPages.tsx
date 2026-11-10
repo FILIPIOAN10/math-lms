@@ -33,7 +33,10 @@ export function PhotoPages({
             <img
               src={url}
               alt={alt(index + 1)}
-              className={cn('rounded-lg border bg-background object-contain', stacked ? 'max-h-[28rem]' : 'max-h-64')}
+              // A fixed box, not max-h: an <img> is a few pixels tall until its photo arrives, and a photo that lands
+              // late would push everything below it down under the user's click.
+              className={cn('rounded-lg border bg-background object-contain',
+                stacked ? 'h-[28rem] w-auto max-w-full' : 'h-64 w-48')}
             />
           </button>
         ))}

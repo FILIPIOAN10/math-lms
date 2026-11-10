@@ -23,6 +23,20 @@ describe('PhotoPages', () => {
     expect(within(viewer).getByTestId('photo-viewer-image')).toHaveAttribute('src', '/p/2')
   })
 
+  // A photo that arrives late must not push the page down under the teacher's click (the AI-import review lost the
+  // first click on a grilă variant this way): each picture holds its final box before it has loaded.
+  it('reserves the box of each photo before it loads', () => {
+    const { rerender } = render(<PhotoPages urls={urls} alt={alt} />)
+    for (const img of screen.getAllByRole('img')) {
+      expect(img).toHaveClass('h-64', 'w-48', 'object-contain')
+    }
+
+    rerender(<PhotoPages urls={urls} alt={alt} stacked />)
+    for (const img of screen.getAllByRole('img')) {
+      expect(img).toHaveClass('h-[28rem]', 'object-contain')
+    }
+  })
+
   it('turns a sideways photo only on screen, and remembers it per page', async () => {
     const user = userEvent.setup()
     render(<PhotoPages urls={urls} alt={alt} />)
