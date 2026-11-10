@@ -6,6 +6,7 @@ import ro.mathlms.content.ContentNotFoundException;
 import ro.mathlms.enchapter.EnChapter;
 import ro.mathlms.enchapter.EnChapterNotFoundException;
 import ro.mathlms.enchapter.EnChapterRepository;
+import ro.mathlms.quiz.AnswerKeys;
 import ro.mathlms.quiz.AttemptMode;
 import ro.mathlms.quiz.EnChapterLinks;
 import ro.mathlms.quiz.ItemResponse;
@@ -20,6 +21,7 @@ import ro.mathlms.quiz.QuizItemRepository;
 import ro.mathlms.quiz.QuizItemType;
 import ro.mathlms.quiz.QuizOption;
 import ro.mathlms.quiz.QuizOptionRepository;
+import ro.mathlms.quiz.QuizRepository;
 import ro.mathlms.review.ReviewDtos.ChapterPracticeDto;
 import ro.mathlms.review.ReviewDtos.ChapterPracticeResultDto;
 import ro.mathlms.review.ReviewDtos.ReviewOptionDto;
@@ -43,8 +45,9 @@ import java.util.stream.Collectors;
  * chapter (or to one of its sub-chapters), the ones the student got wrong last time first, then the ones they never
  * answered, then the rest. Each answer is checked at once, with the solution.
  * <p>
- * The pool is only questions whose answers the student may already see: a test they handed in (its result page shows
- * them) or a test the teacher opened for practice. So it never gives away a test still to be written. Nothing is
+ * The pool is only questions whose answers the student may already see: a test they handed in and cannot hand in again
+ * (its result page shows them, see {@link AnswerKeys}) or a test the teacher opened for practice. So it never gives away
+ * a test still to be written - nor one with a retake left. Nothing is
  * stored: the answers do not move the daily review's boxes nor the grades, they only tell the student how they stand.
  */
 @Service
@@ -61,12 +64,13 @@ public class ChapterPracticeService {
     private final ItemResponseRepository responseRepository;
     private final ReviewAnswerRepository reviewAnswerRepository;
     private final EnChapterLinks enChapterLinks;
+    private final AnswerKeys answerKeys;
 
     public ChapterPracticeService(UserRepository userRepository, EnChapterRepository chapterRepository,
                                   QuizAttemptService quizAttemptService, QuizAttemptRepository attemptRepository,
                                   QuizItemRepository itemRepository, QuizOptionRepository optionRepository,
                                   ItemResponseRepository responseRepository, ReviewAnswerRepository reviewAnswerRepository,
-                                  EnChapterLinks enChapterLinks) {
+                                  EnChapterLinks enChapterLinks, QuizRepository quizRepository) {
         this.userRepository = userRepository;
         this.chapterRepository = chapterRepository;
         this.quizAttemptService = quizAttemptService;
@@ -76,6 +80,7 @@ public class ChapterPracticeService {
         this.responseRepository = responseRepository;
         this.reviewAnswerRepository = reviewAnswerRepository;
         this.enChapterLinks = enChapterLinks;
+        this.answerKeys = new AnswerKeys(quizRepository);
     }
 
     @Transactional(readOnly = true)
@@ -117,8 +122,8 @@ public class ChapterPracticeService {
     }
 
     /**
-     * The grile of the chapter the student may practise: from published tests they can see, which they handed in or
-     * which allow practice - never one with a test of theirs still running on it.
+     * The grile of the chapter the student may practise: from published tests they can see, which allow practice or
+     * which they handed in and cannot hand in again - never one with a test of theirs still running on it.
      */
     private List<QuizItem> pool(User student, EnChapter chapter, List<QuizAttempt> attempts) {
         Set<Long> handedIn = attempts.stream()
@@ -127,9 +132,10 @@ public class ChapterPracticeService {
         Set<Long> running = attempts.stream()
                 .filter(a -> a.getMode() == AttemptMode.TEST && a.getStatus() == QuizAttemptStatus.IN_PROGRESS)
                 .map(a -> a.getQuiz().getId()).collect(Collectors.toSet());
+        Set<Long> keyHidden = answerKeys.hiddenQuizzes(attempts).getOrDefault(student.getId(), Set.of());
         Set<Long> quizIds = quizAttemptService.listPublished(student.getEmail()).stream()
                 .filter(q -> !running.contains(q.getId()))
-                .filter(q -> q.isPracticeAllowed() || handedIn.contains(q.getId()))
+                .filter(q -> q.isPracticeAllowed() || (handedIn.contains(q.getId()) && !keyHidden.contains(q.getId())))
                 .map(Quiz::getId)
                 .collect(Collectors.toSet());
         if (quizIds.isEmpty()) {

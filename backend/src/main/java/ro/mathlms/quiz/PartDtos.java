@@ -68,6 +68,11 @@ public final class PartDtos {
             return parts.stream().map(p -> new GradedPartDto(p.getId(), p.label(), p.getStatement(), p.getPoints(),
                     p.getSolution(), given.get(p.getId()), links == null ? null : links.linkOf(p))).toList();
         }
+
+        /** The same requirement without its barem: the student may still hand the test in again (see AnswerKeys). */
+        GradedPartDto withoutBarem() {
+            return new GradedPartDto(id, label, statement, points, null, awardedPoints, enChapter);
+        }
     }
 
     /** The teacher's points for one requirement; null takes them away. */

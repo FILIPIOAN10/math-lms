@@ -278,6 +278,50 @@ describe('AttemptResultView', () => {
     expect(screen.queryByRole('button', { name: /Doar greșelile/ })).not.toBeInTheDocument()
   })
 
+  describe('while a retake is left (the answer key stays hidden)', () => {
+    const keyHidden: AttemptResultViewDto = {
+      ...withMistakes,
+      practiceAllowed: false,
+      answerKeyHidden: true,
+      items: [
+        { ...withMistakes.items[0], correctOptionText: null, correctOptionLetter: null, barem: null, mistake: null },
+        { ...withMistakes.items[1], barem: null },
+      ],
+    }
+
+    it('tells the student the right answers come after their last attempt, and shows no key', () => {
+      render(<AttemptResultView result={keyHidden} />, { wrapper: MemoryRouter })
+
+      expect(screen.getByTestId('answer-key-hidden')).toHaveTextContent(
+        'Răspunsurile corecte și baremul apar după ultima ta încercare la acest test.')
+      expect(screen.getByText(/Răspunsul tău:/)).toHaveTextContent('✗')
+      expect(screen.queryByText(/Răspuns corect:/)).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Arată baremul' })).not.toBeInTheDocument()
+    })
+
+    it('does not point to a key that is not there, and says when the grile come to the review', () => {
+      render(<AttemptResultView result={keyHidden} />, { wrapper: MemoryRouter })
+
+      const card = screen.getByTestId('practice-mistakes')
+      expect(card).toHaveTextContent('Întrebările 1, 2 nu au ieșit complet.')
+      expect(card).not.toHaveTextContent('uită-te mai jos la răspunsul corect')
+      expect(card).toHaveTextContent('1 grilă greșită revine în recapitularea zilnică după ultima ta încercare.')
+    })
+
+    it('words the note about the student for a parent', () => {
+      render(<AttemptResultView result={keyHidden} audience="parent" />, { wrapper: MemoryRouter })
+
+      expect(screen.getByTestId('answer-key-hidden')).toHaveTextContent(
+        'Răspunsurile corecte și baremul apar după ultima încercare a elevului la acest test.')
+    })
+
+    it('says nothing when the key is shown', () => {
+      render(<AttemptResultView result={withMistakes} />, { wrapper: MemoryRouter })
+
+      expect(screen.queryByTestId('answer-key-hidden')).not.toBeInTheDocument()
+    })
+  })
+
   it('offers no practice link when the teacher did not open the quiz for practice', () => {
     render(<AttemptResultView result={{ ...withMistakes, practiceAllowed: false }} />, { wrapper: MemoryRouter })
 

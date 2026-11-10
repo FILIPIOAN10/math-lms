@@ -64,6 +64,18 @@ class AttemptAllowanceTest {
         assertThat(allowance.blockedBy()).isNull();
     }
 
+    /** What hides the answer key: another attempt to come, now or once the paper waiting for its grade is graded. */
+    @Test
+    void aRetakeIsLeftUntilTheLastAttemptIsHandedIn() {
+        assertThat(AttemptAllowance.of(2, List.of(graded(now)), null).retakeLeft()).isTrue();
+        assertThat(AttemptAllowance.of(2, List.of(waiting(now)), null).retakeLeft()).isTrue(); // blocked only for now
+        assertThat(AttemptAllowance.of(null, List.of(graded(now), graded(now)), null).retakeLeft()).isTrue();
+        assertThat(AttemptAllowance.of(1, List.of(waiting(now)), null).retakeLeft()).isFalse();
+        assertThat(AttemptAllowance.of(1, List.of(graded(now), practice()), null).retakeLeft()).isFalse();
+        // homework given after the paper starts the count again: one more attempt to come
+        assertThat(AttemptAllowance.of(1, List.of(graded(now)), now.plus(Duration.ofDays(1))).retakeLeft()).isTrue();
+    }
+
     @Test
     void noLimitMeansAlwaysAnotherAttempt() {
         assertThat(AttemptAllowance.of(null, List.of(graded(now), graded(now), graded(now)), null).blockedBy()).isNull();

@@ -92,6 +92,7 @@ public class QuizAttemptService {
 
     private final QuizItemPartRepository partRepository;
     private final EnChapterLinks enChapterLinks;
+    private final AnswerKeys answerKeys;
 
     public QuizAttemptService(QuizRepository quizRepository, QuizItemRepository itemRepository,
                               QuizOptionRepository optionRepository, QuizItemHintRepository hintRepository,
@@ -118,6 +119,7 @@ public class QuizAttemptService {
                               QuizItemPartRepository partRepository, EnChapterLinks enChapterLinks,
                               List<SubmissionListener> submissionListeners) {
         this.submissionListeners = List.copyOf(submissionListeners);
+        this.answerKeys = new AnswerKeys(quizRepository);
         this.enChapterLinks = enChapterLinks;
         this.partRepository = partRepository;
         this.auditLog = auditLog;
@@ -576,10 +578,12 @@ public class QuizAttemptService {
     }
 
     /**
-     * The student's own graded attempt (Q8). Available once submitted; the correct option and the
-     * barem — withheld before submit — are revealed here. OPEN items show their teacher-awarded points
-     * (null while still pending). Only the owner may view it: anyone else's attempt is the same 404 as one that does
-     * not exist (a guessed id must not confirm that the attempt is there).
+     * The student's own graded attempt (Q8). Available once submitted: right or wrong per question, the points and the
+     * teacher's comments. The answer key - right option, numeric answer, barem of the question and of its requirements,
+     * the note on a wrong option - only once the student cannot hand the test in again ({@link AnswerKeys}); a practice
+     * shows it always (each of its answers gave it away). OPEN items show their teacher-awarded points (null while still
+     * pending). Only the owner may view it: anyone else's attempt is the same 404 as one that does not exist (a guessed
+     * id must not confirm that the attempt is there).
      */
     @Transactional(readOnly = true)
     public AttemptResultViewDto getResult(Long attemptId, String studentEmail) {
@@ -589,6 +593,9 @@ public class QuizAttemptService {
         if (attempt.getStatus() == QuizAttemptStatus.IN_PROGRESS) {
             throw new InvalidQuizException("Submit the attempt to see the result");
         }
+        boolean keyHidden = attempt.getMode() == AttemptMode.TEST && answerKeys.hidden(attempt.getQuiz(),
+                attemptRepository.findByStudentIdAndQuizIdIn(attempt.getStudent().getId(),
+                        List.of(attempt.getQuiz().getId())));
 
         List<QuizItem> items = itemRepository.findByQuizIdOrderByPosition(attempt.getQuiz().getId());
         Map<Long, ItemResponse> byItem = responseRepository.findByAttemptId(attemptId).stream()
@@ -626,26 +633,33 @@ public class QuizAttemptService {
             } else {
                 photoUploaded = response != null && response.hasPhotos();
             }
+            if (keyHidden) { // right or wrong only: the student may still hand the test in again
+                correctText = null;
+                correctLetter = null;
+            }
+            List<PartDtos.GradedPartDto> parts =
+                    PartDtos.GradedPartDto.of(partsByItem.getOrDefault(item.getId(), List.of()), response, links);
             itemResults.add(new ItemResultDto(
                     item.getId(), item.getPosition(), item.getType(), item.getStatement(), item.getPoints(),
                     response == null ? null : response.getAwardedPoints(),
                     response == null ? null : response.getCorrect(),
-                    selectedText, correctText, item.getSolution(), photoUploaded,
+                    selectedText, correctText, keyHidden ? null : item.getSolution(), photoUploaded,
                     response == null ? 0 : response.getHintsUsed(),
                     hintCounts.getOrDefault(item.getId(), 0),
                     response == null ? null : response.getTeacherComment(),
                     item.getSection(),
                     item.getImageKey(),
                     response == null ? List.of() : response.photoIds(),
-                    PartDtos.GradedPartDto.of(partsByItem.getOrDefault(item.getId(), List.of()), response, links),
+                    keyHidden ? parts.stream().map(PartDtos.GradedPartDto::withoutBarem).toList() : parts,
                     selectedLetter, correctLetter, links.linkOf(item),
-                    response == null ? null : response.mistakeExplained(),
+                    keyHidden || response == null ? null : response.mistakeExplained(),
                     chapterLink(chapterOf(attempt.getQuiz(), item), withExercises)));
         }
         return new AttemptResultViewDto(attempt.getId(), attempt.getQuiz().getTitle(),
                 attempt.getStatus(), attempt.getScore(), maxScore, itemResults, attempt.getMode(),
                 attempt.getTeacherComment(), attempt.getQuiz().getId(),
-                attempt.getQuiz().isPracticeAllowed() && attempt.getQuiz().getStatus() == QuizStatus.PUBLISHED);
+                attempt.getQuiz().isPracticeAllowed() && attempt.getQuiz().getStatus() == QuizStatus.PUBLISHED,
+                keyHidden);
     }
 
     /** A question's own chapter, or the quiz's. */

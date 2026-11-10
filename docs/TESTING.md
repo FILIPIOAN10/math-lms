@@ -951,7 +951,7 @@ trimite doar textul întrebării și al variantelor, niciodată ceva despre elev
 | 3 | **Propune cu AI** în aceeași casetă | Caseta se umple, dar nu se salvează nimic până apeși **Salvează** |
 | 4 | O variantă greșită aleasă de cel puțin 2 elevi și o cincime din clasă | Sus, „Greșeli frecvente”, cu cele mai alese trei și explicația lor |
 | 5 | În editor: **Editează** întrebarea → **Mai multe opțiuni** | „Ce greșeală ascunde fiecare variantă greșită”, cu ce ai scris deja; se poate completa înainte să dea cineva testul |
-| 6 | Ca elev: dă testul, alege varianta explicată, predă | La rezultat, „De ce e greșit” cu textul tău; la o variantă fără text, doar răspunsul corect |
+| 6 | Ca elev: dă testul (cu o singură încercare, vezi §48), alege varianta explicată, predă | La rezultat, „De ce e greșit” cu textul tău; la o variantă fără text, doar răspunsul corect |
 | 7 | Capitolul testului are exerciții | Pe întrebarea greșită, butonul **Exerciții: <capitol> →**, care deschide direct capitolul în Conținut; pe o întrebare corectă nu apare |
 | 8 | **Exersează** același test și alege varianta explicată | Textul apare imediat, în caseta cu verdictul |
 | 9 | **Recapitulare**, la aceeași grilă, a doua zi | Textul apare după **Verifică** |
@@ -1095,6 +1095,22 @@ sau cerute din nou — de aceea pot fi mai multe decât propunerile vizibile. Un
 testele vechi). Oprit: predarea nu mai cere nimic singură; „Cere propunere AI” pe un răspuns merge ca înainte. Bifat: se cer
 imediat pentru lucrările acelui test care așteaptă nota („Cerute acum pentru n răspunsuri…”), apoi pentru fiecare lucrare
 predată. Propunerile se gândesc acum pe nivel LOW (`GEMINI_GRADING_THINKING`, înainte MEDIUM): compară câteva cu notele tale.
+
+### 48. Răspunsurile corecte doar după ultima încercare — ca elev, apoi ca părinte
+Cât elevul mai poate preda testul încă o dată, rezultatul spune doar ✓/✗: fără răspunsul corect, răspunsul numeric, barem
+(nici la cerințe) și „De ce e greșit” — altfel le-ar copia la reîncercare, iar nota cea mai mare contează. Un test deschis
+pentru exersare le arată oricum (exersarea le dă la fiecare răspuns).
+
+| # | Ce faci | Ce trebuie să vezi |
+|---|---|---|
+| 1 | Profesor: test cu **Încercări: 2**, fără exersare. Elev: dă testul, greșește o grilă, predă | ✓/✗ la fiecare întrebare; nici „Răspuns corect”, nici **Arată baremul**, nici „De ce e greșit”; sus: „Răspunsurile corecte și baremul apar după ultima ta încercare la acest test.” |
+| 2 | Cardul „Exersează ce ai greșit” pe același rezultat | „…nu a ieșit complet.” (fără „uită-te mai jos”); „1 grilă greșită revine în recapitularea zilnică după ultima ta încercare.” |
+| 3 | Dă testul a doua oară (ultima încercare) | Ambele rezultate arată acum răspunsul corect, baremul și „De ce e greșit” |
+| 4 | Profesor: **+1 încercare** din lucrare (sau o temă de recuperare cu același test) | Cheia dispare din nou până se predă și încercarea în plus |
+| 5 | Test fără limită de încercări | Cheia nu apare niciodată; pune o limită ca să apară |
+| 6 | Test deschis pentru exersare, 2 încercări | Cheia apare de la prima predare |
+| 7 | **Recapitulare** a doua zi și **Exersează capitolul** EN | Grilele unui test cu încercări rămase nu apar până după ultima încercare |
+| 8 | Ca părinte: rezultatul copilului de la pasul 1 | Aceeași regulă: „…după ultima încercare a elevului la acest test.” |
 
 ## E. Debugging — unde te uiți când pică ceva
 

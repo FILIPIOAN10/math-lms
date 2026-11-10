@@ -157,7 +157,7 @@ class QuizAttemptControllerTest {
     @Test
     void resultDelegatesToService() {
         AttemptResultViewDto view = new AttemptResultViewDto(
-                50L, "Simulare EN", QuizAttemptStatus.GRADED, 5, 35, List.of(), AttemptMode.TEST, null, 10L, false);
+                50L, "Simulare EN", QuizAttemptStatus.GRADED, 5, 35, List.of(), AttemptMode.TEST, null, 10L, false, false);
         when(service.getResult(50L, "elev@scoala.ro")).thenReturn(view);
 
         assertThat(controller.result(50L, auth)).isEqualTo(view);

@@ -36,7 +36,7 @@ Docker · GitHub Actions
 | ![Student dashboard](docs/screenshots/06-student-dashboard.png) | ![Taking the timed mock exam](docs/screenshots/07-take-exam.png) |
 | **Dashboard.** New grades, homework to do, today's review and the latest result. | **Taking a test.** The countdown comes from the server (it can't be paused by fiddling with the clock), answers are saved as you go and queued offline, and the bottom bar jumps between questions (I.1 … III.1). |
 | ![Practice mode with hints](docs/screenshots/08-practice-hints.png) | ![Result with teacher feedback](docs/screenshots/09-result-feedback.png) |
-| **Practice mode.** Answers are checked on the spot without a grade, and hints are revealed one at a time. | **Result.** Points per question, the correct answer, the marking scheme, the teacher's comment, and "practise what you got wrong". Wrong multiple-choice answers come back in the daily review. |
+| **Practice mode.** Answers are checked on the spot without a grade, and hints are revealed one at a time. | **Result.** Points per question, the teacher's comment, and "practise what you got wrong". The correct answer and the marking scheme appear once no retake is left, so a retake cannot copy them. Wrong multiple-choice answers come back in the daily review. |
 | ![Progress over time](docs/screenshots/10-progress.png) | ![EN chapter page](docs/screenshots/11-en-chapter.png) |
 | **Progress.** Mastery per chapter plus a chart of every graded test. | **EN chapters.** Theory and worked examples for each of the 25 EN chapters; a wrong EN question links straight to its chapter. |
 

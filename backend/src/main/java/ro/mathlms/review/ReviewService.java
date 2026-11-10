@@ -6,6 +6,7 @@ import ro.mathlms.content.ContentNotFoundException;
 import ro.mathlms.content.Enrollment;
 import ro.mathlms.content.EnrollmentRepository;
 import ro.mathlms.enchapter.EnChapterLinkDto;
+import ro.mathlms.quiz.AnswerKeys;
 import ro.mathlms.quiz.AttemptMode;
 import ro.mathlms.quiz.EnChapterLinks;
 import ro.mathlms.quiz.ItemResponse;
@@ -50,7 +51,8 @@ import java.util.stream.Collectors;
  * E4 spaced repetition - the daily review. Rules, decided with the teacher:
  * <ul>
  *   <li>the pool is every MULTIPLE-CHOICE question the student answered in a practice or in a handed-in test (its
- *       answers are on their result page anyway) - never one of a test still being written, never an open item;</li>
+ *       answers are on their result page anyway) - never one of a test still being written, never an open item, and
+ *       one of a test they may still hand in again only after their last attempt ({@link AnswerKeys});</li>
  *   <li>Leitner boxes of 1, 3, 7, 14 and 30 days ({@link LeitnerEngine}); the reviews themselves move the boxes too;</li>
  *   <li>at most {@value #DAILY_LIMIT} a day, the longest-waiting first; a quiz the teacher unpublished leaves the queue.</li>
  * </ul>
@@ -74,6 +76,7 @@ public class ReviewService {
     private final ReviewAnswerRepository reviewAnswerRepository;
     private final EnChapterLinks enChapterLinks;
     private final Clock clock;
+    private final AnswerKeys answerKeys;
 
     public ReviewService(UserRepository userRepository, EnrollmentRepository enrollmentRepository,
                          QuizRepository quizRepository, QuizAttemptRepository attemptRepository,
@@ -90,6 +93,7 @@ public class ReviewService {
         this.reviewAnswerRepository = reviewAnswerRepository;
         this.enChapterLinks = enChapterLinks;
         this.clock = clock;
+        this.answerKeys = new AnswerKeys(quizRepository);
     }
 
     // ---------------------------------------------------------------- the student
@@ -176,7 +180,10 @@ public class ReviewService {
         });
 
         // 1. Multiple-choice answers from practices (any state) and handed-in tests.
-        List<QuizAttempt> attempts = attemptRepository.findByStudentIdsFetchQuiz(studentIds).stream()
+        List<QuizAttempt> allAttempts = attemptRepository.findByStudentIdsFetchQuiz(studentIds);
+        // A test the student may still hand in again keeps its key: its grile wait in the queue for the last attempt.
+        Map<Long, Set<Long>> keyHidden = answerKeys.hiddenQuizzes(allAttempts);
+        List<QuizAttempt> attempts = allAttempts.stream()
                 .filter(a -> a.getMode() == AttemptMode.PRACTICE || a.getStatus() != QuizAttemptStatus.IN_PROGRESS)
                 .toList();
         if (!attempts.isEmpty()) {
@@ -209,12 +216,14 @@ public class ReviewService {
         Map<Long, State> states = new HashMap<>();
         for (Long studentId : studentIds) {
             Map<Long, Card> cards = LeitnerEngine.replay(events.get(studentId), ZONE);
+            Set<Long> hiddenQuizzes = keyHidden.getOrDefault(studentId, Set.of());
             List<LocalDate> days = reviewDays.get(studentId);
             int doneToday = (int) days.stream().filter(today::equals).count();
             List<Long> queue = cards.entrySet().stream()
                     .filter(e -> e.getValue().isDue(today))
                     .filter(e -> items.containsKey(e.getKey())
-                            && !unpublishedQuizzes.contains(items.get(e.getKey()).getQuiz().getId()))
+                            && !unpublishedQuizzes.contains(items.get(e.getKey()).getQuiz().getId())
+                            && !hiddenQuizzes.contains(items.get(e.getKey()).getQuiz().getId()))
                     .sorted(Comparator.comparing((Map.Entry<Long, Card> e) -> e.getValue().dueOn())
                             .thenComparing(e -> e.getValue().box())
                             .thenComparing(Map.Entry::getKey))

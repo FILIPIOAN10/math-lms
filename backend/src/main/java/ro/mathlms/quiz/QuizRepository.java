@@ -24,6 +24,21 @@ public interface QuizRepository extends JpaRepository<Quiz, Long> {
     @Query("select g from AttemptGrant g where g.student.id = :studentId")
     List<AttemptGrant> findAttemptGrants(@Param("studentId") Long studentId);
 
+    /** Every extra-attempt grant of these students, in one query (whose answer key they may see, see {@link AnswerKeys}). */
+    @Query("select g from AttemptGrant g where g.student.id in :studentIds")
+    List<AttemptGrant> findAttemptGrantsOf(@Param("studentIds") Collection<Long> studentIds);
+
+    /**
+     * {@link #findHomeworkGiven} for several students at once: when each quiz was last given as homework to each of them -
+     * whole-class homework of one of their classes, or catch-up homework they were chosen for.
+     */
+    @Query("select new ro.mathlms.quiz.StudentHomeworkGiven(e.student.id, a.quiz.id, max(a.createdAt))"
+            + " from Enrollment e, Assignment a"
+            + " where a.schoolClass.id = e.schoolClass.id and e.student.id in :studentIds"
+            + " and (a.catchUp = false or e.student.id member of a.studentIds)"
+            + " group by e.student.id, a.quiz.id")
+    List<StudentHomeworkGiven> findHomeworkGivenTo(@Param("studentIds") Collection<Long> studentIds);
+
     /** Whether this account still owns a test (it must hand it over before erasing itself). */
     boolean existsByTeacherId(Long teacherId);
 

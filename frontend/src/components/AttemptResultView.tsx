@@ -75,12 +75,15 @@ function PracticeMistakes({ result }: { result: AttemptResultViewDto }) {
               </a>
             </Fragment>
           ))}
-          {many ? ' nu au ieșit complet' : ' nu a ieșit complet'}: uită-te mai jos la răspunsul corect și la barem.
+          {many ? ' nu au ieșit complet' : ' nu a ieșit complet'}
+          {/* While a retake is left there is no key below to look at (see the note above). */}
+          {result.answerKeyHidden ? '.' : ': uită-te mai jos la răspunsul corect și la barem.'}
         </p>
         {mistakes.wrongChoices > 0 && (
           <p className="text-muted-foreground">
             {roCount(mistakes.wrongChoices, 'grilă greșită revine', 'grile greșite revin')} în{' '}
-            <Link to="/review" className="text-primary hover:underline">recapitularea zilnică</Link>, începând de mâine.
+            <Link to="/review" className="text-primary hover:underline">recapitularea zilnică</Link>
+            {result.answerKeyHidden ? ' după ultima ta încercare.' : ', începând de mâine.'}
           </p>
         )}
         {result.practiceAllowed && (
@@ -280,6 +283,13 @@ export function AttemptResultView({ result, audience = 'student' }: { result: At
             <p className="text-sm text-muted-foreground">
               Grilele sunt corectate ({pointsSoFar} puncte până acum). Întrebările cu rezolvare
               așteaptă corectura profesorului — revino mai târziu pentru nota finală.
+            </p>
+          )}
+          {result.answerKeyHidden && (
+            <p data-testid="answer-key-hidden" className="text-sm text-muted-foreground">
+              {audience === 'student'
+                ? 'Răspunsurile corecte și baremul apar după ultima ta încercare la acest test. Până atunci vezi ce ai făcut bine și ce nu.'
+                : 'Răspunsurile corecte și baremul apar după ultima încercare a elevului la acest test.'}
             </p>
           )}
           {result.teacherComment && (

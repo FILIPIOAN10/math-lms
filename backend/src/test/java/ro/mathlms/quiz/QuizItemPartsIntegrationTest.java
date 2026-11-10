@@ -72,7 +72,8 @@ class QuizItemPartsIntegrationTest {
     @BeforeEach
     void setUp() throws Exception {
         student = userRepository.save(new User("elev-" + System.nanoTime() + "@scoala.ro", "Ana", Role.STUDENT));
-        quizId = json(send(post("/api/admin/quizzes"), Map.of("title", "Simulare EN " + System.nanoTime()))
+        // One attempt, as the editor sets by default: once handed in, the barem is the student's to see (AnswerKeys).
+        quizId = json(send(post("/api/admin/quizzes"), Map.of("title", "Simulare EN " + System.nanoTime(), "maxAttempts", 1))
                 .andExpect(status().isCreated())).get("id").asLong();
         JsonNode item = json(send(post("/api/admin/quizzes/" + quizId + "/items"), Map.of(
                 "type", "OPEN", "position", 0, "points", 0, "section", "SUBIECTUL al III-lea\nScrie rezolvările complete.",

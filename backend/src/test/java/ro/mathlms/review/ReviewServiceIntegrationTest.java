@@ -119,6 +119,23 @@ class ReviewServiceIntegrationTest {
         return quizRepository.save(quiz);
     }
 
+    /** A published test closed to practice, with this many attempts (null = no limit). */
+    private Quiz testWithAttempts(String title, Integer maxAttempts) {
+        Quiz quiz = new Quiz(title, null);
+        quiz.limitAttempts(maxAttempts);
+        quiz.publish();
+        return quizRepository.save(quiz);
+    }
+
+    private void handIn(Quiz quiz, User who, QuizItem item, boolean correct) {
+        QuizAttempt test = attemptRepository.save(new QuizAttempt(quiz, who, morning(D1), AttemptMode.TEST));
+        answer(test, item, correct);
+        test.submit();
+        ReflectionTestUtils.setField(test, "submittedAt", morning(D1));
+        test.markGraded(correct ? item.getPoints() : 0);
+        attemptRepository.save(test);
+    }
+
     private QuizItem grila(Quiz quiz, int position) {
         QuizItem item = itemRepository.save(new QuizItem(quiz, position, QuizItemType.SINGLE_CHOICE,
                 "Întrebarea " + position, 2, "Rezolvarea " + position));
@@ -240,6 +257,29 @@ class ReviewServiceIntegrationTest {
         answer(inProgress, writing, false);
 
         assertThat(ids(at(D1.plusDays(1)).today(ana.getEmail()))).containsExactly(handedIn.getId());
+    }
+
+    /** A test the student may still hand in again keeps its key: its grile wait for the last attempt (or practice). */
+    @Test
+    void aHandedInTestWithARetakeLeftWaitsForItsLastAttempt() {
+        User ana = student("r-retake");
+        Quiz twice = testWithAttempts("Teza r-retake 2", 2);
+        QuizItem hidden = grila(twice, 0);
+        handIn(twice, ana, hidden, false);
+        Quiz unlimited = testWithAttempts("Teza r-retake nelimitat", null);
+        QuizItem alsoHidden = grila(unlimited, 0);
+        handIn(unlimited, ana, alsoHidden, false);
+        Quiz once = testWithAttempts("Teza r-retake 1", 1);
+        QuizItem shown = grila(once, 0);
+        handIn(once, ana, shown, false);
+
+        assertThat(ids(at(D1.plusDays(1)).today(ana.getEmail()))).containsExactly(shown.getId());
+        assertThatThrownBy(() -> at(D1.plusDays(1)).answer(ana.getEmail(), hidden.getId(), option(hidden, true).getId()))
+                .isInstanceOf(InvalidReviewException.class);
+
+        handIn(twice, ana, hidden, false); // the last attempt
+
+        assertThat(ids(at(D1.plusDays(1)).today(ana.getEmail()))).containsExactlyInAnyOrder(shown.getId(), hidden.getId());
     }
 
     @Test

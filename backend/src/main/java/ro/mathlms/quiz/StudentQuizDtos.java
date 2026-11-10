@@ -295,6 +295,9 @@ public final class StudentQuizDtos {
             AttemptMode mode,
             String teacherComment, // on the whole paper
             Long quizId,
-            boolean practiceAllowed // S4: whether "Exersează ce ai greșit" can open a practice of this quiz
+            boolean practiceAllowed, // S4: whether "Exersează ce ai greșit" can open a practice of this quiz
+            // A retake is still left: right or wrong only - no right option, numeric answer, barem nor note on a wrong
+            // option until the last attempt (see AnswerKeys)
+            boolean answerKeyHidden
     ) {}
 }

@@ -38,4 +38,12 @@ public record AttemptAllowance(Integer maxAttempts, int used, RetakeBlock blocke
         }
         return new AttemptAllowance(maxAttempts, used, null);
     }
+
+    /**
+     * Whether the student may still hand in another graded attempt, now or once a paper waiting for its grade is graded:
+     * no limit, or attempts left under it. While one is left the test keeps its answer key (see {@link AnswerKeys}).
+     */
+    public boolean retakeLeft() {
+        return maxAttempts == null || used < maxAttempts;
+    }
 }

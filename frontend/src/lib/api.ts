@@ -1560,6 +1560,11 @@ export interface AttemptResultViewDto {
   quizId: number
   /** S4: the quiz is published and open for practice, so "Exersează doar ce ai greșit" can start one. */
   practiceAllowed: boolean
+  /**
+   * A retake is still left: the items say only right or wrong - no right option, numeric answer, barem nor note on a
+   * wrong option - until the last attempt. Absent = false.
+   */
+  answerKeyHidden?: boolean
 }
 
 // ----- Parent (Phase 5): read-only view of one's own children -----

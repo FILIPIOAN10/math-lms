@@ -73,9 +73,15 @@ class ChapterPracticeIntegrationTest {
         radicali = chapterRepository.save(new EnChapter("R" + tail, "Radicali", EnArea.ALGEBRA, 901, null));
     }
 
+    /** One attempt, as the test dialog sets by default: once handed in, its answers are the student's to see. */
     private Quiz test(String title, boolean practiceAllowed) {
+        return test(title, practiceAllowed, 1);
+    }
+
+    private Quiz test(String title, boolean practiceAllowed, Integer maxAttempts) {
         Quiz q = new Quiz(title + " " + System.nanoTime(), null);
         q.allowPractice(practiceAllowed);
+        q.limitAttempts(maxAttempts);
         q.publish();
         return quizRepository.save(q);
     }
@@ -133,6 +139,20 @@ class ChapterPracticeIntegrationTest {
 
         assertThat(practice.available()).isZero();
         assertThat(practice.questions()).isEmpty();
+    }
+
+    @Test
+    void aHandedInTestWithARetakeLeftStaysOutUntilTheLastAttempt() {
+        Quiz twice = test("Două încercări", false, 2);
+        QuizItem right = grila(twice, 1, fractii);
+        QuizItem wrong = grila(twice, 2, fractii);
+        handIn(twice, right, wrong);
+
+        assertThat(service.practice(ana.getEmail(), fractii.getId()).available()).isZero();
+
+        handIn(twice, right, wrong); // the second and last attempt: now the answers are hers to see
+
+        assertThat(ids(service.practice(ana.getEmail(), fractii.getId()))).containsExactly(wrong.getId(), right.getId());
     }
 
     @Test
