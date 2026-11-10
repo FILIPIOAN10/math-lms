@@ -50,14 +50,26 @@ public class AssignmentOverride {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
+    /** When the reminder of the student's own deadline was queued; null = not yet (a new date clears it). */
+    @Column(name = "reminder_sent_at")
+    private Instant reminderSentAt;
+
     public AssignmentOverride(Assignment assignment, User student, Instant createdAt) {
         this.assignment = Objects.requireNonNull(assignment, "assignment");
         this.student = Objects.requireNonNull(student, "student");
         this.createdAt = Objects.requireNonNull(createdAt, "createdAt");
     }
 
+    /** A different date of their own is reminded again, like a rescheduled homework. */
     public void moveDeadline(Instant dueAt) {
+        if (!Objects.equals(this.dueAt, dueAt)) {
+            this.reminderSentAt = null;
+        }
         this.dueAt = dueAt;
+    }
+
+    public void markReminderSent(Instant when) {
+        this.reminderSentAt = Objects.requireNonNull(when, "when");
     }
 
     public void excuse(boolean excused) {

@@ -39,6 +39,14 @@ public class AssignmentReminderJob {
                     log.error("Queueing the reminders of assignment {} failed", assignmentId, e);
                 }
             }
+            // The students working to a date of their own: the class reminder above left them out.
+            for (Long overrideId : service.findOwnDeadlinesDueForReminderIds()) {
+                try {
+                    service.queueOwnDeadlineReminder(overrideId);
+                } catch (Exception e) {
+                    log.error("Queueing the own-deadline reminder {} failed", overrideId, e);
+                }
+            }
         } catch (Exception e) {
             log.error("Assignment reminder tick failed", e); // never let a bad tick kill the scheduler thread
         }

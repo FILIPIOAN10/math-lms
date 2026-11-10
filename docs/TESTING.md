@@ -1046,6 +1046,9 @@ dar înainte de al lui → **Predată**, nu „cu întârziere”. **Ca elev scu
 Pe pagina profesorului pentru acel elev tema apare cu insigna **Scutită**.
 - termen propriu în trecut → „Termenul trebuie să fie în viitor”; un elev din altă clasă → 400 „Elevul nu este în clasa acestei teme”
 - emailul de reamintire al clasei nu pleacă la un elev cu excepție (scutit sau cu termen propriu)
+- (V63) elevul cu termen propriu primește propriul email cu ≤24 h înainte de **termenul lui**, o dată, cu data lui în text (și
+  părintele, ca la clasă); o dată nouă a lui îl trimite din nou; scutitul sau cine a predat deja nu primește nimic.
+  Cu Mailpit (`NOTIFY_ASSIGNMENT_REMINDER=true`): termen propriu peste ~12 h → în ≤15 min apare emailul cu acea dată.
 
 ### 41. +1 încercare pentru un singur elev (V58) — ca profesor, apoi ca elev
 Pe un test cu **Încercări: 1** (din Setări), un elev l-a predat o dată și nu-l mai poate începe („Ai folosit toate încercările”).

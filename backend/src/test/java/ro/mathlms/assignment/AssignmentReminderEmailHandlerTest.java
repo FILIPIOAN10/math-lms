@@ -44,9 +44,10 @@ class AssignmentReminderEmailHandlerTest {
     private final EnrollmentRepository enrollmentRepository = mock(EnrollmentRepository.class);
     private final QuizAttemptRepository attemptRepository = mock(QuizAttemptRepository.class);
     private final EmailService emailService = mock(EmailService.class);
+    private final AssignmentOverrideRepository overrideRepository = mock(AssignmentOverrideRepository.class);
     private final AssignmentReminderEmailHandler handler = new AssignmentReminderEmailHandler(
-            codec, assignmentRepository, userRepository, enrollmentRepository, attemptRepository, emailService,
-            Clock.fixed(now, ZoneOffset.UTC));
+            codec, assignmentRepository, overrideRepository, userRepository, enrollmentRepository, attemptRepository,
+            emailService, Clock.fixed(now, ZoneOffset.UTC));
 
     private final Quiz quiz = published(withId(new Quiz("Simulare EN", null), 10L));
     private final SchoolClass ninth = withId(new SchoolClass("Clasa a 9-a", null), 5L);
@@ -106,6 +107,52 @@ class AssignmentReminderEmailHandlerTest {
         stubAll();
         assignment.reschedule(now.minusSeconds(1));
 
+        handler.handle(payload());
+
+        verify(emailService, never()).sendAssignmentReminder(anyString(), anyString(), anyString(), any(), anyLong());
+    }
+
+    // --- a student with a deadline of their own (audit M2) ---
+
+    /** Ana's exception to the homework, as the database holds it at send time. */
+    private void ownDeadline(Instant dueAt, boolean excused) {
+        AssignmentOverride override = new AssignmentOverride(assignment, ana, now.minus(Duration.ofDays(1)));
+        override.moveDeadline(dueAt);
+        override.excuse(excused);
+        when(overrideRepository.findOne(1L, 2L)).thenReturn(Optional.of(override));
+    }
+
+    @Test
+    void aStudentWithAnOwnDeadlineIsToldThatDateEvenOnceTheClassDeadlinePassed() {
+        stubAll();
+        assignment.reschedule(now.minusSeconds(1));
+        Instant own = now.plus(Duration.ofHours(20));
+        ownDeadline(own, false);
+
+        handler.handle(payload());
+
+        verify(emailService).sendAssignmentReminder("ana@scoala.ro", "Ana Pop", "Simulare EN", own, 10L);
+    }
+
+    @Test
+    void theParentIsToldTheChildsOwnDeadline() {
+        stubAll();
+        ana.linkParent(withId(new User("maria@scoala.ro", "Maria Pop", Role.PARENT), 7L));
+        Instant own = now.plus(Duration.ofHours(20));
+        ownDeadline(own, false);
+
+        handler.handle(parentPayload());
+
+        verify(emailService).sendAssignmentReminderToParent("maria@scoala.ro", "Ana Pop", "Simulare EN", own, 2L);
+    }
+
+    @Test
+    void staysSilentForAnExcusedStudentOrOnceTheirOwnDeadlinePassed() {
+        stubAll();
+        ownDeadline(now.plus(Duration.ofHours(20)), true);
+        handler.handle(payload());
+
+        ownDeadline(now.minusSeconds(1), false);
         handler.handle(payload());
 
         verify(emailService, never()).sendAssignmentReminder(anyString(), anyString(), anyString(), any(), anyLong());

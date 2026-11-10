@@ -349,21 +349,66 @@ public class AssignmentService {
             return;
         }
         List<User> students = rosterOf(assignment);
-        // A student with an exception is not reminded of the class deadline: excused, or working to a date of their own.
+        // A student with an exception is not reminded of the class deadline: excused, or working to a date of their own
+        // (reminded of that one by queueOwnDeadlineReminder).
         Map<Long, AssignmentOverride> overrides = overridesOf(assignment);
         Map<Long, AssignmentProgress> progress = progressOf(assignment, students, overrides);
         for (User student : students) {
             if (!overrides.containsKey(student.getId()) && !progress.get(student.getId()).isDone()) {
-                publisher.publish(OutboxEventTypes.ASSIGNMENT_REMINDER_EMAIL,
-                        new AssignmentReminderPayload(assignment.getId(), student.getId()));
-                if (remindParents && student.getParent() != null && !student.getParent().isErased()) {
-                    publisher.publish(OutboxEventTypes.ASSIGNMENT_REMINDER_EMAIL, new AssignmentReminderPayload(
-                            assignment.getId(), student.getId(), AssignmentReminderPayload.Recipient.PARENT));
-                }
+                publishReminder(assignment, student);
             }
         }
         assignment.markReminderSent(now);
         assignmentRepository.save(assignment);
+    }
+
+    /** Students' own deadlines within the lead time whose reminder has not been queued yet (see V63). */
+    @Transactional(readOnly = true)
+    public List<Long> findOwnDeadlinesDueForReminderIds() {
+        Instant now = Instant.now(clock);
+        return overrideRepository.findIdsDueForReminder(now, now.plus(Duration.ofHours(reminderLeadHours)));
+    }
+
+    /**
+     * Queues the reminder of one student's own deadline (audit M2: the class reminder leaves them out), and their
+     * parent's copy like the class one. Re-checked under the row lock: excused, moved out of the window, already
+     * reminded or the quiz unpublished is a no-op; a student no longer given the homework (erased, left the class, not
+     * a catch-up homework's student) or who handed in gets nothing but is marked, so it is not retried. A new date of
+     * their own re-arms it.
+     */
+    @Transactional
+    public void queueOwnDeadlineReminder(Long overrideId) {
+        AssignmentOverride override = overrideRepository.findByIdForUpdate(overrideId).orElse(null);
+        Instant now = Instant.now(clock);
+        if (override == null || override.getReminderSentAt() != null || override.isExcused()
+                || override.getDueAt() == null || !override.getDueAt().isAfter(now)
+                || override.getDueAt().isAfter(now.plus(Duration.ofHours(reminderLeadHours)))) {
+            return;
+        }
+        Assignment assignment = assignmentRepository.findByIdFetched(override.getAssignment().getId()).orElse(null);
+        if (assignment == null || assignment.getQuiz().getStatus() != QuizStatus.PUBLISHED) {
+            return; // not marked: a republish still reminds
+        }
+        User student = override.getStudent();
+        boolean given = !student.isErased() && assignment.isFor(student.getId())
+                && enrollmentRepository.existsByStudentIdAndSchoolClassId(student.getId(),
+                assignment.getSchoolClass().getId());
+        if (given && !AssignmentProgress.of(assignment, attemptRepository.findForAssignment(
+                assignment.getQuiz().getId(), List.of(student.getId()), assignment.getCreatedAt())).isDone()) {
+            publishReminder(assignment, student);
+        }
+        override.markReminderSent(now);
+        overrideRepository.save(override);
+    }
+
+    /** One "due soon" email for the student, and one for their linked parent unless parents are not reminded. */
+    private void publishReminder(Assignment assignment, User student) {
+        publisher.publish(OutboxEventTypes.ASSIGNMENT_REMINDER_EMAIL,
+                new AssignmentReminderPayload(assignment.getId(), student.getId()));
+        if (remindParents && student.getParent() != null && !student.getParent().isErased()) {
+            publisher.publish(OutboxEventTypes.ASSIGNMENT_REMINDER_EMAIL, new AssignmentReminderPayload(
+                    assignment.getId(), student.getId(), AssignmentReminderPayload.Recipient.PARENT));
+        }
     }
 
     // ---------------------------------------------------------------- helpers

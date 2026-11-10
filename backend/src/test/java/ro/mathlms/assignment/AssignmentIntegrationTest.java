@@ -31,6 +31,7 @@ import ro.mathlms.user.UserRepository;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -162,6 +163,48 @@ class AssignmentIntegrationTest {
         assignmentService.reschedule(assignment.getId(), Instant.now().plus(Duration.ofHours(12)));
         reminderJob.tick();
         assertThat(reminderEvents(assignment.getId())).hasSize(2);     // now inside it: ana and bob, neither handed in
+    }
+
+    /** Audit M2: a student working to a date of their own is reminded before that date, once, and told that date. */
+    @Test
+    void aStudentWithAnOwnDeadlineIsRemindedBeforeItWithThatDate() {
+        Instant classDue = Instant.now().plus(Duration.ofHours(10)).truncatedTo(ChronoUnit.SECONDS);
+        Assignment assignment = assignmentService.create(quiz.getId(), schoolClass.getId(), classDue);
+        assignmentService.setOverride(assignment.getId(), ana.getId(), Instant.now().plus(Duration.ofDays(3)), false);
+
+        reminderJob.tick();
+        assertThat(reminderEvents(assignment.getId())).hasSize(1); // the class reminder: Bob only, Ana has her own date
+
+        Instant own = Instant.now().plus(Duration.ofHours(20)).truncatedTo(ChronoUnit.SECONDS);
+        assignmentService.setOverride(assignment.getId(), ana.getId(), own, false);
+        reminderJob.tick();
+        assertThat(reminderEvents(assignment.getId())).hasSize(2); // her date is close now: Ana too
+        while (processor.processBatch() > 0) {
+            // drain the outbox
+        }
+        verify(emailService).sendAssignmentReminder(eq(ana.getEmail()), eq("Ana Pop"), anyString(), eq(own), eq(quiz.getId()));
+        verify(emailService).sendAssignmentReminder(eq(bob.getEmail()), eq("Bob Ionescu"), anyString(), eq(classDue),
+                eq(quiz.getId()));
+
+        reminderJob.tick();
+        assertThat(reminderEvents(assignment.getId())).hasSize(2); // once
+
+        assignmentService.setOverride(assignment.getId(), ana.getId(), own.plus(Duration.ofHours(2)), false);
+        reminderJob.tick();
+        assertThat(reminderEvents(assignment.getId())).hasSize(3); // a new date of her own re-arms it
+    }
+
+    @Test
+    void anExcusedStudentOrOneWhoHandedInIsNotRemindedOfTheirOwnDate() {
+        Assignment assignment = assignmentService.create(quiz.getId(), schoolClass.getId(), Instant.now().plus(Duration.ofDays(5)));
+        assignmentService.setOverride(assignment.getId(), ana.getId(), Instant.now().plus(Duration.ofHours(12)), true);
+        assignmentService.setOverride(assignment.getId(), bob.getId(), Instant.now().plus(Duration.ofHours(12)), false);
+        StartedAttemptDto bobTest = attemptService.startAttempt(quiz.getId(), bob.getEmail());
+        attemptService.submit(bobTest.attemptId(), bob.getEmail());
+
+        reminderJob.tick();
+
+        assertThat(reminderEvents(assignment.getId())).isEmpty();
     }
 
     @Test

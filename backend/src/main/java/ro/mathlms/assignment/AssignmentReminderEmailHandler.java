@@ -18,8 +18,10 @@ import java.time.Instant;
 import java.util.List;
 
 /**
- * Sends one "homework due soon" email. Re-reads the current state at send time and stays silent when there is nothing to
- * tell any more: the assignment is gone, its quiz was unpublished, its deadline has passed, the student is erased or left the class, or has handed
+ * Sends one "homework due soon" email, with the deadline the student works to: their own one when the teacher gave them
+ * one (V57), else the class one. Re-reads the current state at send time and stays silent when there is nothing to
+ * tell any more: the assignment is gone, its quiz was unpublished, that deadline has passed, the student is excused,
+ * erased, left the class or is not one of a catch-up homework's students, or has handed
  * in since the reminder was queued. A parent's copy also needs a parent still linked (and not erased) at send time. A mail failure throws, so the dispatcher backs off and retries.
  */
 @Component
@@ -29,6 +31,7 @@ public class AssignmentReminderEmailHandler implements OutboxHandler {
 
     private final OutboxPayloadCodec codec;
     private final AssignmentRepository assignmentRepository;
+    private final AssignmentOverrideRepository overrideRepository;
     private final UserRepository userRepository;
     private final EnrollmentRepository enrollmentRepository;
     private final QuizAttemptRepository attemptRepository;
@@ -36,10 +39,12 @@ public class AssignmentReminderEmailHandler implements OutboxHandler {
     private final Clock clock;
 
     public AssignmentReminderEmailHandler(OutboxPayloadCodec codec, AssignmentRepository assignmentRepository,
+                                          AssignmentOverrideRepository overrideRepository,
                                           UserRepository userRepository, EnrollmentRepository enrollmentRepository,
                                           QuizAttemptRepository attemptRepository, EmailService emailService, Clock clock) {
         this.codec = codec;
         this.assignmentRepository = assignmentRepository;
+        this.overrideRepository = overrideRepository;
         this.userRepository = userRepository;
         this.enrollmentRepository = enrollmentRepository;
         this.attemptRepository = attemptRepository;
@@ -57,10 +62,13 @@ public class AssignmentReminderEmailHandler implements OutboxHandler {
         AssignmentReminderPayload event = codec.deserialize(payload, AssignmentReminderPayload.class);
         Assignment assignment = assignmentRepository.findByIdFetched(event.assignmentId()).orElse(null);
         User student = userRepository.findById(event.studentId()).orElse(null);
-        if (assignment == null || student == null || student.isErased()
+        AssignmentOverride override = assignment == null || student == null ? null
+                : overrideRepository.findOne(assignment.getId(), student.getId()).orElse(null);
+        if (assignment == null || student == null || student.isErased() || !assignment.isFor(student.getId())
                 || !enrollmentRepository.existsByStudentIdAndSchoolClassId(student.getId(), assignment.getSchoolClass().getId())
                 || assignment.getQuiz().getStatus() != QuizStatus.PUBLISHED
-                || assignment.isOverdue(Instant.now(clock))) {
+                || AssignmentOverride.isExcused(override)
+                || Instant.now(clock).isAfter(AssignmentOverride.dueAtFor(assignment, override))) {
             log.info("Reminder for assignment {} / student {} skipped: nothing left to remind",
                     event.assignmentId(), event.studentId());
             return;
@@ -80,10 +88,10 @@ public class AssignmentReminderEmailHandler implements OutboxHandler {
                 return;
             }
             emailService.sendAssignmentReminderToParent(parent.getEmail(), student.getFullName(),
-                    assignment.getQuiz().getTitle(), assignment.getDueAt(), student.getId());
+                    assignment.getQuiz().getTitle(), AssignmentOverride.dueAtFor(assignment, override), student.getId());
             return;
         }
         emailService.sendAssignmentReminder(student.getEmail(), student.getFullName(), assignment.getQuiz().getTitle(),
-                assignment.getDueAt(), assignment.getQuiz().getId());
+                AssignmentOverride.dueAtFor(assignment, override), assignment.getQuiz().getId());
     }
 }
