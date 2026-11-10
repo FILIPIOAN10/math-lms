@@ -16,11 +16,16 @@ public interface AssignmentRepository extends JpaRepository<Assignment, Long> {
     /** Whether the quiz is already whole-class homework of the class (catch-up homework does not count). */
     boolean existsByQuizIdAndSchoolClassIdAndCatchUpFalse(Long quizId, Long schoolClassId);
 
-    /** Every assignment with its quiz and class loaded (open-in-view is off), the next deadline first. */
-    @Query("select a from Assignment a join fetch a.quiz join fetch a.schoolClass order by a.dueAt desc")
+    /**
+     * Every assignment with its quiz, class and catch-up students loaded in this one query (open-in-view is off), the
+     * latest deadline first - the homework list reads all three for each row.
+     */
+    @Query("select a from Assignment a join fetch a.quiz join fetch a.schoolClass left join fetch a.studentIds"
+            + " order by a.dueAt desc")
     List<Assignment> findAllFetched();
 
-    @Query("select a from Assignment a join fetch a.quiz join fetch a.schoolClass where a.id = :id")
+    @Query("select a from Assignment a join fetch a.quiz join fetch a.schoolClass left join fetch a.studentIds"
+            + " where a.id = :id")
     Optional<Assignment> findByIdFetched(@Param("id") Long id);
 
     /** The assignments of the given classes, quiz and class loaded - what a student's homework list is built from. */

@@ -80,6 +80,16 @@ public interface QuizAttemptRepository extends JpaRepository<QuizAttempt, Long> 
                                         @Param("studentIds") java.util.Collection<Long> studentIds,
                                         @Param("since") Instant since);
 
+    /**
+     * {@link #findForAssignment} for several quizzes in one query - the homework list's progress. {@code since} is the
+     * earliest homework's creation: each homework's own start is applied in memory (see AssignmentProgress).
+     */
+    @Query("select a from QuizAttempt a join fetch a.student where a.quiz.id in :quizIds and a.student.id in :studentIds"
+            + " and a.mode = ro.mathlms.quiz.AttemptMode.TEST and a.startedAt >= :since")
+    List<QuizAttempt> findForAssignments(@Param("quizIds") java.util.Collection<Long> quizIds,
+                                         @Param("studentIds") java.util.Collection<Long> studentIds,
+                                         @Param("since") Instant since);
+
     /** One student's attempts at several quizzes, quiz loaded - what their homework list is built from. */
     @EntityGraph(attributePaths = "quiz")
     List<QuizAttempt> findByStudentIdAndQuizIdIn(Long studentId, java.util.Collection<Long> quizIds);

@@ -32,6 +32,7 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Set;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -283,9 +284,9 @@ class AssignmentServiceTest {
         User cris = student(3L, "Cris Rus");
         User dan = student(4L, "Dan Stan");
         when(assignmentRepository.findAllFetched()).thenReturn(List.of(assignment));
-        when(enrollmentRepository.findBySchoolClassIdFetchStudent(5L))
+        when(enrollmentRepository.findBySchoolClassIdInFetchStudent(Set.of(5L)))
                 .thenReturn(List.of(ana, bob, cris, dan).stream().map(s -> new Enrollment(s, ninth)).toList());
-        when(attemptRepository.findForAssignment(eq(10L), any(), eq(assignment.getCreatedAt())))
+        when(attemptRepository.findForAssignments(eq(Set.of(10L)), any(), eq(assignment.getCreatedAt())))
                 .thenReturn(List.of(
                         attemptOf(ana, 100L, true, due.minus(Duration.ofHours(2))),
                         attemptOf(bob, 101L, true, due.plus(Duration.ofHours(1))),
@@ -638,9 +639,9 @@ class AssignmentServiceTest {
         User ana = student(1L, "Ana Pop");
         User bob = student(2L, "Bob Ionescu");
         when(assignmentRepository.findAllFetched()).thenReturn(List.of(assignment));
-        when(enrollmentRepository.findBySchoolClassIdFetchStudent(5L))
+        when(enrollmentRepository.findBySchoolClassIdInFetchStudent(Set.of(5L)))
                 .thenReturn(List.of(ana, bob).stream().map(s -> new Enrollment(s, ninth)).toList());
-        when(overrideRepository.findByAssignmentId(1L)).thenReturn(List.of(override(assignment, bob, null, true)));
+        when(overrideRepository.findByAssignmentIdIn(List.of(1L))).thenReturn(List.of(override(assignment, bob, null, true)));
 
         AssignmentSummaryDto summary = service.list().get(0);
 
@@ -781,6 +782,10 @@ class AssignmentServiceTest {
                 .thenReturn(List.of(attemptOf(ana, 100L, true, due.minus(Duration.ofHours(2)))));
 
         assertThat(service.status(1L)).extracting(StudentStatusDto::fullName).containsExactly("Ana Pop", "Cris Rus");
+        when(enrollmentRepository.findBySchoolClassIdInFetchStudent(Set.of(5L)))
+                .thenReturn(List.of(ana, bob, cris).stream().map(s -> new Enrollment(s, ninth)).toList());
+        when(attemptRepository.findForAssignments(eq(Set.of(10L)), any(), eq(assignment.getCreatedAt())))
+                .thenReturn(List.of(attemptOf(ana, 100L, true, due.minus(Duration.ofHours(2)))));
         AssignmentSummaryDto summary = service.list().get(0);
         assertThat(summary.enrolled()).isEqualTo(2);
         assertThat(summary.done()).isEqualTo(1);

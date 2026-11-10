@@ -238,15 +238,16 @@ public class AssignmentService {
         return assignment.getQuiz().getTitle() + " · " + assignment.getSchoolClass().getName();
     }
 
+    /** Every homework with its counts, from the same few queries however many there are (see {@link #summarise}). */
     @Transactional(readOnly = true)
     public List<AssignmentSummaryDto> list() {
-        return assignmentRepository.findAllFetched().stream().map(this::summarise).toList();
+        return summarise(assignmentRepository.findAllFetched());
     }
 
     @Transactional(readOnly = true)
     public AssignmentSummaryDto summaryOf(Long id) {
-        return summarise(assignmentRepository.findByIdFetched(id)
-                .orElseThrow(() -> new AssignmentNotFoundException("Nu există tema " + id)));
+        return summarise(List.of(assignmentRepository.findByIdFetched(id)
+                .orElseThrow(() -> new AssignmentNotFoundException("Nu există tema " + id)))).get(0);
     }
 
     /** Every enrolled student (erased accounts excluded) with how far they got, in roster order. */
@@ -414,17 +415,58 @@ public class AssignmentService {
                         AssignmentOverride.dueAtFor(assignment, overrides.get(s.getId())))));
     }
 
-    private AssignmentSummaryDto summarise(Assignment assignment) {
-        Map<Long, AssignmentOverride> overrides = overridesOf(assignment);
-        // An excused student is left out of every count: the homework does not count for them.
-        List<User> roster = rosterOf(assignment);
+    /**
+     * The summaries of these homeworks (with their quiz, class and catch-up students loaded) from three more queries
+     * however many there are - their exceptions, their classes' rosters, the attempts at their tests - not three for
+     * each one (audit M1, 2026-11-10: the teacher's Acasă reads every homework).
+     */
+    private List<AssignmentSummaryDto> summarise(List<Assignment> assignments) {
+        if (assignments.isEmpty()) {
+            return List.of();
+        }
+        Map<Long, Map<Long, AssignmentOverride>> overrides = overrideRepository
+                .findByAssignmentIdIn(assignments.stream().map(Assignment::getId).toList()).stream()
+                .collect(Collectors.groupingBy(o -> o.getAssignment().getId(),
+                        Collectors.toMap(o -> o.getStudent().getId(), o -> o)));
+        Map<Long, List<User>> rosters = enrollmentRepository
+                .findBySchoolClassIdInFetchStudent(assignments.stream().map(a -> a.getSchoolClass().getId())
+                        .collect(Collectors.toSet())).stream()
+                .map(e -> Map.entry(e.getSchoolClass().getId(), e.getStudent()))
+                .filter(e -> !e.getValue().isErased())
+                .collect(Collectors.groupingBy(Map.Entry::getKey,
+                        Collectors.mapping(Map.Entry::getValue, Collectors.toList())));
+        Set<Long> studentIds = rosters.values().stream().flatMap(List::stream).map(User::getId)
+                .collect(Collectors.toSet());
+        Map<Long, Map<Long, List<QuizAttempt>>> attempts = studentIds.isEmpty() ? Map.of() : attemptRepository
+                .findForAssignments(assignments.stream().map(a -> a.getQuiz().getId()).collect(Collectors.toSet()),
+                        studentIds,
+                        assignments.stream().map(Assignment::getCreatedAt).min(Comparator.naturalOrder()).orElseThrow())
+                .stream()
+                .collect(Collectors.groupingBy(a -> a.getQuiz().getId(),
+                        Collectors.groupingBy(a -> a.getStudent().getId())));
+        Instant now = Instant.now(clock);
+        return assignments.stream()
+                .map(a -> summarise(a, rosters.getOrDefault(a.getSchoolClass().getId(), List.of()),
+                        overrides.getOrDefault(a.getId(), Map.of()),
+                        attempts.getOrDefault(a.getQuiz().getId(), Map.of()), now))
+                .toList();
+    }
+
+    /** One homework's counts from its class roster, its exceptions and its quiz's attempts by student. */
+    private static AssignmentSummaryDto summarise(Assignment assignment, List<User> classRoster,
+                                                  Map<Long, AssignmentOverride> overrides,
+                                                  Map<Long, List<QuizAttempt>> attemptsByStudent, Instant now) {
+        // Catch-up homework counts only its chosen students; an excused student is left out of every count.
+        List<User> roster = classRoster.stream().filter(s -> assignment.isFor(s.getId())).toList();
         List<User> students = roster.stream()
                 .filter(s -> !AssignmentOverride.isExcused(overrides.get(s.getId())))
                 .toList();
         int excused = roster.size() - students.size();
-        Map<Long, AssignmentProgress> progress = progressOf(assignment, students, overrides);
         int done = 0, late = 0, inProgress = 0, notStarted = 0;
-        for (AssignmentProgress p : progress.values()) {
+        for (User student : students) {
+            AssignmentProgress p = AssignmentProgress.of(assignment,
+                    attemptsByStudent.getOrDefault(student.getId(), List.of()),
+                    AssignmentOverride.dueAtFor(assignment, overrides.get(student.getId())));
             if (p.isDone()) {
                 done++;
                 if (p.late()) {
@@ -438,7 +480,7 @@ public class AssignmentService {
         }
         return new AssignmentSummaryDto(assignment.getId(), assignment.getQuiz().getId(), assignment.getQuiz().getTitle(),
                 assignment.getSchoolClass().getId(), assignment.getSchoolClass().getName(), assignment.getDueAt(),
-                assignment.isOverdue(Instant.now(clock)), students.size(), done, late, inProgress, notStarted, excused,
+                assignment.isOverdue(now), students.size(), done, late, inProgress, notStarted, excused,
                 assignment.getStudentIds().size());
     }
 }
