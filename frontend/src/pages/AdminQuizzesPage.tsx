@@ -2,6 +2,7 @@ import { Fragment, useEffect, useMemo, useRef, useState, type ClipboardEvent, ty
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { ErrorState } from '@/components/ErrorState'
+import { ShuffleSwitches } from '@/components/ShuffleSwitches'
 import { Card, CardContent } from '@/components/ui/card'
 import { Dialog } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -1202,6 +1203,7 @@ export function AdminQuizzesPage() {
               />
 
               {notice && <PublishedNotice notice={notice} onClose={() => setNotice(null)} />}
+              {quiz.items.length > 1 && <ShuffleSwitches key={quiz.id} quizId={quiz.id} />}
               {quiz.taken && (
                 <div data-testid="quiz-taken"
                      className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">

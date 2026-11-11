@@ -19,6 +19,8 @@ import ro.mathlms.quiz.AdminAttemptDtos.AdminAttemptSummaryDto;
 import ro.mathlms.quiz.StudentQuizDtos.ItemResultDto;
 import ro.mathlms.quiz.StudentQuizDtos.MyAttemptDto;
 import ro.mathlms.quiz.StudentQuizDtos.StartedAttemptDto;
+import ro.mathlms.quiz.StudentQuizDtos.StudentItemDto;
+import ro.mathlms.quiz.StudentQuizDtos.StudentOptionDto;
 import ro.mathlms.storage.FileService;
 import ro.mathlms.user.Role;
 import ro.mathlms.user.User;
@@ -200,6 +202,49 @@ class QuizAttemptServiceTest {
 
         assertThat(service.listPublished(EMAIL)).containsExactly(quiz, forTheirClass);
         verify(quizRepository, never()).findByStatusAndSchoolClassIsNullOrderByTitle(any());
+    }
+
+    @Test
+    void aQuizGivenOnlyByHomeworkScheduledForLaterIsNeitherListedNorStartable() {
+        Quiz scheduled = assignedTo(published(withId(new Quiz("Teza de vineri", null), 12L)), 5L);
+        when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(student));
+        when(enrollmentRepository.findClassIdsByStudentId(1L)).thenReturn(List.of(5L));
+        when(quizRepository.findVisibleToClasses(QuizStatus.PUBLISHED, List.of(5L)))
+                .thenReturn(List.of(quiz, scheduled));
+        when(quizRepository.findNotYetReleasedQuizIds(eq(List.of(5L)), eq(1L), any())).thenReturn(List.of(12L));
+        when(quizRepository.findById(12L)).thenReturn(Optional.of(scheduled));
+        when(enrollmentRepository.existsByStudentIdAndSchoolClassId(1L, 5L)).thenReturn(true);
+
+        assertThat(service.listPublished(EMAIL)).containsExactly(quiz);
+        // 404 like any quiz the student may not see: the id must not confirm a test is coming
+        assertThatThrownBy(() -> service.startAttempt(12L, EMAIL)).isInstanceOf(QuizNotFoundException.class);
+        assertThatThrownBy(() -> service.getPreview(12L, EMAIL)).isInstanceOf(QuizNotFoundException.class);
+        verify(attemptRepository, never()).save(any());
+    }
+
+    @Test
+    void aShuffledTestComesBackInTheAttemptsOwnOrderTheSameOnEveryResume() {
+        quiz.shuffle(true, true);
+        List<QuizItem> items = java.util.stream.LongStream.rangeClosed(1, 8).mapToObj(id -> singleChoice(id, 1)).toList();
+        List<QuizOption> options = java.util.stream.IntStream.rangeClosed(1, 5)
+                .mapToObj(n -> withId(new QuizOption(items.get(0), n, "o" + n, n == 1), 100L + n)).toList();
+        when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(student));
+        when(quizRepository.findById(10L)).thenReturn(Optional.of(quiz));
+        when(attemptRepository.findByQuizIdAndStudentIdAndStatusAndMode(10L, 1L, QuizAttemptStatus.IN_PROGRESS, AttemptMode.TEST))
+                .thenReturn(Optional.empty());
+        when(attemptRepository.save(any(QuizAttempt.class))).thenAnswer(i -> withId(i.getArgument(0), 60L));
+        when(itemRepository.findByQuizIdOrderByPosition(10L)).thenReturn(items);
+        when(optionRepository.findByItemIdInOrderByItemIdAscPositionAsc(any())).thenReturn(options);
+
+        StartedAttemptDto first = service.startAttempt(10L, EMAIL);
+        List<Long> order = first.quiz().items().stream().map(StudentItemDto::id).toList();
+        List<Long> optionOrder = first.quiz().items().stream().filter(i -> i.id() == 1L).findFirst().orElseThrow()
+                .options().stream().map(StudentOptionDto::id).toList();
+
+        assertThat(order).containsExactlyInAnyOrder(1L, 2L, 3L, 4L, 5L, 6L, 7L, 8L).isNotEqualTo(List.of(1L, 2L, 3L, 4L, 5L, 6L, 7L, 8L));
+        assertThat(optionOrder).containsExactlyInAnyOrder(101L, 102L, 103L, 104L, 105L);
+        assertThat(AttemptOrder.items(withId(new QuizAttempt(quiz, student, java.time.Instant.now()), 60L), items))
+                .extracting(QuizItem::getId).containsExactlyElementsOf(order); // a resume reopens the same order
     }
 
     @Test

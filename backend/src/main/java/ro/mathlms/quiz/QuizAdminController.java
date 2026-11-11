@@ -54,6 +54,25 @@ public class QuizAdminController {
         return service.getQuizDetail(id);
     }
 
+    /** The shuffle switches of one test: questions (within each section) and the options of each grilă. */
+    public record ShuffleDto(boolean items, boolean options) {
+    }
+
+    @GetMapping("/api/admin/quizzes/{id}/shuffle")
+    public ShuffleDto shuffle(@PathVariable Long id) {
+        scope.requireQuiz(id);
+        Quiz quiz = service.getQuiz(id);
+        return new ShuffleDto(quiz.isShuffleItems(), quiz.isShuffleOptions());
+    }
+
+    /** Decides the attempts started from now on; one already open keeps its order. */
+    @PutMapping("/api/admin/quizzes/{id}/shuffle")
+    public ShuffleDto setShuffle(@PathVariable Long id, @RequestBody ShuffleDto request) {
+        scope.requireQuiz(id);
+        Quiz quiz = service.setShuffle(id, request.items(), request.options());
+        return new ShuffleDto(quiz.isShuffleItems(), quiz.isShuffleOptions());
+    }
+
     @PostMapping("/api/admin/quizzes")
     public ResponseEntity<QuizSummaryDto> create(@Valid @RequestBody QuizRequest request) {
         Quiz created = service.createQuiz(request.title(), request.description(), request.schoolClassId(),

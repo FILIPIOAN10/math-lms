@@ -1185,6 +1185,23 @@ export async function setAutoProposals(quizId: number, auto: boolean): Promise<A
   return response.json()
 }
 
+/** A test's shuffle switches: questions (within each section) and the options of each grilă, per student. */
+export interface ShuffleSettings {
+  items: boolean
+  options: boolean
+}
+
+export async function getShuffle(quizId: number): Promise<ShuffleSettings> {
+  const response = await apiFetch(`/admin/quizzes/${quizId}/shuffle`)
+  return response.json()
+}
+
+/** Decides the attempts started from now on; one already open keeps its order. */
+export async function setShuffle(quizId: number, settings: ShuffleSettings): Promise<ShuffleSettings> {
+  const response = await putJson(`/admin/quizzes/${quizId}/shuffle`, settings)
+  return response.json()
+}
+
 export async function getAiGradingSettings(): Promise<AiGradingSettings> {
   const response = await apiFetch('/admin/ai-grading/settings')
   return response.json()

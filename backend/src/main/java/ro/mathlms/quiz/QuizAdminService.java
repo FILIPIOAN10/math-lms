@@ -118,6 +118,17 @@ public class QuizAdminService {
         return QuizDetailDto.of(quiz, items, quizRepository.countAttempts(id) > 0);
     }
 
+    /**
+     * The shuffle switches (V65). Any time, even on a test students took: it decides only the attempts started from now
+     * on (each attempt keeps the order it began with), and grading never depends on the order.
+     */
+    @Transactional
+    public Quiz setShuffle(Long id, boolean items, boolean options) {
+        Quiz quiz = getQuiz(id);
+        quiz.shuffle(items, options);
+        return quizRepository.save(quiz);
+    }
+
     /** {@code schoolClassId} {@code null} = a quiz for every student. */
     @Transactional
     public Quiz createQuiz(String title, String description, Long schoolClassId, Integer timeLimitMinutes,
@@ -321,6 +332,7 @@ public class QuizAdminService {
         copy.changeTimeLimit(source.getTimeLimitMinutes());
         copy.allowPractice(source.isPracticeAllowed());
         copy.limitAttempts(source.getMaxAttempts());
+        copy.shuffle(source.isShuffleItems(), source.isShuffleOptions());
         copy.tagChapter(source.getChapter());
         copy.ownedBy(scope.currentUserId()); // the copy belongs to whoever made it
         Quiz saved = quizRepository.save(copy);

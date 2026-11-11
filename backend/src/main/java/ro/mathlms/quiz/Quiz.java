@@ -77,6 +77,14 @@ public class Quiz {
     @Column(name = "ai_auto_proposals", nullable = false)
     private boolean aiAutoProposals;
 
+    /** Each attempt gets the questions in an order of its own, within each section (V65). */
+    @Column(name = "shuffle_items", nullable = false)
+    private boolean shuffleItems;
+
+    /** Each attempt gets the options of each grilă in an order of its own (V65). */
+    @Column(name = "shuffle_options", nullable = false)
+    private boolean shuffleOptions;
+
     public static final int MAX_ATTEMPTS = 20;
 
     /** What a test made without the dialog starts with (from photos, from a chapter's exercises). */
@@ -121,6 +129,12 @@ public class Quiz {
             throw new IllegalArgumentException("maxAttempts must be between 1 and " + MAX_ATTEMPTS + ", was " + attempts);
         }
         this.maxAttempts = attempts;
+    }
+
+    /** Decides only attempts started from now on: an open one keeps the order it began with. */
+    public void shuffle(boolean items, boolean options) {
+        this.shuffleItems = items;
+        this.shuffleOptions = options;
     }
 
     public void autoProposeGrades(boolean on) {

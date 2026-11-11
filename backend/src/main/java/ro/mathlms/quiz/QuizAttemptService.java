@@ -713,8 +713,10 @@ public class QuizAttemptService {
         List<QuizItem> quizItems = itemRepository.findByQuizIdOrderByPosition(quiz.getId());
         Map<Long, List<QuizItemPart>> parts = partsOf(quizItems);
         Map<Long, List<QuizOption>> options = optionsOf(quizItems); // one query for the whole quiz, not one per question
-        List<StudentItemDto> items = quizItems.stream()
-                .map(item -> StudentItemDto.from(item, options.getOrDefault(item.getId(), List.of()),
+        // In this attempt's own order when the test is shuffled (answers are matched by id, so nothing else changes).
+        List<StudentItemDto> items = AttemptOrder.items(attempt, quizItems).stream()
+                .map(item -> StudentItemDto.from(item,
+                        AttemptOrder.options(attempt, item.getId(), options.getOrDefault(item.getId(), List.of())),
                         hintCounts.getOrDefault(item.getId(), 0), parts.getOrDefault(item.getId(), List.of())))
                 .toList();
         // A practice has no clock, so no extra time to show; a test shows the minutes this student really has.

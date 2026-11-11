@@ -78,6 +78,13 @@ public class QuizAttempt {
     @Column(name = "result_seen_at")
     private Instant resultSeenAt;
 
+    /** The quiz's shuffle switches as they were when the attempt started (V65); see {@link AttemptOrder}. */
+    @Column(name = "shuffle_items", nullable = false)
+    private boolean shuffleItems;
+
+    @Column(name = "shuffle_options", nullable = false)
+    private boolean shuffleOptions;
+
     public QuizAttempt(Quiz quiz, User student) {
         this(quiz, student, Instant.now());
     }
@@ -97,6 +104,8 @@ public class QuizAttempt {
         }
         this.student = student;
         this.startedAt = Objects.requireNonNull(startedAt, "startedAt");
+        this.shuffleItems = quiz.isShuffleItems();
+        this.shuffleOptions = quiz.isShuffleOptions();
         if (mode == AttemptMode.TEST && quiz.getTimeLimitMinutes() != null) { // a practice never has a clock
             // The student's own extra time (CES) is added here, once: everything after reads this deadline.
             this.deadlineAt = startedAt.plus(Duration.ofMinutes(
