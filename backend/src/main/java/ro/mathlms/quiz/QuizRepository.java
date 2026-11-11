@@ -32,7 +32,9 @@ public interface QuizRepository extends JpaRepository<Quiz, Long> {
      * {@link #findHomeworkGiven} for several students at once: when each quiz was last given as homework to each of them -
      * whole-class homework of one of their classes, or catch-up homework they were chosen for.
      */
-    @Query("select new ro.mathlms.quiz.StudentHomeworkGiven(e.student.id, a.quiz.id, max(a.createdAt))"
+    // A homework scheduled for later counts too: a retake is coming, so the answer key stays hidden meanwhile.
+    @Query("select new ro.mathlms.quiz.StudentHomeworkGiven(e.student.id, a.quiz.id,"
+            + " max(coalesce(a.availableFrom, a.createdAt)))"
             + " from Enrollment e, Assignment a"
             + " where a.schoolClass.id = e.schoolClass.id and e.student.id in :studentIds"
             + " and (a.catchUp = false or e.student.id member of a.studentIds)"
@@ -74,11 +76,22 @@ public interface QuizRepository extends JpaRepository<Quiz, Long> {
      * When each quiz was last given as homework to this student in one of these classes (not an empty list, see below):
      * whole-class homework, or catch-up homework they were chosen for - never one given to other students of the class.
      */
-    @Query("select new ro.mathlms.quiz.HomeworkGiven(a.quiz.id, max(a.createdAt)) from Assignment a"
-            + " where a.schoolClass.id in :classIds"
-            + " and (a.catchUp = false or :studentId member of a.studentIds) group by a.quiz.id")
+    @Query("select new ro.mathlms.quiz.HomeworkGiven(a.quiz.id, max(coalesce(a.availableFrom, a.createdAt)))"
+            + " from Assignment a where a.schoolClass.id in :classIds"
+            + " and (a.catchUp = false or :studentId member of a.studentIds)"
+            + " and coalesce(a.availableFrom, a.createdAt) <= :now group by a.quiz.id")
     List<HomeworkGiven> findHomeworkGiven(@Param("classIds") Collection<Long> classIds,
-                                          @Param("studentId") Long studentId);
+                                          @Param("studentId") Long studentId, @Param("now") Instant now);
+
+    /**
+     * Quizzes this student of {@code classIds} may not see yet: every homework giving them the quiz is scheduled for
+     * later (V64). A quiz they already had through an earlier homework stays visible. Not an empty list (see below).
+     */
+    @Query("select a.quiz.id from Assignment a where a.schoolClass.id in :classIds"
+            + " and (a.catchUp = false or :studentId member of a.studentIds)"
+            + " group by a.quiz.id having min(coalesce(a.availableFrom, a.createdAt)) > :now")
+    List<Long> findNotYetReleasedQuizIds(@Param("classIds") Collection<Long> classIds,
+                                         @Param("studentId") Long studentId, @Param("now") Instant now);
 
     /** Classes this quiz is homework for, other than {@code classId}: moving the quiz there would strand them. */
     @Query("select a.schoolClass.name from Assignment a where a.quiz.id = :quizId and a.schoolClass.id <> :classId"

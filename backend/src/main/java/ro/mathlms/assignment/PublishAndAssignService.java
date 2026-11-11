@@ -24,7 +24,16 @@ public class PublishAndAssignService {
 
     @Transactional
     public Assignment publishAndAssign(Long quizId, Long schoolClassId, Instant dueAt) {
+        return publishAndAssign(quizId, schoolClassId, dueAt, null);
+    }
+
+    /**
+     * The same with a scheduled release: the quiz is published now, but a test given only by this homework stays hidden
+     * from the class until {@code availableFrom} ("prepare Friday's test on Tuesday").
+     */
+    @Transactional
+    public Assignment publishAndAssign(Long quizId, Long schoolClassId, Instant dueAt, Instant availableFrom) {
         quizAdminService.setPublished(quizId, true); // refuses a quiz without questions
-        return assignmentService.create(quizId, schoolClassId, dueAt);
+        return assignmentService.create(quizId, schoolClassId, dueAt, availableFrom);
     }
 }

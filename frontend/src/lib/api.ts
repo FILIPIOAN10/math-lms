@@ -2005,6 +2005,8 @@ export interface AssignmentSummary {
   excused: number
   /** Catch-up homework: how many students it was given to; 0 = the whole class. */
   forStudents: number
+  /** Scheduled: hidden from its students until then. Null = they can see it. */
+  availableFrom: string | null
 }
 
 /** One student's row in the teacher's per-assignment status. */
@@ -2039,6 +2041,8 @@ export interface StudentAssignment {
   timeLimitMinutes: number | null
   /** Excused: only the teacher's page for one student lists it unless handed in. `dueAt` is already the student's own. */
   excused: boolean
+  /** Not released yet: only the teacher's page for one student lists it. Null = the student can see it. */
+  availableFrom?: string | null
 }
 
 export interface AssignmentInput {
@@ -2047,6 +2051,8 @@ export interface AssignmentInput {
   schoolClassIds: number[]
   /** ISO instant. */
   dueAt: string
+  /** Scheduled release (ISO instant): hidden from the students until then. Absent/null = now. */
+  availableFrom?: string | null
 }
 
 export async function listAssignments(): Promise<AssignmentSummary[]> {
@@ -2060,7 +2066,7 @@ export async function listAssignments(): Promise<AssignmentSummary[]> {
  */
 export async function publishAndAssign(
   quizId: number,
-  input: { schoolClassId: number; dueAt: string },
+  input: { schoolClassId: number; dueAt: string; availableFrom?: string | null },
 ): Promise<AssignmentSummary> {
   const response = await postJson(`/admin/quizzes/${quizId}/publish-and-assign`, input)
   return response.json()
@@ -2087,6 +2093,12 @@ export async function createCatchUpAssignment(input: {
 /** Moves the deadline; the quiz and class of an assignment never change. */
 export async function rescheduleAssignment(id: number, dueAt: string): Promise<AssignmentSummary> {
   const response = await putJson(`/admin/assignments/${id}`, { dueAt })
+  return response.json()
+}
+
+/** Moves a scheduled homework's release, or (null) gives it to the students now. Refused once they can see it. */
+export async function setAssignmentRelease(id: number, availableFrom: string | null): Promise<AssignmentSummary> {
+  const response = await putJson(`/admin/assignments/${id}/release`, { availableFrom })
   return response.json()
 }
 

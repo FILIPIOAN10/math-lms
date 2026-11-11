@@ -149,7 +149,10 @@ public class QuizAttemptService {
         if (classIds.isEmpty()) {
             return quizRepository.findByStatusAndSchoolClassIsNullOrderByTitle(QuizStatus.PUBLISHED);
         }
-        return quizRepository.findVisibleToClasses(QuizStatus.PUBLISHED, classIds);
+        Set<Long> notYet = Set.copyOf(quizRepository.findNotYetReleasedQuizIds(classIds, student.getId(), Instant.now(clock)));
+        return quizRepository.findVisibleToClasses(QuizStatus.PUBLISHED, classIds).stream()
+                .filter(quiz -> !notYet.contains(quiz.getId()))
+                .toList();
     }
 
     /** The quizzes on the student's list, each with the attempts used and whether another one may start. */
@@ -186,14 +189,23 @@ public class QuizAttemptService {
         if (classIds.isEmpty()) {
             return Map.of();
         }
-        return quizRepository.findHomeworkGiven(classIds, student.getId()).stream()
+        return quizRepository.findHomeworkGiven(classIds, student.getId(), Instant.now(clock)).stream()
                 .collect(Collectors.toMap(HomeworkGiven::quizId, HomeworkGiven::givenAt));
     }
 
-    /** A quiz is open to everyone unless assigned to a class — then only to that class's students. */
+    /**
+     * A quiz is open to everyone unless assigned to a class — then only to that class's students — and never while the
+     * only homework giving it to the student is scheduled for later (V64).
+     */
     private boolean isVisibleTo(Quiz quiz, User student) {
-        return quiz.getSchoolClass() == null
+        boolean inClass = quiz.getSchoolClass() == null
                 || enrollmentRepository.existsByStudentIdAndSchoolClassId(student.getId(), quiz.getSchoolClass().getId());
+        if (!inClass) {
+            return false;
+        }
+        List<Long> classIds = enrollmentRepository.findClassIdsByStudentId(student.getId());
+        return classIds.isEmpty()
+                || !quizRepository.findNotYetReleasedQuizIds(classIds, student.getId(), Instant.now(clock)).contains(quiz.getId());
     }
 
     /**

@@ -13,20 +13,27 @@ public final class AssignmentDtos {
     private AssignmentDtos() {
     }
 
-    public record AssignmentRequest(@NotNull Long quizId, @NotNull Long schoolClassId, @NotNull Instant dueAt) {
+    /** {@code availableFrom}, in every create request: the scheduled release, null/absent = visible now. */
+    public record AssignmentRequest(@NotNull Long quizId, @NotNull Long schoolClassId, @NotNull Instant dueAt,
+                                    Instant availableFrom) {
     }
 
     public record RescheduleRequest(@NotNull Instant dueAt) {
     }
 
+    /** Moves a scheduled homework's release; null = give it to the students now. */
+    public record ReleaseRequest(Instant availableFrom) {
+    }
+
     /** One quiz given to several classes at once, each with the same deadline. */
     public record MultiClassAssignmentRequest(@NotNull Long quizId, @NotEmpty List<@NotNull Long> schoolClassIds,
-                                              @NotNull Instant dueAt) {
+                                              @NotNull Instant dueAt, Instant availableFrom) {
     }
 
     /** Catch-up homework: one quiz for some students of one class (e.g. the ones weak on a chapter). */
     public record StudentsAssignmentRequest(@NotNull Long quizId, @NotNull Long schoolClassId,
-                                            @NotEmpty List<@NotNull Long> studentIds, @NotNull Instant dueAt) {
+                                            @NotEmpty List<@NotNull Long> studentIds, @NotNull Instant dueAt,
+                                            Instant availableFrom) {
     }
 
     /**
@@ -37,7 +44,7 @@ public final class AssignmentDtos {
     }
 
     /** T3: the class and deadline of the homework given together with publishing (the quiz is in the path). */
-    public record PublishAndAssignRequest(@NotNull Long schoolClassId, @NotNull Instant dueAt) {
+    public record PublishAndAssignRequest(@NotNull Long schoolClassId, @NotNull Instant dueAt, Instant availableFrom) {
     }
 
     /** One assignment as the teacher's list shows it, with how the class is doing. */
@@ -55,7 +62,8 @@ public final class AssignmentDtos {
             int inProgress,
             int notStarted,
             int excused,     // left out of every count above: the homework does not count for them
-            int forStudents  // catch-up homework: how many students it was given to; 0 = the whole class
+            int forStudents, // catch-up homework: how many students it was given to; 0 = the whole class
+            Instant availableFrom // scheduled and still hidden from its students until then; null = visible
     ) {
     }
 
@@ -85,7 +93,8 @@ public final class AssignmentDtos {
             boolean overdue,  // deadline passed and not handed in yet
             Long attemptId,   // the open attempt to continue, or the handed-in one whose result to read
             Integer timeLimitMinutes,
-            boolean excused   // the homework does not count for this student (only the teacher's view lists it)
+            boolean excused,  // the homework does not count for this student (only the teacher's view lists it)
+            Instant availableFrom // not released yet (only the teacher's view lists it); null = visible
     ) {
     }
 }

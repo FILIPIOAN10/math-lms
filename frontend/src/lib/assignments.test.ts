@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { assignmentBadge, dueCountdown, isHandedIn, isoToLocalInput, localInputToIso } from './assignments'
+import { assignmentBadge, dueCountdown, isHandedIn, isoToLocalInput, localInputToIso, releaseOf } from './assignments'
 
 const HOUR = 3_600_000
 const DAY = 24 * HOUR
@@ -83,5 +83,24 @@ describe('date input conversion', () => {
 
   it('produces an ISO instant the server can parse', () => {
     expect(localInputToIso('2026-10-12T18:00')).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/)
+  })
+})
+
+describe('releaseOf', () => {
+  const now = Date.parse('2026-11-11T10:00:00Z')
+  const due = '2026-11-15T18:00:00.000Z'
+
+  it('is no release when nothing is scheduled', () => {
+    expect(releaseOf('', due, now)).toEqual({ iso: null })
+  })
+
+  it('takes a moment between now and the deadline', () => {
+    const local = isoToLocalInput('2026-11-13T06:00:00Z')
+    expect(releaseOf(local, due, now)).toEqual({ iso: new Date(local).toISOString() })
+  })
+
+  it('refuses a moment already past, or not before the deadline', () => {
+    expect(releaseOf(isoToLocalInput('2026-11-10T06:00:00Z'), due, now)).toEqual({ error: 'Data la care apare tema trebuie să fie în viitor.' })
+    expect(releaseOf(isoToLocalInput(due), due, now)).toEqual({ error: 'Tema trebuie să apară înainte de termen.' })
   })
 })

@@ -34,6 +34,7 @@ import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -87,17 +88,28 @@ public class AssignmentService {
      */
     @Transactional
     public Assignment create(Long quizId, Long schoolClassId, Instant dueAt) {
-        Assignment saved = assignmentRepository.save(build(quizId, schoolClassId, dueAt, false));
+        return create(quizId, schoolClassId, dueAt, null);
+    }
+
+    /** The same, released only at {@code availableFrom} (null = now): see {@link #requireRelease}. */
+    @Transactional
+    public Assignment create(Long quizId, Long schoolClassId, Instant dueAt, Instant availableFrom) {
+        Assignment saved = assignmentRepository.save(build(quizId, schoolClassId, dueAt, false, availableFrom));
         auditLog.record(AuditEvent.of(AuditAction.HOMEWORK_ASSIGNED, saved.getId(), label(saved))
-                .details("termen " + AuditText.dateTime(dueAt)));
+                .details("termen " + AuditText.dateTime(dueAt) + released(availableFrom)));
         return saved;
+    }
+
+    /** ", apare 14.11.2026 08:00" for the journal when the homework is scheduled, else nothing. */
+    private static String released(Instant availableFrom) {
+        return availableFrom == null ? "" : ", apare " + AuditText.dateTime(availableFrom);
     }
 
     /**
      * A new, unsaved homework after every check of {@link #create}. A catch-up one skips "already given to this class":
      * re-giving a test the class had is what it is for.
      */
-    private Assignment build(Long quizId, Long schoolClassId, Instant dueAt, boolean catchUp) {
+    private Assignment build(Long quizId, Long schoolClassId, Instant dueAt, boolean catchUp, Instant availableFrom) {
         Quiz quiz = quizRepository.findById(quizId).orElseThrow(() -> new QuizNotFoundException("Quiz", quizId));
         SchoolClass schoolClass = schoolClassRepository.findById(schoolClassId)
                 .orElseThrow(() -> new QuizNotFoundException("SchoolClass", schoolClassId));
@@ -111,7 +123,23 @@ public class AssignmentService {
         if (!catchUp && assignmentRepository.existsByQuizIdAndSchoolClassIdAndCatchUpFalse(quizId, schoolClassId)) {
             throw new AssignmentConflictException("Testul este deja dat ca temă acestei clase — modifică termenul");
         }
-        return new Assignment(quiz, schoolClass, dueAt, Instant.now(clock));
+        requireRelease(availableFrom, dueAt);
+        Assignment assignment = new Assignment(quiz, schoolClass, dueAt, Instant.now(clock));
+        assignment.scheduleRelease(availableFrom);
+        return assignment;
+    }
+
+    /** A scheduled release must be in the future (else it is simply "now") and before the deadline. */
+    private void requireRelease(Instant availableFrom, Instant dueAt) {
+        if (availableFrom == null) {
+            return;
+        }
+        if (!availableFrom.isAfter(Instant.now(clock))) {
+            throw new InvalidAssignmentException("Data de la care apare tema trebuie să fie în viitor");
+        }
+        if (!availableFrom.isBefore(dueAt)) {
+            throw new InvalidAssignmentException("Tema trebuie să apară înainte de termen");
+        }
     }
 
     /**
@@ -121,11 +149,17 @@ public class AssignmentService {
      */
     @Transactional
     public List<Assignment> createForClasses(Long quizId, List<Long> schoolClassIds, Instant dueAt) {
+        return createForClasses(quizId, schoolClassIds, dueAt, null);
+    }
+
+    @Transactional
+    public List<Assignment> createForClasses(Long quizId, List<Long> schoolClassIds, Instant dueAt,
+                                             Instant availableFrom) {
         List<Long> ids = schoolClassIds == null ? List.of() : schoolClassIds.stream().distinct().toList();
         if (ids.isEmpty()) {
             throw new InvalidAssignmentException("Alege cel puțin o clasă");
         }
-        return ids.stream().map(classId -> create(quizId, classId, dueAt)).toList();
+        return ids.stream().map(classId -> create(quizId, classId, dueAt, availableFrom)).toList();
     }
 
     /**
@@ -136,6 +170,12 @@ public class AssignmentService {
      */
     @Transactional
     public Assignment createForStudents(Long quizId, Long schoolClassId, List<Long> studentIds, Instant dueAt) {
+        return createForStudents(quizId, schoolClassId, studentIds, dueAt, null);
+    }
+
+    @Transactional
+    public Assignment createForStudents(Long quizId, Long schoolClassId, List<Long> studentIds, Instant dueAt,
+                                        Instant availableFrom) {
         List<Long> ids = studentIds == null ? List.of() : studentIds.stream().distinct().toList();
         if (ids.isEmpty()) {
             throw new InvalidAssignmentException("Alege cel puțin un elev");
@@ -148,11 +188,11 @@ public class AssignmentService {
         if (!roster.containsAll(ids)) {
             throw new InvalidAssignmentException("Unii dintre elevii aleși nu sunt în clasă");
         }
-        Assignment assignment = build(quizId, schoolClassId, dueAt, true);
+        Assignment assignment = build(quizId, schoolClassId, dueAt, true, availableFrom);
         assignment.restrictTo(ids);
         Assignment saved = assignmentRepository.save(assignment);
         auditLog.record(AuditEvent.of(AuditAction.HOMEWORK_ASSIGNED, saved.getId(), label(saved))
-                .details("termen " + AuditText.dateTime(dueAt) + ", doar pentru " + ids.size()
+                .details("termen " + AuditText.dateTime(dueAt) + released(availableFrom) + ", doar pentru " + ids.size()
                         + (ids.size() == 1 ? " elev" : " elevi")));
         return saved;
     }
@@ -161,12 +201,38 @@ public class AssignmentService {
     public Assignment reschedule(Long id, Instant dueAt) {
         Assignment assignment = require(id);
         requireFuture(dueAt);
+        if (assignment.getAvailableFrom() != null && !assignment.getAvailableFrom().isBefore(dueAt)) {
+            throw new InvalidAssignmentException("Termenul trebuie să fie după data la care apare tema");
+        }
         Instant before = assignment.getDueAt();
         assignment.reschedule(dueAt);
         Assignment saved = assignmentRepository.save(assignment);
         if (!before.equals(dueAt)) {
             auditLog.record(AuditEvent.of(AuditAction.HOMEWORK_RESCHEDULED, id, label(assignment))
                     .details("termen " + AuditText.dateTime(before) + " → " + AuditText.dateTime(dueAt)));
+        }
+        return saved;
+    }
+
+    /**
+     * Moves a scheduled homework's release, or gives it now ({@code availableFrom} null). Only while it is still hidden:
+     * students who already saw it must not have it taken away again. One journal row per real change.
+     */
+    @Transactional
+    public Assignment setRelease(Long id, Instant availableFrom) {
+        Assignment assignment = require(id);
+        Instant now = Instant.now(clock);
+        if (assignment.isOpen(now)) {
+            throw new InvalidAssignmentException("Tema e deja vizibilă elevilor");
+        }
+        requireRelease(availableFrom, assignment.getDueAt());
+        Instant before = assignment.getAvailableFrom();
+        assignment.scheduleRelease(availableFrom);
+        Assignment saved = assignmentRepository.save(assignment);
+        if (!Objects.equals(before, availableFrom)) {
+            auditLog.record(AuditEvent.of(AuditAction.HOMEWORK_RESCHEDULED, id, label(assignment))
+                    .details("apare " + AuditText.dateTime(before) + " → "
+                            + (availableFrom == null ? "acum" : AuditText.dateTime(availableFrom))));
         }
         return saved;
     }
@@ -277,9 +343,12 @@ public class AssignmentService {
         return myAssignments(studentEmail, false);
     }
 
-    /** The same; {@code includeExcused} keeps excused homework too (flagged) - the teacher's page for one student. */
+    /**
+     * The same; {@code teacherView} keeps excused and not-yet-released homework too (flagged) - the teacher's page for
+     * one student. A student or parent never sees a homework before its scheduled release.
+     */
     @Transactional(readOnly = true)
-    public List<StudentAssignmentDto> myAssignments(String studentEmail, boolean includeExcused) {
+    public List<StudentAssignmentDto> myAssignments(String studentEmail, boolean teacherView) {
         User student = userRepository.findByEmail(studentEmail).orElse(null);
         if (student == null || student.getRole() != Role.STUDENT) {
             return List.of();
@@ -289,14 +358,15 @@ public class AssignmentService {
             return List.of();
         }
         // An unpublished quiz cannot be started, so its homework is hidden until it is published again.
+        Instant now = Instant.now(clock);
         List<Assignment> assignments = assignmentRepository.findBySchoolClassIdsFetched(classIds).stream()
                 .filter(a -> a.getQuiz().getStatus() == QuizStatus.PUBLISHED)
                 .filter(a -> a.isFor(student.getId())) // catch-up homework of their class, given to others
+                .filter(a -> teacherView || a.isOpen(now))
                 .toList();
         List<Long> quizIds = assignments.stream().map(a -> a.getQuiz().getId()).distinct().toList();
         Map<Long, List<QuizAttempt>> attemptsByQuiz = attemptRepository.findByStudentIdAndQuizIdIn(student.getId(), quizIds)
                 .stream().collect(Collectors.groupingBy(a -> a.getQuiz().getId()));
-        Instant now = Instant.now(clock);
         Map<Long, AssignmentOverride> overrides = overrideRepository.findByStudentId(student.getId()).stream()
                 .collect(Collectors.toMap(o -> o.getAssignment().getId(), o -> o));
 
@@ -311,9 +381,9 @@ public class AssignmentService {
                             a.getQuiz().getTitle(), a.getSchoolClass().getName(), dueAt, p.state(), p.late(),
                             !excused && !p.isDone() && now.isAfter(dueAt), p.attemptId(),
                             ExtraTime.minutesFor(a.getQuiz().getTimeLimitMinutes(), student.getExtraTimePercent()),
-                            excused));
+                            excused, a.isOpen(now) ? null : a.getAvailableFrom()));
                 })
-                .filter(r -> includeExcused || !r.dto().excused() || r.progress().isDone())
+                .filter(r -> teacherView || !r.dto().excused() || r.progress().isDone())
                 .sorted(Comparator.<Row, Boolean>comparing(r -> r.progress().isDone() || r.dto().excused())
                         .thenComparing(Row::dueAt))
                 .map(Row::dto)
@@ -344,6 +414,7 @@ public class AssignmentService {
         Instant now = Instant.now(clock);
         if (assignment == null || assignment.getReminderSentAt() != null
                 || assignment.getQuiz().getStatus() != QuizStatus.PUBLISHED // not marked: a republish still reminds
+                || !assignment.isOpen(now) // not marked either: reminded once it is released
                 || !assignment.getDueAt().isAfter(now)
                 || assignment.getDueAt().isAfter(now.plus(Duration.ofHours(reminderLeadHours)))) {
             return;
@@ -386,15 +457,15 @@ public class AssignmentService {
             return;
         }
         Assignment assignment = assignmentRepository.findByIdFetched(override.getAssignment().getId()).orElse(null);
-        if (assignment == null || assignment.getQuiz().getStatus() != QuizStatus.PUBLISHED) {
-            return; // not marked: a republish still reminds
+        if (assignment == null || assignment.getQuiz().getStatus() != QuizStatus.PUBLISHED || !assignment.isOpen(now)) {
+            return; // not marked: a republish (or the release) still reminds
         }
         User student = override.getStudent();
         boolean given = !student.isErased() && assignment.isFor(student.getId())
                 && enrollmentRepository.existsByStudentIdAndSchoolClassId(student.getId(),
                 assignment.getSchoolClass().getId());
         if (given && !AssignmentProgress.of(assignment, attemptRepository.findForAssignment(
-                assignment.getQuiz().getId(), List.of(student.getId()), assignment.getCreatedAt())).isDone()) {
+                assignment.getQuiz().getId(), List.of(student.getId()), assignment.opensAt())).isDone()) {
             publishReminder(assignment, student);
         }
         override.markReminderSent(now);
@@ -453,7 +524,7 @@ public class AssignmentService {
         }
         List<Long> ids = students.stream().map(User::getId).toList();
         Map<Long, List<QuizAttempt>> byStudent = attemptRepository
-                .findForAssignment(assignment.getQuiz().getId(), ids, assignment.getCreatedAt()).stream()
+                .findForAssignment(assignment.getQuiz().getId(), ids, assignment.opensAt()).stream()
                 .collect(Collectors.groupingBy(a -> a.getStudent().getId()));
         return students.stream().collect(Collectors.toMap(User::getId,
                 s -> AssignmentProgress.of(assignment, byStudent.getOrDefault(s.getId(), List.of()),
@@ -485,7 +556,7 @@ public class AssignmentService {
         Map<Long, Map<Long, List<QuizAttempt>>> attempts = studentIds.isEmpty() ? Map.of() : attemptRepository
                 .findForAssignments(assignments.stream().map(a -> a.getQuiz().getId()).collect(Collectors.toSet()),
                         studentIds,
-                        assignments.stream().map(Assignment::getCreatedAt).min(Comparator.naturalOrder()).orElseThrow())
+                        assignments.stream().map(Assignment::opensAt).min(Comparator.naturalOrder()).orElseThrow())
                 .stream()
                 .collect(Collectors.groupingBy(a -> a.getQuiz().getId(),
                         Collectors.groupingBy(a -> a.getStudent().getId())));
@@ -526,6 +597,6 @@ public class AssignmentService {
         return new AssignmentSummaryDto(assignment.getId(), assignment.getQuiz().getId(), assignment.getQuiz().getTitle(),
                 assignment.getSchoolClass().getId(), assignment.getSchoolClass().getName(), assignment.getDueAt(),
                 assignment.isOverdue(now), students.size(), done, late, inProgress, notStarted, excused,
-                assignment.getStudentIds().size());
+                assignment.getStudentIds().size(), assignment.isOpen(now) ? null : assignment.getAvailableFrom());
     }
 }

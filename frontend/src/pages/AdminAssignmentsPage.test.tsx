@@ -13,12 +13,13 @@ const api = vi.hoisted(() => ({
   createAssignments: vi.fn(),
   setAssignmentOverride: vi.fn(),
   grantExtraAttempt: vi.fn(),
+  setAssignmentRelease: vi.fn(),
 }))
 vi.mock('@/lib/api', async (original) => ({ ...(await original<typeof import('@/lib/api')>()), ...api }))
 
 const summary = (id: number, quizTitle: string): AssignmentSummary => ({
   id, quizId: id, quizTitle, schoolClassId: 1, schoolClassName: 'Clasa a 8-a A', dueAt: new Date(Date.now() + 86_400_000).toISOString(),
-  overdue: false, enrolled: 2, done: 1, late: 0, inProgress: 0, notStarted: 1, excused: 0, forStudents: 0,
+  overdue: false, enrolled: 2, done: 1, late: 0, inProgress: 0, notStarted: 1, excused: 0, forStudents: 0, availableFrom: null,
 })
 const status = (studentId: number, fullName: string, state: AssignmentStudentStatus['state']): AssignmentStudentStatus => ({
   studentId, fullName, state, submittedAt: null, late: false, score: null, attemptId: null, ownDueAt: null, excused: false,
@@ -208,8 +209,27 @@ describe('AdminAssignmentsPage', () => {
     await user.click(screen.getByRole('button', { name: 'Dă tema (2 clase)' }))
 
     expect(api.createAssignments).toHaveBeenCalledWith({
-      quizId: 3, schoolClassIds: [1, 2], dueAt: new Date('2099-01-15T20:00').toISOString(),
+      quizId: 3, schoolClassIds: [1, 2], dueAt: new Date('2099-01-15T20:00').toISOString(), availableFrom: null,
     })
     expect(await screen.findByText(/a fost dată claselor Clasa a 8-a A, Clasa a 8-a B/)).toBeInTheDocument()
+  })
+
+  it('marks a scheduled homework and gives it to the students now from its menu', async () => {
+    const appears = new Date(Date.now() + 2 * 86_400_000).toISOString()
+    api.listAssignments.mockResolvedValue([{ ...summary(1, 'Fracții'), availableFrom: appears }, summary(2, 'Ecuații')])
+    api.setAssignmentRelease.mockResolvedValue(summary(1, 'Fracții'))
+    renderPage('/admin/assignments')
+
+    expect(await screen.findByTestId('assignment-scheduled')).toHaveTextContent(/^Programată · apare /)
+    expect(screen.getAllByTestId('assignment-scheduled')).toHaveLength(1)
+    const row = screen.getAllByTestId('assignment-row')[0]
+    await userEvent.click(within(row).getByRole('button', { name: /^Mai multe acțiuni pentru / }))
+    const items = (await screen.findAllByRole('menuitem')).map((i) => i.textContent)
+    expect(items).toEqual(['Dă-o acum', 'Mută data apariției', 'Schimbă termenul', 'Șterge tema'])
+
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Dă-o acum' }))
+
+    expect(api.setAssignmentRelease).toHaveBeenCalledWith(1, null)
+    expect(await screen.findByText(/Tema „Fracții” e acum vizibilă pentru/)).toBeInTheDocument()
   })
 })

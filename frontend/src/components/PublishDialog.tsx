@@ -9,8 +9,9 @@ import {
   type AssignmentSummary,
   type SchoolClass,
 } from '@/lib/api'
-import { defaultHomeworkDue, localInputToIso } from '@/lib/assignments'
+import { defaultHomeworkDue, localInputToIso, releaseOf } from '@/lib/assignments'
 import { errorMessage } from '@/lib/errors'
+import { ReleaseField } from '@/components/ReleaseField'
 import { selectClass } from '@/lib/formClasses'
 
 interface Props {
@@ -45,6 +46,7 @@ export function PublishDialog({
   const [assign, setAssign] = useState(classes.length > 0)
   const [classId, setClassId] = useState(quizClassId !== null ? String(quizClassId) : '')
   const [due, setDue] = useState(() => defaultHomeworkDue(Date.now()))
+  const [release, setRelease] = useState('') // "Programează": '' = visible now
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -59,11 +61,18 @@ export function PublishDialog({
         return
       }
     }
+    const released = assign ? releaseOf(release, localInputToIso(due), Date.now()) : { iso: null }
+    if ('error' in released) {
+      setError(released.error)
+      return
+    }
     setBusy(true)
     try {
       let assigned: AssignmentSummary | null = null
       if (assign) {
-        assigned = await publishAndAssign(quiz.id, { schoolClassId: Number(classId), dueAt: localInputToIso(due) })
+        assigned = await publishAndAssign(quiz.id, {
+          schoolClassId: Number(classId), dueAt: localInputToIso(due), availableFrom: released.iso,
+        })
       } else {
         await setQuizPublished(quiz.id, true)
       }
@@ -116,6 +125,7 @@ export function PublishDialog({
                 Termen „moale”: se poate preda și după, marcat „cu întârziere”.
               </p>
             </div>
+            <ReleaseField id="publish-release" value={release} onChange={setRelease} />
           </>
         )}
 

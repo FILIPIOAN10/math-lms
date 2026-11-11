@@ -34,7 +34,7 @@ public record AssignmentProgress(State state, Instant submittedAt, boolean late,
     public static AssignmentProgress of(Assignment assignment, List<QuizAttempt> attempts, Instant dueAt) {
         List<QuizAttempt> counted = attempts.stream()
                 .filter(a -> a.getMode() == AttemptMode.TEST)
-                .filter(a -> !a.getStartedAt().isBefore(assignment.getCreatedAt()))
+                .filter(a -> !a.getStartedAt().isBefore(assignment.opensAt()))
                 .toList();
 
         List<QuizAttempt> handedIn = counted.stream()

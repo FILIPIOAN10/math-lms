@@ -74,7 +74,7 @@ public class AssignmentReminderEmailHandler implements OutboxHandler {
             return;
         }
         boolean done = AssignmentProgress.of(assignment, attemptRepository.findForAssignment(
-                assignment.getQuiz().getId(), List.of(student.getId()), assignment.getCreatedAt())).isDone();
+                assignment.getQuiz().getId(), List.of(student.getId()), assignment.opensAt())).isDone();
         if (done) {
             log.info("Reminder for assignment {} / student {} skipped: already handed in", event.assignmentId(), event.studentId());
             return;

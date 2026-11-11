@@ -64,4 +64,35 @@ class AssignmentTest {
 
         assertThat(assignment.getReminderSentAt()).isEqualTo(created.plusSeconds(5));
     }
+
+    @Test
+    void withoutAScheduleItOpensWhenGiven() {
+        Assignment assignment = new Assignment(quiz, schoolClass, due, created);
+
+        assertThat(assignment.getAvailableFrom()).isNull();
+        assertThat(assignment.opensAt()).isEqualTo(created);
+        assertThat(assignment.isOpen(created)).isTrue();
+    }
+
+    @Test
+    void aScheduledOneOpensAtItsReleaseMoment() {
+        Assignment assignment = new Assignment(quiz, schoolClass, due, created);
+        Instant release = created.plus(Duration.ofDays(1));
+
+        assignment.scheduleRelease(release);
+
+        assertThat(assignment.opensAt()).isEqualTo(release);
+        assertThat(assignment.isOpen(release.minusSeconds(1))).isFalse();
+        assertThat(assignment.isOpen(release)).isTrue();
+    }
+
+    @Test
+    void theReleaseMustComeBeforeTheDeadline() {
+        Assignment assignment = new Assignment(quiz, schoolClass, due, created);
+
+        assertThatThrownBy(() -> assignment.scheduleRelease(due)).isInstanceOf(IllegalArgumentException.class);
+        assignment.scheduleRelease(due.minusSeconds(1));
+        assignment.scheduleRelease(null); // back to open now
+        assertThat(assignment.getAvailableFrom()).isNull();
+    }
 }

@@ -858,4 +858,101 @@ class AssignmentServiceTest {
         assertThat(created.isCatchUp()).isTrue();
         assertThatThrownBy(() -> service.create(10L, 5L, due)).isInstanceOf(AssignmentConflictException.class);
     }
+
+    // --- scheduled release (V64) ---
+
+    @Test
+    void aHomeworkCanBeScheduledToAppearLaterAndTheJournalSaysWhen() {
+        stubLookups();
+        Instant release = clock.now.plus(Duration.ofDays(1));
+
+        Assignment created = service.create(10L, 5L, due, release);
+
+        assertThat(created.getAvailableFrom()).isEqualTo(release);
+        assertThat(created.opensAt()).isEqualTo(release);
+        ArgumentCaptor<AuditEvent> event = ArgumentCaptor.forClass(AuditEvent.class);
+        verify(auditLog).record(event.capture());
+        assertThat(event.getValue().details()).contains("apare");
+    }
+
+    @Test
+    void theReleaseMustBeInTheFutureAndBeforeTheDeadline() {
+        stubLookups();
+
+        assertThatThrownBy(() -> service.create(10L, 5L, due, clock.now))
+                .isInstanceOf(InvalidAssignmentException.class).hasMessageContaining("viitor");
+        assertThatThrownBy(() -> service.create(10L, 5L, due, due))
+                .isInstanceOf(InvalidAssignmentException.class).hasMessageContaining("înainte de termen");
+        verify(assignmentRepository, never()).save(any());
+    }
+
+    @Test
+    void aScheduledHomeworkIsHiddenFromTheStudentUntilItsReleaseButShownToTheTeacher() {
+        User ana = student(1L, "Ana Pop");
+        Assignment assignment = assignment(1L);
+        Instant release = clock.now.plus(Duration.ofDays(1));
+        assignment.scheduleRelease(release);
+        stubMyHomework(ana, assignment);
+
+        assertThat(service.myAssignments(ana.getEmail())).isEmpty();
+        assertThat(service.myAssignments(ana.getEmail(), true)).singleElement()
+                .satisfies(a -> assertThat(a.availableFrom()).isEqualTo(release));
+
+        clock.now = release;
+        assertThat(service.myAssignments(ana.getEmail())).singleElement()
+                .satisfies(a -> assertThat(a.availableFrom()).isNull());
+    }
+
+    @Test
+    void theSummarySaysWhenAScheduledHomeworkAppears() {
+        Assignment assignment = assignment(1L);
+        Instant release = clock.now.plus(Duration.ofDays(1));
+        assignment.scheduleRelease(release);
+        when(assignmentRepository.findByIdFetched(1L)).thenReturn(Optional.of(assignment));
+
+        assertThat(service.summaryOf(1L).availableFrom()).isEqualTo(release);
+        clock.now = release;
+        assertThat(service.summaryOf(1L).availableFrom()).isNull();
+    }
+
+    @Test
+    void noReminderIsQueuedBeforeTheReleaseAndTheHomeworkStaysUnreminded() {
+        Assignment assignment = withId(new Assignment(quiz, ninth, clock.now.plus(Duration.ofHours(20)), clock.now), 1L);
+        assignment.scheduleRelease(clock.now.plus(Duration.ofHours(2)));
+        when(assignmentRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(assignment));
+
+        service.queueReminders(1L);
+
+        verify(publisher, never()).publish(any(), any());
+        assertThat(assignment.getReminderSentAt()).isNull();
+    }
+
+    @Test
+    void aScheduledHomeworkCanBeGivenNowOrMovedButNotHiddenOnceVisible() {
+        Assignment assignment = assignment(1L);
+        assignment.scheduleRelease(clock.now.plus(Duration.ofDays(1)));
+        when(assignmentRepository.findById(1L)).thenReturn(Optional.of(assignment));
+        when(assignmentRepository.save(assignment)).thenReturn(assignment);
+
+        service.setRelease(1L, clock.now.plus(Duration.ofDays(2)));
+        assertThat(assignment.getAvailableFrom()).isEqualTo(clock.now.plus(Duration.ofDays(2)));
+
+        service.setRelease(1L, null);
+        assertThat(assignment.getAvailableFrom()).isNull();
+        verify(auditLog, times(2)).record(any());
+
+        assertThatThrownBy(() -> service.setRelease(1L, clock.now.plus(Duration.ofDays(1))))
+                .isInstanceOf(InvalidAssignmentException.class).hasMessageContaining("deja vizibilă");
+    }
+
+    @Test
+    void theDeadlineCannotMoveToOrBeforeTheRelease() {
+        Assignment assignment = assignment(1L);
+        Instant release = clock.now.plus(Duration.ofDays(1));
+        assignment.scheduleRelease(release);
+        when(assignmentRepository.findById(1L)).thenReturn(Optional.of(assignment));
+
+        assertThatThrownBy(() -> service.reschedule(1L, release))
+                .isInstanceOf(InvalidAssignmentException.class).hasMessageContaining("după data");
+    }
 }

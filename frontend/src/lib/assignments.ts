@@ -17,8 +17,10 @@ export function isHandedIn(a: Pick<StudentAssignment, 'state'>): boolean {
 
 /** The pill a student sees on an assignment. A late hand-in is "late", not "overdue": overdue means still to do. */
 export function assignmentBadge(
-  a: Pick<StudentAssignment, 'state' | 'late' | 'overdue'> & { excused?: boolean },
+  a: Pick<StudentAssignment, 'state' | 'late' | 'overdue'> & { excused?: boolean; availableFrom?: string | null },
 ): { text: string; tone: BadgeTone } {
+  // Only the teacher's page for one student lists a homework not released yet.
+  if (a.availableFrom) return { text: 'Programată', tone: 'warning' }
   if (a.excused) return { text: 'Scutită', tone: 'info' }
   if (isHandedIn(a)) {
     return a.late ? { text: 'Predată cu întârziere', tone: 'warning' } : { text: 'Predată', tone: 'success' }
@@ -68,4 +70,23 @@ export function defaultHomeworkDue(nowMs: number): string {
   const d = new Date(nowMs + 7 * 86_400_000)
   d.setHours(20, 0, 0, 0)
   return isoToLocalInput(d.toISOString())
+}
+
+/** Tomorrow at 08:00: the usual "before the lesson" moment. As a datetime-local value. */
+export function defaultRelease(nowMs: number): string {
+  const d = new Date(nowMs + 86_400_000)
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T08:00`
+}
+
+/**
+ * The scheduled release as an ISO instant (null = not scheduled), or the error to show: it must be in the future and
+ * before the deadline. Checked here so a typo is caught before the round trip; the server checks again.
+ */
+export function releaseOf(release: string, dueIso: string, nowMs: number): { iso: string | null } | { error: string } {
+  if (release === '') return { iso: null }
+  const iso = localInputToIso(release)
+  if (Date.parse(iso) <= nowMs) return { error: 'Data la care apare tema trebuie să fie în viitor.' }
+  if (Date.parse(iso) >= Date.parse(dueIso)) return { error: 'Tema trebuie să apară înainte de termen.' }
+  return { iso }
 }

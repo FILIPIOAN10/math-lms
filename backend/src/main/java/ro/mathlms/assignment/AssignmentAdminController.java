@@ -16,6 +16,7 @@ import ro.mathlms.assignment.AssignmentDtos.AssignmentSummaryDto;
 import ro.mathlms.assignment.AssignmentDtos.MultiClassAssignmentRequest;
 import ro.mathlms.assignment.AssignmentDtos.OverrideRequest;
 import ro.mathlms.assignment.AssignmentDtos.PublishAndAssignRequest;
+import ro.mathlms.assignment.AssignmentDtos.ReleaseRequest;
 import ro.mathlms.assignment.AssignmentDtos.RescheduleRequest;
 import ro.mathlms.assignment.AssignmentDtos.StudentStatusDto;
 import ro.mathlms.assignment.AssignmentDtos.StudentsAssignmentRequest;
@@ -48,7 +49,8 @@ public class AssignmentAdminController {
     public ResponseEntity<AssignmentSummaryDto> create(@Valid @RequestBody AssignmentRequest request) {
         scope.requireQuiz(request.quizId());
         scope.requireClass(request.schoolClassId());
-        Assignment created = service.create(request.quizId(), request.schoolClassId(), request.dueAt());
+        Assignment created = service.create(request.quizId(), request.schoolClassId(), request.dueAt(),
+                request.availableFrom());
         return ResponseEntity.status(HttpStatus.CREATED).body(service.summaryOf(created.getId()));
     }
 
@@ -58,7 +60,8 @@ public class AssignmentAdminController {
             @Valid @RequestBody MultiClassAssignmentRequest request) {
         scope.requireQuiz(request.quizId());
         request.schoolClassIds().forEach(scope::requireClass);
-        List<Assignment> created = service.createForClasses(request.quizId(), request.schoolClassIds(), request.dueAt());
+        List<Assignment> created = service.createForClasses(request.quizId(), request.schoolClassIds(), request.dueAt(),
+                request.availableFrom());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(created.stream().map(a -> service.summaryOf(a.getId())).toList());
     }
@@ -72,7 +75,7 @@ public class AssignmentAdminController {
         scope.requireQuiz(request.quizId());
         scope.requireClass(request.schoolClassId());
         Assignment created = service.createForStudents(request.quizId(), request.schoolClassId(), request.studentIds(),
-                request.dueAt());
+                request.dueAt(), request.availableFrom());
         return ResponseEntity.status(HttpStatus.CREATED).body(service.summaryOf(created.getId()));
     }
 
@@ -82,7 +85,8 @@ public class AssignmentAdminController {
                                                                  @Valid @RequestBody PublishAndAssignRequest request) {
         scope.requireQuiz(quizId);
         scope.requireClass(request.schoolClassId());
-        Assignment created = publishAndAssignService.publishAndAssign(quizId, request.schoolClassId(), request.dueAt());
+        Assignment created = publishAndAssignService.publishAndAssign(quizId, request.schoolClassId(), request.dueAt(),
+                request.availableFrom());
         return ResponseEntity.status(HttpStatus.CREATED).body(service.summaryOf(created.getId()));
     }
 
@@ -91,6 +95,14 @@ public class AssignmentAdminController {
     public AssignmentSummaryDto reschedule(@PathVariable Long id, @Valid @RequestBody RescheduleRequest request) {
         scope.requireAssignment(id);
         service.reschedule(id, request.dueAt());
+        return service.summaryOf(id);
+    }
+
+    /** Moves a scheduled homework's release, or gives it now (null); refused once its students can see it. */
+    @PutMapping("/api/admin/assignments/{id}/release")
+    public AssignmentSummaryDto setRelease(@PathVariable Long id, @RequestBody ReleaseRequest request) {
+        scope.requireAssignment(id);
+        service.setRelease(id, request.availableFrom());
         return service.summaryOf(id);
     }
 

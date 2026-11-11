@@ -178,4 +178,37 @@ class QuizRepositoryTest {
                 .setParameter("status", status).setParameter("score", score).setParameter("id", attempt.getId())
                 .executeUpdate();
     }
+
+    @Test
+    void aQuizIsNotYetReleasedOnlyWhileEveryHomeworkGivingItToTheStudentIsScheduledForLater() {
+        SchoolClass ninth = schoolClassRepository.save(new SchoolClass("Clasa a 9-a", null));
+        Quiz friday = publishedQuiz("Teza de vineri", ninth);
+        Quiz alreadyHad = publishedQuiz("Recapitulare", ninth);
+        Quiz open = publishedQuiz("Tema deschisă", ninth);
+        Instant now = Instant.parse("2026-11-11T10:00:00Z");
+        Long ana = em.persist(new User("ana.scheduled@scoala.ro", "Ana", Role.STUDENT)).getId();
+        Instant due = now.plus(Duration.ofDays(5));
+
+        Assignment scheduled = new Assignment(friday, ninth, due, now.minusSeconds(60));
+        scheduled.scheduleRelease(now.plus(Duration.ofDays(2)));
+        em.persist(scheduled);
+        em.persist(new Assignment(alreadyHad, ninth, due, now.minus(Duration.ofDays(10))));
+        Assignment reGiven = new Assignment(alreadyHad, ninth, due, now.minusSeconds(60));
+        reGiven.restrictTo(List.of(ana));
+        reGiven.scheduleRelease(now.plus(Duration.ofDays(1)));
+        em.persist(reGiven);
+        em.persist(new Assignment(open, ninth, due, now.minusSeconds(60)));
+        em.flush();
+
+        assertThat(quizRepository.findNotYetReleasedQuizIds(List.of(ninth.getId()), ana, now))
+                .containsExactly(friday.getId());
+        assertThat(quizRepository.findNotYetReleasedQuizIds(List.of(ninth.getId()), ana, now.plus(Duration.ofDays(2))))
+                .isEmpty();
+        // the "given at" of a homework is its release, and one still to come does not count yet
+        assertThat(quizRepository.findHomeworkGiven(List.of(ninth.getId()), ana, now))
+                .extracting(HomeworkGiven::quizId).containsExactlyInAnyOrder(alreadyHad.getId(), open.getId());
+        assertThat(quizRepository.findHomeworkGiven(List.of(ninth.getId()), ana, now.plus(Duration.ofDays(3))))
+                .filteredOn(g -> g.quizId().equals(friday.getId()))
+                .extracting(HomeworkGiven::givenAt).containsExactly(now.plus(Duration.ofDays(2)));
+    }
 }

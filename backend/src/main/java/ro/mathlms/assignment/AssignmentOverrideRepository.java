@@ -34,6 +34,7 @@ public interface AssignmentOverrideRepository extends JpaRepository<AssignmentOv
      */
     @Query("select o.id from AssignmentOverride o where o.reminderSentAt is null and o.excused = false"
             + " and o.dueAt > :now and o.dueAt <= :until"
+            + " and (o.assignment.availableFrom is null or o.assignment.availableFrom <= :now)"
             + " and o.assignment.quiz.status = ro.mathlms.quiz.QuizStatus.PUBLISHED order by o.dueAt")
     List<Long> findIdsDueForReminder(@Param("now") Instant now, @Param("until") Instant until);
 

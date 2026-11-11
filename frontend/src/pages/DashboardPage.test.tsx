@@ -268,7 +268,7 @@ describe('DashboardPage — student', () => {
 describe('DashboardPage — teacher', () => {
   const summary = (id: number, title: string, dueInDays: number, over: Partial<AssignmentSummary> = {}): AssignmentSummary => ({
     id, quizId: id, quizTitle: title, schoolClassId: 1, schoolClassName: 'Clasa a 9-a', dueAt: inDays(dueInDays),
-    overdue: dueInDays < 0, enrolled: 20, done: 12, late: 0, inProgress: 2, notStarted: 6, excused: 0, forStudents: 0, ...over,
+    overdue: dueInDays < 0, enrolled: 20, done: 12, late: 0, inProgress: 2, notStarted: 6, excused: 0, forStudents: 0, availableFrom: null, ...over,
   })
   const submitted = (id: number, studentName: string): AdminAttemptSummary => ({
     attemptId: id, quizId: 1, quizTitle: 'Simulare EN', studentId: id, studentName, status: 'SUBMITTED',

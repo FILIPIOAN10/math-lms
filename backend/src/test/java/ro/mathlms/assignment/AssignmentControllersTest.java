@@ -31,7 +31,7 @@ class AssignmentControllersTest {
     private final Instant due = Instant.parse("2026-10-12T15:00:00Z");
 
     private AssignmentSummaryDto summary() {
-        return new AssignmentSummaryDto(1L, 10L, "Simulare EN", 5L, "Clasa a 9-a", due, false, 4, 1, 0, 1, 2, 0, 0);
+        return new AssignmentSummaryDto(1L, 10L, "Simulare EN", 5L, "Clasa a 9-a", due, false, 4, 1, 0, 1, 2, 0, 0, null);
     }
 
     @Test
@@ -39,10 +39,10 @@ class AssignmentControllersTest {
         Assignment created = new Assignment(new Quiz("Simulare EN", null), new SchoolClass("Clasa a 9-a", null), due,
                 Instant.parse("2026-10-05T10:00:00Z"));
         ReflectionTestUtils.setField(created, "id", 1L);
-        when(service.create(10L, 5L, due)).thenReturn(created);
+        when(service.create(10L, 5L, due, null)).thenReturn(created);
         when(service.summaryOf(1L)).thenReturn(summary());
 
-        ResponseEntity<AssignmentSummaryDto> response = admin.create(new AssignmentRequest(10L, 5L, due));
+        ResponseEntity<AssignmentSummaryDto> response = admin.create(new AssignmentRequest(10L, 5L, due, null));
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         assertThat(response.getBody()).isEqualTo(summary());
@@ -69,7 +69,7 @@ class AssignmentControllersTest {
         Authentication auth = mock(Authentication.class);
         when(auth.getName()).thenReturn("ana@scoala.ro");
         List<StudentAssignmentDto> mine = List.of(new StudentAssignmentDto(
-                1L, 10L, "Simulare EN", "Clasa a 9-a", due, State.NOT_STARTED, false, false, null, 30, false));
+                1L, 10L, "Simulare EN", "Clasa a 9-a", due, State.NOT_STARTED, false, false, null, 30, false, null));
         when(service.myAssignments("ana@scoala.ro")).thenReturn(mine);
 
         assertThat(student.mine(auth)).isEqualTo(mine);
@@ -80,11 +80,11 @@ class AssignmentControllersTest {
         Assignment created = new Assignment(new Quiz("Simulare EN", null), new SchoolClass("Clasa a 9-a", null), due,
                 Instant.parse("2026-10-05T10:00:00Z"));
         ReflectionTestUtils.setField(created, "id", 1L);
-        when(service.createForStudents(10L, 5L, List.of(1L, 2L), due)).thenReturn(created);
+        when(service.createForStudents(10L, 5L, List.of(1L, 2L), due, null)).thenReturn(created);
         when(service.summaryOf(1L)).thenReturn(summary());
 
         ResponseEntity<AssignmentSummaryDto> response = admin.createForStudents(
-                new AssignmentDtos.StudentsAssignmentRequest(10L, 5L, List.of(1L, 2L), due));
+                new AssignmentDtos.StudentsAssignmentRequest(10L, 5L, List.of(1L, 2L), due, null));
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         assertThat(response.getBody()).isEqualTo(summary());

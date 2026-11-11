@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { AssignmentDialog } from '@/pages/AdminAssignmentsPage'
@@ -66,7 +66,7 @@ describe('AssignmentDialog (create)', () => {
     renderCreate()
     await userEvent.selectOptions(screen.getByLabelText('Test'), '13')
 
-    const boxes = screen.getAllByRole('checkbox')
+    const boxes = within(screen.getByRole('group', { name: 'Clase' })).getAllByRole('checkbox')
     expect(boxes).toHaveLength(1)
     expect(screen.getByRole('checkbox', { name: 'Clasa a 10-a' })).toBeChecked()
   })
@@ -119,5 +119,37 @@ describe('AssignmentDialog (reschedule)', () => {
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalled())
     expect((onSubmit.mock.calls[0][0] as AssignmentInput).dueAt).toBe(new Date(isoToLocalInput(current)).toISOString())
+  })
+
+  it('can schedule the homework to appear later, before the deadline', async () => {
+    const onSubmit = renderCreate()
+    await userEvent.selectOptions(screen.getByLabelText('Test'), '12')
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Clasa a 10-a' }))
+    await userEvent.type(screen.getByLabelText('Termen'), inDays(5))
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Programează: apare elevilor mai târziu' }))
+    const release = screen.getByLabelText('Apare elevilor la')
+    fireEvent.change(release, { target: { value: inDays(6) } }) // after the deadline: refused here
+
+    await userEvent.click(screen.getByRole('button', { name: 'Dă tema' }))
+    expect(await screen.findByText('Tema trebuie să apară înainte de termen.')).toBeInTheDocument()
+    expect(onSubmit).not.toHaveBeenCalled()
+
+    const appears = inDays(2)
+    fireEvent.change(release, { target: { value: appears } })
+    await userEvent.click(screen.getByRole('button', { name: 'Dă tema' }))
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled())
+    expect((onSubmit.mock.calls[0][0] as AssignmentInput).availableFrom).toBe(new Date(appears).toISOString())
+  })
+
+  it('sends no release when the homework is not scheduled', async () => {
+    const onSubmit = renderCreate()
+    await userEvent.selectOptions(screen.getByLabelText('Test'), '12')
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Clasa a 10-a' }))
+    await userEvent.type(screen.getByLabelText('Termen'), inDays(3))
+    await userEvent.click(screen.getByRole('button', { name: 'Dă tema' }))
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled())
+    expect((onSubmit.mock.calls[0][0] as AssignmentInput).availableFrom).toBeNull()
   })
 })

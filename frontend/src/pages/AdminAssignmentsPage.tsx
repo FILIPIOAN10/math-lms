@@ -16,6 +16,7 @@ import {
   listQuizzes,
   rescheduleAssignment,
   setAssignmentOverride,
+  setAssignmentRelease,
   type AssignmentInput,
   type AssignmentState,
   type AssignmentStudentStatus,
@@ -23,7 +24,7 @@ import {
   type QuizSummary,
   type SchoolClass,
 } from '@/lib/api'
-import { dueCountdown, isoToLocalInput, localInputToIso } from '@/lib/assignments'
+import { dueCountdown, isoToLocalInput, localInputToIso, releaseOf } from '@/lib/assignments'
 import { errorMessage } from '@/lib/errors'
 import { formatDate, roCount } from '@/lib/format'
 import { PageHeader } from '@/components/PageHeader'
@@ -34,6 +35,7 @@ import { useConfirm } from '@/components/useConfirm'
 import { TestsTabs } from '@/components/TestsTabs'
 import { LoadingCards } from '@/components/LoadingCards'
 import { selectClass } from '@/lib/formClasses'
+import { ReleaseField } from '@/components/ReleaseField'
 
 const STATE_LABEL: Record<AssignmentState, string> = {
   NOT_STARTED: 'Neînceput',
@@ -70,6 +72,7 @@ export function AssignmentDialog({
     props.initialClassId ? [props.initialClassId] : props.classes?.length === 1 ? [props.classes[0].id] : [],
   )
   const [due, setDue] = useState(props.mode === 'reschedule' ? isoToLocalInput(props.currentDueAt) : '')
+  const [release, setRelease] = useState('') // "Programează": '' = visible now
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -93,15 +96,21 @@ export function AssignmentDialog({
     e.preventDefault()
     setError(null)
     const iso = localInputToIso(due)
-    if (Date.parse(iso) <= Date.now()) {
+    const nowMs = Date.now()
+    if (Date.parse(iso) <= nowMs) {
       setError('Termenul trebuie să fie în viitor.')
+      return
+    }
+    const released = releaseOf(release, iso, nowMs)
+    if ('error' in released) {
+      setError(released.error)
       return
     }
     setBusy(true)
     try {
       // In the order the classes are listed, whatever order they were ticked in.
       const chosen = classChoices.map((c) => c.id).filter((id) => classIds.includes(id))
-      await onSubmit({ quizId: Number(quizId), schoolClassIds: chosen, dueAt: iso })
+      await onSubmit({ quizId: Number(quizId), schoolClassIds: chosen, dueAt: iso, availableFrom: released.iso })
       onClose()
     } catch (err) {
       setError(errorMessage(err))
@@ -167,12 +176,60 @@ export function AssignmentDialog({
           </p>
           )}
         </div>
+        {create && <ReleaseField id="arelease" value={release} onChange={setRelease} />}
         {error && <p className="text-sm text-destructive">{error}</p>}
         <div className="flex justify-end gap-2">
           <Button type="button" variant="outline" onClick={onClose} disabled={busy}>Anulează</Button>
           <Button type="submit" disabled={busy || !ready}>
             {!create ? 'Salvează' : classIds.length > 1 ? `Dă tema (${classIds.length} clase)` : 'Dă tema'}
           </Button>
+        </div>
+      </form>
+    </Dialog>
+  )
+}
+
+/** "Mută data apariției": a new release moment for a homework still hidden from its students. */
+function ReleaseDialog({ assignment, onClose, onSaved }: {
+  assignment: AssignmentSummary
+  onClose: () => void
+  onSaved: (moved: AssignmentSummary) => Promise<void>
+}) {
+  const [value, setValue] = useState(assignment.availableFrom ? isoToLocalInput(assignment.availableFrom) : '')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function submit(e: FormEvent) {
+    e.preventDefault()
+    const released = releaseOf(value, assignment.dueAt, Date.now())
+    if ('error' in released) {
+      setError(released.error)
+      return
+    }
+    setBusy(true)
+    setError(null)
+    try {
+      await onSaved(await setAssignmentRelease(assignment.id, released.iso))
+      onClose()
+    } catch (err) {
+      setError(errorMessage(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()} title="Când apare tema">
+      <form className="flex flex-col gap-4" onSubmit={submit}>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="release-at">Apare elevilor la</Label>
+          <Input id="release-at" type="datetime-local" value={value} onChange={(e) => setValue(e.target.value)} />
+          <p className="text-xs text-muted-foreground">Înainte de termen ({formatDate(assignment.dueAt)}).</p>
+        </div>
+        {error && <p className="text-sm text-destructive">{error}</p>}
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="outline" onClick={onClose} disabled={busy}>Anulează</Button>
+          <Button type="submit" disabled={busy || value === ''}>Salvează</Button>
         </div>
       </form>
     </Dialog>
@@ -194,6 +251,7 @@ export function AdminAssignmentsPage() {
   const preselectedQuizId = Number(searchParams.get('quizId')) || null // set by "Dă ca temă" on the quiz list
   const [creating, setCreating] = useState(preselectedQuizId !== null) // arriving from "Dă ca temă" opens the dialog
   const [moving, setMoving] = useState<AssignmentSummary | null>(null)
+  const [releasing, setReleasing] = useState<AssignmentSummary | null>(null) // "Mută data apariției"
   // One student's own deadline: the homework and the student whose date is being set.
   const [movingFor, setMovingFor] = useState<{ assignment: AssignmentSummary; student: AssignmentStudentStatus } | null>(null)
   const [openId, setOpenId] = useState<number | null>(null)
@@ -287,6 +345,18 @@ export function AdminAssignmentsPage() {
     return items
   }
 
+  /** A scheduled homework given to its students right away. */
+  async function releaseNow(a: AssignmentSummary) {
+    setError(null)
+    try {
+      await setAssignmentRelease(a.id, null)
+      setNotice(`Tema „${a.quizTitle}” e acum vizibilă pentru ${a.schoolClassName}.`)
+      await reload()
+    } catch (e) {
+      setError(errorMessage(e))
+    }
+  }
+
   async function remove(a: AssignmentSummary) {
     const yes = await confirm({
       title: `Ștergi tema „${a.quizTitle}”?`,
@@ -375,6 +445,11 @@ export function AdminAssignmentsPage() {
                 <div className="min-w-0">
                   <p className="truncate font-medium">
                     {a.quizTitle} <span className="font-normal text-muted-foreground">· {a.schoolClassName}</span>
+                    {a.availableFrom && (
+                      <span data-testid="assignment-scheduled" className="ml-2 rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-800 dark:text-amber-300">
+                        Programată · apare {formatDate(a.availableFrom)}
+                      </span>
+                    )}
                     {a.forStudents > 0 && (
                       <span className="ml-2 rounded-full bg-sky-500/15 px-2 py-0.5 text-xs font-medium text-sky-700 dark:text-sky-300">
                         Recuperare · doar {roCount(a.forStudents, 'elev', 'elevi')}
@@ -400,6 +475,12 @@ export function AdminAssignmentsPage() {
                   <RowMenu
                     label={`Mai multe acțiuni pentru ${a.quizTitle}`}
                     items={[
+                      ...(a.availableFrom
+                        ? [
+                            { label: 'Dă-o acum', onClick: () => void releaseNow(a) },
+                            { label: 'Mută data apariției', onClick: () => setReleasing(a) },
+                          ]
+                        : []),
                       { label: 'Schimbă termenul', onClick: () => setMoving(a) },
                       { label: 'Șterge tema', destructive: true, onClick: () => void remove(a) },
                     ]}
@@ -460,9 +541,11 @@ export function AdminAssignmentsPage() {
           onSubmit={async (input) => {
             const created = await createAssignments(input)
             const [first] = created
-            setNotice(created.length === 1
+            const appears = first.availableFrom ? ` Elevii o văd de la ${formatDate(first.availableFrom)}.` : ''
+            setNotice((created.length === 1
               ? `Tema „${first.quizTitle}” a fost dată clasei ${first.schoolClassName}, termen ${formatDate(first.dueAt)}.`
               : `Tema „${first.quizTitle}” a fost dată claselor ${created.map((a) => a.schoolClassName).join(', ')}, termen ${formatDate(first.dueAt)}.`)
+              + appears)
             await reload()
           }}
         />
@@ -479,6 +562,16 @@ export function AdminAssignmentsPage() {
             // Through the dialog's own error line: a refused date keeps the dialog open.
             setStatus(await setAssignmentOverride(assignment.id, student.studentId, { dueAt: input.dueAt, excused: student.excused }))
             setNotice(`${student.fullName} are termen propriu: ${formatDate(input.dueAt)}.`)
+            await reload()
+          }}
+        />
+      )}
+      {releasing && (
+        <ReleaseDialog
+          assignment={releasing}
+          onClose={() => setReleasing(null)}
+          onSaved={async (moved) => {
+            setNotice(`Tema „${moved.quizTitle}” apare elevilor la ${formatDate(moved.availableFrom ?? moved.dueAt)}.`)
             await reload()
           }}
         />

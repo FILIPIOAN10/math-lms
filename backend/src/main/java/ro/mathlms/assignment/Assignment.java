@@ -76,11 +76,39 @@ public class Assignment {
     @Column(name = "catch_up", nullable = false)
     private boolean catchUp;
 
+    /**
+     * Scheduled release (Google Classroom "Programează", Canvas "Available from"): before this moment the homework - and
+     * a test given only by it - is hidden from its students. Null = open since it was created.
+     */
+    @Column(name = "available_from")
+    private Instant availableFrom;
+
     public Assignment(Quiz quiz, SchoolClass schoolClass, Instant dueAt, Instant createdAt) {
         this.quiz = Objects.requireNonNull(quiz, "quiz");
         this.schoolClass = Objects.requireNonNull(schoolClass, "schoolClass");
         this.dueAt = Objects.requireNonNull(dueAt, "dueAt");
         this.createdAt = Objects.requireNonNull(createdAt, "createdAt");
+    }
+
+    /**
+     * Schedules the release ({@code null} = open now). Must come before the deadline; whether it lies in the future is
+     * the service's check (it has the clock).
+     */
+    public void scheduleRelease(Instant availableFrom) {
+        if (availableFrom != null && !availableFrom.isBefore(dueAt)) {
+            throw new IllegalArgumentException("availableFrom must be before dueAt");
+        }
+        this.availableFrom = availableFrom;
+    }
+
+    /** When the homework opened, or opens: the scheduled release, else when it was given. Attempts count from here. */
+    public Instant opensAt() {
+        return availableFrom != null ? availableFrom : createdAt;
+    }
+
+    /** Whether its students may see it yet. */
+    public boolean isOpen(Instant now) {
+        return !opensAt().isAfter(now);
     }
 
     /** A moved deadline also re-arms the reminder: students get a fresh "due soon" for the new date. */
