@@ -102,6 +102,14 @@ class ReviewServiceIntegrationTest {
         List<StudentReviewStatusDto> forClass(Long classId) {
             return tx.execute(st -> service.forClass(classId));
         }
+
+        List<ReviewQuestionDto> extra(String email, List<Long> seen) {
+            return tx.execute(st -> service.extra(email, seen));
+        }
+
+        ReviewResultDto answerExtra(String email, Long itemId, Long optionId) {
+            return tx.execute(st -> service.answerExtra(email, itemId, optionId));
+        }
     }
 
     private static Instant morning(LocalDate day) {
@@ -354,5 +362,65 @@ class ReviewServiceIntegrationTest {
         assertThat(rows).extracting(StudentReviewStatusDto::fullName).containsExactly("Elev r7", "Elev r7b");
         assertThat(rows.get(0).doneToday()).isEqualTo(1);
         assertThat(rows.get(1).totalCards()).isZero();
+    }
+
+    // --- "Încă 5" ---
+
+    @Test
+    void extraQuestionsComeOnlyOnceTodayIsDoneWeakestFirstAndSkipTheSeenOnes() {
+        User ana = student("x1");
+        Quiz quiz = quiz("Fracții x1", true);
+        QuizItem wrong = grila(quiz, 0);
+        List<QuizItem> right = java.util.stream.IntStream.rangeClosed(1, 6).mapToObj(n -> grila(quiz, n)).toList();
+        QuizAttempt p = practice(quiz, ana, D1);
+        answer(p, wrong, false);              // box 1, due tomorrow
+        right.forEach(q -> answer(p, q, true)); // box 2, due in 3 days
+
+        // Tomorrow the wrong one is due: today's queue first, no extra yet.
+        LocalDate d2 = D1.plusDays(1);
+        assertThat(at(d2).extra(ana.getEmail(), List.of())).isEmpty();
+        at(d2).answer(ana.getEmail(), wrong.getId(), option(wrong, true).getId());
+
+        List<ReviewQuestionDto> first = at(d2).extra(ana.getEmail(), List.of());
+        assertThat(first).hasSize(5).extracting(ReviewQuestionDto::box).containsOnly(2);
+        assertThat(first).extracting(ReviewQuestionDto::itemId).doesNotContain(wrong.getId());
+        List<Long> seen = first.stream().map(ReviewQuestionDto::itemId).toList();
+        // The just-reviewed card (now box 2, due later) and the one not shown yet are what is left.
+        assertThat(at(d2).extra(ana.getEmail(), seen)).extracting(ReviewQuestionDto::itemId).hasSize(2)
+                .doesNotContainAnyElementsOf(seen);
+    }
+
+    @Test
+    void anExtraAnswerIsCheckedButMovesNothing() {
+        User ana = student("x2");
+        Quiz quiz = quiz("Fracții x2", true);
+        QuizItem q = grila(quiz, 0);
+        answer(practice(quiz, ana, D1), q, true); // box 2, due D1+3
+
+        ReviewResultDto wrong = at(D1).answerExtra(ana.getEmail(), q.getId(), option(q, false).getId());
+        assertThat(wrong.correct()).isFalse();
+        assertThat(wrong.correctOptionId()).isEqualTo(option(q, true).getId());
+        assertThat(wrong.boxBefore()).isEqualTo(2);
+        assertThat(wrong.boxAfter()).isEqualTo(2);
+        assertThat(wrong.nextDueOn()).isEqualTo(D1.plusDays(3));
+
+        // Nothing stored: not today's count, not the streak, and the card is not due any earlier.
+        ReviewTodayDto today = at(D1).today(ana.getEmail());
+        assertThat(today.doneToday()).isZero();
+        assertThat(today.streak()).isZero();
+        assertThat(ids(at(D1.plusDays(2)).today(ana.getEmail()))).isEmpty();
+        assertThat(ids(at(D1.plusDays(3)).today(ana.getEmail()))).containsExactly(q.getId());
+    }
+
+    @Test
+    void anExtraAnswerOnlyForOnesOwnCards() {
+        User ana = student("x3");
+        User bob = student("x4");
+        Quiz quiz = quiz("Fracții x3", true);
+        QuizItem q = grila(quiz, 0);
+        answer(practice(quiz, ana, D1), q, true);
+
+        assertThatThrownBy(() -> at(D1).answerExtra(bob.getEmail(), q.getId(), option(q, true).getId()))
+                .isInstanceOf(InvalidReviewException.class);
     }
 }

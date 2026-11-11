@@ -138,6 +138,57 @@ public class ReviewService {
                 after.dueOn(), chosen.isCorrect() ? null : chosen.getMistake(), lesson);
     }
 
+    // ---------------------------------------------------------------- "Încă 5": practice beyond today's queue
+
+    /** How many questions one "Încă 5" brings. */
+    public static final int EXTRA_BATCH = 5;
+
+    /**
+     * More questions once today's review is done ("Gata pe azi" no longer ends the session): up to {@value #EXTRA_BATCH}
+     * of the student's other cards - due ones left over by the daily limit first, then the lowest box, then the soonest
+     * due - skipping {@code seen} (the ones already shown in this session). Empty while today's queue still has
+     * questions: those come first. Answering them stores nothing ({@link #answerExtra}).
+     */
+    @Transactional(readOnly = true)
+    public List<ReviewQuestionDto> extra(String studentEmail, java.util.Collection<Long> seen) {
+        User student = requireStudent(studentEmail);
+        State state = stateOf(List.of(student.getId())).get(student.getId());
+        if (!state.queue().isEmpty()) {
+            return List.of();
+        }
+        Set<Long> skip = seen == null ? Set.of() : Set.copyOf(seen);
+        return state.ahead().stream()
+                .filter(itemId -> !skip.contains(itemId))
+                .limit(EXTRA_BATCH)
+                .map(itemId -> question(state.items().get(itemId), state.cards().get(itemId).box()))
+                .toList();
+    }
+
+    /**
+     * Checks an "Încă 5" answer without storing it: the box, the next date, today's count and the streak stay as they
+     * were - answering a card ahead of time must not promote it (spacing only works if the gaps are real). Only one of
+     * the student's own cards; anything else is a 409.
+     */
+    @Transactional(readOnly = true)
+    public ReviewResultDto answerExtra(String studentEmail, Long itemId, Long optionId) {
+        User student = requireStudent(studentEmail);
+        State state = stateOf(List.of(student.getId())).get(student.getId());
+        if (!state.ahead().contains(itemId)) {
+            throw new InvalidReviewException("Întrebarea nu e printre ale tale de recapitulat.");
+        }
+        QuizItem item = state.items().get(itemId);
+        QuizOption chosen = optionRepository.findById(optionId)
+                .filter(o -> o.getItem().getId().equals(itemId))
+                .orElseThrow(() -> new InvalidReviewException("Varianta nu aparține acestei întrebări."));
+        Card card = state.cards().get(itemId);
+        Long correctOptionId = optionRepository.findByItemIdOrderByPosition(itemId).stream()
+                .filter(QuizOption::isCorrect).map(QuizOption::getId).findFirst().orElse(null);
+        EnChapterLinkDto lesson = chosen.isCorrect() ? null
+                : enChapterLinks.resolve(itemRepository.findByQuizIdOrderByPosition(item.getQuiz().getId())).linkOf(item);
+        return new ReviewResultDto(chosen.isCorrect(), correctOptionId, item.getSolution(), card.box(), card.box(),
+                card.dueOn(), chosen.isCorrect() ? null : chosen.getMistake(), lesson);
+    }
+
     // ---------------------------------------------------------------- parent and teacher
 
     /** One student's review status (the parent's view goes through ParentService, which checks the child is theirs). */
@@ -168,9 +219,12 @@ public class ReviewService {
 
     // ---------------------------------------------------------------- the replay
 
-    /** One student's review state today. {@code queue} = item ids to review today, in order, within the limit. */
-    private record State(Map<Long, Card> cards, Map<Long, QuizItem> items, List<Long> queue, int doneToday,
-                         int streak, int mastered, LocalDate lastReviewOn) {
+    /**
+     * One student's review state today. {@code queue} = item ids to review today, in order, within the limit;
+     * {@code ahead} = every other card they may see, in the "Încă 5" order.
+     */
+    private record State(Map<Long, Card> cards, Map<Long, QuizItem> items, List<Long> queue, List<Long> ahead,
+                         int doneToday, int streak, int mastered, LocalDate lastReviewOn) {
     }
 
     private Map<Long, State> stateOf(List<Long> studentIds) {
@@ -223,20 +277,32 @@ public class ReviewService {
             Set<Long> hiddenQuizzes = keyHidden.getOrDefault(studentId, Set.of());
             List<LocalDate> days = reviewDays.get(studentId);
             int doneToday = (int) days.stream().filter(today::equals).count();
-            List<Long> queue = cards.entrySet().stream()
-                    .filter(e -> e.getValue().isDue(today))
+            List<Map.Entry<Long, Card>> eligible = cards.entrySet().stream()
                     .filter(e -> items.containsKey(e.getKey())
                             && !unpublishedQuizzes.contains(items.get(e.getKey()).getQuiz().getId())
                             && !hiddenQuizzes.contains(items.get(e.getKey()).getQuiz().getId()))
+                    .toList();
+            List<Long> queue = eligible.stream()
+                    .filter(e -> e.getValue().isDue(today))
                     .sorted(Comparator.comparing((Map.Entry<Long, Card> e) -> e.getValue().dueOn())
                             .thenComparing(e -> e.getValue().box())
                             .thenComparing(Map.Entry::getKey))
                     .limit(Math.max(0, DAILY_LIMIT - doneToday))
                     .map(Map.Entry::getKey)
                     .toList();
+            Set<Long> inQueue = Set.copyOf(queue);
+            // Due ones left over by the limit first, then the weakest (lowest box), then the soonest due.
+            List<Long> ahead = eligible.stream()
+                    .filter(e -> !inQueue.contains(e.getKey()))
+                    .sorted(Comparator.comparing((Map.Entry<Long, Card> e) -> !e.getValue().isDue(today))
+                            .thenComparing(e -> e.getValue().box())
+                            .thenComparing(e -> e.getValue().dueOn())
+                            .thenComparing(Map.Entry::getKey))
+                    .map(Map.Entry::getKey)
+                    .toList();
             int mastered = (int) cards.values().stream().filter(c -> c.box() == LeitnerEngine.LAST_BOX).count();
             LocalDate last = days.stream().max(LocalDate::compareTo).orElse(null);
-            states.put(studentId, new State(cards, items, queue, doneToday, streak(days, today), mastered, last));
+            states.put(studentId, new State(cards, items, queue, ahead, doneToday, streak(days, today), mastered, last));
         }
         return states;
     }

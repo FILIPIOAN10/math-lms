@@ -846,6 +846,22 @@ export async function answerReview(itemId: number, optionId: number): Promise<Re
   return response.json()
 }
 
+/**
+ * "Încă 5" once today's review is done: up to five more of the student's questions, the weakest first, skipping
+ * {@code seen}. Empty = none left (or today's queue is not done yet).
+ */
+export async function getReviewExtra(seen: number[]): Promise<ReviewQuestion[]> {
+  const query = seen.length > 0 ? `?${seen.map((id) => `seen=${id}`).join('&')}` : ''
+  const response = await apiFetch(`/quiz/review/extra${query}`)
+  return response.json()
+}
+
+/** Checks an "Încă 5" answer: nothing is stored, the box and the next date stay as they were. */
+export async function answerReviewExtra(itemId: number, optionId: number): Promise<ReviewResult> {
+  const response = await postJson(`/quiz/review/extra/items/${itemId}/answer`, { optionId })
+  return response.json()
+}
+
 /** Practising one EN chapter: up to five grile linked to it, the ones answered wrong last time first. */
 export interface ChapterPractice {
   chapterId: number

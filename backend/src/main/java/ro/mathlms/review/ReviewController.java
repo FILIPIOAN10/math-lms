@@ -8,7 +8,9 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import ro.mathlms.review.ReviewDtos.ReviewQuestionDto;
 import ro.mathlms.review.ReviewDtos.ReviewResultDto;
 import ro.mathlms.review.ReviewDtos.ReviewTodayDto;
 import ro.mathlms.review.ReviewDtos.StudentReviewStatusDto;
@@ -45,6 +47,21 @@ public class ReviewController {
     public ReviewResultDto answer(@PathVariable Long itemId, @Valid @RequestBody ReviewAnswerRequest request,
                                   Authentication auth) {
         return service.answer(auth.getName(), itemId, request.optionId());
+    }
+
+    /** "Încă 5" once today's review is done; {@code seen} = the ids already shown in this session. */
+    @GetMapping("/api/quiz/review/extra")
+    @PreAuthorize("hasRole('STUDENT')")
+    public List<ReviewQuestionDto> extra(@RequestParam(required = false) List<Long> seen, Authentication auth) {
+        return service.extra(auth.getName(), seen);
+    }
+
+    /** Checks an "Încă 5" answer; nothing is stored, no box moves. */
+    @PostMapping("/api/quiz/review/extra/items/{itemId}/answer")
+    @PreAuthorize("hasRole('STUDENT')")
+    public ReviewResultDto answerExtra(@PathVariable Long itemId, @Valid @RequestBody ReviewAnswerRequest request,
+                                       Authentication auth) {
+        return service.answerExtra(auth.getName(), itemId, request.optionId());
     }
 
     @GetMapping("/api/admin/classes/{classId}/review")

@@ -5,7 +5,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ReviewPage } from '@/pages/ReviewPage'
 import { ApiError, type ReviewToday } from '@/lib/api'
 
-const api = vi.hoisted(() => ({ getReviewToday: vi.fn(), answerReview: vi.fn() }))
+const api = vi.hoisted(() => ({
+  getReviewToday: vi.fn(), answerReview: vi.fn(), getReviewExtra: vi.fn(), answerReviewExtra: vi.fn(),
+}))
 vi.mock('@/lib/api', async (original) => ({ ...(await original<typeof import('@/lib/api')>()), ...api }))
 
 const question = (itemId: number, statement: string, box = 1) => ({
@@ -29,6 +31,8 @@ describe('ReviewPage', () => {
   beforeEach(() => {
     api.getReviewToday.mockReset().mockResolvedValue(today())
     api.answerReview.mockReset()
+    api.getReviewExtra.mockReset()
+    api.answerReviewExtra.mockReset()
   })
 
   it('shows today, the streak and the first question with where it is in the boxes', async () => {
@@ -119,6 +123,34 @@ describe('ReviewPage', () => {
 
     expect(await screen.findByText(/Gata pe azi/)).toBeInTheDocument()
     expect(screen.getByTestId('review-stats')).toHaveTextContent('Seria: 4 zile')
+  })
+
+  it('offers five more once today is done, answered without moving anything, until none are left', async () => {
+    api.getReviewToday.mockResolvedValue(today({ questions: [], remainingToday: 0, doneToday: 10 }))
+    api.getReviewExtra
+      .mockResolvedValueOnce([question(7, 'Cât face 3+3?', 2)])
+      .mockResolvedValueOnce([])
+    api.answerReviewExtra.mockResolvedValue({
+      correct: true, correctOptionId: 70, solution: null, boxBefore: 2, boxAfter: 2, nextDueOn: '2026-10-14',
+    })
+    renderPage()
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Încă 5 întrebări' }))
+    expect(api.getReviewExtra).toHaveBeenCalledWith([])
+    expect(await screen.findByText('Cât face 3+3?')).toBeInTheDocument()
+    await userEvent.click(screen.getByLabelText('a) corect'))
+    await userEvent.click(screen.getByRole('button', { name: 'Verifică' }))
+
+    expect(api.answerReviewExtra).toHaveBeenCalledWith(7, 70)
+    expect(api.answerReview).not.toHaveBeenCalled()
+    expect(await screen.findByTestId('review-feedback')).toHaveTextContent('Exersare în plus')
+    expect(screen.getByTestId('review-stats')).toHaveTextContent('Azi: 10 / 10') // not counted as today's
+    await userEvent.click(screen.getByRole('button', { name: 'Termină' }))
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Încă 5' }))
+    expect(api.getReviewExtra).toHaveBeenLastCalledWith([7])
+    expect(await screen.findByTestId('review-extra-none')).toHaveTextContent('Ai trecut prin toate întrebările tale')
+    expect(screen.queryByTestId('review-extra')).not.toBeInTheDocument()
   })
 
   it('explains where questions come from when there are none yet', async () => {

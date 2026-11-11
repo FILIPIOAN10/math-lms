@@ -1152,6 +1152,20 @@ ei)** și **Amestecă variantele de la grile**. Se aplică doar încercărilor �
 | 4 | La final la Exersează capitolul | „Ai răspuns corect la x din y” numără doar prima încercare; la Recapitulare cutia Leitner se mută tot după prima |
 | 5 | O întrebare cu indicii (scrise de profesor) | **Arată indiciul 1 din n** → apar pe rând; după verificare nu mai apar |
 
+### 52. „Încă 5” după recapitularea zilei — ca elev
+Când recapitularea de azi e gata (sau nu era nimic de azi), sub „Gata pe azi!” apare **Încă 5 întrebări**: alte întrebări
+de-ale elevului — întâi cele scadente rămase peste limita de 10, apoi cele din cutia cea mai mică. Răspunsurile **nu se
+salvează**: nu mută cutia, nu schimbă data la care revine întrebarea, nu intră în „Azi x / y” și nici în serie.
+
+| # | Ce faci | Ce trebuie să vezi |
+|---|---|---|
+| 1 | Elev cu recapitularea de azi terminată | „Gata pe azi!” + **Încă 5 întrebări** și „Exersare în plus: nu schimbă când revin în recapitulare.” |
+| 2 | Apasă; răspunde | Același card (a doua încercare, indicii); sub feedback „Exersare în plus: întrebarea revine în recapitulare tot când era programată.”; „Azi” nu crește |
+| 3 | **Termină** → **Încă 5** | Alte întrebări, niciuna din cele deja văzute în sesiune |
+| 4 | Când nu mai e nimic | „Ai trecut prin toate întrebările tale. Revino mâine!”; butonul dispare |
+| 5 | Elev fără nicio întrebare de recapitulat | Fără buton (doar „Încă nu ai nimic de recapitulat…”) |
+| 6 | Cât mai are întrebări de azi | GET `/api/quiz/review/extra` → listă goală (întâi cele de azi) |
+
 ## E. Debugging — unde te uiți când pică ceva
 
 ```bash
