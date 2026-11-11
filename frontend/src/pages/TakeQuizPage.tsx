@@ -14,6 +14,8 @@ import { SectionHeadingView } from '@/components/SectionHeadingView'
 import { PartsView } from '@/components/PartsView'
 import { parseOnly } from '@/lib/mistakes'
 import { numberItems, parseSection } from '@/lib/sections'
+import { clearFlags, loadFlags, saveFlags, toggled } from '@/lib/flags'
+import { Flag } from 'lucide-react'
 import {
   ApiError,
   getMyAssignments,
@@ -239,10 +241,12 @@ export function TakeQuizPage() {
       await sync.flush(5000) // the server still takes answers for a few seconds after the clock (grace period)
       await submitQuizAttempt(attempt.attemptId)
       sync.clear()
+      clearFlags(attempt.attemptId)
       navigate(`/quizzes/attempts/${attempt.attemptId}/result`, { replace: true })
     } catch (e) {
       if (e instanceof ApiError && e.status === 400) {
         sync.clear()
+      clearFlags(attempt.attemptId)
         // "no longer in progress": the server already handed it in when the time ran out — just show the result.
         navigate(`/quizzes/attempts/${attempt.attemptId}/result`, { replace: true })
         return
@@ -261,6 +265,18 @@ export function TakeQuizPage() {
   // apart from "answered", so a student always knows where they are; null until the first scroll means the first one.
   // The last card(s) of a test can never scroll up into that band, so at the very bottom of the page the last one wins.
   const [currentItem, setCurrentItem] = useState<number | null>(null)
+  // "Revin la ea": the questions marked to come back to, kept per attempt on this device (lib/flags).
+  const [flagged, setFlagged] = useState<Set<number>>(new Set())
+  const flagsAttempt = attempt?.attemptId ?? null
+  useEffect(() => {
+    setFlagged(flagsAttempt === null ? new Set() : loadFlags(flagsAttempt))
+  }, [flagsAttempt])
+  function toggleFlag(itemId: number) {
+    if (flagsAttempt === null) return
+    const next = toggled(flagged, itemId)
+    setFlagged(next)
+    saveFlags(flagsAttempt, next)
+  }
   const navButtons = useRef(new Map<number, HTMLButtonElement>())
   useEffect(() => {
     if (!attempt) return
@@ -542,6 +558,7 @@ export function TakeQuizPage() {
     try {
       await submitQuizAttempt(attempt.attemptId)
       sync.clear()
+      clearFlags(attempt.attemptId)
       navigate(`/quizzes/attempts/${attempt.attemptId}/result`, { replace: true })
     } catch (e) {
       setError(errorMessage(e))
@@ -684,6 +701,10 @@ export function TakeQuizPage() {
     : preview?.maxAttempts === 1
       ? ' Ai o singură încercare: după ce trimiți, nu mai poți da testul din nou.'
       : ' E ultima ta încercare: după ce trimiți, nu mai poți da testul din nou.'
+  // Questions still marked "Revin la ea", in paper order: the hand-in dialog reminds of them.
+  const flaggedLeft = !practice && !timeUp ? numbered.filter((n) => flagged.has(n.item.id)) : []
+  const flaggedLine = flaggedLeft.length === 0 ? ''
+    : ` Ai marcat să revii la ${flaggedLeft.length === 1 ? 'întrebarea' : 'întrebările'} ${flaggedLeft.map((n) => n.label).join(', ')}.`
   const dialogBody = practice
     ? 'Poți relua exersarea oricând.'
     : timeUp
@@ -691,8 +712,8 @@ export function TakeQuizPage() {
       : askAboutUnanswered
         ? `${unanswered.length === 1 ? 'Întrebarea' : 'Întrebările'} ${unanswered.map((u) => u.number).join(', ')} ${
             unanswered.length === 1 ? 'nu are' : 'nu au'
-          } răspuns. Le poți completa acum sau poți trimite lucrarea așa. După trimitere nu mai poți modifica nimic.${lastTryLine}`
-        : 'După trimitere nu mai poți modifica răspunsurile.'
+          } răspuns. Le poți completa acum sau poți trimite lucrarea așa. După trimitere nu mai poți modifica nimic.${lastTryLine}${flaggedLine}`
+        : `După trimitere nu mai poți modifica răspunsurile.${flaggedLine}`
 
   return (
     <div className="min-h-screen bg-muted p-4 pb-40">
@@ -755,9 +776,24 @@ export function TakeQuizPage() {
           {heading && <SectionHeadingView heading={heading} />}
           <Card className="scroll-mt-14" data-item-id={item.id}>
             <CardContent className={cn('space-y-3 py-4', readingTextClass)}>
-              <h2 id={headingId(item.id)} tabIndex={-1} className="scroll-mt-14 text-sm font-medium outline-none">
-                {label.includes('.') ? `${local}. (${item.points} p)` : `Întrebarea ${label} · ${item.points} p`}
-              </h2>
+              <div className="flex items-start justify-between gap-2">
+                <h2 id={headingId(item.id)} tabIndex={-1} className="scroll-mt-14 text-sm font-medium outline-none">
+                  {label.includes('.') ? `${local}. (${item.points} p)` : `Întrebarea ${label} · ${item.points} p`}
+                </h2>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  aria-pressed={flagged.has(item.id)}
+                  aria-label={`Revin la întrebarea ${label}`}
+                  data-testid={`flag-${item.id}`}
+                  onClick={() => toggleFlag(item.id)}
+                  className={cn('h-9 shrink-0 gap-1.5', flagged.has(item.id) && 'border-amber-500 bg-amber-500/15 text-amber-800 dark:text-amber-200')}
+                >
+                  <Flag aria-hidden="true" className="size-3.5" fill={flagged.has(item.id) ? 'currentColor' : 'none'} />
+                  {flagged.has(item.id) ? 'Marcată' : 'Revin la ea'}
+                </Button>
+              </div>
               <MathContent>{item.statement}</MathContent>
               <QuestionImage itemId={item.id} image={item.image} />
               <PartsView parts={item.parts ?? []} />
@@ -1002,6 +1038,7 @@ export function TakeQuizPage() {
               const done = isAnswered(item)
               const unsentYet = sync.statusOf(item.id) !== undefined
               const here = item.id === (currentItem ?? numbered[0]?.item.id)
+              const marked = flagged.has(item.id)
               return (
                 <button
                   key={item.id}
@@ -1010,7 +1047,7 @@ export function TakeQuizPage() {
                     else navButtons.current.delete(item.id)
                   }}
                   type="button"
-                  aria-label={`Întrebarea ${label}, ${done ? 'cu răspuns' : 'fără răspuns'}${unsentYet ? ', netrimis încă' : ''}`}
+                  aria-label={`Întrebarea ${label}, ${done ? 'cu răspuns' : 'fără răspuns'}${marked ? ', marcată să revii' : ''}${unsentYet ? ', netrimis încă' : ''}`}
                   aria-current={here ? 'step' : undefined}
                   onClick={() => goToItem(item.id)}
                   className={cn(
@@ -1021,6 +1058,9 @@ export function TakeQuizPage() {
                   )}
                 >
                   {label}
+                  {marked && (
+                    <Flag aria-hidden="true" data-testid="nav-flag" className="absolute -top-1.5 -left-1 size-3.5 text-amber-500" fill="currentColor" />
+                  )}
                   {unsentYet && (
                     <span aria-hidden="true" className="absolute -top-1 -right-1 size-2.5 rounded-full bg-amber-500 ring-2 ring-background" />
                   )}
@@ -1065,7 +1105,7 @@ export function TakeQuizPage() {
         onCancel={() => setConfirming(false)}
         finalFocus={() => jumpTarget.current ?? true}
         extraAction={
-          askAboutUnanswered && (
+          askAboutUnanswered ? (
             <Button
               onClick={() => {
                 const first = unanswered[0].item.id
@@ -1075,6 +1115,18 @@ export function TakeQuizPage() {
               }}
             >
               Mergi la întrebarea {unanswered[0].number}
+            </Button>
+          ) : flaggedLeft.length > 0 && (
+            <Button
+              variant="outline"
+              onClick={() => {
+                const first = flaggedLeft[0].item.id
+                jumpTarget.current = document.getElementById(headingId(first))
+                setConfirming(false)
+                goToItem(first)
+              }}
+            >
+              Mergi la întrebarea {flaggedLeft[0].label}
             </Button>
           )
         }

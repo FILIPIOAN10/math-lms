@@ -846,6 +846,53 @@ describe('TakeQuizPage', () => {
       expect(within(dialog).getByRole('button', { name: 'Trimite oricum' })).not.toHaveClass('bg-primary')
     })
 
+    it('marks a question to come back to, shows it in the bar, keeps it on reload and reminds before handing in', async () => {
+      localStorage.clear()
+      api.startQuizAttempt.mockResolvedValue(startedThree())
+      Element.prototype.scrollIntoView = vi.fn()
+      const { unmount } = renderPage('')
+      await userEvent.click(await screen.findByRole('button', { name: 'Începe testul' }))
+      await screen.findByText('Primul subiect')
+
+      const flag = screen.getByRole('button', { name: 'Revin la întrebarea 2' })
+      expect(flag).toHaveAttribute('aria-pressed', 'false')
+      await userEvent.click(flag)
+      expect(flag).toHaveAttribute('aria-pressed', 'true')
+      expect(flag).toHaveTextContent('Marcată')
+      const bar = screen.getByRole('navigation', { name: 'Întrebări' })
+      expect(within(bar).getByRole('button', { name: /^Întrebarea 2, .*marcată să revii/ })).toBeInTheDocument()
+      expect(within(bar).getAllByTestId('nav-flag')).toHaveLength(1)
+
+      // "Salvează și ieși" and back on the same device: the mark is still there.
+      unmount()
+      renderPage('')
+      await userEvent.click(await screen.findByRole('button', { name: /Începe testul|Continuă/ }))
+      expect(await screen.findByRole('button', { name: 'Revin la întrebarea 2' })).toHaveAttribute('aria-pressed', 'true')
+
+      await userEvent.click(screen.getByRole('button', { name: 'Trimite lucrarea' }))
+      expect(await screen.findByRole('dialog')).toHaveTextContent('Ai marcat să revii la întrebarea 2.')
+    })
+
+    it('offers the marked question when nothing is left unanswered, and hands nothing in', async () => {
+      localStorage.clear()
+      localStorage.setItem('mathlms-flags-50', JSON.stringify([100]))
+      api.startQuizAttempt.mockResolvedValue(started('TEST'))
+      api.saveQuizAnswer.mockResolvedValue(null)
+      Element.prototype.scrollIntoView = vi.fn()
+      renderPage('')
+      await begin('Începe testul')
+      await userEvent.click(screen.getByLabelText('a) Varianta A'))
+      await waitFor(() => expect(api.saveQuizAnswer).toHaveBeenCalled())
+
+      await userEvent.click(screen.getByRole('button', { name: 'Trimite lucrarea' }))
+
+      const dialog = await screen.findByRole('dialog', { name: 'Trimiți lucrarea?' })
+      expect(dialog).toHaveTextContent('Ai marcat să revii la întrebarea 1.')
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Mergi la întrebarea 1' }))
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+      expect(api.submitQuizAttempt).not.toHaveBeenCalled()
+    })
+
     it('says before an incomplete hand-in that it is the last try', async () => {
       api.getQuizPreview.mockResolvedValue(preview({ maxAttempts: 1 }))
       api.startQuizAttempt.mockResolvedValue(startedThree())

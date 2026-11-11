@@ -1166,6 +1166,20 @@ salvează**: nu mută cutia, nu schimbă data la care revine întrebarea, nu int
 | 5 | Elev fără nicio întrebare de recapitulat | Fără buton (doar „Încă nu ai nimic de recapitulat…”) |
 | 6 | Cât mai are întrebări de azi | GET `/api/quiz/review/extra` → listă goală (întâi cele de azi) |
 
+### 53. „Revin la ea” în timpul testului — ca elev
+Lângă titlul fiecărei întrebări: **Revin la ea** (steag). Marcajul e o notiță a elevului: nu se notează, nu ajunge la
+profesor și stă pe acest dispozitiv (pe încercare), până la predare.
+
+| # | Ce faci | Ce trebuie să vezi |
+|---|---|---|
+| 1 | Apasă **Revin la ea** la întrebarea 2 | Butonul devine „Marcată” (galben, apăsat); în bara de jos, la „2”, un steag mic |
+| 2 | Încă o apăsare | Marcajul dispare |
+| 3 | Marchează, **Salvează și ieși**, apoi **Continuă testul** (același dispozitiv) / reîncarcă pagina | Marcajul e tot acolo |
+| 4 | **Trimite lucrarea** cu întrebări necompletate | Mesajul obișnuit + „Ai marcat să revii la întrebarea 2.” |
+| 5 | **Trimite lucrarea** cu toate completate, dar una marcată | „Trimiți lucrarea?” + „Ai marcat să revii la…” + **Mergi la întrebarea X** (închide dialogul, duce la ea) |
+| 6 | Predă, apoi dă testul din nou (altă încercare) | Nimic marcat: fiecare încercare are marcajele ei |
+| 7 | Cititor de ecran pe bara de jos | „Întrebarea 2, fără răspuns, marcată să revii” |
+
 ## E. Debugging — unde te uiți când pică ceva
 
 ```bash
