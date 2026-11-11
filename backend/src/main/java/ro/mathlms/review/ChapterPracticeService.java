@@ -20,6 +20,8 @@ import ro.mathlms.quiz.QuizItem;
 import ro.mathlms.quiz.QuizItemRepository;
 import ro.mathlms.quiz.QuizItemType;
 import ro.mathlms.quiz.QuizOption;
+import ro.mathlms.quiz.QuizItemHint;
+import ro.mathlms.quiz.QuizItemHintRepository;
 import ro.mathlms.quiz.QuizOptionRepository;
 import ro.mathlms.quiz.QuizRepository;
 import ro.mathlms.review.ReviewDtos.ChapterPracticeDto;
@@ -61,6 +63,7 @@ public class ChapterPracticeService {
     private final QuizAttemptRepository attemptRepository;
     private final QuizItemRepository itemRepository;
     private final QuizOptionRepository optionRepository;
+    private final QuizItemHintRepository hintRepository;
     private final ItemResponseRepository responseRepository;
     private final ReviewAnswerRepository reviewAnswerRepository;
     private final EnChapterLinks enChapterLinks;
@@ -70,7 +73,9 @@ public class ChapterPracticeService {
                                   QuizAttemptService quizAttemptService, QuizAttemptRepository attemptRepository,
                                   QuizItemRepository itemRepository, QuizOptionRepository optionRepository,
                                   ItemResponseRepository responseRepository, ReviewAnswerRepository reviewAnswerRepository,
-                                  EnChapterLinks enChapterLinks, QuizRepository quizRepository) {
+                                  EnChapterLinks enChapterLinks, QuizRepository quizRepository,
+                                  QuizItemHintRepository hintRepository) {
+        this.hintRepository = hintRepository;
         this.userRepository = userRepository;
         this.chapterRepository = chapterRepository;
         this.quizAttemptService = quizAttemptService;
@@ -198,7 +203,8 @@ public class ChapterPracticeService {
                 .map(o -> new ReviewOptionDto(o.getId(), o.getPosition(), o.getText()))
                 .toList();
         return new ReviewQuestionDto(item.getId(), item.getQuiz().getTitle(), item.getStatement(), options, 0,
-                item.getImageKey());
+                item.getImageKey(), hintRepository.findByItemIdOrderByPosition(item.getId()).stream()
+                        .map(QuizItemHint::getText).toList());
     }
 
     private EnChapter requireChapter(Long chapterId) {

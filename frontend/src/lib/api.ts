@@ -784,6 +784,8 @@ export interface ReviewQuestion {
   box: number
   /** The picture under the statement: a version token for questionImageUrl(), or null/absent = none. */
   image?: string | null
+  /** The teacher's hints, in order (revealed one at a time before the answer). */
+  hints?: string[]
 }
 
 export interface ReviewToday {

@@ -52,6 +52,8 @@ describe('ReviewPage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Verifică' }))
 
     await waitFor(() => expect(api.answerReview).toHaveBeenCalledWith(1, 11))
+    // A second try is offered first; giving up shows the answer at once.
+    await userEvent.click(await screen.findByRole('button', { name: 'Arată răspunsul' }))
     const feedback = await screen.findByTestId('review-feedback')
     expect(feedback).toHaveTextContent('Greșit')
     expect(feedback).toHaveTextContent('Doi.')
@@ -71,6 +73,7 @@ describe('ReviewPage', () => {
 
     await userEvent.click(await screen.findByLabelText('b) greșit'))
     await userEvent.click(screen.getByRole('button', { name: 'Verifică' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Arată răspunsul' }))
 
     expect(await screen.findByTestId('revision-note')).toHaveTextContent('Dacă vrei să recapitulezi noțiunile despre simetrie și segmente:')
     const lesson = screen.getByRole('link', { name: /Vezi lecția: G1 Segmente/ })
@@ -78,7 +81,29 @@ describe('ReviewPage', () => {
     expect(lesson).toHaveAttribute('target', '_blank')
   })
 
-  it('celebrates when today is done', async () => {
+  it('reveals the teacher hints one at a time, and none once the answer is shown', async () => {
+    api.getReviewToday.mockResolvedValue(today({
+      questions: [{ ...question(1, 'Cât face 1+1?'), hints: ['Numără pe degete.', 'Unu și încă unu.'] }],
+    }))
+    api.answerReview.mockResolvedValue({
+      correct: true, correctOptionId: 10, solution: null, boxBefore: 1, boxAfter: 2, nextDueOn: '2026-10-14',
+    })
+    renderPage()
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Arată indiciul 1 din 2' }))
+    expect(screen.getByText('Numără pe degete.')).toBeInTheDocument()
+    expect(screen.queryByText('Unu și încă unu.')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Arată indiciul 2 din 2' }))
+    expect(screen.getByText('Unu și încă unu.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Arată indiciul/ })).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByLabelText('a) corect'))
+    await userEvent.click(screen.getByRole('button', { name: 'Verifică' }))
+    expect(await screen.findByTestId('review-feedback')).toHaveTextContent('Corect!')
+    expect(screen.queryByTestId('review-hints')).not.toBeInTheDocument()
+  })
+
+    it('celebrates when today is done', async () => {
     api.getReviewToday
       .mockResolvedValueOnce(today({ questions: [question(1, 'Cât face 1+1?')], remainingToday: 1 }))
       .mockResolvedValueOnce(today({ questions: [], remainingToday: 0, doneToday: 1, streak: 4 }))

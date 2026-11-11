@@ -49,9 +49,17 @@ describe('ChapterPracticePage', () => {
     await user.click(screen.getByRole('radio', { name: /0/ }))
     await user.click(screen.getByRole('button', { name: 'Verifică' }))
     expect(api.answerChapterPractice).toHaveBeenCalledWith(4, 1, 11)
+    // Wrong: one more try before the answer is shown; the right option is not marked yet.
+    expect(await screen.findByTestId('practice-retry')).toHaveTextContent('Mai încearcă o dată')
+    expect(screen.queryByTestId('practice-feedback')).not.toBeInTheDocument()
+    expect(screen.queryByText('(răspunsul corect)')).not.toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: /0/ })).toBeDisabled()
+    await user.click(screen.getByRole('radio', { name: /2/ }))
+    await user.click(screen.getByRole('button', { name: 'Verifică din nou' }))
     const feedback = await screen.findByTestId('practice-feedback')
-    expect(feedback).toHaveTextContent('Greșit')
+    expect(feedback).toHaveTextContent('Corect, din a doua încercare')
     expect(feedback).toHaveTextContent('Rezolvare')
+    expect(api.answerChapterPractice).toHaveBeenCalledTimes(1) // the second try is checked here, never sent
 
     await user.click(screen.getByRole('button', { name: 'Următoarea' }))
     await user.click(screen.getByRole('radio', { name: /3/ }))

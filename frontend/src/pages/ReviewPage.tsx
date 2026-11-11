@@ -134,6 +134,7 @@ export function ReviewPage() {
 
         {today && question && (
           <PracticeQuestionCard
+            key={question.itemId}
             name="review"
             position={index}
             total={today.questions.length}

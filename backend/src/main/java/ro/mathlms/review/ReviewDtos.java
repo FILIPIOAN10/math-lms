@@ -16,8 +16,10 @@ public final class ReviewDtos {
     }
 
     /** One question of today's queue. */
+    // hints: the ones its teacher wrote, in order - practice is low-stakes, so the card reveals them one at a time
+    // before the answer (Khan Academy: help while answering).
     public record ReviewQuestionDto(Long itemId, String quizTitle, String statement, List<ReviewOptionDto> options,
-                                    int box, String image) {
+                                    int box, String image, List<String> hints) {
     }
 
     /**

@@ -134,6 +134,7 @@ export function ChapterPracticePage() {
 
         {question && practice && (
           <PracticeQuestionCard
+            key={question.itemId}
             name="practice"
             position={index}
             total={practice.questions.length}

@@ -18,6 +18,8 @@ import ro.mathlms.quiz.QuizItem;
 import ro.mathlms.quiz.QuizItemRepository;
 import ro.mathlms.quiz.QuizItemType;
 import ro.mathlms.quiz.QuizOption;
+import ro.mathlms.quiz.QuizItemHint;
+import ro.mathlms.quiz.QuizItemHintRepository;
 import ro.mathlms.quiz.QuizOptionRepository;
 import ro.mathlms.quiz.QuizRepository;
 import ro.mathlms.quiz.QuizStatus;
@@ -72,6 +74,7 @@ public class ReviewService {
     private final QuizAttemptRepository attemptRepository;
     private final QuizItemRepository itemRepository;
     private final QuizOptionRepository optionRepository;
+    private final QuizItemHintRepository hintRepository;
     private final ItemResponseRepository responseRepository;
     private final ReviewAnswerRepository reviewAnswerRepository;
     private final EnChapterLinks enChapterLinks;
@@ -82,7 +85,8 @@ public class ReviewService {
                          QuizRepository quizRepository, QuizAttemptRepository attemptRepository,
                          QuizItemRepository itemRepository, QuizOptionRepository optionRepository,
                          ItemResponseRepository responseRepository, ReviewAnswerRepository reviewAnswerRepository,
-                         EnChapterLinks enChapterLinks, Clock clock) {
+                         EnChapterLinks enChapterLinks, Clock clock, QuizItemHintRepository hintRepository) {
+        this.hintRepository = hintRepository;
         this.userRepository = userRepository;
         this.enrollmentRepository = enrollmentRepository;
         this.quizRepository = quizRepository;
@@ -265,7 +269,8 @@ public class ReviewService {
                 .map(o -> new ReviewOptionDto(o.getId(), o.getPosition(), o.getText()))
                 .toList();
         return new ReviewQuestionDto(item.getId(), item.getQuiz().getTitle(), item.getStatement(), options, box,
-                item.getImageKey());
+                item.getImageKey(), hintRepository.findByItemIdOrderByPosition(item.getId()).stream()
+                        .map(QuizItemHint::getText).toList());
     }
 
     private LocalDate today() {

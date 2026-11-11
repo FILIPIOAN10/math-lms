@@ -60,6 +60,7 @@ class ReviewServiceIntegrationTest {
     @Autowired private QuizRepository quizRepository;
     @Autowired private QuizItemRepository itemRepository;
     @Autowired private QuizOptionRepository optionRepository;
+    @Autowired private ro.mathlms.quiz.QuizItemHintRepository hintRepository;
     @Autowired private QuizAttemptRepository attemptRepository;
     @Autowired private ItemResponseRepository responseRepository;
     @Autowired private ReviewAnswerRepository reviewAnswerRepository;
@@ -75,7 +76,8 @@ class ReviewServiceIntegrationTest {
     private At at(LocalDate day) {
         Clock clock = Clock.fixed(day.atTime(10, 0).atZone(ZONE).toInstant(), ZONE);
         return new At(new ReviewService(userRepository, enrollmentRepository, quizRepository, attemptRepository,
-                itemRepository, optionRepository, responseRepository, reviewAnswerRepository, enChapterLinks, clock));
+                itemRepository, optionRepository, responseRepository, reviewAnswerRepository, enChapterLinks, clock,
+                hintRepository));
     }
 
     private final class At {

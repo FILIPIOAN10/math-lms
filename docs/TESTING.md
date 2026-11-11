@@ -1115,6 +1115,43 @@ pentru exersare le arată oricum (exersarea le dă la fiecare răspuns).
 | 7 | **Recapitulare** a doua zi și **Exersează capitolul** EN | Grilele unui test cu încercări rămase nu apar până după ultima încercare |
 | 8 | Ca părinte: rezultatul copilului de la pasul 1 | Aceeași regulă: „…după ultima încercare a elevului la acest test.” |
 
+### 49. Temă programată („Programează”) — ca profesor, apoi ca elev
+La **Dă o temă** (și la **Publică → Dă-l și ca temă**) bifează **Programează: apare elevilor mai târziu** → **Apare elevilor la**
+(implicit mâine la 08:00). Până atunci elevii și părinții nu văd nici tema, nici testul (dacă nu l-au primit deja printr-o temă
+mai veche); nu pleacă nicio reamintire.
+
+| # | Ce faci | Ce trebuie să vezi |
+|---|---|---|
+| 1 | Profesor: test nou, **Publică → Dă-l și ca temă**, termen peste 3 zile, programată peste o zi | La **Teme**: eticheta „Programată · apare …” |
+| 2 | Elev din clasă: **Testele mele** și **Teme** | Testul nu apare nicăieri; `/quizzes/<id>` direct → „nu există” (404) |
+| 3 | Dialogul cu data apariției după termen, sau în trecut | „Tema trebuie să apară înainte de termen.” / „…trebuie să fie în viitor.”; nimic creat |
+| 4 | Profesor: ⋯ pe temă → **Mută data apariției** | Data nouă în etichetă |
+| 5 | ⋯ → **Dă-o acum** | „Tema … e acum vizibilă pentru …”; eticheta dispare; elevul vede tema și testul |
+| 6 | După pasul 5, PUT `/api/admin/assignments/<id>/release` cu o dată | 400 „Tema e deja vizibilă elevilor” (o temă văzută nu se mai ascunde) |
+| 7 | Pagina elevului (Elevi → elev) înainte de pasul 5 | Tema apare cu eticheta „Programată” (doar profesorul o vede) |
+
+### 50. Ordine diferită la fiecare elev — ca profesor, apoi ca 2 elevi
+Pe pagina testului (de la 2 întrebări): **Ordine diferită la fiecare elev** → **Amestecă întrebările (fiecare rămâne în subiectul
+ei)** și **Amestecă variantele de la grile**. Se aplică doar încercărilor începute de acum.
+
+| # | Ce faci | Ce trebuie să vezi |
+|---|---|---|
+| 1 | Bifează ambele; doi elevi încep testul | Fiecare are altă ordine a întrebărilor și a variantelor; numerotarea e tot 1, 2, 3… |
+| 2 | Un elev iese și reintră în test | Aceeași ordine ca la început |
+| 3 | Test EN cu SUBIECTUL I/II/III | Întrebările se amestecă doar în subiectul lor; subiectele rămân în ordine |
+| 4 | Profesorul debifează în timp ce un elev lucrează | Lucrarea deschisă își păstrează ordinea; următoarea încercare vine în ordinea profesorului |
+| 5 | Corectura / rezultatul / statisticile | În ordinea profesorului; notele nu depind de ordine |
+| 6 | **Copiază și editează** pe test | Copia păstrează bifele |
+
+### 51. A doua încercare și indicii la exersare — ca elev (Recapitulare și Exersează capitolul)
+| # | Ce faci | Ce trebuie să vezi |
+|---|---|---|
+| 1 | Alege o variantă greșită → **Verifică** | „✗ Nu e corect. Mai încearcă o dată — prima încercare s-a socotit deja.”; varianta greșită tăiată și blocată; răspunsul corect NU e marcat; „Ce arată greșeala” (dacă profesorul a scris-o) |
+| 2 | Alege varianta bună → **Verifică din nou** | „✓ Corect, din a doua încercare! Data viitoare o știi din prima.” + rezolvarea; ✓ pe varianta bună |
+| 3 | Sau **Arată răspunsul** | Feedbackul obișnuit („✗ Greșit — răspunsul corect e marcat cu ✓.”) |
+| 4 | La final la Exersează capitolul | „Ai răspuns corect la x din y” numără doar prima încercare; la Recapitulare cutia Leitner se mută tot după prima |
+| 5 | O întrebare cu indicii (scrise de profesor) | **Arată indiciul 1 din n** → apar pe rând; după verificare nu mai apar |
+
 ## E. Debugging — unde te uiți când pică ceva
 
 ```bash
