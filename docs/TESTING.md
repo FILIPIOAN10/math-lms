@@ -1117,13 +1117,15 @@ pentru exersare le arată oricum (exersarea le dă la fiecare răspuns).
 
 ### 49. Temă programată („Programează”) — ca profesor, apoi ca elev
 La **Dă o temă** (și la **Publică → Dă-l și ca temă**) bifează **Programează: apare elevilor mai târziu** → **Apare elevilor la**
-(implicit mâine la 08:00). Până atunci elevii și părinții nu văd nici tema, nici testul (dacă nu l-au primit deja printr-o temă
-mai veche); nu pleacă nicio reamintire.
+(implicit mâine la 08:00). Până atunci elevii și părinții nu văd tema și nu pleacă nicio reamintire. **Testul** se ascunde doar
+dacă e publicat odată cu tema (**Publică → Dă-l și ca temă**) — și atunci de la toți elevii, din orice clasă, până la data
+apariției. Un test deja publicat rămâne vizibil celor care îl văd (V66, audit 2026-11-12).
 
 | # | Ce faci | Ce trebuie să vezi |
 |---|---|---|
-| 1 | Profesor: test nou, **Publică → Dă-l și ca temă**, termen peste 3 zile, programată peste o zi | La **Teme**: eticheta „Programată · apare …” |
-| 2 | Elev din clasă: **Testele mele** și **Teme** | Testul nu apare nicăieri; `/quizzes/<id>` direct → „nu există” (404) |
+| 1 | Profesor: test nou pentru **Toți elevii**, **Publică → Dă-l și ca temă** clasei A, termen peste 3 zile, programată peste o zi | La **Teme**: eticheta „Programată · apare …” |
+| 2 | Elev din clasa A, apoi elev din clasa B: **Testele mele** și **Teme** | Testul nu apare la niciunul; `/quizzes/<id>` direct → „nu există” (404) |
+| 2b | Profesor: test **deja publicat** clasei A, pe care un elev l-a început; **Dă o temă** cu el, programată peste o zi | Dialogul spune „Testul, deja publicat, rămâne…”; elevul vede testul și își reia încercarea; tema apare abia la data aleasă |
 | 3 | Dialogul cu data apariției după termen, sau în trecut | „Tema trebuie să apară înainte de termen.” / „…trebuie să fie în viitor.”; nimic creat |
 | 4 | Profesor: ⋯ pe temă → **Mută data apariției** | Data nouă în etichetă |
 | 5 | ⋯ → **Dă-o acum** | „Tema … e acum vizibilă pentru …”; eticheta dispare; elevul vede tema și testul |

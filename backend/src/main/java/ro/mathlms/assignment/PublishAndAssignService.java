@@ -3,6 +3,7 @@ package ro.mathlms.assignment;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ro.mathlms.quiz.QuizAdminService;
+import ro.mathlms.quiz.QuizStatus;
 
 import java.time.Instant;
 
@@ -28,12 +29,14 @@ public class PublishAndAssignService {
     }
 
     /**
-     * The same with a scheduled release: the quiz is published now, but a test given only by this homework stays hidden
-     * from the class until {@code availableFrom} ("prepare Friday's test on Tuesday").
+     * The same with a scheduled release ("prepare Friday's test on Tuesday"): a draft is published now but stays hidden
+     * from every student - every class, not only this one - until {@code availableFrom} (V66). A test already published
+     * is not taken away from the students who see it: then only the homework waits.
      */
     @Transactional
     public Assignment publishAndAssign(Long quizId, Long schoolClassId, Instant dueAt, Instant availableFrom) {
+        boolean wasDraft = quizAdminService.getQuiz(quizId).getStatus() != QuizStatus.PUBLISHED;
         quizAdminService.setPublished(quizId, true); // refuses a quiz without questions
-        return assignmentService.create(quizId, schoolClassId, dueAt, availableFrom);
+        return assignmentService.create(quizId, schoolClassId, dueAt, availableFrom, wasDraft);
     }
 }

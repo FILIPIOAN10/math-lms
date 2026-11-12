@@ -51,6 +51,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -146,13 +147,28 @@ public class QuizAttemptService {
     public List<Quiz> listPublished(String studentEmail) {
         User student = requireUser(studentEmail);
         List<Long> classIds = enrollmentRepository.findClassIdsByStudentId(student.getId());
-        if (classIds.isEmpty()) {
-            return quizRepository.findByStatusAndSchoolClassIsNullOrderByTitle(QuizStatus.PUBLISHED);
+        Set<Long> notYet = notYetReleased(student, classIds);
+        List<Quiz> visible = classIds.isEmpty()
+                ? quizRepository.findByStatusAndSchoolClassIsNullOrderByTitle(QuizStatus.PUBLISHED)
+                : quizRepository.findVisibleToClasses(QuizStatus.PUBLISHED, classIds);
+        return visible.stream().filter(quiz -> !notYet.contains(quiz.getId())).toList();
+    }
+
+    /**
+     * Tests this student may not see yet: published for a homework scheduled for later, hidden from everyone until its
+     * release (V66) - unless a homework already released gave this student the test. One query when nothing is hidden.
+     */
+    private Set<Long> notYetReleased(User student, List<Long> classIds) {
+        Instant now = Instant.now(clock);
+        List<Long> hidden = quizRepository.findQuizIdsHiddenUntilRelease(now);
+        if (hidden.isEmpty()) {
+            return Set.of();
         }
-        Set<Long> notYet = Set.copyOf(quizRepository.findNotYetReleasedQuizIds(classIds, student.getId(), Instant.now(clock)));
-        return quizRepository.findVisibleToClasses(QuizStatus.PUBLISHED, classIds).stream()
-                .filter(quiz -> !notYet.contains(quiz.getId()))
-                .toList();
+        Set<Long> notYet = new HashSet<>(hidden);
+        if (!classIds.isEmpty()) {
+            quizRepository.findHomeworkGiven(classIds, student.getId(), now).forEach(given -> notYet.remove(given.quizId()));
+        }
+        return notYet;
     }
 
     /** The quizzes on the student's list, each with the attempts used and whether another one may start. */
@@ -194,18 +210,14 @@ public class QuizAttemptService {
     }
 
     /**
-     * A quiz is open to everyone unless assigned to a class — then only to that class's students — and never while the
-     * only homework giving it to the student is scheduled for later (V64).
+     * A quiz is open to everyone unless assigned to a class — then only to that class's students — and never while it
+     * waits for the release of the homework it was published for ({@link #notYetReleased}).
      */
     private boolean isVisibleTo(Quiz quiz, User student) {
         boolean inClass = quiz.getSchoolClass() == null
                 || enrollmentRepository.existsByStudentIdAndSchoolClassId(student.getId(), quiz.getSchoolClass().getId());
-        if (!inClass) {
-            return false;
-        }
-        List<Long> classIds = enrollmentRepository.findClassIdsByStudentId(student.getId());
-        return classIds.isEmpty()
-                || !quizRepository.findNotYetReleasedQuizIds(classIds, student.getId(), Instant.now(clock)).contains(quiz.getId());
+        return inClass && !notYetReleased(student, enrollmentRepository.findClassIdsByStudentId(student.getId()))
+                .contains(quiz.getId());
     }
 
     /**

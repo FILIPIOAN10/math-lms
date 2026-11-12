@@ -3,17 +3,21 @@ import { Label } from '@/components/ui/label'
 import { defaultRelease } from '@/lib/assignments'
 
 /**
- * "Programează" (Google Classroom "Schedule", Canvas "Available from"): the homework, and a test given only by it,
- * stays hidden from the students until this moment. `value` is a datetime-local string; '' = not scheduled.
+ * "Programează" (Google Classroom "Schedule", Canvas "Available from"): the homework stays hidden from its students
+ * until this moment. `value` is a datetime-local string; '' = not scheduled. `testHidden`: the test is published
+ * together with this homework, so no student at all sees the test before then either (V66); otherwise the test is
+ * already published and stays where students see it - only the homework waits.
  */
 export function ReleaseField({
   id,
   value,
   onChange,
+  testHidden = false,
 }: {
   id: string
   value: string
   onChange: (value: string) => void
+  testHidden?: boolean
 }) {
   const scheduled = value !== ''
   return (
@@ -32,8 +36,10 @@ export function ReleaseField({
           <Label htmlFor={id}>Apare elevilor la</Label>
           <Input id={id} type="datetime-local" value={value} onChange={(e) => onChange(e.target.value)} />
           <p className="text-xs text-muted-foreground">
-            Până atunci elevii și părinții nu văd nici tema, nici testul (dacă nu l-au primit deja altfel). Îl poți da
-            mai devreme din meniul temei: „Dă-o acum”.
+            {testHidden
+              ? 'Până atunci niciun elev nu vede testul, din nicio clasă, iar elevii clasei și părinții lor nu văd nici tema.'
+              : 'Până atunci elevii și părinții nu văd tema. Testul, deja publicat, rămâne în lista elevilor care îl văd acum.'}{' '}
+            O poți da mai devreme din meniul temei: „Dă-o acum”.
           </p>
         </>
       )}

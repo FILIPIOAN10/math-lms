@@ -91,12 +91,29 @@ public class AssignmentService {
         return create(quizId, schoolClassId, dueAt, null);
     }
 
-    /** The same, released only at {@code availableFrom} (null = now): see {@link #requireRelease}. */
+    /**
+     * The same, released only at {@code availableFrom} (null = now): see {@link #requireRelease}. Only the homework
+     * waits for the release - the test is already published, so students who see it keep seeing it.
+     */
     @Transactional
     public Assignment create(Long quizId, Long schoolClassId, Instant dueAt, Instant availableFrom) {
-        Assignment saved = assignmentRepository.save(build(quizId, schoolClassId, dueAt, false, availableFrom));
+        return create(quizId, schoolClassId, dueAt, availableFrom, false);
+    }
+
+    /**
+     * {@code hidesQuiz}: the test is being published for this homework (see {@link PublishAndAssignService}), so with a
+     * release it stays hidden from every student until then (V66). Ignored without a release.
+     */
+    @Transactional
+    public Assignment create(Long quizId, Long schoolClassId, Instant dueAt, Instant availableFrom, boolean hidesQuiz) {
+        Assignment assignment = build(quizId, schoolClassId, dueAt, false, availableFrom);
+        if (hidesQuiz && availableFrom != null) {
+            assignment.hideQuizUntilRelease();
+        }
+        Assignment saved = assignmentRepository.save(assignment);
         auditLog.record(AuditEvent.of(AuditAction.HOMEWORK_ASSIGNED, saved.getId(), label(saved))
-                .details("termen " + AuditText.dateTime(dueAt) + released(availableFrom)));
+                .details("termen " + AuditText.dateTime(dueAt) + released(availableFrom)
+                        + (saved.isHidesQuiz() ? ", testul ascuns tuturor până atunci" : "")));
         return saved;
     }
 

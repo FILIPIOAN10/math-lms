@@ -876,6 +876,16 @@ class AssignmentServiceTest {
     }
 
     @Test
+    void onlyAHomeworkTheTestWasPublishedForHidesTheTestAndOnlyWithARelease() {
+        stubLookups();
+        Instant release = clock.now.plus(Duration.ofDays(1));
+
+        assertThat(service.create(10L, 5L, due, release).isHidesQuiz()).isFalse();
+        assertThat(service.create(10L, 5L, due, null, true).isHidesQuiz()).isFalse(); // nothing to wait for
+        assertThat(service.create(10L, 5L, due, release, true).isHidesQuiz()).isTrue();
+    }
+
+    @Test
     void theReleaseMustBeInTheFutureAndBeforeTheDeadline() {
         stubLookups();
 

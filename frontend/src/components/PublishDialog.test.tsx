@@ -94,6 +94,15 @@ describe('PublishDialog', () => {
     expect(onClose).not.toHaveBeenCalled()
   })
 
+  it('says a test scheduled with its homework is hidden from every student until then', async () => {
+    const user = userEvent.setup()
+    renderDialog({ quizClassId: 1 })
+
+    await user.click(screen.getByRole('checkbox', { name: 'Programează: apare elevilor mai târziu' }))
+
+    expect(screen.getByText(/niciun elev nu vede testul/)).toBeInTheDocument()
+  })
+
   it('only publishes when there is no class yet', () => {
     renderDialog({ classes: [] })
 

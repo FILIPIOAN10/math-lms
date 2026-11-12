@@ -95,4 +95,20 @@ class AssignmentTest {
         assignment.scheduleRelease(null); // back to open now
         assertThat(assignment.getAvailableFrom()).isNull();
     }
+
+    @Test
+    void onlyAScheduledHomeworkHidesItsTestAndGivingItNowStopsHidingIt() {
+        Assignment assignment = new Assignment(quiz, schoolClass, due, created);
+        assertThat(assignment.isHidesQuiz()).isFalse();
+        assertThatThrownBy(assignment::hideQuizUntilRelease).isInstanceOf(IllegalStateException.class);
+
+        assignment.scheduleRelease(created.plus(Duration.ofDays(1)));
+        assignment.hideQuizUntilRelease();
+        assertThat(assignment.isHidesQuiz()).isTrue();
+
+        assignment.scheduleRelease(created.plus(Duration.ofDays(2))); // moved: still hidden until then
+        assertThat(assignment.isHidesQuiz()).isTrue();
+        assignment.scheduleRelease(null); // "Dă-o acum"
+        assertThat(assignment.isHidesQuiz()).isFalse();
+    }
 }

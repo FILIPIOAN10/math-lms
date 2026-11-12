@@ -205,13 +205,13 @@ class QuizAttemptServiceTest {
     }
 
     @Test
-    void aQuizGivenOnlyByHomeworkScheduledForLaterIsNeitherListedNorStartable() {
+    void aQuizPublishedForHomeworkScheduledForLaterIsNeitherListedNorStartable() {
         Quiz scheduled = assignedTo(published(withId(new Quiz("Teza de vineri", null), 12L)), 5L);
         when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(student));
         when(enrollmentRepository.findClassIdsByStudentId(1L)).thenReturn(List.of(5L));
         when(quizRepository.findVisibleToClasses(QuizStatus.PUBLISHED, List.of(5L)))
                 .thenReturn(List.of(quiz, scheduled));
-        when(quizRepository.findNotYetReleasedQuizIds(eq(List.of(5L)), eq(1L), any())).thenReturn(List.of(12L));
+        when(quizRepository.findQuizIdsHiddenUntilRelease(any())).thenReturn(List.of(12L));
         when(quizRepository.findById(12L)).thenReturn(Optional.of(scheduled));
         when(enrollmentRepository.existsByStudentIdAndSchoolClassId(1L, 5L)).thenReturn(true);
 
@@ -220,6 +220,23 @@ class QuizAttemptServiceTest {
         assertThatThrownBy(() -> service.startAttempt(12L, EMAIL)).isInstanceOf(QuizNotFoundException.class);
         assertThatThrownBy(() -> service.getPreview(12L, EMAIL)).isInstanceOf(QuizNotFoundException.class);
         verify(attemptRepository, never()).save(any());
+    }
+
+    @Test
+    void aHiddenTestStaysHiddenFromAStudentWithNoClassAndVisibleToOneWhoGotItByAnEarlierHomework() {
+        Quiz forEveryone = published(withId(new Quiz("Teza de vineri", null), 12L));
+        when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(student));
+        when(quizRepository.findQuizIdsHiddenUntilRelease(any())).thenReturn(List.of(12L));
+
+        when(quizRepository.findByStatusAndSchoolClassIsNullOrderByTitle(QuizStatus.PUBLISHED))
+                .thenReturn(List.of(quiz, forEveryone));
+        assertThat(service.listPublished(EMAIL)).containsExactly(quiz); // no class: hidden all the same
+
+        when(enrollmentRepository.findClassIdsByStudentId(1L)).thenReturn(List.of(5L));
+        when(quizRepository.findVisibleToClasses(QuizStatus.PUBLISHED, List.of(5L))).thenReturn(List.of(quiz, forEveryone));
+        when(quizRepository.findHomeworkGiven(eq(List.of(5L)), eq(1L), any()))
+                .thenReturn(List.of(new HomeworkGiven(12L, java.time.Instant.EPOCH)));
+        assertThat(service.listPublished(EMAIL)).containsExactly(quiz, forEveryone);
     }
 
     @Test

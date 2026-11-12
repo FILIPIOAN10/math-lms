@@ -127,6 +127,8 @@ describe('AssignmentDialog (reschedule)', () => {
     await userEvent.click(screen.getByRole('checkbox', { name: 'Clasa a 10-a' }))
     await userEvent.type(screen.getByLabelText('Termen'), inDays(5))
     await userEvent.click(screen.getByRole('checkbox', { name: 'Programează: apare elevilor mai târziu' }))
+    // the test is already published: only the homework waits, the test stays on the students' list
+    expect(screen.getByText(/Testul, deja publicat, rămâne/)).toBeInTheDocument()
     const release = screen.getByLabelText('Apare elevilor la')
     fireEvent.change(release, { target: { value: inDays(6) } }) // after the deadline: refused here
 

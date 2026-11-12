@@ -84,14 +84,12 @@ public interface QuizRepository extends JpaRepository<Quiz, Long> {
                                           @Param("studentId") Long studentId, @Param("now") Instant now);
 
     /**
-     * Quizzes this student of {@code classIds} may not see yet: every homework giving them the quiz is scheduled for
-     * later (V64). A quiz they already had through an earlier homework stays visible. Not an empty list (see below).
+     * Tests still hidden by the homework they were published for (V66): published together with a homework scheduled
+     * for later, so no student - in any class, or in none - sees them before that release. A student who already got
+     * the test by a homework released earlier keeps it ({@link #findHomeworkGiven}); see QuizAttemptService.
      */
-    @Query("select a.quiz.id from Assignment a where a.schoolClass.id in :classIds"
-            + " and (a.catchUp = false or :studentId member of a.studentIds)"
-            + " group by a.quiz.id having min(coalesce(a.availableFrom, a.createdAt)) > :now")
-    List<Long> findNotYetReleasedQuizIds(@Param("classIds") Collection<Long> classIds,
-                                         @Param("studentId") Long studentId, @Param("now") Instant now);
+    @Query("select distinct a.quiz.id from Assignment a where a.hidesQuiz = true and a.availableFrom > :now")
+    List<Long> findQuizIdsHiddenUntilRelease(@Param("now") Instant now);
 
     /** Classes this quiz is homework for, other than {@code classId}: moving the quiz there would strand them. */
     @Query("select a.schoolClass.name from Assignment a where a.quiz.id = :quizId and a.schoolClass.id <> :classId"

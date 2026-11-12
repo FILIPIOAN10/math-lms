@@ -77,11 +77,18 @@ public class Assignment {
     private boolean catchUp;
 
     /**
-     * Scheduled release (Google Classroom "Programează", Canvas "Available from"): before this moment the homework - and
-     * a test given only by it - is hidden from its students. Null = open since it was created.
+     * Scheduled release (Google Classroom "Programează", Canvas "Available from"): before this moment the homework is
+     * hidden from its students. Null = open since it was created.
      */
     @Column(name = "available_from")
     private Instant availableFrom;
+
+    /**
+     * The test was published for this homework ("Publică și dă ca temă" on a draft), so until the release no student
+     * sees the test either - not only this class (V66). Never set for a test students could already see.
+     */
+    @Column(name = "hides_quiz", nullable = false)
+    private boolean hidesQuiz;
 
     public Assignment(Quiz quiz, SchoolClass schoolClass, Instant dueAt, Instant createdAt) {
         this.quiz = Objects.requireNonNull(quiz, "quiz");
@@ -91,14 +98,25 @@ public class Assignment {
     }
 
     /**
-     * Schedules the release ({@code null} = open now). Must come before the deadline; whether it lies in the future is
-     * the service's check (it has the clock).
+     * Schedules the release ({@code null} = open now, which also stops hiding the test). Must come before the deadline;
+     * whether it lies in the future is the service's check (it has the clock).
      */
     public void scheduleRelease(Instant availableFrom) {
         if (availableFrom != null && !availableFrom.isBefore(dueAt)) {
             throw new IllegalArgumentException("availableFrom must be before dueAt");
         }
         this.availableFrom = availableFrom;
+        if (availableFrom == null) {
+            this.hidesQuiz = false;
+        }
+    }
+
+    /** The test was published for this homework: hide it from every student until the release. Needs a release. */
+    public void hideQuizUntilRelease() {
+        if (availableFrom == null) {
+            throw new IllegalStateException("only a homework scheduled for later can hide its test");
+        }
+        this.hidesQuiz = true;
     }
 
     /** When the homework opened, or opens: the scheduled release, else when it was given. Attempts count from here. */

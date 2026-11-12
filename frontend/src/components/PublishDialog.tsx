@@ -125,7 +125,7 @@ export function PublishDialog({
                 Termen „moale”: se poate preda și după, marcat „cu întârziere”.
               </p>
             </div>
-            <ReleaseField id="publish-release" value={release} onChange={setRelease} />
+            <ReleaseField id="publish-release" value={release} onChange={setRelease} testHidden />
           </>
         )}
 
