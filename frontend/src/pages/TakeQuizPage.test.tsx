@@ -627,8 +627,9 @@ describe('TakeQuizPage', () => {
     it('shows the homework deadline when the quiz is homework still to hand in', async () => {
       const homework: StudentAssignment = {
         assignmentId: 1, quizId: 7, quizTitle: 'Simulare EN', schoolClassName: 'Clasa a 8-a',
-        dueAt: new Date(Date.now() + 3 * 3_600_000).toISOString(), state: 'NOT_STARTED', late: false, overdue: false,
-        attemptId: null, timeLimitMinutes: null, excused: false,
+        // 3 h 10 min: the countdown rounds down, and a few ms pass before it renders
+        dueAt: new Date(Date.now() + 3 * 3_600_000 + 600_000).toISOString(), state: 'NOT_STARTED', late: false,
+        overdue: false, attemptId: null, timeLimitMinutes: null, excused: false,
       }
       api.getMyAssignments.mockResolvedValue([homework, { ...homework, assignmentId: 2, quizId: 8 }])
       renderPage('')

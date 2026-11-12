@@ -1,7 +1,6 @@
 package ro.mathlms.quiz;
 
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 import org.springframework.test.util.ReflectionTestUtils;
 import ro.mathlms.audit.AuditAction;
 import ro.mathlms.audit.AuditEvent;
@@ -17,6 +16,8 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -44,17 +45,21 @@ class AttemptGrantServiceTest {
         when(attemptRepository.findById(100L)).thenReturn(Optional.of(attempt));
     }
 
+    /** The database's answer to "+1": the student's extra attempts after it (the upsert ran), or empty at the cap. */
+    private void grantedTo(Integer extraAfter) {
+        when(grantRepository.addOne(eq(10L), eq(7L), eq(clock.instant()), eq(AttemptGrant.MAX_EXTRA)))
+                .thenReturn(extraAfter == null ? 0 : 1);
+        when(grantRepository.findExtra(10L, 7L)).thenReturn(Optional.ofNullable(extraAfter));
+    }
+
     @Test
     void theFirstGrantAddsOneAttemptForThatStudentAndIsJournalled() {
         quiz.limitAttempts(1);
         paper();
+        grantedTo(1);
 
         assertThat(service.grantOne(100L)).isEqualTo(2);
 
-        ArgumentCaptor<AttemptGrant> saved = ArgumentCaptor.forClass(AttemptGrant.class);
-        verify(grantRepository).save(saved.capture());
-        assertThat(saved.getValue().getExtra()).isEqualTo(1);
-        assertThat(saved.getValue().getStudent()).isSameAs(ana);
         verify(auditLog).record(new AuditEvent(AuditAction.ATTEMPT_GRANTED, 100L, "Fracții",
                 "încercări 1 → 2", 7L, null));
     }
@@ -63,11 +68,11 @@ class AttemptGrantServiceTest {
     void aSecondGrantAddsToTheFirst() {
         quiz.limitAttempts(2);
         paper();
-        AttemptGrant earlier = new AttemptGrant(quiz, ana, clock.instant());
-        when(grantRepository.findOne(10L, 7L)).thenReturn(Optional.of(earlier));
+        grantedTo(2);
 
         assertThat(service.grantOne(100L)).isEqualTo(4);
-        assertThat(earlier.getExtra()).isEqualTo(2);
+        verify(auditLog).record(new AuditEvent(AuditAction.ATTEMPT_GRANTED, 100L, "Fracții",
+                "încercări 3 → 4", 7L, null));
     }
 
     @Test
@@ -77,20 +82,17 @@ class AttemptGrantServiceTest {
         assertThatThrownBy(() -> service.grantOne(100L))
                 .isInstanceOf(InvalidQuizException.class)
                 .hasMessageContaining("nu are limită");
-        verify(grantRepository, never()).save(any());
+        verify(grantRepository, never()).addOne(any(), any(), any(), anyInt());
     }
 
     @Test
     void grantsStopAtTen() {
         quiz.limitAttempts(1);
         paper();
-        AttemptGrant many = new AttemptGrant(quiz, ana, clock.instant());
-        for (int i = 1; i < AttemptGrant.MAX_EXTRA; i++) {
-            many.addOne();
-        }
-        when(grantRepository.findOne(10L, 7L)).thenReturn(Optional.of(many));
+        grantedTo(null); // the upsert's WHERE extra < 10 matched nothing
 
-        assertThatThrownBy(() -> service.grantOne(100L)).isInstanceOf(InvalidQuizException.class);
+        assertThatThrownBy(() -> service.grantOne(100L)).isInstanceOf(InvalidQuizException.class)
+                .hasMessageContaining(String.valueOf(AttemptGrant.MAX_EXTRA));
         verify(auditLog, never()).record(any());
     }
 

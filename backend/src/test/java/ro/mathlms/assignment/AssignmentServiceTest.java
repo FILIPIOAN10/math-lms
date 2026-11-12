@@ -956,6 +956,42 @@ class AssignmentServiceTest {
     }
 
     @Test
+    void aStudentsOwnDeadlineMustComeAfterTheHomeworkAppears() {
+        Assignment assignment = assignment(1L);
+        Instant release = clock.now.plus(Duration.ofDays(1));
+        assignment.scheduleRelease(release);
+        User bob = student(2L, "Bob Ionescu");
+        when(assignmentRepository.findByIdFetched(1L)).thenReturn(Optional.of(assignment));
+        stubStudentInClass(bob);
+
+        assertThatThrownBy(() -> service.setOverride(1L, 2L, release, false))
+                .isInstanceOf(InvalidAssignmentException.class).hasMessageContaining("după data la care apare");
+        verify(overrideRepository, never()).save(any());
+
+        service.setOverride(1L, 2L, release.plus(Duration.ofHours(1)), false);
+        verify(overrideRepository).save(any());
+    }
+
+    @Test
+    void theReleaseCannotMoveToOrPastAStudentsOwnDeadline() {
+        Assignment assignment = assignment(1L);
+        assignment.scheduleRelease(clock.now.plus(Duration.ofDays(1)));
+        when(assignmentRepository.findById(1L)).thenReturn(Optional.of(assignment));
+        AssignmentOverride bobs = new AssignmentOverride(assignment, student(2L, "Bob Ionescu"), clock.now);
+        bobs.moveDeadline(clock.now.plus(Duration.ofDays(2)));
+        AssignmentOverride excusedOnly = new AssignmentOverride(assignment, student(3L, "Dan Pop"), clock.now);
+        excusedOnly.excuse(true);
+        when(overrideRepository.findByAssignmentId(1L)).thenReturn(List.of(bobs, excusedOnly));
+
+        assertThatThrownBy(() -> service.setRelease(1L, clock.now.plus(Duration.ofDays(2))))
+                .isInstanceOf(InvalidAssignmentException.class).hasMessageContaining("Bob Ionescu");
+        assertThat(assignment.getAvailableFrom()).isEqualTo(clock.now.plus(Duration.ofDays(1)));
+
+        service.setRelease(1L, clock.now.plus(Duration.ofHours(30))); // still before Bob's own date
+        assertThat(assignment.getAvailableFrom()).isEqualTo(clock.now.plus(Duration.ofHours(30)));
+    }
+
+    @Test
     void theDeadlineCannotMoveToOrBeforeTheRelease() {
         Assignment assignment = assignment(1L);
         Instant release = clock.now.plus(Duration.ofDays(1));

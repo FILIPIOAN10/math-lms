@@ -58,10 +58,16 @@ describe('dueCountdown', () => {
     expect(dueCountdown(new Date(NOW + 25 * DAY).toISOString(), NOW)).toBe('peste 25 de zile')
   })
 
-  it('rounds to the nearest unit instead of under-reporting', () => {
-    expect(dueCountdown(new Date(NOW + 2 * HOUR - 60_000).toISOString(), NOW)).toBe('peste 2 ore')   // 1 h 59 min
-    expect(dueCountdown(new Date(NOW + 2 * DAY + 23 * HOUR).toISOString(), NOW)).toBe('peste 3 zile') // 2 d 23 h
-    expect(dueCountdown(new Date(NOW + HOUR + 20 * 60_000).toISOString(), NOW)).toBe('peste 1 oră')   // 1 h 20 min
+  it('never promises more time than is left: whole units only, rounded down', () => {
+    expect(dueCountdown(new Date(NOW + 2 * HOUR - 60_000).toISOString(), NOW)).toBe('peste 1 oră')    // 1 h 59 min
+    expect(dueCountdown(new Date(NOW + HOUR + 31 * 60_000).toISOString(), NOW)).toBe('peste 1 oră')   // 1 h 31 min
+    expect(dueCountdown(new Date(NOW + 2 * DAY + 23 * HOUR).toISOString(), NOW)).toBe('peste 2 zile') // 2 d 23 h
+    expect(dueCountdown(new Date(NOW + DAY + 13 * HOUR).toISOString(), NOW)).toBe('peste 1 zi')       // 1 d 13 h
+  })
+
+  it('says how late in whole units too', () => {
+    expect(dueCountdown(new Date(NOW - 2 * HOUR + 60_000).toISOString(), NOW)).toBe('depășit cu 1 oră') // 1 h 59 min
+    expect(dueCountdown(new Date(NOW - DAY - 20 * HOUR).toISOString(), NOW)).toBe('depășit cu 1 zi')    // 1 d 20 h
   })
 
   it('is gentle about the last minutes', () => {

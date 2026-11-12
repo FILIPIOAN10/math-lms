@@ -23,6 +23,28 @@ describe('flags', () => {
     expect([...start]).toEqual([1])
   })
 
+  it('drops the marks of attempts left untouched for a month', () => {
+    vi.useFakeTimers()
+    try {
+      vi.setSystemTime(new Date('2026-10-01T10:00:00Z'))
+      saveFlags(40, new Set([1]))
+      vi.setSystemTime(new Date('2026-10-25T10:00:00Z'))
+      saveFlags(45, new Set([4]))
+      vi.setSystemTime(new Date('2026-11-12T10:00:00Z'))
+
+      expect([...loadFlags(50)]).toEqual([]) // opening any attempt sweeps the stale ones
+      expect(localStorage.getItem('mathlms-flags-40')).toBeNull()
+      expect([...loadFlags(45)]).toEqual([4]) // 18 days old: kept
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('still reads marks saved before they carried a date', () => {
+    localStorage.setItem('mathlms-flags-9', '[3,4]')
+    expect([...loadFlags(9)]).toEqual([3, 4])
+  })
+
   it('survives storage that throws or holds rubbish', () => {
     localStorage.setItem('mathlms-flags-9', 'not json')
     expect(loadFlags(9).size).toBe(0)

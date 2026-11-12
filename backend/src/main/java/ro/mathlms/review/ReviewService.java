@@ -18,14 +18,12 @@ import ro.mathlms.quiz.QuizItem;
 import ro.mathlms.quiz.QuizItemRepository;
 import ro.mathlms.quiz.QuizItemType;
 import ro.mathlms.quiz.QuizOption;
-import ro.mathlms.quiz.QuizItemHint;
 import ro.mathlms.quiz.QuizItemHintRepository;
 import ro.mathlms.quiz.QuizOptionRepository;
 import ro.mathlms.quiz.QuizRepository;
 import ro.mathlms.quiz.QuizStatus;
 import ro.mathlms.review.LeitnerEngine.Card;
 import ro.mathlms.review.LeitnerEngine.Event;
-import ro.mathlms.review.ReviewDtos.ReviewOptionDto;
 import ro.mathlms.review.ReviewDtos.ReviewQuestionDto;
 import ro.mathlms.review.ReviewDtos.ReviewResultDto;
 import ro.mathlms.review.ReviewDtos.ReviewStatusDto;
@@ -74,7 +72,7 @@ public class ReviewService {
     private final QuizAttemptRepository attemptRepository;
     private final QuizItemRepository itemRepository;
     private final QuizOptionRepository optionRepository;
-    private final QuizItemHintRepository hintRepository;
+    private final PracticeQuestions practiceQuestions;
     private final ItemResponseRepository responseRepository;
     private final ReviewAnswerRepository reviewAnswerRepository;
     private final EnChapterLinks enChapterLinks;
@@ -86,7 +84,7 @@ public class ReviewService {
                          QuizItemRepository itemRepository, QuizOptionRepository optionRepository,
                          ItemResponseRepository responseRepository, ReviewAnswerRepository reviewAnswerRepository,
                          EnChapterLinks enChapterLinks, Clock clock, QuizItemHintRepository hintRepository) {
-        this.hintRepository = hintRepository;
+        this.practiceQuestions = new PracticeQuestions(optionRepository, hintRepository);
         this.userRepository = userRepository;
         this.enrollmentRepository = enrollmentRepository;
         this.quizRepository = quizRepository;
@@ -106,9 +104,7 @@ public class ReviewService {
     public ReviewTodayDto today(String studentEmail) {
         User student = requireStudent(studentEmail);
         State state = stateOf(List.of(student.getId())).get(student.getId());
-        List<ReviewQuestionDto> questions = state.queue().stream()
-                .map(itemId -> question(state.items().get(itemId), state.cards().get(itemId).box()))
-                .toList();
+        List<ReviewQuestionDto> questions = cards(state, state.queue());
         return new ReviewTodayDto(DAILY_LIMIT, state.doneToday(), questions.size(), state.streak(),
                 state.cards().size(), state.mastered(), questions);
     }
@@ -157,11 +153,16 @@ public class ReviewService {
             return List.of();
         }
         Set<Long> skip = seen == null ? Set.of() : Set.copyOf(seen);
-        return state.ahead().stream()
+        return cards(state, state.ahead().stream()
                 .filter(itemId -> !skip.contains(itemId))
                 .limit(EXTRA_BATCH)
-                .map(itemId -> question(state.items().get(itemId), state.cards().get(itemId).box()))
-                .toList();
+                .toList());
+    }
+
+    /** The cards of these items, each showing its box (options and hints in one query each, see PracticeQuestions). */
+    private List<ReviewQuestionDto> cards(State state, List<Long> itemIds) {
+        return practiceQuestions.of(itemIds.stream().map(state.items()::get).toList(),
+                item -> state.cards().get(item.getId()).box());
     }
 
     /**
@@ -328,15 +329,6 @@ public class ReviewService {
             day = day.minusDays(1);
         }
         return streak;
-    }
-
-    private ReviewQuestionDto question(QuizItem item, int box) {
-        List<ReviewOptionDto> options = optionRepository.findByItemIdOrderByPosition(item.getId()).stream()
-                .map(o -> new ReviewOptionDto(o.getId(), o.getPosition(), o.getText()))
-                .toList();
-        return new ReviewQuestionDto(item.getId(), item.getQuiz().getTitle(), item.getStatement(), options, box,
-                item.getImageKey(), hintRepository.findByItemIdOrderByPosition(item.getId()).stream()
-                        .map(QuizItemHint::getText).toList());
     }
 
     private LocalDate today() {

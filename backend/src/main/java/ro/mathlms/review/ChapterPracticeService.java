@@ -20,13 +20,11 @@ import ro.mathlms.quiz.QuizItem;
 import ro.mathlms.quiz.QuizItemRepository;
 import ro.mathlms.quiz.QuizItemType;
 import ro.mathlms.quiz.QuizOption;
-import ro.mathlms.quiz.QuizItemHint;
 import ro.mathlms.quiz.QuizItemHintRepository;
 import ro.mathlms.quiz.QuizOptionRepository;
 import ro.mathlms.quiz.QuizRepository;
 import ro.mathlms.review.ReviewDtos.ChapterPracticeDto;
 import ro.mathlms.review.ReviewDtos.ChapterPracticeResultDto;
-import ro.mathlms.review.ReviewDtos.ReviewOptionDto;
 import ro.mathlms.review.ReviewDtos.ReviewQuestionDto;
 import ro.mathlms.user.Role;
 import ro.mathlms.user.User;
@@ -63,7 +61,7 @@ public class ChapterPracticeService {
     private final QuizAttemptRepository attemptRepository;
     private final QuizItemRepository itemRepository;
     private final QuizOptionRepository optionRepository;
-    private final QuizItemHintRepository hintRepository;
+    private final PracticeQuestions practiceQuestions;
     private final ItemResponseRepository responseRepository;
     private final ReviewAnswerRepository reviewAnswerRepository;
     private final EnChapterLinks enChapterLinks;
@@ -75,7 +73,7 @@ public class ChapterPracticeService {
                                   ItemResponseRepository responseRepository, ReviewAnswerRepository reviewAnswerRepository,
                                   EnChapterLinks enChapterLinks, QuizRepository quizRepository,
                                   QuizItemHintRepository hintRepository) {
-        this.hintRepository = hintRepository;
+        this.practiceQuestions = new PracticeQuestions(optionRepository, hintRepository);
         this.userRepository = userRepository;
         this.chapterRepository = chapterRepository;
         this.quizAttemptService = quizAttemptService;
@@ -93,15 +91,14 @@ public class ChapterPracticeService {
         User student = requireStudent(studentEmail);
         EnChapter chapter = requireChapter(chapterId);
         List<QuizAttempt> attempts = attemptRepository.findByStudentIdOrderByStartedAtDesc(student.getId());
-        List<QuizItem> pool = pool(student, chapter, attempts);
+        List<QuizItem> pool = pool(student, chapter, attempts, null);
         Map<Long, Boolean> lastVerdict = lastVerdicts(student, pool, attempts);
-        List<ReviewQuestionDto> questions = pool.stream()
+        List<ReviewQuestionDto> questions = practiceQuestions.of(pool.stream()
                 .sorted(Comparator.comparingInt((QuizItem i) -> rank(lastVerdict.get(i.getId())))
                         .thenComparing(i -> i.getQuiz().getId())
                         .thenComparingInt(QuizItem::getPosition))
                 .limit(SIZE)
-                .map(this::question)
-                .toList();
+                .toList(), item -> 0);
         return new ChapterPracticeDto(chapter.getId(), chapter.getCode(), chapter.getTitle(), pool.size(), questions);
     }
 
@@ -111,7 +108,10 @@ public class ChapterPracticeService {
         User student = requireStudent(studentEmail);
         EnChapter chapter = requireChapter(chapterId);
         List<QuizAttempt> attempts = attemptRepository.findByStudentIdOrderByStartedAtDesc(student.getId());
-        QuizItem item = pool(student, chapter, attempts).stream().filter(i -> i.getId().equals(itemId)).findFirst()
+        // Only the question's own test is checked, not the chapter's whole pool rebuilt for every answer.
+        Long quizId = itemRepository.findById(itemId).map(i -> i.getQuiz().getId()).orElse(null);
+        QuizItem item = (quizId == null ? List.<QuizItem>of() : pool(student, chapter, attempts, quizId)).stream()
+                .filter(i -> i.getId().equals(itemId)).findFirst()
                 .orElseThrow(() -> new InvalidReviewException("Întrebarea nu face parte din exersarea acestui capitol."));
         List<QuizOption> options = optionRepository.findByItemIdOrderByPosition(itemId);
         QuizOption chosen = options.stream().filter(o -> o.getId().equals(optionId)).findFirst()
@@ -129,8 +129,9 @@ public class ChapterPracticeService {
     /**
      * The grile of the chapter the student may practise: from published tests they can see, which allow practice or
      * which they handed in and cannot hand in again - never one with a test of theirs still running on it.
+     * {@code onlyQuizId}: just that test's grile (checking one answer), null = every test.
      */
-    private List<QuizItem> pool(User student, EnChapter chapter, List<QuizAttempt> attempts) {
+    private List<QuizItem> pool(User student, EnChapter chapter, List<QuizAttempt> attempts, Long onlyQuizId) {
         Set<Long> handedIn = attempts.stream()
                 .filter(a -> a.getMode() == AttemptMode.TEST && a.getStatus() != QuizAttemptStatus.IN_PROGRESS)
                 .map(a -> a.getQuiz().getId()).collect(Collectors.toSet());
@@ -139,6 +140,7 @@ public class ChapterPracticeService {
                 .map(a -> a.getQuiz().getId()).collect(Collectors.toSet());
         Set<Long> keyHidden = answerKeys.hiddenQuizzes(attempts).getOrDefault(student.getId(), Set.of());
         Set<Long> quizIds = quizAttemptService.listPublished(student.getEmail()).stream()
+                .filter(q -> onlyQuizId == null || onlyQuizId.equals(q.getId()))
                 .filter(q -> !running.contains(q.getId()))
                 .filter(q -> q.isPracticeAllowed() || (handedIn.contains(q.getId()) && !keyHidden.contains(q.getId())))
                 .map(Quiz::getId)
@@ -196,15 +198,6 @@ public class ChapterPracticeService {
             when.put(itemId, at);
             verdict.put(itemId, correct);
         }
-    }
-
-    private ReviewQuestionDto question(QuizItem item) {
-        List<ReviewOptionDto> options = optionRepository.findByItemIdOrderByPosition(item.getId()).stream()
-                .map(o -> new ReviewOptionDto(o.getId(), o.getPosition(), o.getText()))
-                .toList();
-        return new ReviewQuestionDto(item.getId(), item.getQuiz().getTitle(), item.getStatement(), options, 0,
-                item.getImageKey(), hintRepository.findByItemIdOrderByPosition(item.getId()).stream()
-                        .map(QuizItemHint::getText).toList());
     }
 
     private EnChapter requireChapter(Long chapterId) {

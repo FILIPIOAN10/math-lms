@@ -52,6 +52,19 @@ public interface QuizRepository extends JpaRepository<Quiz, Long> {
     @EntityGraph(attributePaths = "schoolClass")
     Optional<Quiz> findById(Long id);
 
+    /** A teacher's own tests (the list a TEACHER who is not an ADMIN sees), without loading everyone else's. */
+    @EntityGraph(attributePaths = "schoolClass")
+    List<Quiz> findByTeacherId(Long teacherId);
+
+    /**
+     * Locks the test's row until the transaction ends. Inserting an attempt takes a FOR KEY SHARE lock on the same row
+     * (its foreign key), and FOR UPDATE conflicts with it, so the two wait for each other: "nobody took it yet, change
+     * the options" cannot interleave with a student starting it. Native on purpose: the JPA PESSIMISTIC_WRITE may become
+     * FOR NO KEY UPDATE, which does not conflict with FOR KEY SHARE.
+     */
+    @Query(nativeQuery = true, value = "select q.id from quizzes q where q.id = :id for update")
+    Optional<Long> lockForEdit(@Param("id") Long id);
+
     List<Quiz> findByStatusOrderByTitle(QuizStatus status);
 
     /** Attempts of any mode (test or practice): each one holds a student's answers. */

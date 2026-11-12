@@ -2,6 +2,7 @@ package ro.mathlms.quiz;
 
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.springframework.test.util.ReflectionTestUtils;
 import ro.mathlms.audit.AuditAction;
 import ro.mathlms.audit.AuditEvent;
@@ -19,6 +20,9 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -119,6 +123,35 @@ class QuizAdminServiceTest {
         assertThat(items.get(1).hints()).containsExactly("Numără pe degete.");
         verify(optionRepository, never()).findByItemIdOrderByPosition(any());
         verify(hintRepository, never()).findByItemIdOrderByPosition(any());
+    }
+
+    @Test
+    void aTeachersListLoadsOnlyTheirOwnTests() {
+        Quiz own = new Quiz("Al meu", null);
+        when(quizRepository.findByTeacherId(7L)).thenReturn(List.of(own));
+
+        assertThat(service.listQuizzesOwnedBy(7L)).containsExactly(own);
+        verify(quizRepository, never()).findAll();
+    }
+
+    @Test
+    void editingOrDeletingAQuestionLocksTheTestBeforeAskingWhetherStudentsTookIt() {
+        // An attempt inserted between "no attempts yet" and replacing the options would point at deleted options:
+        // the row lock waits for (or makes wait) any attempt being inserted for this test.
+        ReflectionTestUtils.setField(quiz, "id", 1L);
+        QuizItem open = new QuizItem(quiz, 1, QuizItemType.OPEN, "x", 5, "barem");
+        when(itemRepository.findById(9L)).thenReturn(Optional.of(open));
+
+        service.updateItem(9L, new ItemRequest(QuizItemType.OPEN, 1, "x", 5, "barem", List.of()));
+        InOrder update = inOrder(quizRepository);
+        update.verify(quizRepository).lockForEdit(1L);
+        update.verify(quizRepository, atLeastOnce()).countAttempts(1L);
+
+        clearInvocations(quizRepository);
+        service.deleteItem(9L);
+        InOrder delete = inOrder(quizRepository);
+        delete.verify(quizRepository).lockForEdit(1L);
+        delete.verify(quizRepository, atLeastOnce()).countAttempts(1L);
     }
 
     @Test

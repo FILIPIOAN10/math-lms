@@ -50,6 +50,18 @@ describe('AttemptResultPage', () => {
     window.removeEventListener(NAV_COUNTS_CHANGED, counted)
   })
 
+  it('forgets the "Revin la ea" marks of a paper handed in elsewhere (time ran out, another device)', async () => {
+    localStorage.setItem('mathlms-flags-50', JSON.stringify({ ids: [1, 2], at: Date.now() }))
+    localStorage.setItem('mathlms-flags-51', JSON.stringify({ ids: [3], at: Date.now() }))
+    api.getAttemptResult.mockResolvedValue(result())
+    renderPage()
+
+    expect(await screen.findByTestId('result-score')).toBeInTheDocument()
+    expect(localStorage.getItem('mathlms-flags-50')).toBeNull()
+    expect(localStorage.getItem('mathlms-flags-51')).not.toBeNull() // another attempt's marks stay
+    localStorage.clear()
+  })
+
   it('tells a student why their option was wrong and where to practise', async () => {
     api.getAttemptResult.mockResolvedValue(result({ items: [wrongGrila({
       mistake: 'Ai adunat numitorii.',

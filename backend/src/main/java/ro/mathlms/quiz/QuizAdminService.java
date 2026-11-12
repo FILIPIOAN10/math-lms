@@ -84,6 +84,21 @@ public class QuizAdminService {
         return quizRepository.findAll();
     }
 
+    /** Only this teacher's tests, filtered by the database (audit 2026-11-05 L2: it was findAll, then kept in memory). */
+    public List<Quiz> listQuizzesOwnedBy(Long teacherId) {
+        return teacherId == null ? List.of() : quizRepository.findByTeacherId(teacherId);
+    }
+
+    /**
+     * How many attempts the test has, asked under a lock on its row (audit 2026-11-05 L3): what follows - replacing
+     * options, moving or deleting a question - relies on "nobody took it", and a student starting it in between would
+     * leave answers pointing at options that are gone. The lock makes that start wait until this change commits.
+     */
+    private long attemptsLocked(Long quizId) {
+        quizRepository.lockForEdit(quizId);
+        return quizRepository.countAttempts(quizId);
+    }
+
     /** The list rows' numbers (see {@link QuizRepository#listSummaries()}), for every quiz. */
     public List<QuizListSummaryDto> listSummaries() {
         return quizRepository.listSummaries().stream().map(QuizListSummaryDto::from).toList();
@@ -386,7 +401,7 @@ public class QuizAdminService {
     public void moveItem(Long itemId, boolean up) {
         QuizItem item = getItem(itemId);
         Quiz quiz = item.getQuiz();
-        if (quizRepository.countAttempts(quiz.getId()) > 0) {
+        if (attemptsLocked(quiz.getId()) > 0) {
             throw new QuizInUseException("Testul „" + quiz.getTitle() + "” a fost deja dat de elevi: ordinea întrebărilor "
                     + "nu se mai poate schimba, numerele din lucrările lor n-ar mai fi aceleași. "
                     + "Apasă „Copiază” pe rândul testului și modifică copia.");
@@ -593,11 +608,12 @@ public class QuizAdminService {
     @Transactional
     public ItemDto updateItem(Long itemId, ItemRequest request) {
         QuizItem item = getItem(itemId);
+        // Asked once, under the lock: "taken" decides whether the options may be replaced wholesale below.
+        boolean taken = attemptsLocked(item.getQuiz().getId()) > 0;
         if (item.getType() != request.type()) {
             // Only on a draft nobody took: no answer points at its options yet, and options, requirements and the right
             // answer are replaced wholesale below anyway. The statement, points and hints stay as sent.
-            if (item.getQuiz().getStatus() != QuizStatus.DRAFT
-                    || quizRepository.countAttempts(item.getQuiz().getId()) > 0) {
+            if (item.getQuiz().getStatus() != QuizStatus.DRAFT || taken) {
                 throw new InvalidQuizException(
                         "Tipul întrebării se poate schimba doar cât testul e ciornă și nu l-a dat încă niciun elev.");
             }
@@ -612,7 +628,6 @@ public class QuizAdminService {
         item.tagChapter(chapterFitting(request.chapterId(), item.getQuiz().getSchoolClass()));
         item.pointToEnChapter(enChapter(request.enChapterId())); // where to revise: allowed even once taken
         item.placeInSection(request.section()); // layout only, like the chapter tag: allowed even once taken
-        boolean taken = quizRepository.countAttempts(item.getQuiz().getId()) > 0;
         List<QuizOption> options;
         List<QuizItemPart> parts;
         if (taken) {
@@ -663,7 +678,7 @@ public class QuizAdminService {
     @Transactional
     public void applyBarem(Long quizId, List<BaremApply.ItemBarem> entries) {
         Quiz quiz = getQuiz(quizId);
-        boolean taken = quizRepository.countAttempts(quizId) > 0;
+        boolean taken = attemptsLocked(quizId) > 0;
         boolean journalled = seenByStudents(quiz);
         List<QuizItem> ordered = itemRepository.findByQuizIdOrderByPosition(quizId);
         Map<Long, QuizItem> items = ordered.stream().collect(Collectors.toMap(QuizItem::getId, Function.identity()));
@@ -876,7 +891,7 @@ public class QuizAdminService {
      * items, so adding or removing one would silently re-grade every past attempt (and answers reference the items).
      */
     private void requireNotTaken(Quiz quiz, String refused) {
-        long attempts = quizRepository.countAttempts(quiz.getId());
+        long attempts = attemptsLocked(quiz.getId());
         if (attempts > 0) {
             throw new QuizInUseException("Testul „" + quiz.getTitle() + "” a fost deja dat de elevi ("
                     + RoCount.of(attempts, "încercare", "încercări") + "): " + refused

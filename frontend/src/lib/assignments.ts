@@ -42,15 +42,16 @@ const DAY = 24 * HOUR
 /** How far off the deadline is, in words, to the nearest unit: "peste 3 zile", "peste 5 ore", "depășit cu 2 zile". */
 export function dueCountdown(dueIso: string, nowMs: number): string {
   const diff = Date.parse(dueIso) - nowMs
+  // Whole units, rounded down: "peste 2 ore" with 1 h 31 min left would promise time the student does not have.
   if (diff >= 0) {
     if (diff < HOUR) return 'în mai puțin de o oră'
-    if (diff < DAY) return `peste ${plural(Math.round(diff / HOUR), 'oră', 'ore')}`
-    return `peste ${plural(Math.round(diff / DAY), 'zi', 'zile')}`
+    if (diff < DAY) return `peste ${plural(Math.floor(diff / HOUR), 'oră', 'ore')}`
+    return `peste ${plural(Math.floor(diff / DAY), 'zi', 'zile')}`
   }
   const late = -diff
   if (late < HOUR) return 'depășit'
-  if (late < DAY) return `depășit cu ${plural(Math.round(late / HOUR), 'oră', 'ore')}`
-  return `depășit cu ${plural(Math.round(late / DAY), 'zi', 'zile')}`
+  if (late < DAY) return `depășit cu ${plural(Math.floor(late / HOUR), 'oră', 'ore')}`
+  return `depășit cu ${plural(Math.floor(late / DAY), 'zi', 'zile')}`
 }
 
 /** `<input type="datetime-local">` value (local time, no zone) -> the ISO instant the API takes. */

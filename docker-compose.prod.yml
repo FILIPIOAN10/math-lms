@@ -86,7 +86,7 @@ services:
       # Faza 3 - quiz from textbook photos. OFF unless AI_IMPORT_ENABLED=true and the provider's key is set
       # (gemini: the service-account JSON in ./secrets/, see docs/DEPLOY.md; openai: OPENAI_API_KEY).
       AI_IMPORT_ENABLED: ${AI_IMPORT_ENABLED:-false}
-      AI_PROVIDER: ${AI_PROVIDER:-openai}
+      AI_PROVIDER: ${AI_PROVIDER:-gemini}   # the same default as application.yml and .env.prod.example
       AI_DAILY_PAGE_LIMIT: ${AI_DAILY_PAGE_LIMIT:-50}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-6-luna}

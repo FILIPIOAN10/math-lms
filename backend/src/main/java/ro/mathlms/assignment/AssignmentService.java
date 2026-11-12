@@ -243,6 +243,16 @@ public class AssignmentService {
             throw new InvalidAssignmentException("Tema e deja vizibilă elevilor");
         }
         requireRelease(availableFrom, assignment.getDueAt());
+        if (availableFrom != null) {
+            // Nor past a student's own date: they would get the homework already late.
+            overrideRepository.findByAssignmentId(id).stream()
+                    .filter(o -> o.getDueAt() != null && !o.getDueAt().isAfter(availableFrom))
+                    .findFirst()
+                    .ifPresent(o -> {
+                        throw new InvalidAssignmentException("Tema trebuie să apară înainte de termenul propriu al lui "
+                                + o.getStudent().getFullName() + " (" + AuditText.dateTime(o.getDueAt()) + ")");
+                    });
+        }
         Instant before = assignment.getAvailableFrom();
         assignment.scheduleRelease(availableFrom);
         Assignment saved = assignmentRepository.save(assignment);
@@ -281,6 +291,11 @@ public class AssignmentService {
         }
         if (dueAt != null) {
             requireFuture(dueAt);
+            // An own date on or before the release would show the homework already late the moment it appears.
+            if (assignment.getAvailableFrom() != null && !dueAt.isAfter(assignment.getAvailableFrom())) {
+                throw new InvalidAssignmentException("Termenul elevului trebuie să fie după data la care apare tema ("
+                        + AuditText.dateTime(assignment.getAvailableFrom()) + ")");
+            }
         }
         AssignmentOverride existing = overrideRepository.findOne(assignmentId, studentId).orElse(null);
         String before = describe(existing);

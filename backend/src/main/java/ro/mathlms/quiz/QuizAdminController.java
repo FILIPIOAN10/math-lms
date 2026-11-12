@@ -34,9 +34,11 @@ public class QuizAdminController {
         this.answerKeyChecks = answerKeyChecks;
     }
 
+    /** Every test for an ADMIN; a TEACHER's own only, filtered by the database rather than after loading them all. */
     @GetMapping("/api/admin/quizzes")
     public List<QuizSummaryDto> list() {
-        return scope.keepOwnedQuizzes(service.listQuizzes(), Quiz::getId).stream().map(QuizSummaryDto::from).toList();
+        List<Quiz> quizzes = scope.restricted() ? service.listQuizzesOwnedBy(scope.currentUserId()) : service.listQuizzes();
+        return quizzes.stream().map(QuizSummaryDto::from).toList();
     }
 
     /**

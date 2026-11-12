@@ -44,15 +44,13 @@ public class AttemptGrantService {
         if (quiz.getMaxAttempts() == null) {
             throw new InvalidQuizException("Testul nu are limită de încercări: elevul îl poate da din nou oricum.");
         }
-        AttemptGrant grant = grantRepository.findOne(quiz.getId(), student.getId()).orElse(null);
-        int before = AttemptGrant.allowed(quiz.getMaxAttempts(), grant == null ? 0 : grant.getExtra());
-        if (grant == null) {
-            grant = new AttemptGrant(quiz, student, Instant.now(clock));
-        } else {
-            grant.addOne();
+        // One statement, so two teachers clicking at once both count (audit 2026-11-10).
+        if (grantRepository.addOne(quiz.getId(), student.getId(), Instant.now(clock), AttemptGrant.MAX_EXTRA) == 0) {
+            throw new InvalidQuizException("Elevul are deja " + AttemptGrant.MAX_EXTRA + " încercări în plus la acest test.");
         }
-        grantRepository.save(grant);
-        int after = AttemptGrant.allowed(quiz.getMaxAttempts(), grant.getExtra());
+        int extra = grantRepository.findExtra(quiz.getId(), student.getId()).orElseThrow();
+        int before = AttemptGrant.allowed(quiz.getMaxAttempts(), extra - 1);
+        int after = AttemptGrant.allowed(quiz.getMaxAttempts(), extra);
         // The paper it was given from, like every grading row: the journal links "Vezi lucrarea" to it.
         auditLog.record(AuditEvent.of(AuditAction.ATTEMPT_GRANTED, attemptId, quiz.getTitle()).about(student)
                 .details("încercări " + before + " → " + after));

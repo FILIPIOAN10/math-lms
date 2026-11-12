@@ -4,6 +4,7 @@ import { AttemptResultView } from '@/components/AttemptResultView'
 import { ErrorState } from '@/components/ErrorState'
 import { getAttemptResult, markResultSeen, type AttemptResultViewDto } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
+import { clearFlags } from '@/lib/flags'
 import { NAV_COUNTS_CHANGED } from '@/lib/roles'
 import { usePageTitle } from '@/lib/usePageTitle'
 import { LoadingCards } from '@/components/LoadingCards'
@@ -21,6 +22,9 @@ export function AttemptResultPage() {
       .then((r) => {
         if (cancelled) return
         setResult(r)
+        // A paper with a result is handed in: its "Revin la ea" marks are done with, even when it was handed in by the
+        // clock or on another device and the take page never got to drop them.
+        clearFlags(r.attemptId)
         // S3: a graded test opened here is no longer "Nou" - and the number next to "Testele mele" drops now.
         if (r.mode === 'TEST' && r.status === 'GRADED') {
           markResultSeen(r.attemptId)
