@@ -1,15 +1,17 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AdminMasteryPage } from '@/pages/AdminMasteryPage'
-import type { AssignmentSummary, ClassMastery, QuizSummary } from '@/lib/api'
+import { ApiError, type AssignmentSummary, type ClassMastery, type QuizSummary } from '@/lib/api'
 
 const api = vi.hoisted(() => ({
   getClassMastery: vi.fn(), listClasses: vi.fn(), getClassReview: vi.fn(), listQuizzes: vi.fn(), listAssignments: vi.fn(),
-  createCatchUpAssignment: vi.fn(),
+  createCatchUpAssignment: vi.fn(), downloadClassGrades: vi.fn(),
 }))
 vi.mock('@/lib/api', async (original) => ({ ...(await original<typeof import('@/lib/api')>()), ...api }))
+const download = vi.hoisted(() => ({ saveBlob: vi.fn() }))
+vi.mock('@/lib/download', () => download)
 
 const grid: ClassMastery = {
   chapters: [
@@ -135,5 +137,26 @@ describe('AdminMasteryPage', () => {
     const status = await screen.findByRole('status')
     expect(status).toHaveTextContent('Tema „Ecuații — exersare” a fost dată la 1 elev')
     expect(within(status).getByRole('link', { name: 'Vezi tema' })).toHaveAttribute('href', '/admin/assignments?open=12')
+  })
+  it("downloads the class's grades as a file named after the class", async () => {
+    const file = new Blob(['Elev;Test'])
+    api.downloadClassGrades.mockResolvedValue(file)
+    renderPage()
+
+    await screen.findByRole('heading', { level: 1, name: /Clasa a 8-a/ }) // the class name has loaded: it names the file
+    await userEvent.click(screen.getByRole('button', { name: 'Descarcă notele (CSV)' }))
+
+    await waitFor(() => expect(download.saveBlob).toHaveBeenCalledWith(file, 'note-Clasa a 8-a.csv'))
+    expect(api.downloadClassGrades).toHaveBeenCalledWith(8)
+  })
+
+  it('says why when the grades cannot be downloaded', async () => {
+    api.downloadClassGrades.mockRejectedValue(new ApiError(500, 'Serverul nu răspunde.'))
+    renderPage()
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Descarcă notele (CSV)' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Serverul nu răspunde.')
+    expect(download.saveBlob).not.toHaveBeenCalled()
   })
 })

@@ -1214,6 +1214,21 @@ notă. Un răspuns corect cu „Am ghicit” **rămâne în aceeași cutie** (re
 | 8 | „Încă 5” după ce termini ziua | Butoanele nu apar (acolo nu se salvează nimic) |
 | 9 | **Contul meu → Cere datele mele** (GDPR), deschide ZIP-ul din email | La recapitulări apare câmpul `confidence` |
 
+### 56. Notele clasei în CSV — ca profesor
+Pe pagina „Pe capitole” a unei clase, butonul **Descarcă notele (CSV)** descarcă un fișier: elevii pe rânduri, testele
+clasei pe coloane (făcute pentru ea sau date ca temă), în fiecare celulă nota care contează (cea mai mare). Un test la
+care nu are nimeni notă nu apare. Fișierul se deschide corect în Excel în română (`;`, diacritice, virgulă zecimală).
+
+| # | Ce faci | Ce trebuie să vezi |
+|---|---|---|
+| 1 | Profesor → **Clase** → o clasă → **Pe capitole** → **Descarcă notele (CSV)** | Se descarcă `note-<clasa>.csv` |
+| 2 | Deschide fișierul în Excel | Un rând pe elev, diacriticele corecte, note ca numere (`8,20`, `10`) |
+| 3 | Un elev care a refăcut un test | Apare nota mai mare |
+| 4 | Un test dat clasei ca temă (deschis pentru toți) | Are coloana lui |
+| 5 | Un elev fără notă la un test | Celula e goală |
+| 6 | Ca alt profesor, deschide direct `/api/admin/classes/<id>/grades.csv` | 404 |
+| 7 | Un elev cu numele care începe cu `=` (de ex. `=1+1`) | În Excel se vede ca text `=1+1`, nu se calculează |
+
 ## E. Debugging — unde te uiți când pică ceva
 
 ```bash

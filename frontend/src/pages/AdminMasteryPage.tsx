@@ -8,7 +8,7 @@ import { ClassAverageCell } from '@/components/ClassAverageCell'
 import { PageHeader } from '@/components/PageHeader'
 import { HomeSection } from '@/components/home/HomeBits'
 import {
-  createCatchUpAssignment, getClassEnMastery, getClassMastery, getClassReview, listAssignments, listClasses, listQuizzes,
+  createCatchUpAssignment, downloadClassGrades, getClassEnMastery, getClassMastery, getClassReview, listAssignments, listClasses, listQuizzes,
   type AssignmentSummary, type ClassMastery, type EnClassMastery, type QuizSummary, type StudentReviewStatus,
 } from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -16,6 +16,7 @@ import { CatchUpDialog } from '@/components/CatchUpDialog'
 import { weakStudentIds } from '@/lib/catchUp'
 import { formatDate, roCount } from '@/lib/format'
 import { errorMessage } from '@/lib/errors'
+import { saveBlob } from '@/lib/download'
 import { classAverage, MASTERY_LABELS, MASTERY_TONES, masteryLevel } from '@/lib/mastery'
 import { LoadingCards } from '@/components/LoadingCards'
 
@@ -43,6 +44,21 @@ export function AdminMasteryPage() {
   const [givenQuizIds, setGivenQuizIds] = useState<number[]>([])
   const [catchUpError, setCatchUpError] = useState<string | null>(null)
   const [given, setGiven] = useState<AssignmentSummary | null>(null)
+  // "Descarcă notele (CSV)": a one-off action, so its state stays here.
+  const [downloading, setDownloading] = useState(false)
+  const [downloadError, setDownloadError] = useState<string | null>(null)
+
+  async function downloadGrades() {
+    setDownloading(true)
+    setDownloadError(null)
+    try {
+      saveBlob(await downloadClassGrades(id), `note-${className ?? `clasa-${id}`}.csv`)
+    } catch (e) {
+      setDownloadError(errorMessage(e))
+    } finally {
+      setDownloading(false)
+    }
+  }
 
   function openCatchUp(column: number) {
     setGiven(null)
@@ -92,7 +108,13 @@ export function AdminMasteryPage() {
           title={title}
           description="Nivelul fiecărui elev pe fiecare capitol: ultimul răspuns la fiecare întrebare legată de capitol, din teste și din exersare."
           breadcrumbs={[{ label: 'Clase', to: '/admin/content' }, { label: className ?? 'Clasă' }, { label: 'Pe capitole' }]}
+          actions={
+            <Button type="button" variant="outline" size="sm" onClick={() => void downloadGrades()} disabled={downloading}>
+              {downloading ? 'Se descarcă...' : 'Descarcă notele (CSV)'}
+            </Button>
+          }
         />
+        {downloadError && <p role="alert" className="text-sm text-destructive">{downloadError}</p>}
         {error && <ErrorState message={error} />}
         {!grid && !error && <LoadingCards />}
 

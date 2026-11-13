@@ -16,6 +16,14 @@ import java.util.Optional;
  */
 public interface QuizRepository extends JpaRepository<Quiz, Long> {
 
+    /**
+     * The tests of one class, oldest first: made for it, or given to it as homework (a test open to everybody that
+     * the class got as homework counts too). The columns of the class gradebook.
+     */
+    @Query("select q from Quiz q where q.schoolClass.id = :classId"
+            + " or q.id in (select a.quiz.id from Assignment a where a.schoolClass.id = :classId) order by q.id")
+    List<Quiz> findOfClass(@Param("classId") Long classId);
+
     /** Extra attempts one student was given at one test, 0 = none (see {@link AttemptGrant}). */
     @Query("select coalesce(sum(g.extra), 0) from AttemptGrant g where g.quiz.id = :quizId and g.student.id = :studentId")
     long extraAttempts(@Param("quizId") Long quizId, @Param("studentId") Long studentId);

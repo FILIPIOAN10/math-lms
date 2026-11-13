@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -42,6 +43,29 @@ public interface QuizAttemptRepository extends JpaRepository<QuizAttempt, Long> 
 
     interface CountedAttemptRow {
         Long getAttemptId();
+
+        Integer getScore();
+    }
+
+    /**
+     * {@link #findCountedAttempts} for several quizzes at once, and only for these students: one row per (quiz,
+     * student) with the score that counts - the class gradebook. Neither list may be empty.
+     */
+    @Query(nativeQuery = true, value = """
+            select distinct on (a.quiz_id, a.student_id)
+                   a.quiz_id as quizId, a.student_id as studentId, a.score as score
+              from quiz_attempts a
+             where a.quiz_id in (:quizIds) and a.student_id in (:studentIds)
+               and a.status = 'GRADED' and a.mode = 'TEST' and a.score is not null
+             order by a.quiz_id, a.student_id, a.score desc, a.id
+            """)
+    List<CountedGradeRow> findCountedGrades(@Param("quizIds") Collection<Long> quizIds,
+                                            @Param("studentIds") Collection<Long> studentIds);
+
+    interface CountedGradeRow {
+        Long getQuizId();
+
+        Long getStudentId();
 
         Integer getScore();
     }

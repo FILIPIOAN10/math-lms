@@ -909,6 +909,15 @@ export async function getClassReview(classId: number): Promise<StudentReviewStat
   return response.json()
 }
 
+/**
+ * The class gradebook as a CSV file (students down, graded tests across), as bytes: fetched through apiFetch so an
+ * expired session is renewed first, then handed to the browser's download by saveBlob().
+ */
+export async function downloadClassGrades(classId: number): Promise<Blob> {
+  const response = await apiFetch(`/admin/classes/${classId}/grades.csv`)
+  return response.blob()
+}
+
 /** The numbers on a row of the teacher's test list; `average` and `dueAt` are null until there is one. */
 export interface QuizListSummary {
   quizId: number
