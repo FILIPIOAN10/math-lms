@@ -24,6 +24,18 @@ class RateLimitConfigTest {
         assertThat(rule.keyType()).isEqualTo(RateLimitKeyType.USER);
     }
 
+    /** The student's AI box has its daily cap in the database; the filter only stops a burst of questions. */
+    @Test
+    void theStudentsTutorBoxHasAPerMinuteLimitPerStudent() {
+        RateLimitRule rule = rules.stream()
+                .filter(r -> r.method().equals("POST")
+                        && new AntPathMatcher().match(r.pathPattern(), "/api/quiz/tutor/explain"))
+                .findFirst().orElseThrow();
+
+        assertThat(rule.window()).isEqualTo(Duration.ofMinutes(1));
+        assertThat(rule.keyType()).isEqualTo(RateLimitKeyType.USER);
+    }
+
     @Test
     void noRulesWhenSwitchedOff() {
         assertThat(new RateLimitConfig().rateLimitRules(false)).isEmpty();

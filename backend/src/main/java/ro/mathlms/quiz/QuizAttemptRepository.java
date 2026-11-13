@@ -118,6 +118,11 @@ public interface QuizAttemptRepository extends JpaRepository<QuizAttempt, Long> 
     @EntityGraph(attributePaths = "quiz")
     List<QuizAttempt> findByStudentIdAndQuizIdIn(Long studentId, java.util.Collection<Long> quizIds);
 
+    /** The student's latest attempt in this status and mode, quiz loaded (an open graded test closes the AI box). */
+    @EntityGraph(attributePaths = "quiz")
+    Optional<QuizAttempt> findFirstByStudentIdAndStatusAndModeOrderByStartedAtDesc(
+            Long studentId, QuizAttemptStatus status, AttemptMode mode);
+
     /** Whether the student ever opened this quiz - then its questions (and their pictures) are theirs to see again. */
     boolean existsByStudentIdAndQuizId(Long studentId, Long quizId);
 

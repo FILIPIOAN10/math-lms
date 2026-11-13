@@ -106,6 +106,9 @@ services:
       TUTOR_ENABLED: ${TUTOR_ENABLED:-false}
       TUTOR_BASE_URL: http://tutor:8001
       TUTOR_SERVICE_TOKEN: ${TUTOR_SERVICE_TOKEN:-}
+      # The student's "Nu înțeleg…" box: a second switch, a pupil's own text reaches the model provider.
+      TUTOR_STUDENT_ENABLED: ${TUTOR_STUDENT_ENABLED:-false}
+      TUTOR_STUDENT_DAILY_LIMIT: ${TUTOR_STUDENT_DAILY_LIMIT:-20}
       # F11 - files in a private S3 bucket instead of the uploads volume (docs/DEPLOY.md section 9). local = the volume.
       FILE_STORAGE_PROVIDER: ${FILE_STORAGE_PROVIDER:-local}
       S3_BUCKET: ${S3_BUCKET:-}

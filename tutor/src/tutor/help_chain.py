@@ -224,10 +224,7 @@ class HelpService:
 
     @classmethod
     def from_settings(cls, settings: Settings) -> "HelpService":
-        embeddings = make_embeddings(settings)
-        retriever = DbRetriever(lambda: psycopg.connect(settings.psycopg_dsn), embeddings, settings.retrieval_k,
-                                settings.max_distance)
-        return cls(retriever, chat_model(settings))
+        return cls(DbRetriever.from_settings(settings), chat_model(settings))
 
     def step(self, statement: str, *, slot: str | None = None, level: int = 1, previous: Sequence[str] = (),
              found: Found | None = None) -> Outcome:
@@ -268,6 +265,11 @@ class DbRetriever:
                  k: int, max_distance: float):
         self.connect, self.embeddings, self.k, self.max_distance = connect, embeddings, k, max_distance
 
+    @classmethod
+    def from_settings(cls, settings: Settings) -> "DbRetriever":
+        return cls(lambda: psycopg.connect(settings.psycopg_dsn), make_embeddings(settings), settings.retrieval_k,
+                   settings.max_distance)
+
     def __call__(self, statement: str, slot: str | None) -> Found:
         with self.connect() as conn:
             retrieval = retrieve_for_exercise(conn, statement, self.embeddings, slot, self.k, self.max_distance)
@@ -290,9 +292,9 @@ def _drafted(result: dict) -> Drafted:
     return Drafted(parsed, usage.get("input_tokens", 0), usage.get("output_tokens", 0))
 
 
-def chat_model(settings: Settings) -> Runnable:
-    """The real model with strict JSON in the shape of `Draft`."""
-    llm = chat_client(settings, settings.help_max_output_tokens)
+def chat_model(settings: Settings, max_tokens: int | None = None) -> Runnable:
+    """The real model with strict JSON in the shape of `Draft` (the explanation box reuses it with a smaller budget)."""
+    llm = chat_client(settings, max_tokens or settings.help_max_output_tokens)
     options = {"strict": True} if using_openai(settings) else {}
     return llm.with_structured_output(Draft, method="json_schema", include_raw=True, **options) | RunnableLambda(_drafted)
 

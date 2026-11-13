@@ -9,6 +9,7 @@ import { hasNavigation, isNavActive, NAV_COUNTS_CHANGED, navItems, roleLabel, ta
 import { cn } from '@/lib/utils'
 import { LoadingCards } from '@/components/LoadingCards'
 import { PageRetryContext } from '@/lib/pageRetry'
+import { StudentTutorBox } from '@/components/StudentTutorBox'
 
 type Counts = Record<NavCount, number | null>
 
@@ -280,6 +281,8 @@ export function AppShell() {
         </Suspense>
       </main>
       {withNav && <TabBar role={user.role} counts={counts} pathname={pathname} />}
+      {/* The student's AI box ("Nu înțeleg…"): renders nothing while the server has it switched off. */}
+      {user.role === 'STUDENT' && !pathname.endsWith('/take') && <StudentTutorBox />}
     </div>
   )
 }

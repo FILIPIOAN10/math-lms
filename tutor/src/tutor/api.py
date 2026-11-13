@@ -3,6 +3,9 @@ pages each level relied on. The browser never calls this service - Spring does, 
 teacher approves the text before any student sees it.
 
     POST /help    {"statement": ..., "slot": "I.1" | null, "levels": 1..3}  (header X-Tutor-Token)  ->  HelpResponse
+    POST /explain {"question": ..., "history": [{"role": "user" | "bot", "text": ...}] (at most 6)}  ->  ExplainResponse
+                  the student's "Nu înțeleg…" box: Spring has already checked the student, the daily limit and that no
+                  graded test is open, and it keeps the history (this service keeps no state between requests)
     GET  /health  {"status": "ok"}
 
 The textbook passages stay in the database: the answer names them (chapter, page) but does not carry their text.
@@ -12,13 +15,15 @@ Run:  uv run uvicorn tutor.api:app --port 8001
 
 import hmac
 from functools import lru_cache
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import Depends, FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
 
 from tutor.config import Settings, get_settings
-from tutor.help_chain import LEVELS, HelpError, HelpService, HelpStep, Refusal
+from tutor.conversation import Turn
+from tutor.explain import ExplainService
+from tutor.help_chain import LEVELS, HelpError, HelpService, HelpStep, Refusal, Source
 from tutor.transcribe import cost_usd
 
 
@@ -49,10 +54,38 @@ class HelpResponse(BaseModel):
     cost_usd: float
 
 
+class TurnIn(BaseModel):
+    role: Literal["user", "bot"]
+    text: str = Field(min_length=1, max_length=1000)
+
+
+class ExplainRequest(BaseModel):
+    question: str = Field(min_length=1, max_length=500)
+    # What was said before, oldest first: only so a short follow-up can be rewritten into a full question.
+    history: list[TurnIn] = Field(default_factory=list, max_length=6)
+
+
+class ExplainResponse(BaseModel):
+    answered: bool
+    text: str
+    sources: list[Source]
+    refusal: Refusal | None
+    question: str  # the standalone question that was searched for (the teacher sees it when nothing was found)
+    rewritten: bool
+    input_tokens: int
+    output_tokens: int
+    cost_usd: float
+
+
 @lru_cache
 def help_service() -> HelpService:
     """Built on first use (it needs the model access and the database), then shared; tests override it."""
     return HelpService.from_settings(get_settings())
+
+
+@lru_cache
+def explain_service() -> ExplainService:
+    return ExplainService.from_settings(get_settings())
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -87,6 +120,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                       for p in result.passages],
             input_tokens=result.input_tokens,
             output_tokens=result.output_tokens,
+            cost_usd=round(cost_usd(result.input_tokens, result.output_tokens, settings), 6),
+        )
+
+    @app.post("/explain", response_model=ExplainResponse, dependencies=[Depends(check_token)])
+    def write_explanation(request: ExplainRequest,
+                          service: Annotated[ExplainService, Depends(explain_service)]) -> ExplainResponse:
+        try:
+            result = service.explain(request.question, [Turn(t.role, t.text) for t in request.history])
+        except HelpError as e:
+            raise HTTPException(502, str(e)) from e
+        return ExplainResponse(
+            answered=result.answered, text=result.text, sources=result.sources, refusal=result.refusal,
+            question=result.question, rewritten=result.rewritten,
+            input_tokens=result.input_tokens, output_tokens=result.output_tokens,
             cost_usd=round(cost_usd(result.input_tokens, result.output_tokens, settings), 6),
         )
 

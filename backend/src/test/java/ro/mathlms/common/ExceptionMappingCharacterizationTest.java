@@ -86,6 +86,8 @@ import ro.mathlms.student.AdminStudentController;
 import ro.mathlms.student.AdminStudentService;
 import ro.mathlms.student.StudentNotFoundException;
 import ro.mathlms.teaching.TeacherScope;
+import ro.mathlms.tutor.StudentTutorController;
+import ro.mathlms.tutor.StudentTutorService;
 import ro.mathlms.tutor.TutorController;
 import ro.mathlms.tutor.TutorException;
 import ro.mathlms.tutor.TutorHintService;
@@ -119,7 +121,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
         PublicGdprController.class,
         AdminStudentController.class,
         CommentSnippetController.class,
-        TutorController.class})
+        TutorController.class,
+        StudentTutorController.class})
 @Import({ExceptionMappingCharacterizationTest.ThrowingController.class,
         ExceptionMappingCharacterizationTest.MetricsConfig.class})
 @WithMockUser(roles = "ADMIN")
@@ -200,6 +203,8 @@ class ExceptionMappingCharacterizationTest {
     private CommentSnippetService commentSnippetService;
     @MockitoBean
     private TutorHintService tutorHintService;
+    @MockitoBean
+    private StudentTutorService studentTutorService;
     @MockitoBean
     private TeacherScope teacherScope;
     @MockitoBean
@@ -430,6 +435,27 @@ class ExceptionMappingCharacterizationTest {
                 .accept(ACCEPT_ANY)).andReturn();
 
         assertResponse(result, 503, "Tutorul nu răspunde.");
+    }
+
+    @ParameterizedTest
+    @MethodSource("studentTutorRefusals")
+    @WithMockUser(authorities = {"ROLE_STUDENT", "STATUS_ACTIVE"})
+    void theStudentsTutorBoxAnswersARefusalWithItsOwnStatusAndSentence(RuntimeException refusal, int status)
+            throws Exception {
+        when(studentTutorService.explain(any(), any(), any())).thenThrow(refusal);
+
+        MvcResult result = mockMvc.perform(post("/api/quiz/tutor/explain").with(csrf()).accept(ACCEPT_ANY)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"question\":\"ce e modulul?\",\"history\":[]}"))
+                .andReturn();
+
+        assertResponse(result, status, refusal.getMessage());
+    }
+
+    static Stream<Arguments> studentTutorRefusals() {
+        return Stream.of(
+                Arguments.of(new StudentTutorService.ClosedException(HttpStatus.CONFLICT, "Test deschis."), 409),
+                Arguments.of(new StudentTutorService.ClosedException(HttpStatus.TOO_MANY_REQUESTS, "Gata pe azi."), 429),
+                Arguments.of(new TutorException("Tutorul nu răspunde."), 503));
     }
 
     private MvcResult perform(Supplier<? extends RuntimeException> exception) throws Exception {

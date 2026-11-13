@@ -43,7 +43,7 @@ class GdprExportServiceTest {
     private final GdprExportService service = new GdprExportService(
             userRepository, enrollmentRepository, attemptRepository, responseRepository,
             mock(ro.mathlms.review.ReviewAnswerRepository.class),
-            fileService, new ObjectMapper(), "uploads/quiz-photos");
+            fileService, new ObjectMapper(), "uploads/quiz-photos", mock(ro.mathlms.tutor.StudentTutorService.class));
 
     private static <T> T withId(T entity, long id) {
         ReflectionTestUtils.setField(entity, "id", id);

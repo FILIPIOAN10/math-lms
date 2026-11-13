@@ -16,7 +16,7 @@ import java.time.Duration;
 import java.util.List;
 
 /**
- * Calls the tutor service ({@code POST /help}) with the shared token and returns its answer as is. The service checks
+ * Calls the tutor service ({@code POST /help}, {@code POST /explain}) with the shared token and returns its answer as is. The service checks
  * the token, retrieves the textbook passages and writes the levels; this side only says who may ask and for what.
  * Every failure becomes a {@link TutorException} worded for the teacher - the service's own text only for a 502,
  * whose detail it writes for people ("Modelul nu a întors JSON-ul așteptat.").
@@ -52,6 +52,24 @@ public class TutorClient {
     record Request(String statement, String slot, int levels) {
     }
 
+    /** One earlier message of the student's box, oldest first: {@code role} is "user" or "bot". */
+    public record Turn(String role, String text) {
+    }
+
+    record ExplainRequest(String question, List<Turn> history) {
+    }
+
+    /**
+     * What {@code POST /explain} sends back: two or three sentences from the lessons with the pages they rely on, or a
+     * refusal; {@code question} is the standalone question it searched for (a follow-up rewritten with the history).
+     */
+    public record Explanation(boolean answered, String text, List<Source> sources, Refusal refusal, String question,
+                              boolean rewritten,
+                              @JsonProperty("input_tokens") int inputTokens,
+                              @JsonProperty("output_tokens") int outputTokens,
+                              @JsonProperty("cost_usd") double costUsd) {
+    }
+
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
     private final String token;
@@ -78,18 +96,34 @@ public class TutorClient {
 
     /** Up to three levels for one exercise; {@code slot} is its exam position ("I.1"), or null to search by meaning. */
     public Answer help(String statement, String slot, int levels) {
+        Answer answer = post("/help", new Request(statement, slot, levels), Answer.class);
+        if (answer == null || answer.steps() == null) {
+            throw new TutorException(FAILED);
+        }
+        return answer;
+    }
+
+    /** The student's box: an explanation of {@code question} from the lessons, {@code history} for a follow-up. */
+    public Explanation explain(String question, List<Turn> history) {
+        Explanation answer = post("/explain", new ExplainRequest(question, history), Explanation.class);
+        if (answer == null || answer.sources() == null) {
+            throw new TutorException(FAILED);
+        }
+        return answer;
+    }
+
+    private <T> T post(String path, Object body, Class<T> type) {
         if (token.isEmpty()) {
             throw new TutorException(NOT_CONFIGURED);
         }
-        Answer answer;
         try {
-            answer = restClient.post()
-                    .uri("/help")
+            return restClient.post()
+                    .uri(path)
                     .header("X-Tutor-Token", token)
                     .contentType(MediaType.APPLICATION_JSON)
-                    .body(new Request(statement, slot, levels))
+                    .body(body)
                     .retrieve()
-                    .body(Answer.class);
+                    .body(type);
         } catch (RestClientResponseException e) {
             int status = e.getStatusCode().value();
             log.warn("Tutor answered {}: {}", status, e.getResponseBodyAsString());
@@ -102,10 +136,6 @@ public class TutorClient {
             log.warn("Tutor could not be reached: {}", e.getMessage());
             throw new TutorException(e.getCause() instanceof java.net.SocketTimeoutException ? TOO_SLOW : UNREACHABLE, e);
         }
-        if (answer == null || answer.steps() == null) {
-            throw new TutorException(FAILED);
-        }
-        return answer;
     }
 
     private String detailOr(String body, String fallback) {

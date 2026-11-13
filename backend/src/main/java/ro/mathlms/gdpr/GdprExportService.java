@@ -16,6 +16,7 @@ import ro.mathlms.quiz.QuizAttemptRepository;
 import ro.mathlms.quiz.ResponsePhoto;
 import ro.mathlms.review.ReviewAnswerRepository;
 import ro.mathlms.storage.FileService;
+import ro.mathlms.tutor.StudentTutorService;
 import ro.mathlms.user.User;
 import ro.mathlms.user.UserRepository;
 
@@ -45,11 +46,12 @@ public class GdprExportService {
     private final FileService fileService;
     private final ObjectMapper objectMapper;
     private final String quizPhotosDir;
+    private final StudentTutorService studentTutor;
 
     public GdprExportService(UserRepository userRepository, EnrollmentRepository enrollmentRepository,
                              QuizAttemptRepository attemptRepository, ItemResponseRepository responseRepository,
                              ReviewAnswerRepository reviewAnswerRepository, FileService fileService, ObjectMapper objectMapper,
-                             @Value("${app.storage.quiz-photos-dir}") String quizPhotosDir) {
+                             @Value("${app.storage.quiz-photos-dir}") String quizPhotosDir, StudentTutorService studentTutor) {
         this.userRepository = userRepository;
         this.enrollmentRepository = enrollmentRepository;
         this.attemptRepository = attemptRepository;
@@ -58,6 +60,7 @@ public class GdprExportService {
         this.fileService = fileService;
         this.objectMapper = objectMapper;
         this.quizPhotosDir = quizPhotosDir;
+        this.studentTutor = studentTutor;
     }
 
     /** Builds the ZIP archive for the account identified by {@code email}. */
@@ -96,7 +99,11 @@ public class GdprExportService {
                         r.getConfidence() == null ? null : r.getConfidence().name()))
                 .toList();
 
-        return new GdprExportData.Archive(Instant.now().toString(), profile, enrollments, attempts, reviews);
+        List<GdprExportData.TutorQuestion> tutorQuestions = studentTutor.questionsOf(user.getId()).stream()
+                .map(q -> new GdprExportData.TutorQuestion(q.question(), q.askedAt().toString()))
+                .toList();
+
+        return new GdprExportData.Archive(Instant.now().toString(), profile, enrollments, attempts, reviews, tutorQuestions);
     }
 
     private GdprExportData.Attempt toAttempt(QuizAttempt attempt) {

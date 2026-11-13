@@ -97,4 +97,41 @@ class TutorClientTest {
         assertThatThrownBy(() -> client("s3cret").help("2 + 2", null, 3))
                 .isInstanceOf(TutorException.class).hasMessage(TutorClient.FAILED);
     }
+
+    // --- POST /explain: the student's "Nu înțeleg…" box ---
+
+    @Test
+    void explainSendsTheQuestionWithItsHistoryAndReadsTheExplanationWithItsPages() {
+        server.expect(requestTo("http://tutor:8001/explain"))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(header("X-Tutor-Token", "s3cret"))
+                .andExpect(jsonPath("$.question").value("și dacă x < 0?"))
+                .andExpect(jsonPath("$.history[0].role").value("user"))
+                .andExpect(jsonPath("$.history[1].text").value("Modulul e distanța până la 0."))
+                .andRespond(withSuccess("""
+                        {"answered": true, "text": "Dacă $x < 0$, atunci $|x| = -x$.",
+                         "sources": [{"n": 2, "code": "AIS9", "title": "Modulul", "book_page": 41}],
+                         "refusal": null, "question": "Cât este |x| dacă x < 0?", "rewritten": true,
+                         "input_tokens": 900, "output_tokens": 80, "cost_usd": 0.00013}
+                        """, MediaType.APPLICATION_JSON));
+
+        TutorClient.Explanation answer = client("s3cret").explain("și dacă x < 0?", java.util.List.of(
+                new TutorClient.Turn("user", "ce e modulul?"), new TutorClient.Turn("bot", "Modulul e distanța până la 0.")));
+
+        server.verify();
+        assertThat(answer.answered()).isTrue();
+        assertThat(answer.text()).isEqualTo("Dacă $x < 0$, atunci $|x| = -x$.");
+        assertThat(answer.sources()).containsExactly(new TutorClient.Source(2, "AIS9", "Modulul", 41));
+        assertThat(answer.question()).isEqualTo("Cât este |x| dacă x < 0?");
+        assertThat(answer.inputTokens()).isEqualTo(900);
+        assertThat(answer.outputTokens()).isEqualTo(80);
+    }
+
+    @Test
+    void explainFailsLikeHelp() {
+        server.expect(requestTo("http://tutor:8001/explain")).andRespond(withStatus(HttpStatus.SERVICE_UNAVAILABLE));
+
+        assertThatThrownBy(() -> client("s3cret").explain("ce e modulul?", java.util.List.of()))
+                .isInstanceOf(TutorException.class).hasMessage(TutorClient.NOT_CONFIGURED);
+    }
 }

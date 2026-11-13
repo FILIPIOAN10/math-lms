@@ -2530,3 +2530,60 @@ export async function getEnChapterSlots(): Promise<EnChapterSlot[]> {
 export async function saveEnChapterSlots(slots: EnChapterSlot[]): Promise<void> {
   await putJson('/admin/en-chapter-slots', { slots })
 }
+
+// ---------- The student's "Nu înțeleg…" box: an AI that explains from the EN lessons and links to them ----------
+
+/** `openTest` = the title of the graded test that closes the box until it is handed in (null = none open). */
+export interface StudentTutorStatus {
+  enabled: boolean
+  dailyLimit: number
+  remainingToday: number
+  openTest: string | null
+}
+
+export async function getStudentTutor(): Promise<StudentTutorStatus> {
+  const response = await apiFetch('/quiz/tutor')
+  return response.json()
+}
+
+/** Where an explanation comes from: open chapter `chapterId` at section `sectionId` (null = the chapter itself). */
+export interface TutorLessonLink {
+  chapterId: number
+  chapterCode: string
+  chapterTitle: string
+  sectionId: number | null
+  title: string
+  bookPage: number
+}
+
+/** `text` is null when the lessons had nothing; `sentToTeacher` = the question went to the teacher's list. */
+export interface TutorExplanation {
+  answered: boolean
+  text: string | null
+  lessons: TutorLessonLink[]
+  sentToTeacher: boolean
+  remainingToday: number
+}
+
+/** One earlier message of the box, oldest first: only so a short follow-up ("și dacă x < 0?") can be understood. */
+export interface TutorTurn {
+  role: 'user' | 'bot'
+  text: string
+}
+
+export async function askStudentTutor(question: string, history: TutorTurn[]): Promise<TutorExplanation> {
+  const response = await postJson('/quiz/tutor/explain', { question, history })
+  return response.json()
+}
+
+/** A question the box could not answer from the lessons: the text and when, never who asked. */
+export interface TutorUnansweredQuestion {
+  id: number
+  question: string
+  askedAt: string
+}
+
+export async function getClassTutorQuestions(classId: number): Promise<TutorUnansweredQuestion[]> {
+  const response = await apiFetch(`/admin/classes/${classId}/tutor-questions`)
+  return response.json()
+}

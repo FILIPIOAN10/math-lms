@@ -11,6 +11,7 @@ sent again on every follow-up, and an unbounded list would make each message dea
 """
 
 from collections import deque
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 
 from langchain_core.prompts import ChatPromptTemplate
@@ -144,10 +145,16 @@ class Conversation:
         self.history.append(Turn("bot", bot_text))
 
     def _rewrite(self, message: str) -> Condensed:
-        conversation = "\n".join(
-            f"{'Elev' if turn.role == 'user' else 'Tutor'}: {_clip(turn.text, CLIP_STUDENT if turn.role == 'user' else CLIP_TUTOR)}"
-            for turn in self.history)
-        return self.rewrite.invoke({"conversation": _neutralize(conversation), "message": _neutralize(message)})
+        return rewrite_follow_up(self.rewrite, self.history, message)
+
+
+def rewrite_follow_up(rewrite: Runnable, history: Iterable[Turn], message: str) -> Condensed:
+    """Runs the rewrite prompt over the history (each message clipped) and the latest message, both as data. Shared
+    with the student's explanation box (`tutor.explain`), whose history comes from the backend on every request."""
+    conversation = "\n".join(
+        f"{'Elev' if turn.role == 'user' else 'Tutor'}: {_clip(turn.text, CLIP_STUDENT if turn.role == 'user' else CLIP_TUTOR)}"
+        for turn in history)
+    return rewrite.invoke({"conversation": _neutralize(conversation), "message": _neutralize(message)})
 
 
 def _condensed(message) -> Condensed:

@@ -1229,6 +1229,44 @@ care nu are nimeni notă nu apare. Fișierul se deschide corect în Excel în ro
 | 6 | Ca alt profesor, deschide direct `/api/admin/classes/<id>/grades.csv` | 404 |
 | 7 | Un elev cu numele care începe cu `=` (de ex. `=1+1`) | În Excel se vede ca text `=1+1`, nu se calculează |
 
+### 57. „Nu înțeleg…” — asistentul AI al elevului (V69) — ca elev, apoi ca profesor
+Elevul scrie ce nu înțelege, iar un model AI răspunde în 2–3 propoziții **doar din lecțiile EN**, cu link la lecție
+(„Deschide lecția A7, pagina 34”) și la „Exersează capitolul”. Nu rezolvă exerciții. Când lecțiile nu au nimic apropiat
+scrie „Nu am asta în manual.”, iar întrebarea ajunge în lista profesorului (fără nume, 30 de zile). Oprit cât timp
+elevul are un test cu notă deschis; un număr de întrebări pe zi.
+
+**Pregătire:** e oprit implicit. Pornește serviciul tutor (`cd tutor && uv run uvicorn tutor.api:app --port 8001`) și
+backend-ul cu `TUTOR_ENABLED=true`, `TUTOR_SERVICE_TOKEN=<SERVICE_TOKEN din tutor/.env>`, **`TUTOR_STUDENT_ENABLED=true`**
+(opțional `TUTOR_STUDENT_DAILY_LIMIT=3` ca să testezi limita). Cât timp lecțiile nu sunt încărcate în `tutor_chunks` (local sunt
+doar câteva bucăți din capitolul I), aproape orice întrebare primește „Nu am asta în manual.”: e comportamentul corect.
+Textul scris de elev pleacă la furnizorul modelului (Gemini).
+
+| # | Ce faci | Ce trebuie să vezi |
+|---|---|---|
+| 1 | Elev → orice pagină | Butonul **Nu înțeleg…** jos în dreapta (pe telefon, deasupra barei de jos) |
+| 2 | Pornește backend-ul fără `TUTOR_STUDENT_ENABLED` | Butonul nu apare deloc; `POST /api/quiz/tutor/explain` → 404 |
+| 3 | Deschide caseta | Sus: „Asistent AI. Răspunsurile sunt scrise automat de un model de inteligență artificială, doar din lecțiile EN... Poate greși” |
+| 4 | Scrie o întrebare despre un capitol care are text în lecții (de ex. „ce sunt numerele naturale?”) → **Întreabă** | 2–3 propoziții marcate „Răspuns AI”, butoanele **Deschide lecția …, pagina …** și **Exersează capitolul**; „Îți mai rămân N întrebări azi” scade cu 1 |
+| 5 | Click pe **Deschide lecția** | Se deschide capitolul, derulat la secțiune |
+| 6 | Scrie o continuare scurtă („și dacă e 0?”) | Răspunsul ține cont de întrebarea de dinainte |
+| 7 | Scrie un exercițiu („rezolvă 2x + 4 = 10”) | Numește regula și trimite la lecție, fără calcul și fără rezultat |
+| 8 | Întreabă ceva ce nu e în lecții („ce este un logaritm?”) | „Nu am asta în manual. Am trimis întrebarea profesorului tău…”, fără link |
+| 9 | Profesor → **Clase** → clasa elevului → **Pe capitole** | La final: „Întrebări fără răspuns în lecții”, cu întrebarea de la pasul 8 și data, fără numele elevului |
+| 10 | Ca alt profesor: `/api/admin/classes/<id>/tutor-questions` | 404 |
+| 11 | Elev: începe un test cu notă (nu exersare) și, din altă filă, deschide caseta | „Asistentul e oprit cât timp ai un test deschis: „…”. Termină-l, apoi întreabă.”, fără câmp de scris |
+| 12 | Predă testul, redeschide caseta | Poți întreba din nou |
+| 13 | Cu `TUTOR_STUDENT_DAILY_LIMIT=3`, pune 4 întrebări | La a 4-a: „Ai folosit toate cele 3 întrebări de azi...”; butonul **Întreabă** e dezactivat |
+| 14 | Oprește serviciul tutor și întreabă | „Tutorul nu răspunde acum...”; întrebarea rămâne în casetă și **nu** se consumă din limita zilei |
+| 15 | În DB: `SELECT * FROM tutor_unanswered_questions ORDER BY id DESC LIMIT 3;` și `SELECT * FROM tutor_daily_usage;` | Doar întrebările fără răspuns (nu și cele cu răspuns); un rând pe elev și zi |
+| 16 | **Admin → Consumul AI** | Linia `tutor-explain` |
+| 17 | Elev → **Contul meu → Cere datele mele** (GDPR), deschide ZIP-ul | În `manifest.json`: `tutorQuestions` cu întrebările lui fără răspuns |
+| 18 | Elev → **Contul meu → Șterge contul** (confirmă din email) | Rândurile lui din cele două tabele dispar |
+
+**Teste automate:** `StudentTutorIntegrationTest` (Testcontainers: linkuri, lista profesorului, test deschis → 409,
+limita → 429, eroare tutor → nu se consumă, GDPR), `StudentTutorServiceTest` (oprit implicit), `TutorClientTest`
+(`/explain`), `tutor/tests/test_explain.py` + `test_api.py` (pytest: doar din pasaje, refuz, continuări, regulile din
+prompt), `StudentTutorBox.test.tsx` și `TutorQuestionsSection.test.tsx` (Vitest).
+
 ## E. Debugging — unde te uiți când pică ceva
 
 ```bash

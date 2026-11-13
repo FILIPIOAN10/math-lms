@@ -267,3 +267,9 @@ capitolului **doar unde profesorul nu a scris deja**. Merge numai cu `FILE_STORA
 „Tutorul nu răspunde acum” = containerul nu rulează; „Tutorul nu e configurat pe server” = tokenul lipsește sau diferă.
 
 **Oprire:** `TUTOR_ENABLED=false` (butonul dispare) și scoți `tutor` din `COMPOSE_PROFILES`.
+
+**Caseta elevului „Nu înțeleg…”** (V69) folosește același serviciu, dar are comutatorul ei: `TUTOR_STUDENT_ENABLED=true`
+(implicit `false`) și `TUTOR_STUDENT_DAILY_LIMIT` (întrebări pe elev pe zi, implicit 20). Aici **textul scris de elev**
+ajunge la furnizorul modelului (Gemini prin Vertex AI): pornește-o doar după ce ai verificat termenii furnizorului pentru
+aplicații folosite de minori și ai trecut asta în nota de informare. Fără lecții încărcate în `tutor_chunks`, caseta
+răspunde aproape mereu „Nu am asta în manual.”.

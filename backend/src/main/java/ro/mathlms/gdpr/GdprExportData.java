@@ -54,11 +54,15 @@ public final class GdprExportData {
             String confidence // GUESS / THINK / SURE; null = not said
     ) {}
 
+    /** A question the AI box ("Nu înțeleg…") could not answer from the lessons, kept for the teacher (V69). */
+    public record TutorQuestion(String question, String askedAt) {}
+
     public record Archive(
             String exportedAt,
             Profile profile,
             List<EnrolledClass> enrollments,
             List<Attempt> attempts,
-            List<ReviewEntry> reviews
+            List<ReviewEntry> reviews,
+            List<TutorQuestion> tutorQuestions
     ) {}
 }

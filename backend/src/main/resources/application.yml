@@ -213,6 +213,10 @@ app:
     base-url: ${TUTOR_BASE_URL:http://localhost:8001}
     token: ${TUTOR_SERVICE_TOKEN:}
     timeout: ${TUTOR_TIMEOUT:55s}
+    # The student's "Nu înțeleg…" box: OFF unless TUTOR_STUDENT_ENABLED=true as well, because there a pupil's own typed
+    # text goes to the model provider (check its terms for apps used by minors first). Questions per student per day.
+    student-enabled: ${TUTOR_STUDENT_ENABLED:false}
+    student-daily-limit: ${TUTOR_STUDENT_DAILY_LIMIT:20}
 
 # Rate limiting (Phase 6.1): per-endpoint fixed windows in Redis, rules in RateLimitConfig.
 rate:

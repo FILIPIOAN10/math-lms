@@ -37,6 +37,8 @@ class Settings(BaseSettings):
     # effort and a strict output schema. Set it only for a model that accepts it.
     chat_temperature: float | None = None
     help_max_output_tokens: int = 3_000
+    # The student's explanation box: two or three sentences, plus whatever the model spends thinking first.
+    explain_max_output_tokens: int = 1_500
 
     # Help chain: how many textbook passages go into the prompt, and the nearest-passage distance above which the
     # question is declared "not in the book". 0.48 sits in the gap between the farthest covered question (0.4646) and

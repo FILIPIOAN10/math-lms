@@ -12,6 +12,8 @@ import ro.mathlms.teaching.TeacherScope;
 import ro.mathlms.tutor.TutorHintService.TutorHintsDto;
 import ro.mathlms.tutor.TutorHintService.TutorSettingsDto;
 
+import java.util.List;
+
 /**
  * The tutor in the question editor: whether it is switched on, and its hint proposals for one question (a POST because
  * it calls the model and costs). The browser never reaches the tutor service itself - only through here, after the
@@ -22,10 +24,12 @@ import ro.mathlms.tutor.TutorHintService.TutorSettingsDto;
 public class TutorController {
 
     private final TutorHintService service;
+    private final StudentTutorService studentTutor;
     private final TeacherScope scope;
 
-    public TutorController(TutorHintService service, TeacherScope scope) {
+    public TutorController(TutorHintService service, StudentTutorService studentTutor, TeacherScope scope) {
         this.service = service;
+        this.studentTutor = studentTutor;
         this.scope = scope;
     }
 
@@ -38,6 +42,13 @@ public class TutorController {
     public TutorHintsDto suggest(@PathVariable Long itemId) {
         scope.requireQuizItem(itemId);
         return service.suggest(itemId);
+    }
+
+    /** What the students' AI box could not answer from the lessons (last 30 days, no names): what the class does not know. */
+    @GetMapping("/api/admin/classes/{classId}/tutor-questions")
+    public List<StudentTutorService.UnansweredDto> unanswered(@PathVariable Long classId) {
+        scope.requireClass(classId);
+        return studentTutor.unanswered(classId);
     }
 
     @ExceptionHandler(TutorException.class)

@@ -19,6 +19,7 @@ import { errorMessage } from '@/lib/errors'
 import { saveBlob } from '@/lib/download'
 import { classAverage, MASTERY_LABELS, MASTERY_TONES, masteryLevel } from '@/lib/mastery'
 import { LoadingCards } from '@/components/LoadingCards'
+import { TutorQuestionsSection } from '@/components/TutorQuestionsSection'
 
 /** The class average of one chapter: the mean percent of the students who have data there. */
 function average(grid: ClassMastery, column: number) {
@@ -277,6 +278,8 @@ export function AdminMasteryPage() {
             </p>
           </HomeSection>
         )}
+
+        <TutorQuestionsSection classId={id} />
       </div>
     </div>
   )

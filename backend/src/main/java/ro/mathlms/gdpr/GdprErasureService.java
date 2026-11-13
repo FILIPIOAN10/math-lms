@@ -22,6 +22,7 @@ import ro.mathlms.quiz.QuizAttemptRepository;
 import ro.mathlms.quiz.QuizRepository;
 import ro.mathlms.quiz.ResponsePhotoRepository;
 import ro.mathlms.storage.FileService;
+import ro.mathlms.tutor.StudentTutorService;
 import ro.mathlms.user.AccountStatus;
 import ro.mathlms.user.Role;
 import ro.mathlms.user.User;
@@ -67,6 +68,7 @@ public class GdprErasureService {
     private final QuizRepository quizRepository;
     private final GdprExportRepository exportRepository;
     private final TotpRecoveryCodeRepository recoveryCodeRepository;
+    private final StudentTutorService studentTutor;
 
     public GdprErasureService(UserRepository userRepository, PasswordEncoder passwordEncoder,
                               VerificationTokenService tokenService, EmailService emailService,
@@ -76,7 +78,8 @@ public class GdprErasureService {
                               @Value("${app.storage.quiz-photos-dir}") String quizPhotosDir,
                               InviteLinkRepository inviteLinkRepository, Clock clock,
                               SchoolClassRepository schoolClassRepository, QuizRepository quizRepository,
-                              GdprExportRepository exportRepository, TotpRecoveryCodeRepository recoveryCodeRepository) {
+                              GdprExportRepository exportRepository, TotpRecoveryCodeRepository recoveryCodeRepository,
+                              StudentTutorService studentTutor) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.tokenService = tokenService;
@@ -94,6 +97,7 @@ public class GdprErasureService {
         this.quizRepository = quizRepository;
         this.exportRepository = exportRepository;
         this.recoveryCodeRepository = recoveryCodeRepository;
+        this.studentTutor = studentTutor;
     }
 
     /**
@@ -142,6 +146,7 @@ public class GdprErasureService {
         enrollmentRepository.deleteByStudentId(userId);
         exportRepository.deleteByUserId(userId); // the archives are a copy of everything about them
         recoveryCodeRepository.deleteByUserId(userId); // a credential like the password (User.erase drops the secret)
+        studentTutor.eraseStudent(userId); // the AI box's unanswered questions (their own words) and its day counters
         // A parent's children are unlinked (not left on a tombstone, which would also block a new parent link), and a
         // student's unused parent links stop working (nobody may become the parent of an erased account).
         userRepository.unlinkChildrenOf(userId);

@@ -23,7 +23,7 @@ class TutorHintServiceTest {
         TutorClient client = mock(TutorClient.class);
         QuizItemRepository items = mock(QuizItemRepository.class);
         TutorHintService service = new TutorHintService(
-                new TutorProperties(false, "http://localhost:8001", "t", Duration.ofSeconds(55)), client, items,
+                new TutorProperties(false, "http://localhost:8001", "t", Duration.ofSeconds(55), false, 20), client, items,
                 mock(QuizOptionRepository.class), mock(QuizItemPartRepository.class), mock(PlatformTransactionManager.class));
 
         assertThat(service.settings().enabled()).isFalse();

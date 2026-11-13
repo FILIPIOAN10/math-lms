@@ -8,6 +8,7 @@ import { ApiError, type AssignmentSummary, type ClassMastery, type QuizSummary }
 const api = vi.hoisted(() => ({
   getClassMastery: vi.fn(), listClasses: vi.fn(), getClassReview: vi.fn(), listQuizzes: vi.fn(), listAssignments: vi.fn(),
   createCatchUpAssignment: vi.fn(), downloadClassGrades: vi.fn(),
+  getClassTutorQuestions: vi.fn(() => Promise.resolve([])),
 }))
 vi.mock('@/lib/api', async (original) => ({ ...(await original<typeof import('@/lib/api')>()), ...api }))
 const download = vi.hoisted(() => ({ saveBlob: vi.fn() }))
