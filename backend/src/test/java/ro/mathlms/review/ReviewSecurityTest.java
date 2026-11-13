@@ -10,10 +10,12 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import ro.mathlms.TestcontainersConfiguration;
+import ro.mathlms.review.ReviewDtos.CalibrationDto;
 import ro.mathlms.review.ReviewDtos.ReviewTodayDto;
 
 import java.util.List;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
@@ -40,20 +42,20 @@ class ReviewSecurityTest {
     @Test
     @WithMockUser(username = "ana@scoala.ro", authorities = {"STATUS_ACTIVE", "ROLE_STUDENT"})
     void aStudentReadsAndAnswersTheirOwnQueue() throws Exception {
-        when(service.today("ana@scoala.ro")).thenReturn(new ReviewTodayDto(10, 0, 0, 0, 0, 0, List.of()));
+        when(service.today("ana@scoala.ro")).thenReturn(new ReviewTodayDto(10, 0, 0, 0, 0, 0, List.of(), new CalibrationDto(0, 0)));
 
         mockMvc.perform(get("/api/quiz/review/today")).andExpect(status().isOk());
         mockMvc.perform(post("/api/quiz/review/items/7/answer").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON).content("{\"optionId\":70}"))
                 .andExpect(status().isOk());
-        verify(service).answer("ana@scoala.ro", 7L, 70L);
+        verify(service).answer("ana@scoala.ro", 7L, 70L, null);
     }
 
     @Test
     @WithMockUser(username = "ana@scoala.ro", authorities = {"STATUS_ACTIVE", "ROLE_STUDENT"})
     void aQuestionNotDueTodayIsAConflictWithTheReason() throws Exception {
         doThrow(new InvalidReviewException("Întrebarea nu e de recapitulat azi."))
-                .when(service).answer(anyString(), anyLong(), anyLong());
+                .when(service).answer(anyString(), anyLong(), anyLong(), any());
 
         mockMvc.perform(post("/api/quiz/review/items/7/answer").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON).content("{\"optionId\":70}"))

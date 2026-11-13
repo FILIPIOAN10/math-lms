@@ -7,17 +7,20 @@ import { Card, CardContent } from '@/components/ui/card'
 import { RevisionNote } from '@/components/RevisionNote'
 import { PageHeader } from '@/components/PageHeader'
 import { PracticeQuestionCard } from '@/components/PracticeQuestionCard'
+import { ConfidenceTap } from '@/components/ConfidenceTap'
 import {
   answerReview,
   answerReviewExtra,
   getReviewExtra,
   getReviewToday,
+  type Confidence,
   type ReviewQuestion,
   type ReviewResult,
   type ReviewToday,
 } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
 import { roCount } from '@/lib/format'
+import { calibrationLine } from '@/lib/confidence'
 import { LoadingCards } from '@/components/LoadingCards'
 
 /** "12 oct." from the server's "2026-10-12" (a calendar day, not an instant: no time-zone shift). */
@@ -44,6 +47,8 @@ export function ReviewPage() {
   const [exhausted, setExhausted] = useState(false)
   const [index, setIndex] = useState(0)
   const [selected, setSelected] = useState<number | null>(null)
+  // "Cât de bine o știi?" for the question on screen: belongs to it alone, so it is cleared with the pick.
+  const [confidence, setConfidence] = useState<Confidence | null>(null)
   const [result, setResult] = useState<ReviewResult | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -56,6 +61,7 @@ export function ReviewPage() {
       setExtra(null)
       setIndex(0)
       setSelected(null)
+      setConfidence(null)
       setResult(null)
     } catch (e) {
       setLoadError(errorMessage(e))
@@ -81,7 +87,10 @@ export function ReviewPage() {
     setBusy(true)
     setError(null)
     try {
-      setResult(await (extra ? answerReviewExtra : answerReview)(question.itemId, selected))
+      // "Încă 5" stores nothing, so it is not asked how sure either.
+      setResult(extra
+        ? await answerReviewExtra(question.itemId, selected)
+        : await answerReview(question.itemId, selected, confidence))
     } catch (e) {
       setError(errorMessage(e))
       void load() // the queue changed under us (another tab, a new day): start again from the server's view
@@ -103,6 +112,7 @@ export function ReviewPage() {
       setExtra(batch)
       setIndex(0)
       setSelected(null)
+      setConfidence(null)
       setResult(null)
     } catch (e) {
       setError(errorMessage(e))
@@ -124,6 +134,7 @@ export function ReviewPage() {
     }
     setIndex((i) => i + 1)
     setSelected(null)
+    setConfidence(null)
     setResult(null)
     setError(null)
   }
@@ -131,6 +142,7 @@ export function ReviewPage() {
   const answeredHere = today && !extra ? index + (result ? 1 : 0) : 0
   const total = today ? today.doneToday + today.remainingToday : 0
   const finished = today !== null && questions.length === 0
+  const calibration = calibrationLine(today?.calibration)
 
   return (
     <div className="p-4">
@@ -155,6 +167,9 @@ export function ReviewPage() {
               Stăpânite: <span className="font-medium text-foreground">{today.mastered} din {today.totalCards}</span>
             </span>
           </p>
+        )}
+        {calibration && (
+          <p data-testid="review-calibration" className="text-sm text-muted-foreground">{calibration}</p>
         )}
 
         {finished && today && (
@@ -204,9 +219,17 @@ export function ReviewPage() {
             busy={busy}
             error={error}
             hideSource
+            beforeCheck={extra ? undefined : (
+              <ConfidenceTap value={confidence} onChange={setConfidence} disabled={busy} />
+            )}
             extraFeedback={result && (
               <>
                 {result.enChapter?.ready && <RevisionNote chapter={result.enChapter} newTab />}
+                {!extra && result.correct && confidence === 'GUESS' && (
+                  <p data-testid="review-guessed" className="text-xs text-muted-foreground">
+                    Ai zis că ai ghicit, așa că întrebarea rămâne în aceeași cutie și mai vine o dată.
+                  </p>
+                )}
                 <p className="text-xs text-muted-foreground">
                   {extra ? 'Exersare în plus: întrebarea revine în recapitulare tot când era programată.' : whereNext(result)}
                 </p>

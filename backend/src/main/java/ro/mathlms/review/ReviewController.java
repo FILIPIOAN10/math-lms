@@ -25,7 +25,8 @@ import java.util.List;
 @RestController
 public class ReviewController {
 
-    public record ReviewAnswerRequest(@NotNull Long optionId) {
+    /** {@code confidence} is optional: absent or null = the student did not say how sure they were. */
+    public record ReviewAnswerRequest(@NotNull Long optionId, Confidence confidence) {
     }
 
     private final ReviewService service;
@@ -46,7 +47,7 @@ public class ReviewController {
     @PreAuthorize("hasRole('STUDENT')")
     public ReviewResultDto answer(@PathVariable Long itemId, @Valid @RequestBody ReviewAnswerRequest request,
                                   Authentication auth) {
-        return service.answer(auth.getName(), itemId, request.optionId());
+        return service.answer(auth.getName(), itemId, request.optionId(), request.confidence());
     }
 
     /** "Încă 5" once today's review is done; {@code seen} = the ids already shown in this session. */

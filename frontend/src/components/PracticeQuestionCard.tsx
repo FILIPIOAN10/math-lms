@@ -48,6 +48,7 @@ export function PracticeQuestionCard({
   error,
   extraFeedback,
   hideSource = false,
+  beforeCheck,
   nextLabel,
   onCheck,
   onNext,
@@ -66,6 +67,8 @@ export function PracticeQuestionCard({
   extraFeedback?: ReactNode
   /** Keep the test's title back until the answer is shown: a title like "Fracții" names the method to use. */
   hideSource?: boolean
+  /** Shown above "Verifică" until the first answer is checked (the review's confidence tap). */
+  beforeCheck?: ReactNode
   nextLabel: string
   onCheck: () => void
   onNext: () => void
@@ -178,6 +181,7 @@ export function PracticeQuestionCard({
           </div>
         )}
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+        {result === null && beforeCheck}
 
         <div className="flex flex-wrap justify-end gap-2">
           {revealed ? (

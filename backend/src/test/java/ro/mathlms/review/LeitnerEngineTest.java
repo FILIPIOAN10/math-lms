@@ -71,4 +71,21 @@ class LeitnerEngineTest {
                 List.of(new Event(7L, false, Instant.parse("2026-09-30T23:30:00Z"))), ZONE);
         assertThat(cards.get(7L).dueOn()).isEqualTo(D1.plusDays(1));
     }
+    @Test
+    void aGuessedRightAnswerKeepsTheCardInItsBox() {
+        Card box2 = new Card(2, D1);
+        assertThat(LeitnerEngine.next(box2, true, true, D1)).isEqualTo(new Card(2, D1.plusDays(3)));
+        // Wrong is wrong, guessed or not; and a first answer that was a guess starts at the bottom.
+        assertThat(LeitnerEngine.next(box2, false, true, D1)).isEqualTo(new Card(1, D1.plusDays(1)));
+        assertThat(LeitnerEngine.next(null, true, true, D1)).isEqualTo(new Card(1, D1.plusDays(1)));
+    }
+
+    @Test
+    void theReplayAppliesTheGuessRuleToo() {
+        Map<Long, Card> cards = LeitnerEngine.replay(List.of(
+                new Event(7L, true, on(D1)),                     // box 2, due D1+3
+                new Event(7L, true, on(D1.plusDays(3)), true)),  // right, but a guess: still box 2
+                ZONE);
+        assertThat(cards.get(7L)).isEqualTo(new Card(2, D1.plusDays(6)));
+    }
 }

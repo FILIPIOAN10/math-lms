@@ -12,7 +12,7 @@ import java.util.Map;
  * The Leitner rule of E4, with no database in sight. Five boxes, reviewed after 1, 3, 7, 14 and 30 days. A right answer
  * on a card that is due moves it up a box; a wrong answer always sends it back to box 1 (tomorrow); a right answer
  * before the card is due changes nothing - so repeating a practice cannot jump boxes. A first answer starts the card in
- * box 2 when right, box 1 when wrong. Days are the school's days ({@link ReviewService#ZONE}), not UTC.
+ * box 2 when right, box 1 when wrong. A right answer the student called a guess ("Am ghicit") does not move up. Days are the school's days ({@link ReviewService#ZONE}), not UTC.
  */
 public final class LeitnerEngine {
 
@@ -31,14 +31,30 @@ public final class LeitnerEngine {
         }
     }
 
-    /** One multiple-choice answer: from a practice, a handed-in test or a review. */
-    public record Event(Long itemId, boolean correct, Instant at) {
+    /**
+     * One multiple-choice answer: from a practice, a handed-in test or a review. {@code guessed} = the student said
+     * "Am ghicit" (only a review asks; everything else is {@code false}).
+     */
+    public record Event(Long itemId, boolean correct, Instant at, boolean guessed) {
+
+        public Event(Long itemId, boolean correct, Instant at) {
+            this(itemId, correct, at, false);
+        }
     }
 
     /** The card after one more answer on {@code day}; {@code current == null} = the question's first answer. */
     public static Card next(Card current, boolean correct, LocalDate day) {
+        return next(current, correct, false, day);
+    }
+
+    /**
+     * The same, knowing whether the answer was a guess. A lucky guess is not knowledge: a guessed right answer keeps
+     * the card in its box (it comes back after the same gap) instead of moving it up. A wrong answer goes to box 1
+     * either way.
+     */
+    public static Card next(Card current, boolean correct, boolean guessed, LocalDate day) {
         if (current == null) {
-            return schedule(correct ? 2 : 1, day);
+            return schedule(correct && !guessed ? 2 : 1, day);
         }
         if (!correct) {
             return schedule(1, day);
@@ -46,7 +62,7 @@ public final class LeitnerEngine {
         if (!current.isDue(day)) {
             return current;
         }
-        return schedule(Math.min(LAST_BOX, current.box() + 1), day);
+        return schedule(guessed ? current.box() : Math.min(LAST_BOX, current.box() + 1), day);
     }
 
     private static Card schedule(int box, LocalDate day) {
@@ -59,7 +75,7 @@ public final class LeitnerEngine {
         events.stream()
                 .sorted(Comparator.comparing(Event::at))
                 .forEach(e -> cards.put(e.itemId(),
-                        next(cards.get(e.itemId()), e.correct(), e.at().atZone(zone).toLocalDate())));
+                        next(cards.get(e.itemId()), e.correct(), e.guessed(), e.at().atZone(zone).toLocalDate())));
         return cards;
     }
 }

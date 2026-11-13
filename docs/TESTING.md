@@ -1197,6 +1197,23 @@ Titlul testului din care vine întrebarea apare abia **după „Verifică”**, 
 | 6 | **Exersează capitolul** (pagina unui capitol EN) | Titlul testului se vede de la început, ca până acum |
 | 7 | „Încă 5” după ce termini ziua | Ordinea de dinainte: cele mai slabe întâi |
 
+### 55. „Cât de bine o știi?” în recapitulare — ca elev
+Înainte de „Verifică”, elevul poate apăsa **Am ghicit / Cred că da / Știu sigur** (opțional). Nu intră niciodată în
+notă. Un răspuns corect cu „Am ghicit” **rămâne în aceeași cutie** (revine după același interval), iar după cel puțin
+5 răspunsuri „Știu sigur” apare sub statistici: „Când ai zis «Știu sigur», ai avut dreptate la X din Y.” (V68)
+
+| # | Ce faci | Ce trebuie să vezi |
+|---|---|---|
+| 1 | **Recapitulare** → alege o variantă | Sub enunț: „Cât de bine o știi?” cu cele trei butoane |
+| 2 | Apasă **Am ghicit**, apoi din nou **Am ghicit** | Primul click îl marchează, al doilea îl scoate |
+| 3 | Răspuns **corect** cu **Am ghicit** → **Verifică** | Mesajul „Ai zis că ai ghicit, așa că întrebarea rămâne în aceeași cutie...”; butoanele dispar |
+| 4 | **Următoarea** | Butoanele apar din nou, niciunul apăsat |
+| 5 | În DB: `SELECT correct, confidence FROM review_answers ORDER BY id DESC LIMIT 3;` | `GUESS` la răspunsul de la pasul 3; `NULL` la unul dat fără să apeși |
+| 6 | Răspuns corect cu **Știu sigur** | „Revine pe ...” mai târziu decât la „Am ghicit” (urcă o cutie) |
+| 7 | După 5+ răspunsuri „Știu sigur” | Linia „Când ai zis „Știu sigur”, ai avut dreptate la X din Y.” sub statistici |
+| 8 | „Încă 5” după ce termini ziua | Butoanele nu apar (acolo nu se salvează nimic) |
+| 9 | **Contul meu → Cere datele mele** (GDPR), deschide ZIP-ul din email | La recapitulări apare câmpul `confidence` |
+
 ## E. Debugging — unde te uiți când pică ceva
 
 ```bash

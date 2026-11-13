@@ -92,7 +92,8 @@ public class GdprExportService {
 
         List<GdprExportData.ReviewEntry> reviews = reviewAnswerRepository.findByStudentIdIn(List.of(user.getId())).stream()
                 .map(r -> new GdprExportData.ReviewEntry(r.getItem().getStatement(),
-                        r.getOption() == null ? null : r.getOption().getText(), r.isCorrect(), r.getAnsweredAt().toString()))
+                        r.getOption() == null ? null : r.getOption().getText(), r.isCorrect(), r.getAnsweredAt().toString(),
+                        r.getConfidence() == null ? null : r.getConfidence().name()))
                 .toList();
 
         return new GdprExportData.Archive(Instant.now().toString(), profile, enrollments, attempts, reviews);

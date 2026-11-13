@@ -27,7 +27,14 @@ public final class ReviewDtos {
      * ({@code questions}); {@code mastered} = cards in the last box.
      */
     public record ReviewTodayDto(int limit, int doneToday, int remainingToday, int streak, int totalCards, int mastered,
-                                 List<ReviewQuestionDto> questions) {
+                                 List<ReviewQuestionDto> questions, CalibrationDto calibration) {
+    }
+
+    /**
+     * How well the student judges their own answers: of the {@code sure} review answers tapped "Știu sigur",
+     * {@code sureCorrect} were right. Counts only - the screen decides when there are enough to say anything.
+     */
+    public record CalibrationDto(int sure, int sureCorrect) {
     }
 
     /** One answered review question: the verdict, the right option, the explanation and where the card moved. */

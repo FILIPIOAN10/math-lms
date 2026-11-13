@@ -2,6 +2,8 @@ package ro.mathlms.review;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -49,11 +51,22 @@ public class ReviewAnswer {
     @Column(name = "answered_at", nullable = false)
     private Instant answeredAt;
 
+    /** How sure the student said they were; null = not tapped (it is optional) or answered before V68. */
+    @Enumerated(EnumType.STRING)
+    @Column(length = 10)
+    private Confidence confidence;
+
     public ReviewAnswer(User student, QuizItem item, QuizOption option, boolean correct, Instant answeredAt) {
+        this(student, item, option, correct, answeredAt, null);
+    }
+
+    public ReviewAnswer(User student, QuizItem item, QuizOption option, boolean correct, Instant answeredAt,
+                        Confidence confidence) {
         this.student = Objects.requireNonNull(student, "student");
         this.item = Objects.requireNonNull(item, "item");
         this.option = option;
         this.correct = correct;
         this.answeredAt = Objects.requireNonNull(answeredAt, "answeredAt");
+        this.confidence = confidence;
     }
 }

@@ -55,7 +55,7 @@ describe('ReviewPage', () => {
     await userEvent.click(await screen.findByLabelText('b) greșit'))
     await userEvent.click(screen.getByRole('button', { name: 'Verifică' }))
 
-    await waitFor(() => expect(api.answerReview).toHaveBeenCalledWith(1, 11))
+    await waitFor(() => expect(api.answerReview).toHaveBeenCalledWith(1, 11, null))
     // A second try is offered first; giving up shows the answer at once.
     await userEvent.click(await screen.findByRole('button', { name: 'Arată răspunsul' }))
     const feedback = await screen.findByTestId('review-feedback')
@@ -192,5 +192,41 @@ describe('ReviewPage', () => {
     renderPage()
     const card = await screen.findByTestId('review-card')
     expect(within(card).getByRole('button', { name: 'Verifică' })).toBeDisabled()
+  })
+  it('sends how sure the student said they were, and says why a guessed right answer comes back', async () => {
+    api.answerReview.mockResolvedValue({
+      correct: true, correctOptionId: 10, solution: null, boxBefore: 2, boxAfter: 2, nextDueOn: '2026-10-15',
+    })
+    renderPage()
+
+    await userEvent.click(await screen.findByLabelText('a) corect'))
+    const tap = within(screen.getByTestId('confidence-tap'))
+    await userEvent.click(tap.getByRole('button', { name: 'Am ghicit' }))
+    expect(tap.getByRole('button', { name: 'Am ghicit' })).toHaveAttribute('aria-pressed', 'true')
+    await userEvent.click(screen.getByRole('button', { name: 'Verifică' }))
+
+    await waitFor(() => expect(api.answerReview).toHaveBeenCalledWith(1, 10, 'GUESS'))
+    expect(await screen.findByTestId('review-guessed')).toHaveTextContent('rămâne în aceeași cutie')
+    // The tap belongs to one question: gone once checked, and clean again on the next one.
+    expect(screen.queryByTestId('confidence-tap')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Următoarea' }))
+    expect(within(screen.getByTestId('confidence-tap')).getByRole('button', { name: 'Am ghicit' }))
+      .toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('shows the calibration line only once there are enough sure answers', async () => {
+    api.getReviewToday.mockResolvedValue(today({ calibration: { sure: 10, sureCorrect: 8 } }))
+    renderPage()
+    expect(await screen.findByTestId('review-calibration')).toHaveTextContent('ai avut dreptate la 8 din 10')
+  })
+
+  it('does not ask how sure in "Încă 5", which stores nothing', async () => {
+    api.getReviewToday.mockResolvedValue(today({ remainingToday: 0, doneToday: 10, questions: [] }))
+    api.getReviewExtra.mockResolvedValue([question(5, 'Cât face 5+5?')])
+    renderPage()
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Încă 5 întrebări' }))
+    expect(await screen.findByText('Cât face 5+5?')).toBeInTheDocument()
+    expect(screen.queryByTestId('confidence-tap')).not.toBeInTheDocument()
   })
 })

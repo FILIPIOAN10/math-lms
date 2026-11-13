@@ -50,7 +50,8 @@ public final class GdprExportData {
             String itemStatement,
             String selectedOptionText,
             boolean correct,
-            String answeredAt
+            String answeredAt,
+            String confidence // GUESS / THINK / SURE; null = not said
     ) {}
 
     public record Archive(

@@ -26,6 +26,7 @@ import ro.mathlms.quiz.QuizItemType;
 import ro.mathlms.quiz.QuizOption;
 import ro.mathlms.quiz.QuizOptionRepository;
 import ro.mathlms.quiz.QuizRepository;
+import ro.mathlms.review.ReviewDtos.CalibrationDto;
 import ro.mathlms.review.ReviewDtos.ReviewQuestionDto;
 import ro.mathlms.review.ReviewDtos.ReviewResultDto;
 import ro.mathlms.review.ReviewDtos.ReviewStatusDto;
@@ -93,6 +94,10 @@ class ReviewServiceIntegrationTest {
 
         ReviewResultDto answer(String email, Long itemId, Long optionId) {
             return tx.execute(status -> service.answer(email, itemId, optionId));
+        }
+
+        ReviewResultDto answer(String email, Long itemId, Long optionId, Confidence confidence) {
+            return tx.execute(status -> service.answer(email, itemId, optionId, confidence));
         }
 
         ReviewStatusDto status(Long studentId) {
@@ -447,5 +452,48 @@ class ReviewServiceIntegrationTest {
         assertThat(ids(today)).filteredOn(id -> f.stream().anyMatch(item -> item.getId().equals(id)))
                 .containsExactlyElementsOf(f.stream().map(QuizItem::getId).toList());
         assertThat(ids(today)).hasSize(6);
+    }
+    @Test
+    void aRightAnswerTappedAsAGuessStaysInItsBoxWhileASureOneMovesUp() {
+        User ana = student("c1");
+        Quiz quiz = quiz("Fracții c1", true);
+        QuizItem guessed = grila(quiz, 0);
+        QuizItem known = grila(quiz, 1);
+        QuizAttempt p = practice(quiz, ana, D1);
+        answer(p, guessed, false); // both in box 1, due tomorrow
+        answer(p, known, false);
+        LocalDate d2 = D1.plusDays(1);
+
+        ReviewResultDto afterGuess = at(d2).answer(ana.getEmail(), guessed.getId(), option(guessed, true).getId(),
+                Confidence.GUESS);
+        assertThat(afterGuess.correct()).isTrue();
+        assertThat(afterGuess.boxAfter()).isEqualTo(1); // right, but a guess: no promotion
+        assertThat(afterGuess.nextDueOn()).isEqualTo(d2.plusDays(1));
+        ReviewResultDto afterSure = at(d2).answer(ana.getEmail(), known.getId(), option(known, true).getId(),
+                Confidence.SURE);
+        assertThat(afterSure.boxAfter()).isEqualTo(2);
+
+        // Nothing about the queue is stored, so the replay must reach the same verdict the day after.
+        assertThat(ids(at(d2.plusDays(1)).today(ana.getEmail()))).containsExactly(guessed.getId());
+        assertThat(reviewAnswerRepository.findByStudentIdIn(List.of(ana.getId())))
+                .extracting(ReviewAnswer::getConfidence).containsExactlyInAnyOrder(Confidence.GUESS, Confidence.SURE);
+    }
+
+    @Test
+    void theCalibrationCountsOnlyTheAnswersTappedSure() {
+        User ana = student("c2");
+        Quiz quiz = quiz("Fracții c2", true);
+        List<QuizItem> items = java.util.stream.IntStream.range(0, 4).mapToObj(n -> grila(quiz, n)).toList();
+        QuizAttempt p = practice(quiz, ana, D1);
+        items.forEach(item -> answer(p, item, false));
+        LocalDate d2 = D1.plusDays(1);
+        assertThat(at(d2).today(ana.getEmail()).calibration()).isEqualTo(new CalibrationDto(0, 0));
+
+        at(d2).answer(ana.getEmail(), items.get(0).getId(), option(items.get(0), true).getId(), Confidence.SURE);
+        at(d2).answer(ana.getEmail(), items.get(1).getId(), option(items.get(1), false).getId(), Confidence.SURE);
+        at(d2).answer(ana.getEmail(), items.get(2).getId(), option(items.get(2), true).getId(), Confidence.THINK);
+        at(d2).answer(ana.getEmail(), items.get(3).getId(), option(items.get(3), true).getId()); // not said
+
+        assertThat(at(d2).today(ana.getEmail()).calibration()).isEqualTo(new CalibrationDto(2, 1));
     }
 }

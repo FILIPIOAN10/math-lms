@@ -797,7 +797,12 @@ export interface ReviewToday {
   /** Questions in the last box. */
   mastered: number
   questions: ReviewQuestion[]
+  /** Of the answers tapped "Știu sigur", how many were right; absent from an older server. */
+  calibration?: { sure: number; sureCorrect: number } | null
 }
+
+/** How sure the student says they are of a review answer; never graded. */
+export type Confidence = 'GUESS' | 'THINK' | 'SURE'
 
 /** A class chapter, with what a link to its exercises needs. */
 export interface ChapterLink {
@@ -841,8 +846,12 @@ export async function getReviewToday(): Promise<ReviewToday> {
 }
 
 /** A question not due today (another tab, a new day) answers 409 with the reason. */
-export async function answerReview(itemId: number, optionId: number): Promise<ReviewResult> {
-  const response = await postJson(`/quiz/review/items/${itemId}/answer`, { optionId })
+export async function answerReview(
+  itemId: number,
+  optionId: number,
+  confidence: Confidence | null = null,
+): Promise<ReviewResult> {
+  const response = await postJson(`/quiz/review/items/${itemId}/answer`, { optionId, confidence })
   return response.json()
 }
 

@@ -24,6 +24,7 @@ import ro.mathlms.quiz.QuizRepository;
 import ro.mathlms.quiz.QuizStatus;
 import ro.mathlms.review.LeitnerEngine.Card;
 import ro.mathlms.review.LeitnerEngine.Event;
+import ro.mathlms.review.ReviewDtos.CalibrationDto;
 import ro.mathlms.review.ReviewDtos.ReviewQuestionDto;
 import ro.mathlms.review.ReviewDtos.ReviewResultDto;
 import ro.mathlms.review.ReviewDtos.ReviewStatusDto;
@@ -55,6 +56,8 @@ import java.util.stream.Collectors;
  *       one of a test they may still hand in again only after their last attempt ({@link AnswerKeys});</li>
  *   <li>Leitner boxes of 1, 3, 7, 14 and 30 days ({@link LeitnerEngine}); the reviews themselves move the boxes too;</li>
  *   <li>at most {@value #DAILY_LIMIT} a day, the longest-waiting first; a quiz the teacher unpublished leaves the queue;</li>
+ *   <li>before "Verifică" the student may say how sure they are ({@link Confidence}, V68): never graded, but a right
+ *       answer tapped "Am ghicit" keeps its box, and the "Știu sigur" ones feed the calibration line;</li>
  *   <li>today's questions come mixed ({@link Interleaving}): two from the same test or EN chapter do not follow each
  *       other when it can be avoided - which ones come is not changed, only their order.</li>
  * </ul>
@@ -108,12 +111,22 @@ public class ReviewService {
         State state = stateOf(List.of(student.getId())).get(student.getId());
         List<ReviewQuestionDto> questions = cards(state, state.queue());
         return new ReviewTodayDto(DAILY_LIMIT, state.doneToday(), questions.size(), state.streak(),
-                state.cards().size(), state.mastered(), questions);
+                state.cards().size(), state.mastered(), questions, new CalibrationDto(state.sure(), state.sureCorrect()));
     }
 
-    /** Answers one question of today's queue; anything else (not due, over the limit, not a card) is a 409. */
+    /** Answers one question of today's queue without saying how sure: see the four-argument form. */
     @Transactional
     public ReviewResultDto answer(String studentEmail, Long itemId, Long optionId) {
+        return answer(studentEmail, itemId, optionId, null);
+    }
+
+    /**
+     * Answers one question of today's queue; anything else (not due, over the limit, not a card) is a 409.
+     * {@code confidence} (null = not said) is stored with the answer: a right answer tapped "Am ghicit" keeps the card
+     * in its box.
+     */
+    @Transactional
+    public ReviewResultDto answer(String studentEmail, Long itemId, Long optionId, Confidence confidence) {
         User student = requireStudent(studentEmail);
         State state = stateOf(List.of(student.getId())).get(student.getId());
         if (!state.queue().contains(itemId)) {
@@ -124,10 +137,11 @@ public class ReviewService {
                 .filter(o -> o.getItem().getId().equals(itemId))
                 .orElseThrow(() -> new InvalidReviewException("Varianta nu aparține acestei întrebări."));
         Instant now = Instant.now(clock);
-        reviewAnswerRepository.save(new ReviewAnswer(student, item, chosen, chosen.isCorrect(), now));
+        reviewAnswerRepository.save(new ReviewAnswer(student, item, chosen, chosen.isCorrect(), now, confidence));
 
         Card before = state.cards().get(itemId);
-        Card after = LeitnerEngine.next(before, chosen.isCorrect(), today());
+        // The same rule the replay applies to the stored answer, so this reply and tomorrow's queue cannot disagree.
+        Card after = LeitnerEngine.next(before, chosen.isCorrect(), confidence == Confidence.GUESS, today());
         Long correctOptionId = optionRepository.findByItemIdOrderByPosition(itemId).stream()
                 .filter(QuizOption::isCorrect).map(QuizOption::getId).findFirst().orElse(null);
         EnChapterLinkDto lesson = chosen.isCorrect() ? null
@@ -227,7 +241,7 @@ public class ReviewService {
      * {@code ahead} = every other card they may see, in the "Încă 5" order.
      */
     private record State(Map<Long, Card> cards, Map<Long, QuizItem> items, List<Long> queue, List<Long> ahead,
-                         int doneToday, int streak, int mastered, LocalDate lastReviewOn) {
+                         int doneToday, int streak, int mastered, LocalDate lastReviewOn, int sure, int sureCorrect) {
     }
 
     private Map<Long, State> stateOf(List<Long> studentIds) {
@@ -235,7 +249,10 @@ public class ReviewService {
         Map<Long, List<Event>> events = new HashMap<>();
         Map<Long, QuizItem> items = new HashMap<>();
         Map<Long, List<LocalDate>> reviewDays = new HashMap<>();
+        // Calibration: per student, how many review answers were tapped "Știu sigur" and how many of those were right.
+        Map<Long, int[]> sure = new HashMap<>();
         studentIds.forEach(id -> {
+            sure.put(id, new int[2]);
             events.put(id, new ArrayList<>());
             reviewDays.put(id, new ArrayList<>());
         });
@@ -269,8 +286,15 @@ public class ReviewService {
         for (ReviewAnswer answer : reviewAnswerRepository.findByStudentIdIn(studentIds)) {
             Long studentId = answer.getStudent().getId();
             items.putIfAbsent(answer.getItem().getId(), answer.getItem());
-            events.get(studentId).add(new Event(answer.getItem().getId(), answer.isCorrect(), answer.getAnsweredAt()));
+            events.get(studentId).add(new Event(answer.getItem().getId(), answer.isCorrect(), answer.getAnsweredAt(),
+                    answer.getConfidence() == Confidence.GUESS));
             reviewDays.get(studentId).add(answer.getAnsweredAt().atZone(ZONE).toLocalDate());
+            if (answer.getConfidence() == Confidence.SURE) {
+                sure.get(studentId)[0]++;
+                if (answer.isCorrect()) {
+                    sure.get(studentId)[1]++;
+                }
+            }
         }
 
         Set<Long> unpublishedQuizzes = unpublishedQuizIds(items.values());
@@ -308,7 +332,8 @@ public class ReviewService {
                     .toList();
             int mastered = (int) cards.values().stream().filter(c -> c.box() == LeitnerEngine.LAST_BOX).count();
             LocalDate last = days.stream().max(LocalDate::compareTo).orElse(null);
-            states.put(studentId, new State(cards, items, queue, ahead, doneToday, streak(days, today), mastered, last));
+            states.put(studentId, new State(cards, items, queue, ahead, doneToday, streak(days, today), mastered, last,
+                    sure.get(studentId)[0], sure.get(studentId)[1]));
         }
         return states;
     }
