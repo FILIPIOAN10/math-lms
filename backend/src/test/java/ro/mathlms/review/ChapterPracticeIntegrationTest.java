@@ -69,8 +69,9 @@ class ChapterPracticeIntegrationTest {
         String stamp = String.valueOf(System.nanoTime());
         ana = userRepository.save(new User("ana." + stamp + "@scoala.ro", "Ana Pop", Role.STUDENT));
         // Base 36 of nanoTime/100: on Windows nanoTime moves in 100 ns steps, so its last 5 digits gave ~1000 codes and
-        // two setUps could collide on the unique chapter code.
-        String base36 = Long.toString(System.nanoTime() / 100, 36).toUpperCase();
+        // two setUps could collide on the unique chapter code. Left-padded: on a freshly booted CI runner nanoTime is
+        // small and its base 36 can be shorter than 7 characters.
+        String base36 = "0000000" + Long.toString(System.nanoTime() / 100, 36).toUpperCase();
         String tail = base36.substring(base36.length() - 7);
         fractii = chapterRepository.save(new EnChapter("F" + tail, "Fracții", EnArea.ALGEBRA, 900, null));
         radicali = chapterRepository.save(new EnChapter("R" + tail, "Radicali", EnArea.ALGEBRA, 901, null));
