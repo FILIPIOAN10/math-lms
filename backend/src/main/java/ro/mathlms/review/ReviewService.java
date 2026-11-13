@@ -54,7 +54,9 @@ import java.util.stream.Collectors;
  *       answers are on their result page anyway) - never one of a test still being written, never an open item, and
  *       one of a test they may still hand in again only after their last attempt ({@link AnswerKeys});</li>
  *   <li>Leitner boxes of 1, 3, 7, 14 and 30 days ({@link LeitnerEngine}); the reviews themselves move the boxes too;</li>
- *   <li>at most {@value #DAILY_LIMIT} a day, the longest-waiting first; a quiz the teacher unpublished leaves the queue.</li>
+ *   <li>at most {@value #DAILY_LIMIT} a day, the longest-waiting first; a quiz the teacher unpublished leaves the queue;</li>
+ *   <li>today's questions come mixed ({@link Interleaving}): two from the same test or EN chapter do not follow each
+ *       other when it can be avoided - which ones come is not changed, only their order.</li>
  * </ul>
  * Nothing about the queue is stored: each question's box and due date are replayed from the answers, so they can never
  * disagree with them. Only the review answers themselves are written ({@code review_answers}, V22).
@@ -283,7 +285,7 @@ public class ReviewService {
                             && !unpublishedQuizzes.contains(items.get(e.getKey()).getQuiz().getId())
                             && !hiddenQuizzes.contains(items.get(e.getKey()).getQuiz().getId()))
                     .toList();
-            List<Long> queue = eligible.stream()
+            List<Long> due = eligible.stream()
                     .filter(e -> e.getValue().isDue(today))
                     .sorted(Comparator.comparing((Map.Entry<Long, Card> e) -> e.getValue().dueOn())
                             .thenComparing(e -> e.getValue().box())
@@ -291,6 +293,9 @@ public class ReviewService {
                     .limit(Math.max(0, DAILY_LIMIT - doneToday))
                     .map(Map.Entry::getKey)
                     .toList();
+            // WHICH questions come today is decided above (the longest-waiting first); here only their order changes:
+            // mixed, so two questions on the same thing do not follow each other when it can be avoided.
+            List<Long> queue = Interleaving.spread(due, itemId -> topicOf(items.get(itemId)));
             Set<Long> inQueue = Set.copyOf(queue);
             // Due ones left over by the limit first, then the weakest (lowest box), then the soonest due.
             List<Long> ahead = eligible.stream()
@@ -306,6 +311,13 @@ public class ReviewService {
             states.put(studentId, new State(cards, items, queue, ahead, doneToday, streak(days, today), mastered, last));
         }
         return states;
+    }
+
+    /** What two questions "on the same thing" share: the EN chapter the teacher picked, else the test they are from. */
+    private static String topicOf(QuizItem item) {
+        return item.getEnChapter() != null
+                ? "chapter-" + item.getEnChapter().getId()
+                : "quiz-" + item.getQuiz().getId();
     }
 
     private Set<Long> unpublishedQuizIds(java.util.Collection<QuizItem> items) {

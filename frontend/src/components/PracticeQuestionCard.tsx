@@ -47,6 +47,7 @@ export function PracticeQuestionCard({
   busy,
   error,
   extraFeedback,
+  hideSource = false,
   nextLabel,
   onCheck,
   onNext,
@@ -63,6 +64,8 @@ export function PracticeQuestionCard({
   busy: boolean
   error: string | null
   extraFeedback?: ReactNode
+  /** Keep the test's title back until the answer is shown: a title like "Fracții" names the method to use. */
+  hideSource?: boolean
   nextLabel: string
   onCheck: () => void
   onNext: () => void
@@ -86,7 +89,7 @@ export function PracticeQuestionCard({
         <p className="text-xs font-medium text-muted-foreground">
           Întrebarea {position + 1} din {total}
         </p>
-        <p className="text-xs text-muted-foreground">{question.quizTitle}</p>
+        {(!hideSource || revealed) && <p className="text-xs text-muted-foreground">{question.quizTitle}</p>}
         <MathContent>{question.statement}</MathContent>
         <QuestionImage itemId={question.itemId} image={question.image} />
 

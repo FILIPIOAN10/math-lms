@@ -68,6 +68,18 @@ describe('ReviewPage', () => {
     expect(screen.getByText('Cât face 2+2?')).toBeInTheDocument()
   })
 
+  it('keeps the test title back until the answer is shown, so it cannot name the method', async () => {
+    api.answerReview.mockResolvedValue({
+      correct: true, correctOptionId: 10, solution: null, boxBefore: 1, boxAfter: 2, nextDueOn: '2026-10-14',
+    })
+    renderPage()
+
+    await userEvent.click(await screen.findByLabelText('a) corect'))
+    expect(screen.queryByText('Fracții — exersare')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Verifică' }))
+    expect(await screen.findByText('Fracții — exersare')).toBeInTheDocument()
+  })
+
   it('after a wrong answer says what to revise and opens the lesson in another tab', async () => {
     api.answerReview.mockResolvedValue({
       correct: false, correctOptionId: 10, solution: 'Doi.', boxBefore: 1, boxAfter: 1, nextDueOn: '2026-10-12',

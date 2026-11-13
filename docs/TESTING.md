@@ -1182,6 +1182,21 @@ profesor și stă pe acest dispozitiv (pe încercare), până la predare.
 | 6 | Predă, apoi dă testul din nou (altă încercare) | Nimic marcat: fiecare încercare are marcajele ei |
 | 7 | Cititor de ecran pe bara de jos | „Întrebarea 2, fără răspuns, marcată să revii” |
 
+### 54. Recapitulare amestecată — ca elev
+Întrebările de azi vin **amestecate**: două din același test (sau de la același capitol EN ales de profesor) nu vin una
+după alta, cât timp se poate evita. Se schimbă doar **ordinea** — care întrebări vin azi, cutiile și datele rămân la fel.
+Titlul testului din care vine întrebarea apare abia **după „Verifică”**, ca să nu spună dinainte ce metodă se folosește.
+
+| # | Ce faci | Ce trebuie să vezi |
+|---|---|---|
+| 1 | Elev cu întrebări scadente azi din **două teste** (de ex. a greșit ieri câte 3 la fiecare) → **Recapitulare** | Întrebările alternează între cele două teste, nu vin 3 și 3 |
+| 2 | Înainte de „Verifică” | Deasupra enunțului scrie doar „Întrebarea 1 din N”, fără titlul testului |
+| 3 | Alege o variantă → **Verifică** (la un răspuns greșit: **Arată răspunsul**) | Titlul testului apare acum, lângă feedback |
+| 4 | Reîncarcă pagina | Aceeași ordine (nu se amestecă la întâmplare) |
+| 5 | Elev cu întrebări dintr-un singur test | Ordinea de dinainte (cele mai vechi întâi) |
+| 6 | **Exersează capitolul** (pagina unui capitol EN) | Titlul testului se vede de la început, ca până acum |
+| 7 | „Încă 5” după ce termini ziua | Ordinea de dinainte: cele mai slabe întâi |
+
 ## E. Debugging — unde te uiți când pică ceva
 
 ```bash

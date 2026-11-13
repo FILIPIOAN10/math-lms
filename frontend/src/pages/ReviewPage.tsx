@@ -203,6 +203,7 @@ export function ReviewPage() {
             result={result}
             busy={busy}
             error={error}
+            hideSource
             extraFeedback={result && (
               <>
                 {result.enChapter?.ready && <RevisionNote chapter={result.enChapter} newTab />}

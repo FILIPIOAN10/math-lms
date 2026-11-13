@@ -423,4 +423,29 @@ class ReviewServiceIntegrationTest {
         assertThatThrownBy(() -> at(D1).answerExtra(bob.getEmail(), q.getId(), option(q, true).getId()))
                 .isInstanceOf(InvalidReviewException.class);
     }
+
+    // ---------------------------------------------------------------- mixed order
+
+    @Test
+    void todaysQuestionsComeMixedNotTestByTest() {
+        User ana = student("m1");
+        Quiz fractii = quiz("Fracții m1", true);
+        Quiz ecuatii = quiz("Ecuații m1", true);
+        List<QuizItem> f = java.util.stream.IntStream.range(0, 3).mapToObj(n -> grila(fractii, n)).toList();
+        List<QuizItem> e = java.util.stream.IntStream.range(0, 3).mapToObj(n -> grila(ecuatii, n)).toList();
+        QuizAttempt pf = practice(fractii, ana, D1);
+        f.forEach(item -> answer(pf, item, false));
+        QuizAttempt pe = practice(ecuatii, ana, D1);
+        e.forEach(item -> answer(pe, item, false));
+
+        // All six are due tomorrow, same date and same box: by id alone they would come three and three.
+        ReviewTodayDto today = at(D1.plusDays(1)).today(ana.getEmail());
+
+        assertThat(today.questions()).extracting(ReviewQuestionDto::quizTitle).containsExactly(
+                "Fracții m1", "Ecuații m1", "Fracții m1", "Ecuații m1", "Fracții m1", "Ecuații m1");
+        // Only the order changed: the same six questions, each test's own in the order they had.
+        assertThat(ids(today)).filteredOn(id -> f.stream().anyMatch(item -> item.getId().equals(id)))
+                .containsExactlyElementsOf(f.stream().map(QuizItem::getId).toList());
+        assertThat(ids(today)).hasSize(6);
+    }
 }
