@@ -19,6 +19,7 @@ import { GradeFigure } from '@/components/GradeFigure'
 import { celebrateFirstTen } from '@/lib/celebrate'
 import { chapterExercisesHref, missed, mistakesOf, practiceMistakesHref } from '@/lib/mistakes'
 import { MistakeNote } from '@/components/MistakeNote'
+import { WhyWrongButton } from '@/components/WhyWrongButton'
 import { RevisionNote } from '@/components/RevisionNote'
 import { revisionLinks } from '@/lib/enChapters'
 
@@ -122,6 +123,7 @@ function ItemResult({
   title,
   audience,
   attemptId,
+  keyHidden = false,
 }: {
   item: ItemResultDto
   /** "3" or "I.3" (a test with sections) */
@@ -130,6 +132,8 @@ function ItemResult({
   title: string
   audience: ResultAudience
   attemptId: number
+  /** Retakes are left: no answer key yet, so nothing to ask about either. */
+  keyHidden?: boolean
 }) {
   const [showBarem, setShowBarem] = useState(false)
   const own = audience === 'student'
@@ -208,7 +212,11 @@ function ItemResult({
           <TeacherNote text={item.teacherComment} testId="item-teacher-comment" title="Comentariul profesorului" />
         )}
 
-        {item.mistake && <MistakeNote text={item.mistake} />}
+        {item.mistake && <MistakeNote text={item.mistake} lesson={item.mistakeLesson ?? null} />}
+        {own && !keyHidden && item.type === 'SINGLE_CHOICE' && item.correct === false && item.selectedOptionText !== null
+          && !item.mistake && (
+          <WhyWrongButton attemptId={attemptId} itemId={item.itemId} requested={item.explanationRequested ?? false} />
+        )}
 
         {(revisionLinks(item).length > 0 || exercises) && (
           <div className="space-y-3" data-testid="revision-links">
@@ -322,6 +330,7 @@ export function AttemptResultView({ result, audience = 'student' }: { result: At
             title={label.includes('.') ? `${local}.` : `Întrebarea ${label}`}
             audience={audience}
             attemptId={result.attemptId}
+            keyHidden={result.answerKeyHidden ?? false}
           />
         </Fragment>
       ))}

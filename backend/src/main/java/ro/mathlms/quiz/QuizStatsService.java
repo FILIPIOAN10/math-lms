@@ -1,9 +1,11 @@
 package ro.mathlms.quiz;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ro.mathlms.cache.CacheNames;
+import ro.mathlms.enchapter.LessonLinks;
 import ro.mathlms.quiz.QuizStatsDtos.BucketDto;
 import ro.mathlms.quiz.QuizStatsDtos.ItemStatDto;
 import ro.mathlms.quiz.QuizStatsDtos.NumericStatDto;
@@ -38,14 +40,28 @@ public class QuizStatsService {
     private final ItemResponseRepository responseRepository;
     private final QuizOptionRepository optionRepository;
 
+    private final ExplanationRequests explanationRequests;
+    private final LessonLinks lessonLinks;
+
+    @Autowired
     public QuizStatsService(QuizRepository quizRepository, QuizItemRepository itemRepository,
                             QuizAttemptRepository attemptRepository, ItemResponseRepository responseRepository,
-                            QuizOptionRepository optionRepository) {
+                            QuizOptionRepository optionRepository, ExplanationRequests explanationRequests,
+                            LessonLinks lessonLinks) {
+        this.explanationRequests = explanationRequests;
+        this.lessonLinks = lessonLinks;
         this.optionRepository = optionRepository;
         this.quizRepository = quizRepository;
         this.itemRepository = itemRepository;
         this.attemptRepository = attemptRepository;
         this.responseRepository = responseRepository;
+    }
+
+    /** For tests of the numbers only: no „De ce am greșit?" requests and no lesson links. */
+    QuizStatsService(QuizRepository quizRepository, QuizItemRepository itemRepository,
+                     QuizAttemptRepository attemptRepository, ItemResponseRepository responseRepository,
+                     QuizOptionRepository optionRepository) {
+        this(quizRepository, itemRepository, attemptRepository, responseRepository, optionRepository, null, null);
     }
 
     /** Cached per quiz id; evicted when an attempt of the quiz is graded or its items change. */
@@ -77,6 +93,7 @@ public class QuizStatsService {
         Map<Long, List<QuizOption>> options = items.isEmpty() ? Map.of()
                 : optionRepository.findByItemIdInOrderByItemIdAscPositionAsc(items.stream().map(QuizItem::getId).toList())
                         .stream().collect(Collectors.groupingBy(o -> o.getItem().getId()));
+        Map<Long, Integer> requests = explanationRequests == null ? Map.of() : explanationRequests.countsForQuiz(quizId);
         List<ItemStatDto> itemStats = new ArrayList<>();
         for (QuizItem item : items) {
             ItemStat stat = byItem.get(item.getId());
@@ -88,7 +105,7 @@ public class QuizStatsService {
             List<QuizOption> itemOptions = options.getOrDefault(item.getId(), List.of());
             List<OptionChoice> itemChoices = choices.getOrDefault(item.getId(), List.of());
             itemStats.add(new ItemStatDto(item.getId(), item.getPosition(), item.getType(), item.getStatement(),
-                    item.getPoints(), correctRate, averagePoints, item.getSection(), optionStats(itemOptions, itemChoices),
+                    item.getPoints(), correctRate, averagePoints, item.getSection(), optionStats(itemOptions, itemChoices, requests),
                     SuspectAnswer.find(itemOptions, itemChoices, counted, item.getPoints()).orElse(null),
                     item.getNumericAnswer(), numberStats(numbers.getOrDefault(item.getId(), List.of()))));
         }
@@ -108,11 +125,14 @@ public class QuizStatsService {
                 .toList();
     }
 
-    private static List<OptionStatDto> optionStats(List<QuizOption> options, List<OptionChoice> choices) {
+    private List<OptionStatDto> optionStats(List<QuizOption> options, List<OptionChoice> choices,
+                                            Map<Long, Integer> requests) {
         Map<Long, Long> chosen = choices.stream().collect(Collectors.groupingBy(OptionChoice::optionId, Collectors.counting()));
         return options.stream()
                 .map(o -> new OptionStatDto(o.getId(), QuizAttemptService.letterOf(options, o), o.getText(), o.isCorrect(),
-                        chosen.getOrDefault(o.getId(), 0L).intValue(), o.getMistake()))
+                        chosen.getOrDefault(o.getId(), 0L).intValue(), o.getMistake(),
+                        lessonLinks == null ? null : lessonLinks.ofId(o.getMistakeLessonId(), o.getMistakeLessonPage()).orElse(null),
+                        requests.getOrDefault(o.getId(), 0)))
                 .toList();
     }
 

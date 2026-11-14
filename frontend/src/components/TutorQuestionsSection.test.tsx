@@ -6,7 +6,9 @@ const api = vi.hoisted(() => ({ getClassTutorQuestions: vi.fn() }))
 vi.mock('@/lib/api', async (original) => ({ ...(await original<typeof import('@/lib/api')>()), ...api }))
 
 describe('TutorQuestionsSection', () => {
-  beforeEach(() => api.getClassTutorQuestions.mockReset())
+  beforeEach(() => {
+    api.getClassTutorQuestions.mockReset()
+  })
 
   it('lists what the class asked and the lessons did not answer, without names', async () => {
     api.getClassTutorQuestions.mockResolvedValue([

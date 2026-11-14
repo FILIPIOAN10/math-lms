@@ -49,6 +49,9 @@ public class RateLimitConfig {
                 // Three paid model calls per question (the tutor's levels): a whole paper twice over, per teacher per day.
                 new RateLimitRule("tutor-hints", "POST", "/api/admin/quiz-items/*/tutor-hints", 60,
                         Duration.ofDays(1), RateLimitKeyType.USER),
+                // „De ce am greșit?": one paid tutor call per wrong option drafted, per teacher per day.
+                new RateLimitRule("mistake-from-lessons", "POST", "/api/admin/quiz-options/*/mistake-from-lessons", 100,
+                        Duration.ofDays(1), RateLimitKeyType.USER),
                 // The student's AI box: the daily cap is in the database (StudentTutorService); this only stops a burst.
                 new RateLimitRule("student-tutor", "POST", "/api/quiz/tutor/explain", 10,
                         Duration.ofMinutes(1), RateLimitKeyType.USER),

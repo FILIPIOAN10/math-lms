@@ -976,6 +976,10 @@ export interface OptionStat {
   chosen: number
   /** The mistake behind a wrong option, in the teacher's words; null = not written. */
   mistake: string | null
+  /** The EN lesson that explanation comes from; null/absent = none. */
+  mistakeLesson?: TutorLessonLink | null
+  /** Students waiting for „De ce am greșit?" on this option; absent = 0. */
+  requests?: number
 }
 
 /** The marked answer looks wrong: `chosen` of the `strong` strongest students agree on `letter`. */
@@ -1030,8 +1034,13 @@ export async function getQuizStats(quizId: number): Promise<QuizStatsDto> {
 }
 
 /** What a wrong option gives away; blank takes it away. Allowed on a test already taken. */
-export async function saveOptionMistake(optionId: number, mistake: string): Promise<void> {
-  await putJson(`/admin/quiz-options/${optionId}/mistake`, { mistake })
+/** `lesson`: the EN lesson page the explanation comes from and the page in the book („De ce am greșit?”). */
+export async function saveOptionMistake(
+  optionId: number,
+  mistake: string,
+  lesson?: { lessonId: number; lessonPage: number },
+): Promise<void> {
+  await putJson(`/admin/quiz-options/${optionId}/mistake`, { mistake, ...lesson })
 }
 
 /** The AI's proposal for the teacher's box; nothing is saved. */
@@ -1594,6 +1603,10 @@ export interface ItemResultDto {
   parts?: GradedPart[]
   /** The teacher's words about the wrong option chosen; null/absent = right, or none written. */
   mistake?: string | null
+  /** The EN lesson that explanation comes from (V70); null/absent = none. */
+  mistakeLesson?: TutorLessonLink | null
+  /** „De ce am greșit?" asked about this question and waiting for the teacher. */
+  explanationRequested?: boolean
   /** The class chapter with exercises to practise; null/absent = none. */
   chapter?: ChapterLink | null
   /** The EN chapter page to open when points were lost; null/absent = none. */
@@ -2585,5 +2598,39 @@ export interface TutorUnansweredQuestion {
 
 export async function getClassTutorQuestions(classId: number): Promise<TutorUnansweredQuestion[]> {
   const response = await apiFetch(`/admin/classes/${classId}/tutor-questions`)
+  return response.json()
+}
+
+// ---------- „De ce am greșit?": a student asks, the teacher explains (drafted from the lessons, then approved) ----------
+
+/** The student asks why the option they chose is wrong; the request waits for the teacher. */
+export async function askWhyWrong(attemptId: number, itemId: number): Promise<void> {
+  await postJson(`/quiz/attempts/${attemptId}/items/${itemId}/why-wrong`, {})
+}
+
+/** A draft from the EN lessons: `lesson` is the page it cites; `refusal` ("Nu am asta în manual.") when there is none. */
+export interface MistakeDraft {
+  answered: boolean
+  text: string | null
+  lesson: TutorLessonLink | null
+  refusal: string | null
+}
+
+export async function draftMistakeFromLessons(optionId: number): Promise<MistakeDraft> {
+  const response = await postJson(`/admin/quiz-options/${optionId}/mistake-from-lessons`, {})
+  return response.json()
+}
+
+/** A test with students waiting for an explanation: how many options, how many students, since when. */
+export interface ExplanationRequestsRow {
+  quizId: number
+  quizTitle: string
+  options: number
+  students: number
+  oldest: string
+}
+
+export async function listExplanationRequests(): Promise<ExplanationRequestsRow[]> {
+  const response = await apiFetch('/admin/explanation-requests')
   return response.json()
 }

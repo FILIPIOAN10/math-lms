@@ -57,12 +57,16 @@ public final class GdprExportData {
     /** A question the AI box ("Nu înțeleg…") could not answer from the lessons, kept for the teacher (V69). */
     public record TutorQuestion(String question, String askedAt) {}
 
+    /** „De ce am greșit?" asked about a wrong option and still waiting for the teacher (V70). */
+    public record ExplanationRequest(String itemStatement, String chosenOption, String requestedAt) {}
+
     public record Archive(
             String exportedAt,
             Profile profile,
             List<EnrolledClass> enrollments,
             List<Attempt> attempts,
             List<ReviewEntry> reviews,
-            List<TutorQuestion> tutorQuestions
+            List<TutorQuestion> tutorQuestions,
+            List<ExplanationRequest> explanationRequests
     ) {}
 }

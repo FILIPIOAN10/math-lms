@@ -1267,6 +1267,39 @@ limita → 429, eroare tutor → nu se consumă, GDPR), `StudentTutorServiceTest
 (`/explain`), `tutor/tests/test_explain.py` + `test_api.py` (pytest: doar din pasaje, refuz, continuări, regulile din
 prompt), `StudentTutorBox.test.tsx` și `TutorQuestionsSection.test.tsx` (Vitest).
 
+### 58. „De ce am greșit?” pe pagina de rezultat (V70) — ca elev, apoi ca profesor, apoi din nou ca elev
+Sub o grilă greșită, elevul apasă **De ce am greșit?** dacă profesorul n-a scris încă explicația variantei alese. Cererea
+ajunge la profesor: pe **Statistici**, lângă variantă, apare câți elevi au întrebat. Profesorul scrie explicația sau apasă
+**Propune din lecții** (tutorul o scrie doar din lecțiile EN și arată lecția citată), o corectează și o salvează. De
+atunci, **toți** elevii care au ales acea variantă văd explicația pe rezultat, cu **Deschide lecția …, pagina …**. Nimic
+generat de AI nu ajunge la elev nevăzut de profesor; un apel AI pe variantă, nu pe elev.
+
+**Pregătire:** butonul elevului și lista profesorului merg mereu. **Propune din lecții** apare doar cu `TUTOR_ENABLED=true`
+(serviciul tutor pornit, `TUTOR_SERVICE_TOKEN`); cât timp lecțiile nu sunt încărcate în `tutor_chunks`, răspunsul e de
+obicei „Nu am asta în manual.”, iar profesorul scrie explicația de mână.
+
+| # | Ce faci | Ce trebuie să vezi |
+|---|---|---|
+| 1 | Elev: un test cu o singură încercare, o grilă greșită fără explicație → pagina de rezultat | Sub întrebare: butonul **De ce am greșit?** |
+| 2 | Apasă-l | „Ai întrebat „De ce am greșit?”. Profesorul scrie explicația, iar ea apare aici.”; reîncarcă pagina: mesajul rămâne |
+| 3 | Un test cu încercări rămase | Butonul nu apare (nici răspunsul corect nu se vede încă) |
+| 4 | O grilă la care ai răspuns corect, sau una a cărei variantă are deja explicație | Fără buton (la a doua se vede explicația) |
+| 5 | Profesor → pagina principală | Secțiunea „Elevii întreabă „De ce am greșit?”” cu testul, „1 elev, 1 variantă”; click → Statistici |
+| 6 | Pe Statistici, la varianta aleasă | „1 elev a întrebat „De ce am greșit?”” deasupra butonului **Ce greșeală ascunde?** |
+| 7 | **Ce greșeală ascunde?** → **Propune din lecții** (cu tutorul pornit) | Textul în casetă + „Din lecția A…, pagina …”; nimic salvat încă |
+| 8 | (Opțional) **Fără lecție**, apoi **Salvează** | Explicația se salvează fără link |
+| 9 | Salvează cu lecția | Lângă variantă: explicația și „Lecția A…, pagina …”; numărul de cereri dispare, testul dispare de pe pagina principală |
+| 10 | Elevul reîncarcă rezultatul | „De ce e greșit” cu explicația profesorului și **Deschide lecția A…, pagina …** (deschide capitolul la secțiune) |
+| 11 | Alt elev care a ales aceeași variantă | Vede aceeași explicație, fără să fi întrebat |
+| 12 | Profesor: golește explicația și salvează | Dispar și explicația, și linkul |
+| 13 | Ca alt profesor: `POST /api/admin/quiz-options/<id>/mistake-from-lessons` | 404 |
+| 14 | În DB: `SELECT * FROM mistake_explanation_requests;` | Un rând pe (variantă, elev) cât timp așteaptă; zero după salvare |
+| 15 | Elev → **Contul meu → Cere datele mele** | În `manifest.json`: `explanationRequests` cu cererile încă fără răspuns |
+
+**Teste automate:** `WhyWrongIntegrationTest` (Testcontainers: cerere, numărul pe Statistici, salvare cu lecție, toți
+elevii o văd, reguli 409/404, propunerea din lecții, GDPR), `MistakeDraftServiceTest`, `tutor/tests/test_mistake.py` +
+`test_api.py` (pytest), `WhyWrong.test.tsx`, `MistakeEditor.test.tsx`, `ExplanationRequestsSection.test.tsx` (Vitest).
+
 ## E. Debugging — unde te uiți când pică ceva
 
 ```bash

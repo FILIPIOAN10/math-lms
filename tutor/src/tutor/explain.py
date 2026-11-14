@@ -102,17 +102,29 @@ class ExplainService:
         found: Found = self.retriever(standalone, None)  # a student's question has no exam position: by meaning
         if not found.usable:
             return refused(found.reason or "no_passages")
-        passages = "\n\n".join(
-            f"[{p.n}] {p.title} (pagina {p.book_page} din manual)\n{_neutralize(p.content)}" for p in found.passages)
-        drafted: Drafted = self.explain_chain.invoke({"passages": passages, "question": _neutralize(standalone)})
-        draft = drafted.draft
-        if not draft.covered or not draft.text.strip():
-            return refused("not_covered", drafted)
-        by_number = {p.n: p for p in found.passages}
-        cited = [n for n in dict.fromkeys(draft.source_ids) if n in by_number]  # no duplicates, no invented numbers
-        if not cited:
-            return refused("no_citation", drafted)  # an explanation nobody can check is not shown
-        sources = [Source(n=n, code=by_number[n].code, title=by_number[n].title, book_page=by_number[n].book_page)
-                   for n in cited]
-        return Explained(standalone, standalone != typed, draft.text.strip(), sources,
+        drafted: Drafted = self.explain_chain.invoke({"passages": passage_block(found),
+                                                      "question": _neutralize(standalone)})
+        text, sources, reason = checked(found, drafted)
+        if reason:
+            return refused(reason, drafted)
+        return Explained(standalone, standalone != typed, text, sources,
                          input_tokens=tokens_in + drafted.input_tokens, output_tokens=tokens_out + drafted.output_tokens)
+
+
+def passage_block(found: Found) -> str:
+    """The numbered passages as the prompt shows them, each one data that cannot close its section."""
+    return "\n\n".join(
+        f"[{p.n}] {p.title} (pagina {p.book_page} din manual)\n{_neutralize(p.content)}" for p in found.passages)
+
+
+def checked(found: Found, drafted: Drafted) -> tuple[str, list[Source], str | None]:
+    """The text and the passages it cites, or why it is not shown: not_covered, or no_citation (nobody could check it)."""
+    draft = drafted.draft
+    if not draft.covered or not draft.text.strip():
+        return "", [], "not_covered"
+    by_number = {p.n: p for p in found.passages}
+    cited = [n for n in dict.fromkeys(draft.source_ids) if n in by_number]  # no duplicates, no invented numbers
+    if not cited:
+        return "", [], "no_citation"
+    return draft.text.strip(), [Source(n=n, code=by_number[n].code, title=by_number[n].title,
+                                       book_page=by_number[n].book_page) for n in cited], None

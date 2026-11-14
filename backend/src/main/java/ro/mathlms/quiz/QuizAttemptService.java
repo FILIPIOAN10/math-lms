@@ -19,6 +19,7 @@ import ro.mathlms.content.Chapter;
 import ro.mathlms.content.EnrollmentRepository;
 import ro.mathlms.content.RoCount;
 import ro.mathlms.enchapter.EnChapterLinkDto;
+import ro.mathlms.enchapter.LessonLinks;
 import ro.mathlms.quiz.AdminAttemptDtos.AdminAttemptDetailDto;
 import ro.mathlms.quiz.AdminAttemptDtos.AdminAttemptSummaryDto;
 import ro.mathlms.quiz.AdminAttemptDtos.AdminItemReviewDto;
@@ -94,6 +95,15 @@ public class QuizAttemptService {
     private final QuizItemPartRepository partRepository;
     private final EnChapterLinks enChapterLinks;
     private final AnswerKeys answerKeys;
+    // „De ce am greșit?" (V70): set by Spring; the unit tests built with `new` go without (no requests, no lessons).
+    private ExplanationRequests explanationRequests;
+    private LessonLinks lessonLinks;
+
+    @Autowired
+    void useExplanations(ExplanationRequests explanationRequests, LessonLinks lessonLinks) {
+        this.explanationRequests = explanationRequests;
+        this.lessonLinks = lessonLinks;
+    }
 
     public QuizAttemptService(QuizRepository quizRepository, QuizItemRepository itemRepository,
                               QuizOptionRepository optionRepository, QuizItemHintRepository hintRepository,
@@ -630,6 +640,9 @@ public class QuizAttemptService {
         Map<Long, List<QuizItemPart>> partsByItem = partsOf(items);
         EnChapterLinks.Resolved links = enChapterLinks.resolve(items);
         Set<Long> withExercises = chaptersWithExercises(attempt.getQuiz(), items);
+        Set<Long> asked = explanationRequests == null ? Set.of() : explanationRequests.askedBy(attempt.getStudent().getId(),
+                byItem.values().stream().map(ItemResponse::getSelectedOption).filter(Objects::nonNull)
+                        .filter(o -> !o.isCorrect()).map(QuizOption::getId).toList());
         int maxScore = 0;
         List<ItemResultDto> itemResults = new ArrayList<>();
         for (QuizItem item : items) {
@@ -677,13 +690,25 @@ public class QuizAttemptService {
                     keyHidden ? parts.stream().map(PartDtos.GradedPartDto::withoutBarem).toList() : parts,
                     selectedLetter, correctLetter, links.linkOf(item),
                     keyHidden || response == null ? null : response.mistakeExplained(),
-                    chapterLink(chapterOf(attempt.getQuiz(), item), withExercises)));
+                    chapterLink(chapterOf(attempt.getQuiz(), item), withExercises),
+                    keyHidden ? null : mistakeLesson(response),
+                    response != null && response.getSelectedOption() != null
+                            && asked.contains(response.getSelectedOption().getId())));
         }
         return new AttemptResultViewDto(attempt.getId(), attempt.getQuiz().getTitle(),
                 attempt.getStatus(), attempt.getScore(), maxScore, itemResults, attempt.getMode(),
                 attempt.getTeacherComment(), attempt.getQuiz().getId(),
                 attempt.getQuiz().isPracticeAllowed() && attempt.getQuiz().getStatus() == QuizStatus.PUBLISHED,
                 keyHidden);
+    }
+
+    /** The lesson under the teacher's explanation of the wrong option chosen; null = none. */
+    private LessonLinks.LessonLinkDto mistakeLesson(ItemResponse response) {
+        if (lessonLinks == null || response == null || response.mistakeExplained() == null) {
+            return null;
+        }
+        QuizOption chosen = response.getSelectedOption();
+        return lessonLinks.ofId(chosen.getMistakeLessonId(), chosen.getMistakeLessonPage()).orElse(null);
     }
 
     /** A question's own chapter, or the quiz's. */

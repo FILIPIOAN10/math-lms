@@ -23,6 +23,7 @@ import { errorMessage } from '@/lib/errors'
 import { formatDate, roCount } from '@/lib/format'
 import { firstRunSteps, upcomingDeadlines, type FirstRunStep } from '@/lib/home'
 import { LoadingCards } from '@/components/LoadingCards'
+import { ExplanationRequestsSection } from '@/components/ExplanationRequestsSection'
 
 const GRADING_PREVIEW = 5
 /** With this few students left, a deadline names them ("Lipsește: Radu Marin") - the one thing the teacher acts on. */
@@ -155,6 +156,7 @@ export function TeacherHome({ canApprove = true }: { canApprove?: boolean }) {
                 ))}
               </HomeSection>
             )}
+            <ExplanationRequestsSection />
             <HomeSection
               title="Termene"
               action={

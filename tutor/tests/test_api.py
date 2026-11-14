@@ -183,3 +183,56 @@ def test_explain_bad_requests_are_refused_before_the_chain(body):
 
     assert explain(test_client, body).status_code == 422
     assert calls == []
+
+
+# --- POST /mistake: the teacher's draft of why a wrong option is wrong („De ce am greșit?") ---
+
+def mistake_client(model: FakeModel | None = None) -> tuple[TestClient, list]:
+    from tutor.api import mistake_service
+    from tutor.mistake import MistakeService
+
+    settings = Settings(_env_file=None, service_token=SecretStr(TOKEN))
+    app = create_app(settings)
+    calls: list = []
+
+    def retriever(statement: str, slot: str | None) -> Found:
+        calls.append((statement, slot))
+        return usable(passage(1, code="AIS3", title="Adunarea fracțiilor", page=21))
+
+    drafter = MistakeService(retriever, (model or FakeModel(written("Ai adunat numitorii.", ids=(1,)))).runnable)
+    app.dependency_overrides[mistake_service] = lambda: drafter
+    return TestClient(app), calls
+
+
+def test_mistake_drafts_with_its_pages():
+    test_client, calls = mistake_client()
+
+    response = test_client.post("/mistake", headers={"X-Tutor-Token": TOKEN}, json={
+        "statement": "1/2 + 1/3 = ?", "slot": "I.2", "chosen": "2/5", "correct": "5/6"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["answered"] is True and body["text"] == "Ai adunat numitorii."
+    assert body["sources"] == [{"n": 1, "code": "AIS3", "title": "Adunarea fracțiilor", "book_page": 21}]
+    assert body["refusal"] is None and body["cost_usd"] > 0
+    assert calls == [("1/2 + 1/3 = ?", "I.2")]
+
+
+@pytest.mark.parametrize("body", [
+    {"statement": "", "chosen": "a"},
+    {"statement": "1 + 1", "chosen": ""},
+    {"statement": "1 + 1", "chosen": "a", "slot": "I.1; DROP"},
+    {"statement": "1 + 1", "chosen": "x" * 1001},
+])
+def test_mistake_bad_requests_are_refused_before_the_chain(body):
+    test_client, calls = mistake_client()
+
+    assert test_client.post("/mistake", headers={"X-Tutor-Token": TOKEN}, json=body).status_code == 422
+    assert calls == []
+
+
+def test_mistake_needs_the_service_token():
+    test_client, calls = mistake_client()
+
+    assert test_client.post("/mistake", json={"statement": "1 + 1", "chosen": "a"}).status_code == 401
+    assert calls == []

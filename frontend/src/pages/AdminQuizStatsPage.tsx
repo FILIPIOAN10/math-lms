@@ -7,7 +7,7 @@ import { MathContent } from '@/components/MathContent'
 import { SectionHeadingView } from '@/components/SectionHeadingView'
 import { numberItems } from '@/lib/sections'
 import {
-  correctAnswerKey, correctAnswerNumber, getAiImportSettings, getQuizStats, type NumberStat, type OptionStat, type QuizItemStat,
+  correctAnswerKey, correctAnswerNumber, getAiImportSettings, getQuizStats, getTutorSettings, type NumberStat, type OptionStat, type QuizItemStat,
   type QuizStatsDto,
 } from '@/lib/api'
 import { isNumber, itemTypeLabel } from '@/lib/numericAnswer'
@@ -51,10 +51,11 @@ function goToItem(itemId: number) {
  * "Asta e varianta corectă" buttons wait behind the question's "Schimbă răspunsul corect" (`keyOpen`), so a page of
  * numbers is not a page of buttons. A wrong option nobody chose has no mistake to explain.
  */
-function OptionCounts({ item, graded, aiOn, keyOpen, onMakeCorrect, onMistakeSaved }: {
+function OptionCounts({ item, graded, aiOn, tutorOn, keyOpen, onMakeCorrect, onMistakeSaved }: {
   item: QuizItemStat
   graded: number
   aiOn: boolean
+  tutorOn: boolean
   keyOpen: boolean
   onMakeCorrect: (option: OptionStat) => void
   onMistakeSaved: () => void
@@ -80,7 +81,7 @@ function OptionCounts({ item, graded, aiOn, keyOpen, onMakeCorrect, onMistakeSav
           {!option.correct && (option.chosen > 0 || option.mistake || keyOpen || item.suspect?.letter === option.letter) && (
             <div className="flex flex-wrap items-start gap-1">
               {(option.chosen > 0 || option.mistake) && (
-                <MistakeEditor option={option} aiOn={aiOn} onSaved={onMistakeSaved} />
+                <MistakeEditor option={option} aiOn={aiOn} tutorOn={tutorOn} onSaved={onMistakeSaved} />
               )}
               {item.suspect?.letter === option.letter ? (
                 <Button type="button" size="xs" data-testid="stats-suggested-fix" onClick={() => onMakeCorrect(option)}>
@@ -153,6 +154,7 @@ export function AdminQuizStatsPage() {
   const [notice, setNotice] = useState<string | null>(null)
   const { confirm, dialog: confirmDialog } = useConfirm()
   const [aiOn, setAiOn] = useState(false) // "Propune cu AI" only where the server has the AI switched on
+  const [tutorOn, setTutorOn] = useState(false) // "Propune din lecții" only where the tutor service is on
   // The questions whose "Asta e varianta corectă" buttons the teacher opened.
   const [keyOpen, setKeyOpen] = useState<ReadonlySet<number>>(new Set())
   const toggleKey = (itemId: number) =>
@@ -169,6 +171,9 @@ export function AdminQuizStatsPage() {
     getAiImportSettings()
       .then((s) => setAiOn(s.enabled))
       .catch(() => undefined) // the button just stays hidden
+    getTutorSettings()
+      .then((s) => setTutorOn(s.enabled))
+      .catch(() => undefined)
   }, [])
 
   useEffect(() => {
@@ -345,6 +350,7 @@ export function AdminQuizStatsPage() {
                         item={item}
                         graded={stats.gradedAttempts}
                         aiOn={aiOn}
+                        tutorOn={tutorOn}
                         keyOpen={keyOpen.has(item.itemId)}
                         onMakeCorrect={(option) => void makeCorrect(label, `${option.letter})`, () => correctAnswerKey(item.itemId, option.id))}
                         onMistakeSaved={() => void load().then(setStats).catch((e) => setError(errorMessage(e)))}

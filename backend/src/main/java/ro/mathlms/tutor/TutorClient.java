@@ -70,6 +70,16 @@ public class TutorClient {
                               @JsonProperty("cost_usd") double costUsd) {
     }
 
+    record MistakeRequest(String statement, String slot, String chosen, String correct) {
+    }
+
+    /** What {@code POST /mistake} sends back: a draft for the teacher of why an option is wrong, or a refusal. */
+    public record MistakeDraft(boolean answered, String text, List<Source> sources, Refusal refusal,
+                               @JsonProperty("input_tokens") int inputTokens,
+                               @JsonProperty("output_tokens") int outputTokens,
+                               @JsonProperty("cost_usd") double costUsd) {
+    }
+
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
     private final String token;
@@ -106,6 +116,15 @@ public class TutorClient {
     /** The student's box: an explanation of {@code question} from the lessons, {@code history} for a follow-up. */
     public Explanation explain(String question, List<Turn> history) {
         Explanation answer = post("/explain", new ExplainRequest(question, history), Explanation.class);
+        if (answer == null || answer.sources() == null) {
+            throw new TutorException(FAILED);
+        }
+        return answer;
+    }
+
+    /** „De ce am greșit?": why {@code chosen} is wrong, from the lessons; {@code correct} may be null. */
+    public MistakeDraft mistake(String statement, String slot, String chosen, String correct) {
+        MistakeDraft answer = post("/mistake", new MistakeRequest(statement, slot, chosen, correct), MistakeDraft.class);
         if (answer == null || answer.sources() == null) {
             throw new TutorException(FAILED);
         }

@@ -149,8 +149,8 @@ class QuizStatsServiceTest {
         ItemStatDto stat = service.getStats(10L).items().get(0);
 
         assertThat(stat.options()).containsExactly(
-                new QuizStatsDtos.OptionStatDto(200L, "a", "4", true, 1, null),
-                new QuizStatsDtos.OptionStatDto(201L, "b", "5", false, 1, "A adunat numărătorii."));
+                new QuizStatsDtos.OptionStatDto(200L, "a", "4", true, 1, null, null, 0),
+                new QuizStatsDtos.OptionStatDto(201L, "b", "5", false, 1, "A adunat numărătorii.", null, 0));
         assertThat(stat.suspect()).isNull(); // three students prove nothing
         assertThat(service.getStats(10L).items().get(1).options()).isEmpty();
     }

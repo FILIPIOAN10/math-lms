@@ -6,6 +6,8 @@ teacher approves the text before any student sees it.
     POST /explain {"question": ..., "history": [{"role": "user" | "bot", "text": ...}] (at most 6)}  ->  ExplainResponse
                   the student's "Nu înțeleg…" box: Spring has already checked the student, the daily limit and that no
                   graded test is open, and it keeps the history (this service keeps no state between requests)
+    POST /mistake {"statement": ..., "slot": ..., "chosen": ..., "correct": ...}  ->  MistakeResponse
+                  „De ce am greșit?": a draft for the teacher of why the chosen option is wrong, from the lessons
     GET  /health  {"status": "ok"}
 
 The textbook passages stay in the database: the answer names them (chapter, page) but does not carry their text.
@@ -23,6 +25,7 @@ from pydantic import BaseModel, Field
 from tutor.config import Settings, get_settings
 from tutor.conversation import Turn
 from tutor.explain import ExplainService
+from tutor.mistake import MistakeService
 from tutor.help_chain import LEVELS, HelpError, HelpService, HelpStep, Refusal, Source
 from tutor.transcribe import cost_usd
 
@@ -77,6 +80,23 @@ class ExplainResponse(BaseModel):
     cost_usd: float
 
 
+class MistakeRequest(BaseModel):
+    statement: str = Field(min_length=1, max_length=4000)
+    slot: str | None = Field(default=None, max_length=10, pattern=r"^[IVX]{1,4}\.[0-9]{1,2}$")
+    chosen: str = Field(min_length=1, max_length=1000)  # the wrong option a student chose
+    correct: str | None = Field(default=None, max_length=1000)
+
+
+class MistakeResponse(BaseModel):
+    answered: bool
+    text: str
+    sources: list[Source]
+    refusal: Refusal | None
+    input_tokens: int
+    output_tokens: int
+    cost_usd: float
+
+
 @lru_cache
 def help_service() -> HelpService:
     """Built on first use (it needs the model access and the database), then shared; tests override it."""
@@ -86,6 +106,11 @@ def help_service() -> HelpService:
 @lru_cache
 def explain_service() -> ExplainService:
     return ExplainService.from_settings(get_settings())
+
+
+@lru_cache
+def mistake_service() -> MistakeService:
+    return MistakeService.from_settings(get_settings())
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -133,6 +158,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return ExplainResponse(
             answered=result.answered, text=result.text, sources=result.sources, refusal=result.refusal,
             question=result.question, rewritten=result.rewritten,
+            input_tokens=result.input_tokens, output_tokens=result.output_tokens,
+            cost_usd=round(cost_usd(result.input_tokens, result.output_tokens, settings), 6),
+        )
+
+    @app.post("/mistake", response_model=MistakeResponse, dependencies=[Depends(check_token)])
+    def write_mistake(request: MistakeRequest,
+                      service: Annotated[MistakeService, Depends(mistake_service)]) -> MistakeResponse:
+        try:
+            result = service.draft(request.statement, slot=request.slot, chosen=request.chosen,
+                                   correct=request.correct)
+        except HelpError as e:
+            raise HTTPException(502, str(e)) from e
+        return MistakeResponse(
+            answered=result.answered, text=result.text, sources=result.sources, refusal=result.refusal,
             input_tokens=result.input_tokens, output_tokens=result.output_tokens,
             cost_usd=round(cost_usd(result.input_tokens, result.output_tokens, settings), 6),
         )

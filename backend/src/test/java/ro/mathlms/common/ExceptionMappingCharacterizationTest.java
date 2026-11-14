@@ -206,6 +206,10 @@ class ExceptionMappingCharacterizationTest {
     @MockitoBean
     private StudentTutorService studentTutorService;
     @MockitoBean
+    private ro.mathlms.tutor.MistakeDraftService mistakeDraftService;
+    @MockitoBean
+    private ro.mathlms.quiz.QuizAdminService quizAdminService;
+    @MockitoBean
     private TeacherScope teacherScope;
     @MockitoBean
     private EnChapterService enChapterService;

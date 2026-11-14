@@ -7,8 +7,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 import ro.mathlms.aiusage.AiUsageRecorder;
-import ro.mathlms.enchapter.EnChapter;
 import ro.mathlms.enchapter.EnChapterRepository;
+import ro.mathlms.enchapter.LessonLinks;
+import ro.mathlms.enchapter.LessonLinks.LessonLinkDto;
 import ro.mathlms.quiz.AttemptMode;
 import ro.mathlms.quiz.QuizAttempt;
 import ro.mathlms.quiz.QuizAttemptRepository;
@@ -67,14 +68,6 @@ public class StudentTutorService {
                                  int remainingToday) {
     }
 
-    /**
-     * Where to read it: {@code chapterId} is the page to open (and to practise), {@code sectionId} the section to
-     * scroll to (null when the source is the chapter itself), {@code title} what the source is called.
-     */
-    public record LessonLinkDto(Long chapterId, String chapterCode, String chapterTitle, Long sectionId, String title,
-                                int bookPage) {
-    }
-
     public record UnansweredDto(Long id, String question, Instant askedAt) {
     }
 
@@ -96,7 +89,7 @@ public class StudentTutorService {
     private final TutorClient client;
     private final UserRepository userRepository;
     private final QuizAttemptRepository attemptRepository;
-    private final EnChapterRepository chapterRepository;
+    private final LessonLinks lessonLinks;
     private final JdbcTemplate jdbc;
     private final AiUsageRecorder usage;
     private final Clock clock;
@@ -108,7 +101,7 @@ public class StudentTutorService {
         this.client = client;
         this.userRepository = userRepository;
         this.attemptRepository = attemptRepository;
-        this.chapterRepository = chapterRepository;
+        this.lessonLinks = new LessonLinks(chapterRepository);
         this.jdbc = jdbc;
         this.usage = usage;
         this.clock = clock;
@@ -187,10 +180,12 @@ public class StudentTutorService {
                 studentId);
     }
 
-    /** GDPR erasure: the student's questions and counters go with the account. */
+    /** GDPR erasure: the student's questions, counters and explanation requests go with the account. */
     public void eraseStudent(Long studentId) {
         jdbc.update("DELETE FROM tutor_unanswered_questions WHERE student_id = ?", studentId);
         jdbc.update("DELETE FROM tutor_daily_usage WHERE student_id = ?", studentId);
+        // „De ce am greșit?" requests (V70): also only the student's own waiting for an explanation.
+        jdbc.update("DELETE FROM mistake_explanation_requests WHERE student_id = ?", studentId);
     }
 
     // --- helpers ---
@@ -231,24 +226,9 @@ public class StudentTutorService {
     private List<LessonLinkDto> lessons(List<TutorClient.Source> sources) {
         Map<String, LessonLinkDto> byCode = new LinkedHashMap<>();
         for (TutorClient.Source source : sources) {
-            if (source.code() == null || byCode.containsKey(source.code())) {
-                continue;
+            if (source.code() != null && !byCode.containsKey(source.code())) {
+                lessonLinks.ofCode(source.code(), source.bookPage()).ifPresent(link -> byCode.put(source.code(), link));
             }
-            chapterRepository.findByCode(source.code()).ifPresent(page -> {
-                EnChapter top = page;
-                // A point sits under a section, a section under its chapter (EnChapterTree.MAX_DEPTH = 2).
-                for (int depth = 0; top.getParentId() != null && depth < 3; depth++) {
-                    EnChapter parent = chapterRepository.findById(top.getParentId()).orElse(null);
-                    if (parent == null) {
-                        break;
-                    }
-                    top = parent;
-                }
-                if (top.getParentId() == null) {
-                    byCode.put(source.code(), new LessonLinkDto(top.getId(), top.getCode(), top.getTitle(),
-                            page == top ? null : page.getId(), page.getTitle(), source.bookPage()));
-                }
-            });
         }
         return new ArrayList<>(byCode.values());
     }

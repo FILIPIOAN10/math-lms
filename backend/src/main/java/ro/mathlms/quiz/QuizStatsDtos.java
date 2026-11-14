@@ -1,5 +1,7 @@
 package ro.mathlms.quiz;
 
+import ro.mathlms.enchapter.LessonLinks;
+
 import java.util.List;
 
 /** Response DTOs of the teacher's quiz statistics page. */
@@ -13,7 +15,9 @@ public final class QuizStatsDtos {
     }
 
     /** How many students chose one option of a grilă, and what mistake it stands for ({@code mistake} null = not written). */
-    public record OptionStatDto(Long id, String letter, String text, boolean correct, int chosen, String mistake) {
+    public record OptionStatDto(Long id, String letter, String text, boolean correct, int chosen, String mistake,
+                                LessonLinks.LessonLinkDto mistakeLesson, // where the explanation is read further
+                                int requests) { // students waiting for „De ce am greșit?"
     }
 
     /** One number students typed, however they wrote it, and how many typed it. */

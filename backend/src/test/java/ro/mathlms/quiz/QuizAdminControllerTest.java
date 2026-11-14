@@ -19,7 +19,7 @@ class QuizAdminControllerTest {
 
     private final QuizAdminService service = mock(QuizAdminService.class);
     private final QuizAdminController controller = new QuizAdminController(service, new TeacherScope(null),
-            new AnswerKeyChecks(mock(QuizStatsService.class)));
+            new AnswerKeyChecks(mock(QuizStatsService.class)), mock(WhyWrongService.class));
 
     @Test
     void listMapsToSummaries() {

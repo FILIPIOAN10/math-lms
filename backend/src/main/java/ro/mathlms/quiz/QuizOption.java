@@ -47,6 +47,14 @@ public class QuizOption {
     @Column(length = MAX_MISTAKE)
     private String mistake;
 
+    /** The EN lesson page the explanation comes from („De ce am greșit?", V70); null = none. */
+    @Column(name = "mistake_lesson_id")
+    private Long mistakeLessonId;
+
+    /** The page printed in the book for that lesson; null = none. */
+    @Column(name = "mistake_lesson_page")
+    private Integer mistakeLessonPage;
+
     /** The most characters an explanation may have - the column's length. */
     public static final int MAX_MISTAKE = 500;
 
@@ -74,6 +82,22 @@ public class QuizOption {
             throw new IllegalArgumentException("mistake must be at most " + MAX_MISTAKE + " characters");
         }
         this.mistake = trimmed == null || trimmed.isEmpty() ? null : trimmed;
+        if (this.mistake == null) { // no explanation, nothing to read it in
+            this.mistakeLessonId = null;
+            this.mistakeLessonPage = null;
+        }
+    }
+
+    /** The lesson where the explanation is read further; both null = none. Only next to an explanation. */
+    public void pointMistakeTo(Long lessonId, Integer bookPage) {
+        if (lessonId != null && mistake == null) {
+            throw new IllegalArgumentException("a lesson goes with an explanation");
+        }
+        if (bookPage != null && (bookPage < 1 || bookPage > 5000)) {
+            throw new IllegalArgumentException("bookPage must be between 1 and 5000");
+        }
+        this.mistakeLessonId = lessonId;
+        this.mistakeLessonPage = lessonId == null ? null : bookPage;
     }
 
     private static String requireNonBlank(String value, String field) {

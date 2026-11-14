@@ -1,6 +1,7 @@
 package ro.mathlms.quiz;
 
 import ro.mathlms.enchapter.EnChapterLinkDto;
+import ro.mathlms.enchapter.LessonLinks;
 import ro.mathlms.user.ExtraTime;
 
 import java.time.Instant;
@@ -281,7 +282,9 @@ public final class StudentQuizDtos {
             String correctOptionLetter,
             EnChapterLinkDto enChapter, // the EN chapter page to open when points were lost; null = none
             String mistake, // the teacher's words about the wrong option chosen; null = right, or none written
-            ChapterLinkDto chapter // the class chapter with exercises to practise; null = none
+            ChapterLinkDto chapter, // the class chapter with exercises to practise; null = none
+            LessonLinks.LessonLinkDto mistakeLesson, // the lesson that explanation comes from (V70); null = none
+            boolean explanationRequested // „De ce am greșit?" asked and waiting for the teacher
     ) {}
 
     /** The student's graded attempt: the score plus a per-item breakdown. */

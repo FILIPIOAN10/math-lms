@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import ro.mathlms.auth.UserNotFoundException;
 import ro.mathlms.content.Enrollment;
 import ro.mathlms.content.EnrollmentRepository;
+import ro.mathlms.quiz.ExplanationRequests;
 import ro.mathlms.quiz.ItemResponse;
 import ro.mathlms.quiz.ItemResponseRepository;
 import ro.mathlms.quiz.QuizAttempt;
@@ -47,11 +48,13 @@ public class GdprExportService {
     private final ObjectMapper objectMapper;
     private final String quizPhotosDir;
     private final StudentTutorService studentTutor;
+    private final ExplanationRequests explanationRequests;
 
     public GdprExportService(UserRepository userRepository, EnrollmentRepository enrollmentRepository,
                              QuizAttemptRepository attemptRepository, ItemResponseRepository responseRepository,
                              ReviewAnswerRepository reviewAnswerRepository, FileService fileService, ObjectMapper objectMapper,
-                             @Value("${app.storage.quiz-photos-dir}") String quizPhotosDir, StudentTutorService studentTutor) {
+                             @Value("${app.storage.quiz-photos-dir}") String quizPhotosDir, StudentTutorService studentTutor,
+                             ExplanationRequests explanationRequests) {
         this.userRepository = userRepository;
         this.enrollmentRepository = enrollmentRepository;
         this.attemptRepository = attemptRepository;
@@ -61,6 +64,7 @@ public class GdprExportService {
         this.objectMapper = objectMapper;
         this.quizPhotosDir = quizPhotosDir;
         this.studentTutor = studentTutor;
+        this.explanationRequests = explanationRequests;
     }
 
     /** Builds the ZIP archive for the account identified by {@code email}. */
@@ -103,7 +107,12 @@ public class GdprExportService {
                 .map(q -> new GdprExportData.TutorQuestion(q.question(), q.askedAt().toString()))
                 .toList();
 
-        return new GdprExportData.Archive(Instant.now().toString(), profile, enrollments, attempts, reviews, tutorQuestions);
+        List<GdprExportData.ExplanationRequest> explanationRequests = this.explanationRequests.ofStudent(user.getId()).stream()
+                .map(r -> new GdprExportData.ExplanationRequest(r.statement(), r.chosenOption(), r.requestedAt().toString()))
+                .toList();
+
+        return new GdprExportData.Archive(Instant.now().toString(), profile, enrollments, attempts, reviews, tutorQuestions,
+                explanationRequests);
     }
 
     private GdprExportData.Attempt toAttempt(QuizAttempt attempt) {

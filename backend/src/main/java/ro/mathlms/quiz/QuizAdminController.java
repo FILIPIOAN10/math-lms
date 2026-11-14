@@ -27,11 +27,14 @@ public class QuizAdminController {
     private final QuizAdminService service;
     private final TeacherScope scope;
     private final AnswerKeyChecks answerKeyChecks;
+    private final WhyWrongService whyWrong;
 
-    public QuizAdminController(QuizAdminService service, TeacherScope scope, AnswerKeyChecks answerKeyChecks) {
+    public QuizAdminController(QuizAdminService service, TeacherScope scope, AnswerKeyChecks answerKeyChecks,
+                               WhyWrongService whyWrong) {
         this.service = service;
         this.scope = scope;
         this.answerKeyChecks = answerKeyChecks;
+        this.whyWrong = whyWrong;
     }
 
     /** Every test for an ADMIN; a TEACHER's own only, filtered by the database rather than after loading them all. */
@@ -173,7 +176,7 @@ public class QuizAdminController {
     @PutMapping("/api/admin/quiz-options/{optionId}/mistake")
     public ResponseEntity<Void> explainMistake(@PathVariable Long optionId, @Valid @RequestBody MistakeRequest request) {
         scope.requireQuizItem(service.itemIdOfOption(optionId));
-        service.explainMistake(optionId, request.mistake());
+        whyWrong.explain(optionId, request.mistake(), request.lessonId(), request.lessonPage());
         return ResponseEntity.noContent().build();
     }
 

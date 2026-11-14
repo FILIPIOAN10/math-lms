@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
+import ro.mathlms.quiz.QuizAdminService;
 import ro.mathlms.teaching.TeacherScope;
 import ro.mathlms.tutor.TutorHintService.TutorHintsDto;
 import ro.mathlms.tutor.TutorHintService.TutorSettingsDto;
@@ -25,11 +26,16 @@ public class TutorController {
 
     private final TutorHintService service;
     private final StudentTutorService studentTutor;
+    private final MistakeDraftService mistakeDrafts;
+    private final QuizAdminService quizAdmin;
     private final TeacherScope scope;
 
-    public TutorController(TutorHintService service, StudentTutorService studentTutor, TeacherScope scope) {
+    public TutorController(TutorHintService service, StudentTutorService studentTutor, MistakeDraftService mistakeDrafts,
+                           QuizAdminService quizAdmin, TeacherScope scope) {
         this.service = service;
         this.studentTutor = studentTutor;
+        this.mistakeDrafts = mistakeDrafts;
+        this.quizAdmin = quizAdmin;
         this.scope = scope;
     }
 
@@ -42,6 +48,13 @@ public class TutorController {
     public TutorHintsDto suggest(@PathVariable Long itemId) {
         scope.requireQuizItem(itemId);
         return service.suggest(itemId);
+    }
+
+    /** „De ce am greșit?": a draft, from the lessons, of why a wrong option is wrong; nothing is saved here. */
+    @PostMapping("/api/admin/quiz-options/{optionId}/mistake-from-lessons")
+    public MistakeDraftService.MistakeDraftDto draftMistake(@PathVariable Long optionId) {
+        scope.requireQuizItem(quizAdmin.itemIdOfOption(optionId));
+        return mistakeDrafts.draft(optionId);
     }
 
     /** What the students' AI box could not answer from the lessons (last 30 days, no names): what the class does not know. */
