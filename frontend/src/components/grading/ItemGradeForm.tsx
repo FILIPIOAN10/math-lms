@@ -5,6 +5,7 @@ import { CommentBank } from '@/components/grading/CommentBank'
 import { CommentPreview } from '@/components/grading/CommentPreview'
 import { PointsPicker } from '@/components/grading/PointsPicker'
 import { AiProposalPanel } from '@/components/grading/AiProposalPanel'
+import { ResultCheckLine } from '@/components/ResultCheckLine'
 import { MathContent } from '@/components/MathContent'
 import type { AdminItemReview, AiProposal } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
@@ -28,6 +29,10 @@ const MAX_COMMENT = 2000
  *
  * With `aiOn`, the AI's proposal (`aiProposal`) shows above the points: each requirement's proposed points are outlined
  * (Enter takes them), "Acceptă propunerea AI" takes them all; nothing is saved before the teacher does one of these.
+ *
+ * A requirement whose final result the student typed right (V72, checked on the server with no AI) proposes its full
+ * points the same way - unless the AI has a proposal for it, which has read the photo. A wrong or missing result
+ * proposes nothing: the barem also pays for the method, and that is the teacher's to judge.
  */
 export function ItemGradeForm({
   item,
@@ -141,11 +146,19 @@ export function ItemGradeForm({
                   autoFocus={autoFocus && index === 0}
                   label={`Puncte cerința ${part.label})`}
                   testId={`grade-part-${part.label}`}
-                  suggested={proposedFor(part.id)?.points ?? null}
+                  suggested={proposedFor(part.id)?.points ?? (part.resultCheck === 'RIGHT' ? part.points : null)}
+                  suggestedBy={proposedFor(part.id) ? 'propus de AI' : 'rezultat final corect'}
                   onChange={(points, commit) => {
                     setValue({ ...value, parts: { ...value.parts, [part.id]: points } })
                     if (commit) void flush()
                   }}
+                />
+                <ResultCheckLine
+                  audience="teacher"
+                  check={part.resultCheck}
+                  typed={part.typedResult}
+                  expected={part.expectedResult}
+                  className="mt-1 text-xs"
                 />
                 {proposedFor(part.id) && (
                   <p className="mt-1 text-xs text-sky-900 dark:text-sky-100">

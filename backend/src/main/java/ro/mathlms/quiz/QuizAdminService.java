@@ -388,6 +388,7 @@ public class QuizAdminService {
             QuizItemPart partCopy = new QuizItemPart(itemCopy, part.getPosition(), part.getStatement(), part.getPoints(),
                     part.getSolution());
             partCopy.pointToEnChapter(part.getEnChapter());
+            partCopy.expectResult(part.getFinalAnswer());
             partRepository.save(partCopy);
         }
         return itemCopy;
@@ -826,7 +827,8 @@ public class QuizAdminService {
                 hints.stream().map(QuizItemHint::getText).toList(), item.getSection(),
                 item.getChapter() == null ? null : item.getChapter().getId(),
                 parts.stream().map(p -> p.label() + ") " + p.getPoints() + "p " + p.getStatement() + " | " + p.getSolution()
-                        + " | " + (p.getEnChapter() == null ? "" : p.getEnChapter().getCode())).toList(),
+                        + " | " + (p.getEnChapter() == null ? "" : p.getEnChapter().getCode())
+                        + " | " + (p.getFinalAnswer() == null ? "" : p.getFinalAnswer())).toList(),
                 item.getEnChapter() == null ? null : item.getEnChapter().getId(),
                 ordered.stream().map(o -> String.valueOf(o.getMistake())).toList(), item.getNumericAnswer());
     }
@@ -956,6 +958,11 @@ public class QuizAdminService {
         if (parts.stream().anyMatch(p -> p.statement() == null || p.statement().isBlank())) {
             throw new InvalidQuizException("Fiecare cerință are nevoie de un enunț.");
         }
+        if (parts.stream().anyMatch(p -> p.finalAnswer() != null && !p.finalAnswer().isBlank()
+                && NumericAnswer.parse(p.finalAnswer()).isEmpty())) {
+            throw new InvalidQuizException("Rezultatul final al unei cerințe se scrie ca număr: 12, 0,5, 1/2 sau 0,(3). "
+                    + "Lasă-l gol dacă rezultatul nu e un număr.");
+        }
     }
 
     /** Persists an open problem's requirements in order (a, b, c...). Null/empty = none. */
@@ -968,6 +975,7 @@ public class QuizAdminService {
             PartDtos.PartRequest part = parts.get(i);
             QuizItemPart fresh = new QuizItemPart(item, i, part.statement(), part.points(), part.solution());
             fresh.pointToEnChapter(enChapter(part.enChapterId()));
+            fresh.expectResult(part.finalAnswer());
             saved.add(partRepository.save(fresh));
         }
         return saved;
@@ -989,6 +997,8 @@ public class QuizAdminService {
         for (int i = 0; i < existing.size(); i++) {
             existing.get(i).update(requested.get(i).statement(), requested.get(i).solution());
             existing.get(i).pointToEnChapter(enChapter(requested.get(i).enChapterId())); // where to revise: allowed
+            // The expected result too: no grade comes from it, it only tells the teacher what the typed one is worth.
+            existing.get(i).expectResult(requested.get(i).finalAnswer());
             partRepository.save(existing.get(i));
         }
         return existing;

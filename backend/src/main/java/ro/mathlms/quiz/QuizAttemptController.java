@@ -87,6 +87,11 @@ public class QuizAttemptController {
     @PutMapping("/api/quiz/attempts/{attemptId}/responses/{itemId}")
     public ResponseEntity<AnswerFeedbackDto> answer(@PathVariable Long attemptId, @PathVariable Long itemId,
                                                     @Valid @RequestBody AnswerRequest request, Authentication auth) {
+        if (request.partValues() != null) { // the results typed for an open problem's requirements: never any feedback
+            service.savePartAnswers(attemptId, itemId, request.partValues(), request.clientId(), request.clientSeq(),
+                    auth.getName());
+            return ResponseEntity.noContent().build();
+        }
         if (request.optionId() == null) {
             return feedbackOrNoContent(service.saveNumericResponse(attemptId, itemId, request.value(), request.clientId(),
                     request.clientSeq(), auth.getName()));

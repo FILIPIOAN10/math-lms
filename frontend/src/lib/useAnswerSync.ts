@@ -140,7 +140,7 @@ export function useAnswerSync({
     }
   }, [pump])
 
-  const enqueue = useCallback((itemId: number, answer: number | string) => {
+  const enqueue = useCallback((itemId: number, answer: number | string | Record<number, string>) => {
     queue.current?.enqueue(itemId, answer)
     pump()
   }, [pump])

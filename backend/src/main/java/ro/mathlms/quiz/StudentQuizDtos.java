@@ -165,7 +165,8 @@ public final class StudentQuizDtos {
     public record SavedAnswerDto(Long itemId, Long selectedOptionId, boolean photoUploaded,
                                  AnswerFeedbackDto feedback, // PRACTICE only; always null in a graded TEST
                                  List<Long> photoIds,        // S2: the pages sent, oldest first
-                                 String numericAnswer        // the number typed; null = none
+                                 String numericAnswer,       // the number typed; null = none
+                                 java.util.Map<Long, String> partAnswers // V72: the final result typed per requirement, by part id
     ) {
         public static SavedAnswerDto from(ItemResponse response) {
             return from(response, null);
@@ -178,7 +179,8 @@ public final class StudentQuizDtos {
                     response.hasPhotos(),
                     feedback,
                     response.photoIds(),
-                    response.getNumericAnswer());
+                    response.getNumericAnswer(),
+                    java.util.Map.copyOf(response.getPartAnswers()));
         }
     }
 

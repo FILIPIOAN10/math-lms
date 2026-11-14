@@ -161,6 +161,9 @@ function ItemResult({
             points: p.points,
             awardedPoints: p.awardedPoints,
             barem: showBarem ? p.barem : null,
+            typedResult: p.typedResult,
+            expectedResult: p.expectedResult,
+            resultCheck: p.resultCheck,
           }))}
         />
         {item.hintsAvailable > 0 && (

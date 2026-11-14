@@ -14,6 +14,7 @@ import ro.mathlms.quiz.ItemResponse;
 import ro.mathlms.quiz.ItemResponseRepository;
 import ro.mathlms.quiz.QuizAttempt;
 import ro.mathlms.quiz.QuizAttemptRepository;
+import ro.mathlms.quiz.QuizItemPartRepository;
 import ro.mathlms.quiz.ResponsePhoto;
 import ro.mathlms.review.ReviewAnswerRepository;
 import ro.mathlms.storage.FileService;
@@ -49,12 +50,13 @@ public class GdprExportService {
     private final String quizPhotosDir;
     private final StudentTutorService studentTutor;
     private final ExplanationRequests explanationRequests;
+    private final QuizItemPartRepository partRepository;
 
     public GdprExportService(UserRepository userRepository, EnrollmentRepository enrollmentRepository,
                              QuizAttemptRepository attemptRepository, ItemResponseRepository responseRepository,
                              ReviewAnswerRepository reviewAnswerRepository, FileService fileService, ObjectMapper objectMapper,
                              @Value("${app.storage.quiz-photos-dir}") String quizPhotosDir, StudentTutorService studentTutor,
-                             ExplanationRequests explanationRequests) {
+                             ExplanationRequests explanationRequests, QuizItemPartRepository partRepository) {
         this.userRepository = userRepository;
         this.enrollmentRepository = enrollmentRepository;
         this.attemptRepository = attemptRepository;
@@ -65,6 +67,7 @@ public class GdprExportService {
         this.quizPhotosDir = quizPhotosDir;
         this.studentTutor = studentTutor;
         this.explanationRequests = explanationRequests;
+        this.partRepository = partRepository;
     }
 
     /** Builds the ZIP archive for the account identified by {@code email}. */
@@ -139,7 +142,20 @@ public class GdprExportService {
                 response.getPhotos().stream().map(ResponsePhoto::getImageKey).toList(),
                 response.getAwardedPoints(),
                 response.getCorrect(),
-                response.getTeacherComment());
+                response.getTeacherComment(),
+                typedResults(response));
+    }
+
+    /** The final results the student typed for a problem's requirements, labelled as on the paper: "a) 25". */
+    private List<String> typedResults(ItemResponse response) {
+        java.util.Map<Long, String> typed = response.getPartAnswers();
+        if (typed.isEmpty()) {
+            return List.of();
+        }
+        return partRepository.findByItemIdOrderByPosition(response.getItem().getId()).stream()
+                .filter(part -> typed.containsKey(part.getId()))
+                .map(part -> part.label() + ") " + typed.get(part.getId()))
+                .toList();
     }
 
     private byte[] zip(User user, GdprExportData.Archive archive) {

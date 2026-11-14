@@ -232,4 +232,82 @@ class ItemResponseTest {
 
         assertThat(response.getTeacherComment()).isNull();
     }
+
+    // --- the final result typed for a requirement (V72) ---
+
+    /** A requirement with an id, as a saved one has: the typed results are kept by part id. */
+    private static QuizItemPart part(QuizItem item, int position, long id, String finalAnswer) {
+        QuizItemPart part = new QuizItemPart(item, position, "Calculează.", 3, "barem");
+        part.expectResult(finalAnswer);
+        org.springframework.test.util.ReflectionTestUtils.setField(part, "id", id);
+        return part;
+    }
+
+    @Test
+    void theTypedResultsOfAProblemAreKeptAsWrittenAndReplacedAsAWhole() {
+        QuizItem item = open();
+        java.util.List<QuizItemPart> parts = java.util.List.of(part(item, 0, 1L, "25"), part(item, 1, 2L, "1/2"));
+        ItemResponse response = new ItemResponse(attempt, item);
+
+        assertThat(response.hasPartAnswers()).isFalse();
+        assertThat(response.answerParts(parts, java.util.Map.of(1L, " 25 ", 2L, "0,5"), null, null)).isTrue();
+        assertThat(response.getPartAnswers()).containsOnly(
+                java.util.Map.entry(1L, "25"), java.util.Map.entry(2L, "0,5"));
+        assertThat(response.hasPartAnswers()).isTrue();
+        assertThat(response.isAnswered()).isFalse(); // the photo is the answer: a typed result alone is not one
+
+        // The whole set again: b) was wiped, a) changed.
+        response.answerParts(parts, java.util.Map.of(1L, "24", 2L, "  "), null, null);
+        assertThat(response.getPartAnswers()).containsOnly(java.util.Map.entry(1L, "24"));
+
+        response.answerParts(parts, java.util.Map.of(), null, null);
+        assertThat(response.hasPartAnswers()).isFalse();
+    }
+
+    @Test
+    void aResultIsRefusedForARequirementOfAnotherProblemOrOneThatAsksForNone() {
+        QuizItem item = open();
+        java.util.List<QuizItemPart> parts = java.util.List.of(part(item, 0, 1L, null), part(item, 1, 2L, "3"));
+        ItemResponse response = new ItemResponse(attempt, item);
+
+        assertThatThrownBy(() -> response.answerParts(parts, java.util.Map.of(99L, "3"), null, null))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("99");
+        assertThatThrownBy(() -> response.answerParts(parts, java.util.Map.of(1L, "3"), null, null))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("asks for no result");
+        assertThatThrownBy(() -> response.answerParts(parts, java.util.Map.of(2L, "1".repeat(41)), null, null))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThat(response.hasPartAnswers()).isFalse(); // nothing half-applied
+
+        ItemResponse grila = new ItemResponse(attempt, singleChoice());
+        assertThatThrownBy(() -> grila.answerParts(parts, java.util.Map.of(2L, "3"), null, null))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("OPEN");
+    }
+
+    @Test
+    void anOlderRetryOfTheTypedResultsDoesNotOverwriteNewerOnes() {
+        QuizItem item = open();
+        java.util.List<QuizItemPart> parts = java.util.List.of(part(item, 0, 1L, "25"), part(item, 1, 2L, "3"));
+        ItemResponse response = new ItemResponse(attempt, item);
+        java.util.UUID browser = java.util.UUID.randomUUID();
+
+        assertThat(response.answerParts(parts, java.util.Map.of(1L, "25", 2L, "3"), browser, 2L)).isTrue();
+        assertThat(response.answerParts(parts, java.util.Map.of(1L, "25"), browser, 1L)).isFalse(); // sent before b) was typed
+        assertThat(response.getPartAnswers()).containsOnly(java.util.Map.entry(1L, "25"), java.util.Map.entry(2L, "3"));
+    }
+
+    @Test
+    void aRequirementsExpectedResultMustBeANumber() {
+        QuizItemPart part = new QuizItemPart(open(), 0, "Calculează aria.", 3, null);
+        assertThat(part.asksResult()).isFalse();
+
+        part.expectResult(" 24 ");
+        assertThat(part.getFinalAnswer()).isEqualTo("24");
+        assertThat(part.asksResult()).isTrue();
+
+        assertThatThrownBy(() -> part.expectResult("24 cm")).isInstanceOf(IllegalArgumentException.class);
+        assertThat(part.getFinalAnswer()).isEqualTo("24"); // a refused value changes nothing
+
+        part.expectResult("  ");
+        assertThat(part.asksResult()).isFalse();
+    }
 }

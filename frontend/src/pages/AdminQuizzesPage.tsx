@@ -80,6 +80,8 @@ interface PartDraft {
   solution: string
   /** '' = automatic */
   enChapterId: string
+  /** The final result the student is asked to type (a number); '' = none. */
+  finalAnswer: string
 }
 
 /** Same limit as the server (QuizItemPart.MAX_PARTS). */
@@ -380,6 +382,7 @@ export function ItemDialog({
     (initial?.parts ?? []).map((p) => ({
       statement: p.statement, points: String(p.points), solution: p.solution ?? '',
       enChapterId: p.enChapterId == null ? '' : String(p.enChapterId),
+      finalAnswer: p.finalAnswer ?? '',
     })),
   )
   const partsTotal = parts.reduce((sum, p) => sum + (Number(p.points) || 0), 0)
@@ -514,6 +517,7 @@ export function ItemDialog({
           ? parts.map((p) => ({
               statement: p.statement.trim(), points: Number(p.points), solution: p.solution.trim() || null,
               enChapterId: p.enChapterId === '' ? null : Number(p.enChapterId),
+              finalAnswer: p.finalAnswer.trim() || null,
             }))
           : null,
     }
@@ -676,6 +680,27 @@ export function ItemDialog({
                     aria-label={`Barem cerința ${label})`}
                     className="ml-7 min-h-12 w-[calc(100%-1.75rem)]"
                   />
+                  <div className="ml-7 space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label htmlFor={`ipart-result-${i}`} className="text-sm">
+                        Rezultat final {label}) <span className="text-muted-foreground">(opțional)</span>
+                      </label>
+                      <Input
+                        id={`ipart-result-${i}`}
+                        value={part.finalAnswer}
+                        maxLength={MAX_NUMBER_LENGTH}
+                        autoComplete="off"
+                        onChange={(e) => setPart(i, { finalAnswer: e.target.value })}
+                        placeholder="ex. 24"
+                        className="w-32"
+                      />
+                    </div>
+                    {part.finalAnswer.trim() !== '' && !isNumber(part.finalAnswer) && (
+                      <p role="status" className="text-sm text-amber-700 dark:text-amber-300">
+                        Scrie doar numărul: 12, 0,5, 1/2 sau 0,(3). Dacă rezultatul nu e un număr, lasă gol.
+                      </p>
+                    )}
+                  </div>
                   {more && enChapters.length > 0 && (
                     <div className="ml-7">
                       <EnChapterSelect
@@ -697,12 +722,14 @@ export function ItemDialog({
               size="sm"
               className="self-start"
               disabled={parts.length >= MAX_PARTS}
-              onClick={() => setParts((prev) => [...prev, { statement: '', points: prev.length === 0 ? '2' : '3', solution: '', enChapterId: '' }])}
+              onClick={() => setParts((prev) => [...prev, { statement: '', points: prev.length === 0 ? '2' : '3', solution: '', enChapterId: '', finalAnswer: '' }])}
             >
               Adaugă cerința {String.fromCharCode(97 + parts.length)})
             </Button>
             <p className="text-xs text-muted-foreground">
               Fiecare cerință se notează separat la corectură; elevul trimite o singură rezolvare (poze) pentru toată întrebarea.
+              Dacă scrii rezultatul final al unei cerințe, elevul îl tastează lângă poză, iar la corectură vezi dacă e
+              corect și ți se propune punctajul întreg — fără AI.
             </p>
           </div>
         )}

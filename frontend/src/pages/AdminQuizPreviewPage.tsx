@@ -84,8 +84,15 @@ export function AdminQuizPreviewPage() {
                     ) : item.type === 'NUMERIC' ? (
                       <NumberAnswer id={`preview-${item.id}`} label={`Răspunsul la întrebarea ${label}`} value="" disabled onChange={() => undefined} />
                     ) : (
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-sm text-muted-foreground" data-testid="preview-open-note">
                         Elevul rezolvă pe hârtie, apoi fotografiază rezolvarea și o încarcă aici.
+                        {(item.parts ?? []).some((p) => p.finalAnswer) && (
+                          <>
+                            {' '}Tastează și rezultatul final la{' '}
+                            {(item.parts ?? []).filter((p) => p.finalAnswer).map((p) => `${p.label})`).join(', ')}, fără
+                            să vadă rezultatul din barem.
+                          </>
+                        )}
                       </p>
                     )}
                   </CardContent>

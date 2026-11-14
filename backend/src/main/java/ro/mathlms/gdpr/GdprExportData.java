@@ -32,7 +32,8 @@ public final class GdprExportData {
             List<String> photoFiles, // S2: every page, in the order taken; each is in the ZIP under photos/
             Integer awardedPoints,
             Boolean correct,
-            String teacherComment
+            String teacherComment,
+            List<String> typedResults // V72: the final result typed per requirement, "a) 25"; empty = none
     ) {}
 
     public record Attempt(

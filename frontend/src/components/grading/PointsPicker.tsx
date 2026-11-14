@@ -34,6 +34,7 @@ export function PointsPicker({
   label = 'Puncte acordate',
   testId = 'grade-points',
   suggested = null,
+  suggestedBy = 'propus de AI',
 }: {
   max: number
   value: number | null
@@ -44,8 +45,10 @@ export function PointsPicker({
   label?: string
   /** The group's data-testid; each button is `${testId}-${n}`. */
   testId?: string
-  /** The AI's proposed points: outlined, and Enter takes them (when nothing is picked yet) and moves on. */
+  /** The proposed points: outlined, and Enter takes them (when nothing is picked yet) and moves on. */
   suggested?: number | null
+  /** Where the proposal comes from, for a screen reader: the AI, or a right final result (V72). */
+  suggestedBy?: string
 }) {
   const buttons = useRef<(HTMLButtonElement | null)[]>([])
   const [text, setText] = useState(value === null ? '' : String(value))
@@ -140,13 +143,13 @@ export function PointsPicker({
             autoFocus={autoFocus && n === focusable}
             onClick={() => onChange(n, true)}
             onKeyDown={(e) => onKeyDown(e, n)}
-            aria-description={suggested === n ? 'propus de AI' : undefined}
+            aria-description={suggested === n ? suggestedBy : undefined}
             data-suggested={suggested === n ? '' : undefined}
             className={cn(
               'h-11 min-w-11 rounded-lg border sm:h-9 sm:min-w-9 px-2 text-sm font-medium tabular-nums outline-none transition-colors',
               'focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50',
               value === n ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background hover:bg-muted',
-              // The AI's proposal: a dashed outline the teacher can take with Enter.
+              // The proposal (the AI's, or a right final result): a dashed outline the teacher can take with Enter.
               suggested === n && 'outline-2 outline-offset-2 outline-dashed outline-sky-500',
             )}
           >

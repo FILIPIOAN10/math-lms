@@ -60,6 +60,19 @@ describe('AdminQuizPreviewPage', () => {
     expect(document.body).not.toHaveTextContent('✓')
   })
 
+  it('says which requirements ask the student to type the final result, without showing it (V72)', async () => {
+    const withResult = quiz()
+    withResult.items[1].parts = [
+      { id: 1, position: 0, label: 'a', statement: 'Arată că x = 2.', points: 2, solution: null },
+      { id: 2, position: 1, label: 'b', statement: 'Calculează aria.', points: 3, solution: null, finalAnswer: '9876' },
+    ]
+    api.getQuiz.mockResolvedValue(withResult)
+    renderPage()
+
+    expect(await screen.findByTestId('preview-open-note')).toHaveTextContent('Tastează și rezultatul final la b)')
+    expect(document.body).not.toHaveTextContent('9876')
+  })
+
   it('lets nobody answer: it is only to look at', async () => {
     renderPage()
     await screen.findByTestId('preview-note')

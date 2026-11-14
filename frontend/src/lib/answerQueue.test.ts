@@ -26,6 +26,20 @@ describe('AnswerQueue', () => {
     expect(q.pending()).toEqual([{ itemId: 100, optionId: null, value: '0,75', seq: 2 }])
   })
 
+  it('holds an open problem\'s typed results as one answer: the whole set, the newest replacing the older one', () => {
+    const q = new AnswerQueue(50)
+    q.enqueue(300, { 32: '24' })
+    q.enqueue(300, { 32: '24', 33: '1/2' })
+    q.enqueue(100, 1000) // another question's choice is its own entry
+
+    expect(q.pending()).toEqual([
+      { itemId: 300, optionId: null, partValues: { 32: '24', 33: '1/2' }, seq: 2 },
+      { itemId: 100, optionId: 1000, seq: 3 },
+    ])
+    // After a reload they are still there to send, results and all.
+    expect(new AnswerQueue(50).pendingFor(300)?.partValues).toEqual({ 32: '24', 33: '1/2' })
+  })
+
   it('survives a reload: same browser id, the counter goes on', () => {
     const first = new AnswerQueue(50)
     first.enqueue(100, 1000)

@@ -313,9 +313,11 @@ public class QuizAttemptService {
         // A row that exists only because the student asked for a hint is not an answer: it must not come back as one
         // (its "feedback" would hand over the solution of a question they have not tried).
         EnChapterLinks.Resolved links = attempt.getMode() == AttemptMode.PRACTICE ? linksOf(quiz) : null;
+        // A result typed for a requirement comes back too, photo or not - but it is not an answer either: alone, it
+        // brings no practice feedback (the barem comes with the photo).
         List<SavedAnswerDto> answers = responses.stream()
-                .filter(ItemResponse::isAnswered)
-                .map(response -> attempt.getMode() == AttemptMode.PRACTICE
+                .filter(response -> response.isAnswered() || response.hasPartAnswers())
+                .map(response -> attempt.getMode() == AttemptMode.PRACTICE && response.isAnswered()
                         ? SavedAnswerDto.from(response, feedbackFor(response.getItem(), response, links))
                         : SavedAnswerDto.from(response))
                 .toList();
@@ -448,6 +450,39 @@ public class QuizAttemptService {
         return attempt.getMode() == AttemptMode.PRACTICE
                 ? Optional.of(feedbackFor(item, response, linksOf(attempt.getQuiz())))
                 : Optional.empty();
+    }
+
+    /**
+     * Records the final results typed for an OPEN problem's requirements, next to its photos: the whole set, by part id
+     * (a requirement left out or blank has none any more), with the same queue rule as a choice. Nothing is marked and
+     * nothing comes back, in a practice either: the result is only compared with the barem's for the teacher who grades
+     * the photo ({@link ResultCheck}), and for the student once the barem is theirs to see.
+     */
+    @Transactional
+    public void savePartAnswers(Long attemptId, Long itemId, Map<Long, String> values, java.util.UUID clientId,
+                                Long clientSeq, String studentEmail) {
+        QuizAttempt attempt = requireOwnedInProgress(attemptId, studentEmail);
+        requireTimeLeft(attempt);
+        QuizItem item = itemRepository.findById(itemId)
+                .orElseThrow(() -> new QuizNotFoundException("QuizItem", itemId));
+        if (!item.getQuiz().getId().equals(attempt.getQuiz().getId())) {
+            throw new InvalidQuizException("Item does not belong to this quiz");
+        }
+        if (item.getType() != QuizItemType.OPEN) {
+            throw new InvalidQuizException("Only an open problem's requirements take a typed result");
+        }
+        List<QuizItemPart> parts = partRepository.findByItemIdOrderByPosition(itemId);
+        ItemResponse response = responseRepository.findByAttemptIdAndItemId(attemptId, itemId)
+                .orElseGet(() -> new ItemResponse(attempt, item));
+        boolean applied;
+        try {
+            applied = response.answerParts(parts, values, clientId, clientSeq);
+        } catch (IllegalArgumentException e) { // a requirement of another problem, or one that asks for no result
+            throw new InvalidQuizException("Această cerință nu are un rezultat de tastat.");
+        }
+        if (applied) {
+            responseRepository.save(response);
+        }
     }
 
     /** Whether an auto-graded answer is right; no answer never is. */

@@ -40,11 +40,12 @@ class GdprExportServiceTest {
     private final QuizAttemptRepository attemptRepository = mock(QuizAttemptRepository.class);
     private final ItemResponseRepository responseRepository = mock(ItemResponseRepository.class);
     private final FileService fileService = mock(FileService.class);
+    private final ro.mathlms.quiz.QuizItemPartRepository partRepository = mock(ro.mathlms.quiz.QuizItemPartRepository.class);
     private final GdprExportService service = new GdprExportService(
             userRepository, enrollmentRepository, attemptRepository, responseRepository,
             mock(ro.mathlms.review.ReviewAnswerRepository.class),
             fileService, new ObjectMapper(), "uploads/quiz-photos", mock(ro.mathlms.tutor.StudentTutorService.class),
-            mock(ro.mathlms.quiz.ExplanationRequests.class));
+            mock(ro.mathlms.quiz.ExplanationRequests.class), partRepository);
 
     private static <T> T withId(T entity, long id) {
         ReflectionTestUtils.setField(entity, "id", id);
@@ -71,6 +72,12 @@ class GdprExportServiceTest {
         r2.addPhoto("photo.jpg", java.time.Instant.EPOCH);
         r2.gradeManual(20, "Raționament corect.");
         attempt.commentOverall("Lucrare bună.");
+        // The final result typed for requirement b) (V72): the student wrote it, so it is theirs to get back.
+        ro.mathlms.quiz.QuizItemPart a = withId(new ro.mathlms.quiz.QuizItemPart(deschis, 0, "Arată că.", 2, null), 201L);
+        ro.mathlms.quiz.QuizItemPart b = withId(new ro.mathlms.quiz.QuizItemPart(deschis, 1, "Calculează.", 3, null), 202L);
+        b.expectResult("1/2");
+        r2.answerParts(List.of(a, b), Map.of(202L, "0,5"), null, null);
+        when(partRepository.findByItemIdOrderByPosition(101L)).thenReturn(List.of(a, b));
 
         when(userRepository.findByEmail("elev@scoala.ro")).thenReturn(Optional.of(student));
         when(enrollmentRepository.findByStudentId(1L)).thenReturn(List.of(enrollment));
@@ -91,7 +98,9 @@ class GdprExportServiceTest {
                 .contains("\"4\"")
                 // the teacher's comments are about the student too: they go into the archive
                 .contains("Raționament corect.")
-                .contains("Lucrare bună.");
+                .contains("Lucrare bună.")
+                .contains("b) 0,5")
+                .doesNotContain("1/2"); // the barem's result is the teacher's, not the student's data
         assertThat(entries).containsKey("photos/photo.jpg");
         assertThat(new String(entries.get("photos/photo.jpg"))).isEqualTo("IMG");
     }

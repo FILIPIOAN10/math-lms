@@ -359,4 +359,50 @@ describe('AttemptResultView', () => {
     expect(lesson).not.toHaveAttribute('target')
     expect(screen.queryByRole('link', { name: /A1/ })).not.toBeInTheDocument()
   })
+
+  it('tells the student what the final result they typed for each requirement was worth (V72)', () => {
+    const withResults: AttemptResultViewDto = {
+      ...graded,
+      items: [{
+        ...graded.items[1],
+        barem: null,
+        parts: [
+          { id: 31, label: 'a', statement: 'Arată că x = 25.', points: 2, barem: 'x = 25', awardedPoints: 2 },
+          {
+            id: 32, label: 'b', statement: 'Calculează aria.', points: 3, barem: 'A = 24', awardedPoints: 3,
+            typedResult: '24,0', expectedResult: '24', resultCheck: 'RIGHT',
+          },
+          {
+            id: 33, label: 'c', statement: 'Determină y.', points: 5, barem: 'y = 1/2', awardedPoints: 3,
+            typedResult: '3', expectedResult: '1/2', resultCheck: 'WRONG',
+          },
+        ],
+      }],
+    }
+    render(<AttemptResultView result={withResults} />, { wrapper: MemoryRouter })
+
+    const lines = screen.getAllByTestId('result-check')
+    expect(lines).toHaveLength(2) // a) asked for no result
+    expect(lines[0]).toHaveTextContent('Rezultatul tău: 24,0 ✓ corect')
+    expect(lines[1]).toHaveTextContent('Rezultatul tău: 3 ✗ greșit · în barem: 1/2')
+  })
+
+  it('while the test can be handed in again, shows what was typed without saying whether it is right', () => {
+    const hidden: AttemptResultViewDto = {
+      ...graded,
+      items: [{
+        ...graded.items[1],
+        barem: null,
+        parts: [
+          // As the server sends it with the key hidden: no barem, no expected result, no verdict.
+          { id: 32, label: 'b', statement: 'Calculează aria.', points: 10, barem: null, awardedPoints: 8, typedResult: '25', expectedResult: null, resultCheck: null },
+        ],
+      }],
+    }
+    render(<AttemptResultView result={hidden} />, { wrapper: MemoryRouter })
+
+    const line = screen.getByTestId('result-check')
+    expect(line).toHaveTextContent('Rezultatul tău: 25')
+    expect(line).not.toHaveTextContent(/corect|greșit|barem/)
+  })
 })

@@ -54,6 +54,13 @@ public class QuizItemPart {
     @JoinColumn(name = "en_chapter_id")
     private EnChapter enChapter;
 
+    /**
+     * The final result this requirement should reach, as the teacher wrote it (V72); {@code null} = it asks for none.
+     * The student types theirs next to the photo and {@link ResultCheck} compares the two by value.
+     */
+    @Column(name = "final_answer", length = NumericAnswer.MAX_LENGTH)
+    private String finalAnswer;
+
     public QuizItemPart(QuizItem item, int position, String statement, int points, String solution) {
         if (Objects.requireNonNull(item, "item").getType() != QuizItemType.OPEN) {
             throw new IllegalArgumentException("only an open problem has requirements");
@@ -82,6 +89,27 @@ public class QuizItemPart {
     /** Points this requirement at an EN chapter page, or ({@code null}) back at the default. */
     public void pointToEnChapter(EnChapter chapter) {
         this.enChapter = chapter;
+    }
+
+    /**
+     * Says which result the requirement should reach; blank = none (the student is then not asked for one). Only a
+     * number will do, as for a numeric question. No grade depends on it, so it may change on a test already taken.
+     */
+    public void expectResult(String result) {
+        String written = result == null ? "" : result.strip();
+        if (written.isEmpty()) {
+            this.finalAnswer = null;
+            return;
+        }
+        if (NumericAnswer.parse(written).isEmpty()) {
+            throw new IllegalArgumentException("not a number: " + result);
+        }
+        this.finalAnswer = written;
+    }
+
+    /** Whether the student is asked to type this requirement's final result. */
+    public boolean asksResult() {
+        return finalAnswer != null;
     }
 
     /** "a", "b", "c"... */

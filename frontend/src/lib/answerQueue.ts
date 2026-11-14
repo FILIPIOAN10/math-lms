@@ -13,6 +13,8 @@ export interface PendingAnswer {
   optionId: number | null
   /** The number typed (blank takes it back). */
   value?: string
+  /** An open problem's typed final results, by part id - the whole set (an empty one takes them all back). */
+  partValues?: Record<number, string>
   /** This browser's counter when the choice was made: higher = newer. */
   seq: number
 }
@@ -68,12 +70,17 @@ export class AnswerQueue {
     return this.state.pending.find((p) => p.itemId === itemId)
   }
 
-  /** A new answer for a question, an option or a typed number: replaces any older one still waiting for it. */
-  enqueue(itemId: number, answer: number | string): PendingAnswer {
+  /**
+   * A new answer for a question - an option, a typed number, or an open problem's typed results: replaces any older
+   * one still waiting for it.
+   */
+  enqueue(itemId: number, answer: number | string | Record<number, string>): PendingAnswer {
     const seq = this.state.nextSeq
     const entry: PendingAnswer = typeof answer === 'string'
       ? { itemId, optionId: null, value: answer, seq }
-      : { itemId, optionId: answer, seq }
+      : typeof answer === 'number'
+        ? { itemId, optionId: answer, seq }
+        : { itemId, optionId: null, partValues: answer, seq }
     this.state = {
       ...this.state,
       nextSeq: this.state.nextSeq + 1,

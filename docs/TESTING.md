@@ -1350,6 +1350,40 @@ fiecare: de ce, în cifre, plus **Deschide lecția** (doar dacă pagina are con�
 (Testcontainers: date reale, secțiune → capitol, fără răspunsuri, doar elevul), `weakSpots.test.ts` și
 `WeakSpotsSection.test.tsx` (Vitest).
 
+### 61. Rezultatul final la Subiectul III, verificat fără AI (V72) — ca profesor, ca elev, apoi din nou ca profesor
+La o cerință a unei probleme cu rezolvare, profesorul poate scrie **rezultatul final** lângă barem. Elevul îl tastează
+lângă poză (nu vede niciodată rezultatul din barem), iar la corectură serverul compară cele două valori — fără AI, fără
+tokeni, fără să citească poza. Rezultat corect = se **propune** punctajul întreg al cerinței (contur punctat, Enter îl
+ia); profesorul confirmă după ce se uită la rezolvare. Rezultat greșit sau lipsă = nicio propunere. Doar numere:
+`12`, `0,5`, `1/2`, `1 1/2`, `0,(3)` — cu radicali sau unități cerința rămâne fără rezultat de tastat. Merge cu
+`AI_GRADING_ENABLED=false`.
+
+| # | Ce faci | Ce trebuie să vezi |
+|---|---|---|
+| 1 | Profesor → Teste → un test → **Adaugă întrebare**, tip „Cu rezolvare”, **Adaugă cerința a)** „Arată că…”, **b)** „Calculează aria.” cu **Rezultat final b)** = `24` | Câmpul „Rezultat final” sub baremul fiecărei cerințe; a) rămâne gol |
+| 2 | Scrie `24 cm` la rezultatul final | Avertisment galben „Scrie doar numărul…”; la **Salvează** serverul refuză (400) |
+| 3 | **Previzualizare** | La problemă: „Tastează și rezultatul final la b), fără să vadă rezultatul din barem.” — `24` nu apare nicăieri |
+| 4 | Publică; ca elev, deschide testul | Sub cerințe: „Rezultatul la b)” cu o casetă; pentru a) nu e casetă |
+| 5 | Tastează `24,0`, ieși din casetă; **Salvează și ieși**, apoi redeschide testul | `24,0` e la loc (și fără nicio poză încărcată) |
+| 6 | Tastează `24 cm` | „Nu pare un număr. Scrie doar numărul, fără litere sau unități.” |
+| 7 | Încarcă o poză, predă | Lucrarea ajunge la corectat; nota nu există încă (nimic nu se punctează singur) |
+| 8 | Profesor → **De corectat** → lucrarea | La b): „Rezultat scris de elev: 24,0 ✓ corect · verifică rezolvarea din poză”, iar butonul **3** are contur punctat |
+| 9 | Focus pe punctele cerinței b), **Enter** | Se iau 3 p și se salvează; poți da și mai puțin cu un clic |
+| 10 | Alt elev tastează `25` | „✗ greșit · în barem: 24”, niciun buton conturat |
+| 11 | Alt elev nu tastează nimic | „Elevul nu a scris rezultatul final · în barem: 24” |
+| 12 | Profesor: corectează rezultatul din barem la `25` pe testul deja dat | Se salvează (nu e blocat ca punctajul); lucrarea de la pasul 10 arată acum „✓ corect” |
+| 13 | Finalizează; ca elev, pagina de rezultat (test cu o singură încercare) | La b): „Rezultatul tău: 24,0 ✓ corect” (sau „✗ greșit · în barem: …”) |
+| 14 | Test cu 2 încercări, după prima predare | „Rezultatul tău: 24,0” — fără ✓/✗ și fără rezultatul din barem cât timp mai poate da testul |
+| 15 | Contul meu → **Descarcă datele mele** | În `manifest.json`, la răspuns: `"typedResults": ["b) 24,0"]` |
+| 16 | Copiază testul | Copia păstrează rezultatul final al cerințelor |
+
+**Teste automate:** `ResultCheckTest` (aceeași valoare scrisă altfel, lipsă ≠ greșit), `ItemResponseTest` (setul
+întreg, cerință străină, retrimitere întârziată), `PartResultIntegrationTest` (Testcontainers: elevul nu primește
+rezultatul așteptat, verificarea pentru profesor, cheia ascunsă la reluare, corectarea rezultatului pe un test dat,
+copie), `GdprExportServiceTest`; în frontend `ResultCheckLine.test.tsx`, `ItemGradeForm.test.tsx`,
+`TakeQuizPage.test.tsx` (salvare la pauză, setul întreg, exersare), `ItemDialog.test.tsx`, `answerQueue.test.ts`,
+`AttemptResultView.test.tsx`, `AdminQuizPreviewPage.test.tsx`.
+
 ## E. Debugging — unde te uiți când pică ceva
 
 ```bash

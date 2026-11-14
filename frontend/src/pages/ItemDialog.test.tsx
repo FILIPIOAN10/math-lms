@@ -303,6 +303,7 @@ describe('ItemDialog requirements a), b) (EN Subiectul III)', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Adaugă cerința b)' }))
     await userEvent.type(screen.getByLabelText('Cerința b)'), 'Calculează x la pătrat.')
     await userEvent.type(screen.getByLabelText('Barem cerința b)'), '625')
+    await userEvent.type(screen.getByLabelText(/Rezultat final b\)/), ' 625 ')
 
     expect(screen.getByLabelText('Punctaj')).toHaveValue(5) // 2 + 3, filled in
     expect(screen.getByLabelText('Punctaj')).toBeDisabled()
@@ -311,9 +312,29 @@ describe('ItemDialog requirements a), b) (EN Subiectul III)', () => {
     const input = await submitted(onSubmit)
     expect(input.points).toBe(5)
     expect(input.parts).toEqual([
-      { statement: 'Arată că x = 25.', points: 2, solution: null, enChapterId: null },
-      { statement: 'Calculează x la pătrat.', points: 3, solution: '625', enChapterId: null },
+      // a) "Arată că…" has no result to type; b) asks the student for 625
+      { statement: 'Arată că x = 25.', points: 2, solution: null, enChapterId: null, finalAnswer: null },
+      { statement: 'Calculează x la pătrat.', points: 3, solution: '625', enChapterId: null, finalAnswer: '625' },
     ])
+  })
+
+  it('shows the stored final result and warns at once about one that is not a number', async () => {
+    renderDialog({
+      ...openItem,
+      points: 5,
+      parts: [
+        { id: 1, position: 0, label: 'a', statement: 'Arată că x = 25.', points: 2, solution: null },
+        { id: 2, position: 1, label: 'b', statement: 'Calculează aria.', points: 3, solution: '24', finalAnswer: '24' },
+      ],
+    })
+
+    expect(screen.getByLabelText(/Rezultat final a\)/)).toHaveValue('')
+    const result = screen.getByLabelText(/Rezultat final b\)/)
+    expect(result).toHaveValue('24')
+    expect(screen.queryByText(/Dacă rezultatul nu e un număr, lasă gol/)).not.toBeInTheDocument()
+
+    await userEvent.type(result, ' cm')
+    expect(screen.getByText(/Dacă rezultatul nu e un număr, lasă gol/)).toBeInTheDocument()
   })
 
   it('shows the requirements a stored problem has, and a grilă never has any', async () => {

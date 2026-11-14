@@ -124,6 +124,16 @@ function PhotoPicker({
 /** How long a typed number waits after the last key before it goes to the server. */
 const NUMBER_PAUSE_MS = 800
 
+/** An open problem's typed results as the server keeps them: trimmed, and a blank box is no result. */
+function typedPartResults(typed: Record<number, string>): Record<number, string> {
+  return Object.fromEntries(Object.entries(typed).map(([id, v]) => [id, v.trim()] as const).filter(([, v]) => v !== ''))
+}
+
+/** One text per set of typed results, whatever order the boxes were filled in: to tell "already sent" from "changed". */
+function partResultsKey(typed: Record<number, string>): string {
+  return JSON.stringify(Object.entries(typedPartResults(typed)).sort(([a], [b]) => Number(a) - Number(b)))
+}
+
 /** "Ai început deja testul: ai răspuns la 2 din 4 întrebări." - what the start button will take the student back to. */
 function resumeLine(practice: boolean, answered: number, itemCount: number): string {
   const what = practice ? 'exersarea' : 'testul'
@@ -163,6 +173,8 @@ export function TakeQuizPage() {
   const [attempt, setAttempt] = useState<StartedAttemptDto | null>(null)
   const [selected, setSelected] = useState<Record<number, number>>({})
   const [numbers, setNumbers] = useState<Record<number, string>>({}) // itemId -> the number typed
+  // itemId -> part id -> the final result typed for that requirement of an open problem (V72)
+  const [partResults, setPartResults] = useState<Record<number, Record<number, string>>>({})
   const [photos, setPhotos] = useState<Record<number, number[]>>({}) // itemId -> the pages sent (photo ids), oldest first
   const [feedback, setFeedback] = useState<Record<number, AnswerFeedback | undefined>>({}) // practice only
   const [hints, setHints] = useState<Record<number, string[]>>({}) // itemId -> hints revealed so far (practice only)
@@ -183,6 +195,9 @@ export function TakeQuizPage() {
   // The number last queued for each numeric question, and the pause that sends it once the student stops typing.
   const sentNumbers = useRef<Record<number, string>>({})
   const numberTimers = useRef(new Map<number, number>())
+  // The same for an open problem's typed results: the set last queued (see partResultsKey), and its pause.
+  const sentPartResults = useRef<Record<number, string>>({})
+  const partResultTimers = useRef(new Map<number, number>())
   // Hand-in found answers that never reached the server: how many (the dialog asks what to do).
   const [unsent, setUnsent] = useState<number | null>(null)
   // "Salvează și ieși": the clock warning first (timed test), then - only if some grile are still waiting - how many.
@@ -312,8 +327,10 @@ export function TakeQuizPage() {
   const sync = useAnswerSync({
     attemptId: attempt?.attemptId ?? null,
     send: (answer, clientId) =>
-      saveQuizAnswer(attempt!.attemptId, answer.itemId, answer.value ?? answer.optionId!, { clientId, clientSeq: answer.seq }),
+      saveQuizAnswer(attempt!.attemptId, answer.itemId, answer.partValues ?? answer.value ?? answer.optionId!,
+        { clientId, clientSeq: answer.seq }),
     onSaved: (answer, result) => {
+      if (answer.partValues) return // typed results bring no verdict: a practice keeps the barem its photo brought
       if (answer.optionId !== null) confirmed.current[answer.itemId] = answer.optionId
       setFeedback((s) => ({ ...s, [answer.itemId]: result ?? undefined })) // null in a graded test: nothing is revealed
     },
@@ -327,6 +344,8 @@ export function TakeQuizPage() {
           else next[answer.itemId] = kept
           return next
         })
+      } else if (answer.partValues) {
+        delete sentPartResults.current[answer.itemId] // what is in the boxes stays, and is sent again when changed
       } else {
         delete sentNumbers.current[answer.itemId]
       }
@@ -377,23 +396,31 @@ export function TakeQuizPage() {
       }
       const restoredChoices: Record<number, number> = {}
       const restoredNumbers: Record<number, string> = {}
+      const restoredPartResults: Record<number, Record<number, string>> = {}
       const restoredPhotos: Record<number, number[]> = {}
       const restoredFeedback: Record<number, AnswerFeedback | undefined> = {}
       for (const answer of data.answers) {
         if (answer.selectedOptionId !== null) restoredChoices[answer.itemId] = answer.selectedOptionId
         if (answer.numericAnswer) restoredNumbers[answer.itemId] = answer.numericAnswer
+        if (answer.partAnswers && Object.keys(answer.partAnswers).length > 0) {
+          restoredPartResults[answer.itemId] = { ...answer.partAnswers }
+        }
         if (answer.photoIds.length > 0) restoredPhotos[answer.itemId] = answer.photoIds
         if (answer.feedback) restoredFeedback[answer.itemId] = answer.feedback
       }
       confirmed.current = { ...restoredChoices }
       sentNumbers.current = { ...restoredNumbers }
+      sentPartResults.current = Object.fromEntries(
+        Object.entries(restoredPartResults).map(([itemId, typed]) => [itemId, partResultsKey(typed)]))
       // Answers this browser made but never got onto the server (a reload while offline): shown, and sent again.
       for (const waiting of storedPending(data.attemptId)) {
-        if (waiting.optionId !== null) restoredChoices[waiting.itemId] = waiting.optionId
+        if (waiting.partValues) restoredPartResults[waiting.itemId] = { ...waiting.partValues }
+        else if (waiting.optionId !== null) restoredChoices[waiting.itemId] = waiting.optionId
         else restoredNumbers[waiting.itemId] = waiting.value ?? ''
       }
       setSelected(restoredChoices)
       setNumbers(restoredNumbers)
+      setPartResults(restoredPartResults)
       setPhotos(restoredPhotos)
       setFeedback(restoredFeedback)
       setHints(Object.fromEntries(data.revealedHints.map((r) => [r.itemId, r.hints])))
@@ -444,9 +471,32 @@ export function TakeQuizPage() {
     sync.enqueue(itemId, value.trim())
   }
 
-  /** Before handing in or leaving: a number still in its pause goes now. */
+  /**
+   * Sends an open problem's typed results - always all of them, so the server keeps exactly what the boxes show -
+   * unless that is what it already has or has on its way.
+   */
+  function commitPartResults(itemId: number, typed: Record<number, string>) {
+    window.clearTimeout(partResultTimers.current.get(itemId))
+    partResultTimers.current.delete(itemId)
+    const key = partResultsKey(typed)
+    if ((sentPartResults.current[itemId] ?? partResultsKey({})) === key) return
+    sentPartResults.current[itemId] = key
+    sync.enqueue(itemId, typedPartResults(typed))
+  }
+
+  /** A typed result saves itself after a pause, in a practice too: nothing is marked from it, so half a number is harmless. */
+  function typePartResult(itemId: number, partId: number, value: string) {
+    const typed = { ...(partResults[itemId] ?? {}), [partId]: value }
+    setPartResults((s) => ({ ...s, [itemId]: typed }))
+    setItemError(itemId, undefined)
+    window.clearTimeout(partResultTimers.current.get(itemId))
+    partResultTimers.current.set(itemId, window.setTimeout(() => commitPartResults(itemId, typed), NUMBER_PAUSE_MS))
+  }
+
+  /** Before handing in or leaving: a number or a result still in its pause goes now. */
   function commitTypedNumbers() {
     for (const itemId of numberTimers.current.keys()) commitNumber(itemId, numbers[itemId] ?? '')
+    for (const itemId of partResultTimers.current.keys()) commitPartResults(itemId, partResults[itemId] ?? {})
   }
 
   // Leaving the page during the pause: the number goes now, and nothing stays ticking behind a closed page.
@@ -797,6 +847,31 @@ export function TakeQuizPage() {
               <MathContent>{item.statement}</MathContent>
               <QuestionImage itemId={item.id} image={item.image} />
               <PartsView parts={item.parts ?? []} />
+              {(item.parts ?? []).some((part) => part.asksResult) && (
+                <div className="space-y-3" data-testid="part-results">
+                  <p className="text-sm text-muted-foreground">
+                    Pe lângă rezolvarea din poză, scrie aici rezultatul final. Punctele le primești pentru rezolvare.
+                  </p>
+                  {(item.parts ?? []).filter((part) => part.asksResult).map((part) => (
+                    <div key={part.id} className="flex flex-wrap items-start gap-2" data-testid="part-result">
+                      <label htmlFor={`part-result-${part.id}`} className="pt-1.5 text-sm font-semibold">
+                        Rezultatul la {part.label})
+                      </label>
+                      <NumberAnswer
+                        id={`part-result-${part.id}`}
+                        testId="part-result-input"
+                        label={`Rezultatul final la cerința ${part.label}), întrebarea ${labelOf.get(item.id)}`}
+                        value={partResults[item.id]?.[part.id] ?? ''}
+                        disabled={timeUp}
+                        hint="Doar numărul, fără unitate de măsură: 12, 0,5 sau 1/2."
+                        warning="Nu pare un număr. Scrie doar numărul, fără litere sau unități."
+                        onChange={(value) => typePartResult(item.id, part.id, value)}
+                        onCommit={() => commitPartResults(item.id, partResults[item.id] ?? {})}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {item.type === 'SINGLE_CHOICE' ? (
                 <div className="space-y-2">

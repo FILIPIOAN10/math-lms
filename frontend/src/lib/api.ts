@@ -655,6 +655,8 @@ export interface ItemPart {
   enChapterId?: number | null
   /** What "automatic" points at for this requirement. */
   enChapterAuto?: number | null
+  /** The final result the student is asked to type for it (a number); null/absent = none. */
+  finalAnswer?: string | null
 }
 
 /** A requirement when authoring; its letter follows from the order. */
@@ -664,7 +666,12 @@ export interface PartInput {
   solution: string | null
   /** The EN chapter page for this requirement; null/absent = automatic. */
   enChapterId?: number | null
+  /** The final result the student is asked to type (a number); null/blank = none. */
+  finalAnswer?: string | null
 }
+
+/** What the result typed for a requirement says against the barem's: only a hint for whoever grades the photo. */
+export type ResultCheck = 'RIGHT' | 'WRONG' | 'MISSING'
 
 /** A requirement on a paper being graded or graded: its barem and the points given (null = not yet). */
 export interface GradedPart {
@@ -676,6 +683,12 @@ export interface GradedPart {
   awardedPoints: number | null
   /** The EN chapter page to open when points were lost here; null/absent = none. */
   enChapter?: EnChapterLink | null
+  /** The final result the student typed; null/absent = none (or the requirement asks for none). */
+  typedResult?: string | null
+  /** The barem's result; null/absent = none asked, or hidden while the test can be handed in again. */
+  expectedResult?: string | null
+  /** The two compared by value; null/absent = nothing to compare (not asked, or hidden). */
+  resultCheck?: ResultCheck | null
 }
 
 export interface QuizDetail {
@@ -1460,8 +1473,8 @@ export interface StudentItemDto {
   section?: string | null
   /** The picture under the statement: a version token for questionImageUrl(), or null/absent = none. */
   image?: string | null
-  /** An open problem's requirements a), b)... (no barem); empty/absent = none. */
-  parts?: { id: number; label: string; statement: string; points: number }[]
+  /** An open problem's requirements a), b)... (no barem); empty/absent = none. `asksResult`: type its final result. */
+  parts?: { id: number; label: string; statement: string; points: number; asksResult?: boolean }[]
 }
 
 export interface StudentQuizDetailDto {
@@ -1502,6 +1515,8 @@ export interface SavedAnswerDto {
   photoIds: number[]
   /** The number typed for a numeric question; null/absent = none. */
   numericAnswer?: string | null
+  /** The final results typed for an open problem's requirements, by part id; empty/absent = none. */
+  partAnswers?: Record<number, string>
 }
 
 /** One revealed hint: its 1-based number, its text and how many hints the item has in all. */
@@ -1796,10 +1811,12 @@ async function feedbackOrNull(response: Response): Promise<AnswerFeedback | null
 export async function saveQuizAnswer(
   attemptId: number,
   itemId: number,
-  answer: number | string, // the option picked, or the number typed
+  // The option picked, the number typed, or an open problem's typed results by part id (always the whole set).
+  answer: number | string | Record<number, string>,
   client?: { clientId: string; clientSeq: number },
 ): Promise<AnswerFeedback | null> {
-  const body = typeof answer === 'string' ? { value: answer } : { optionId: answer }
+  const body = typeof answer === 'string' ? { value: answer }
+    : typeof answer === 'number' ? { optionId: answer } : { partValues: answer }
   return feedbackOrNull(await putJson(`/quiz/attempts/${attemptId}/responses/${itemId}`, { ...body, ...client }))
 }
 

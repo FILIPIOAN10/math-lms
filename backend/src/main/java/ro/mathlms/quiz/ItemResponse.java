@@ -108,6 +108,16 @@ public class ItemResponse {
     @Column(name = "points")
     private Map<Long, Integer> partPoints = new HashMap<>();
 
+    /**
+     * The final result the student typed for a requirement that asks for one, by part id, as written (V72). Never
+     * points: {@link ResultCheck} only compares it with the barem's result, for the teacher who grades the photo.
+     */
+    @ElementCollection
+    @CollectionTable(name = "response_part_answers", joinColumns = @JoinColumn(name = "response_id"))
+    @MapKeyColumn(name = "part_id")
+    @Column(name = "answer", length = NumericAnswer.MAX_LENGTH)
+    private Map<Long, String> partAnswers = new HashMap<>();
+
     public ItemResponse(QuizAttempt attempt, QuizItem item) {
         this.attempt = Objects.requireNonNull(attempt, "attempt");
         this.item = Objects.requireNonNull(item, "item");
@@ -150,6 +160,45 @@ public class ItemResponse {
         this.clientId = fromClient;
         this.clientSeq = fromClient == null ? null : seq;
         return true;
+    }
+
+    /**
+     * Records the final results typed for an OPEN problem's requirements. {@code values} is the whole set, by part id:
+     * a requirement left out, or blank, has no result any more. The whole set and not one result at a time, so the
+     * one late-retry rule of a choice holds here too (two results of the same problem never race each other). Only a
+     * requirement of this problem that asks for a result may have one. Returns whether it was applied.
+     */
+    public boolean answerParts(List<QuizItemPart> parts, Map<Long, String> values, UUID fromClient, Long seq) {
+        requireType(QuizItemType.OPEN);
+        Objects.requireNonNull(values, "values");
+        for (Map.Entry<Long, String> typed : values.entrySet()) {
+            QuizItemPart part = parts.stream().filter(p -> Objects.equals(p.getId(), typed.getKey())).findFirst()
+                    .orElseThrow(() -> new IllegalArgumentException("part " + typed.getKey() + " is not one of this item's"));
+            if (!part.asksResult()) {
+                throw new IllegalArgumentException("part " + part.label() + " asks for no result");
+            }
+            if (typed.getValue() != null && typed.getValue().strip().length() > NumericAnswer.MAX_LENGTH) {
+                throw new IllegalArgumentException("a result has at most " + NumericAnswer.MAX_LENGTH + " characters");
+            }
+        }
+        if (isStale(fromClient, seq)) {
+            return false;
+        }
+        partAnswers.clear();
+        values.forEach((partId, value) -> {
+            String written = value == null ? "" : value.strip();
+            if (!written.isEmpty()) {
+                partAnswers.put(partId, written);
+            }
+        });
+        this.clientId = fromClient;
+        this.clientSeq = fromClient == null ? null : seq;
+        return true;
+    }
+
+    /** Whether the student typed the result of some requirement (with or without a photo yet). */
+    public boolean hasPartAnswers() {
+        return !partAnswers.isEmpty();
     }
 
     private boolean isStale(UUID fromClient, Long seq) {

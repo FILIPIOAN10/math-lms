@@ -98,6 +98,30 @@ function startedNumeric(mode: AttemptMode = 'TEST', answers: StartedAttemptDto['
   }
 }
 
+/** A test with one Subiectul III problem: a) "Arată că…" asks for no result, b) and c) ask for one. */
+function startedParts(mode: AttemptMode = 'TEST', answers: StartedAttemptDto['answers'] = []): StartedAttemptDto {
+  return {
+    attemptId: 50, status: 'IN_PROGRESS', mode, deadlineAt: null, serverNow: '2026-10-04T12:00:00Z', answers, revealedHints: [],
+    quiz: {
+      id: 7, title: 'Simulare EN', description: null, timeLimitMinutes: null,
+      items: [{
+        id: 300, position: 1, type: 'OPEN', statement: 'Se consideră numerele x și y.', points: 7, hintCount: 0, options: [],
+        parts: [
+          { id: 31, label: 'a', statement: 'Arată că x = 25.', points: 2, asksResult: false },
+          { id: 32, label: 'b', statement: 'Calculează aria.', points: 3, asksResult: true },
+          { id: 33, label: 'c', statement: 'Determină y.', points: 2, asksResult: true },
+        ],
+      }],
+    },
+  }
+}
+
+async function beginParts(answer: StartedAttemptDto, label = 'Începe testul') {
+  api.startQuizAttempt.mockResolvedValue(answer)
+  await userEvent.click(await screen.findByRole('button', { name: label }))
+  return screen.findAllByTestId('part-result-input')
+}
+
 async function beginNumeric(answer: StartedAttemptDto, label: string) {
   api.startQuizAttempt.mockResolvedValue(answer)
   await userEvent.click(await screen.findByRole('button', { name: label }))
@@ -139,6 +163,91 @@ describe('TakeQuizPage', () => {
     api.getQuizPreview.mockResolvedValue(preview())
     api.getMyAssignments.mockResolvedValue([])
     localStorage.clear() // the answer queue of attempt 50 must not leak from one test into the next
+  })
+
+  describe('final result of a requirement (V72)', () => {
+    it('asks for a result only where the teacher expects one, and sends all the typed results together', async () => {
+      api.saveQuizAnswer.mockResolvedValue(null)
+      renderPage('')
+      const [b, c] = await beginParts(startedParts())
+
+      expect(screen.getAllByTestId('part-result-input')).toHaveLength(2) // not for a) "Arată că…"
+      expect(screen.getByLabelText(/Rezultatul final la cerința b\)/)).toBe(b)
+      expect(screen.queryByLabelText(/Rezultatul final la cerința a\)/)).not.toBeInTheDocument()
+
+      await userEvent.type(b, ' 24 ')
+      await userEvent.tab()
+      await waitFor(() => expect(api.saveQuizAnswer).toHaveBeenCalledWith(50, 300, { 32: '24' }, expect.objectContaining({ clientSeq: 1 })))
+
+      await userEvent.type(c, '1/2')
+      await userEvent.tab()
+      // The whole set again, so the server keeps exactly what the boxes show.
+      await waitFor(() => expect(api.saveQuizAnswer).toHaveBeenLastCalledWith(50, 300, { 32: '24', 33: '1/2' }, expect.objectContaining({ clientSeq: 2 })))
+      // The photo is the answer: a typed result alone does not make the problem "answered".
+      expect(screen.queryByRole('button', { name: /Întrebarea 1, cu răspuns/ })).not.toBeInTheDocument()
+    })
+
+    it('saves by itself after a pause and does not send the same results twice', async () => {
+      api.saveQuizAnswer.mockResolvedValue(null)
+      renderPage('')
+      const [b] = await beginParts(startedParts())
+
+      await userEvent.type(b, '24')
+      await waitFor(() => expect(api.saveQuizAnswer).toHaveBeenCalledWith(50, 300, { 32: '24' }, expect.anything()), { timeout: 2000 })
+      await userEvent.tab() // leaving the box with nothing new
+
+      expect(api.saveQuizAnswer).toHaveBeenCalledTimes(1)
+    })
+
+    it('wiping a box takes that result back', async () => {
+      api.saveQuizAnswer.mockResolvedValue(null)
+      renderPage('')
+      const [b] = await beginParts(startedParts('TEST', [
+        { itemId: 300, selectedOptionId: null, photoUploaded: false, feedback: null, photoIds: [], partAnswers: { 32: '24', 33: '5' } },
+      ]))
+
+      expect(b).toHaveValue('24') // what was saved comes back when the test is resumed
+      expect(screen.getAllByTestId('part-result-input')[1]).toHaveValue('5')
+      await userEvent.clear(b)
+      await userEvent.tab()
+
+      await waitFor(() => expect(api.saveQuizAnswer).toHaveBeenCalledWith(50, 300, { 33: '5' }, expect.anything()))
+    })
+
+    it('warns about a result with a unit, and hands in one still in its pause', async () => {
+      api.saveQuizAnswer.mockResolvedValue(null)
+      api.submitQuizAttempt.mockResolvedValue({ attemptId: 50, status: 'SUBMITTED', autoScore: 0, autoMaxScore: 0, finalScore: null })
+      renderPage('')
+      const [b] = await beginParts(startedParts())
+
+      await userEvent.type(b, '24 cm')
+      expect(screen.getByText(/Scrie doar numărul, fără litere sau unități/)).toBeInTheDocument()
+
+      await userEvent.click(screen.getByTestId('quiz-submit'))
+      // No photo yet, so the dialog still counts the problem as unanswered: a typed result is not the answer.
+      await userEvent.click(await screen.findByRole('button', { name: 'Trimite oricum' }))
+
+      await screen.findByText('rezultatul')
+      expect(api.saveQuizAnswer).toHaveBeenCalledWith(50, 300, { 32: '24 cm' }, expect.anything())
+    })
+
+    it('in a practice the typed results leave the barem the photo brought in place', async () => {
+      api.saveQuizAnswer.mockResolvedValue(null)
+      renderPage('?mode=practice')
+      const [b] = await beginParts(startedParts('PRACTICE', [
+        {
+          itemId: 300, selectedOptionId: null, photoUploaded: true, photoIds: [41],
+          feedback: { correct: null, correctOptionId: null, solution: 'Baremul problemei' } as AnswerFeedback,
+        },
+      ]), 'Începe exersarea')
+      expect(screen.getByText('Baremul problemei')).toBeInTheDocument()
+
+      await userEvent.type(b, '24')
+      await userEvent.tab()
+
+      await waitFor(() => expect(api.saveQuizAnswer).toHaveBeenCalledWith(50, 300, { 32: '24' }, expect.anything()))
+      expect(screen.getByText('Baremul problemei')).toBeInTheDocument()
+    })
   })
 
   describe('numeric question', () => {
