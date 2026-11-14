@@ -43,6 +43,16 @@ public class EnMasteryController {
         return service.forStudent(student);
     }
 
+    /** „La ce stau prost?": the student's weakest EN chapters, from their own answers only. */
+    @GetMapping("/api/quiz/weak-spots")
+    @PreAuthorize("hasRole('STUDENT')")
+    public List<EnMasteryService.WeakSpotDto> weakSpots(Authentication auth) {
+        User student = userRepository.findByEmail(auth.getName())
+                .filter(u -> u.getRole() == Role.STUDENT)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        return service.weakSpots(student);
+    }
+
     @GetMapping("/api/parent/children/{studentId}/en-mastery")
     @PreAuthorize("hasRole('PARENT')")
     public List<EnChapterMasteryDto> child(@PathVariable Long studentId, Authentication auth) {

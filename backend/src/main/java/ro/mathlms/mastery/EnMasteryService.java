@@ -1,5 +1,6 @@
 package ro.mathlms.mastery;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ro.mathlms.content.ContentNotFoundException;
@@ -10,6 +11,7 @@ import ro.mathlms.enchapter.EnArea;
 import ro.mathlms.enchapter.EnChapter;
 import ro.mathlms.enchapter.EnChapterRepository;
 import ro.mathlms.enchapter.EnChapterService;
+import ro.mathlms.enchapter.LessonLinks;
 import ro.mathlms.mastery.MasteryCalculator.Answer;
 import ro.mathlms.mastery.MasteryCalculator.Tally;
 import ro.mathlms.mastery.MasteryDtos.CellDto;
@@ -25,10 +27,12 @@ import ro.mathlms.quiz.QuizItem;
 import ro.mathlms.quiz.QuizItemPart;
 import ro.mathlms.quiz.QuizItemPartRepository;
 import ro.mathlms.quiz.QuizItemRepository;
+import ro.mathlms.review.Confidence;
 import ro.mathlms.review.ReviewAnswer;
 import ro.mathlms.review.ReviewAnswerRepository;
 import ro.mathlms.user.User;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -55,6 +59,15 @@ public class EnMasteryService {
                                       Integer percent, int questions, boolean ready) {
     }
 
+    /**
+     * „La ce stau prost?": one of the student's weakest EN chapters. {@code lessonChapterId} is the page to open (a
+     * section opens its chapter, scrolled to {@code lessonSectionId}); {@code ready} = that page has content to read.
+     */
+    public record WeakSpotDto(Long chapterId, String code, String title, int percent, int questions, int recentWrong,
+                              int recentAnswered, int sureWrong, Instant lastAnsweredAt, Long lessonChapterId,
+                              Long lessonSectionId, boolean ready) {
+    }
+
     /** A column of the teacher's grid. */
     public record EnChapterRefDto(Long id, String code, String title, EnArea area) {
     }
@@ -73,6 +86,15 @@ public class EnMasteryService {
     private final QuizItemPartRepository partRepository;
     private final ItemResponseRepository responseRepository;
     private final ReviewAnswerRepository reviewAnswerRepository;
+    private LessonLinks lessonLinks;
+    private Clock clock = Clock.systemUTC();
+
+    /** „La ce stau prost?": set by Spring (setter, so the existing constructor and its callers stay as they are). */
+    @Autowired
+    void useForWeakSpots(LessonLinks lessonLinks, Clock clock) {
+        this.lessonLinks = lessonLinks;
+        this.clock = clock;
+    }
 
     public EnMasteryService(EnrollmentRepository enrollmentRepository, SchoolClassRepository schoolClassRepository,
                             EnChapterRepository chapterRepository, EnChapterService chapterService, EnChapterLinks links,
@@ -104,6 +126,56 @@ public class EnMasteryService {
                             t.possible(), t.percent(), t.questions(), ready.contains(c.getId()));
                 })
                 .toList();
+    }
+
+    /** „La ce stau prost?": the student's weakest EN chapters ({@link WeakSpots}), weakest first, with their lessons. */
+    @Transactional(readOnly = true)
+    public List<WeakSpotDto> weakSpots(User student) {
+        List<WeakSpots.Spot> spots = WeakSpots.rank(answersOf(List.of(student.getId())), sureWrong(student), clock.instant());
+        if (spots.isEmpty()) {
+            return List.of();
+        }
+        Set<Long> ready = chapterService.readyIds();
+        Map<Long, EnChapter> chapters = chapterRepository.findAllById(spots.stream().map(WeakSpots.Spot::chapterId).toList())
+                .stream().collect(Collectors.toMap(EnChapter::getId, Function.identity()));
+        List<WeakSpotDto> result = new ArrayList<>();
+        for (WeakSpots.Spot spot : spots) {
+            EnChapter chapter = chapters.get(spot.chapterId());
+            if (chapter == null) {
+                continue;
+            }
+            LessonLinks.LessonLinkDto lesson = lessonLinks.ofId(chapter.getId(), chapter.getBookPage()).orElse(null);
+            Long page = lesson == null ? chapter.getId() : lesson.chapterId();
+            result.add(new WeakSpotDto(chapter.getId(), chapter.getCode(), chapter.getTitle(), spot.percent(),
+                    spot.questions(), spot.recentWrong(), spot.recentAnswered(), spot.sureWrong(), spot.lastAnsweredAt(),
+                    page, lesson == null ? null : lesson.sectionId(), ready.contains(page) || ready.contains(chapter.getId())));
+        }
+        return result;
+    }
+
+    /** Per EN chapter, the daily-review answers given with "Știu sigur" that were wrong (V68). */
+    private Map<Long, Integer> sureWrong(User student) {
+        List<ReviewAnswer> confident = reviewAnswerRepository.findByStudentIdIn(List.of(student.getId())).stream()
+                .filter(r -> !r.isCorrect() && r.getConfidence() == Confidence.SURE).toList();
+        if (confident.isEmpty()) {
+            return Map.of();
+        }
+        Set<Long> quizIds = confident.stream().map(r -> r.getItem().getQuiz().getId()).collect(Collectors.toSet());
+        Map<Long, List<QuizItem>> itemsByQuiz = itemRepository.findByQuizIdIn(quizIds).stream()
+                .sorted(Comparator.comparingInt(QuizItem::getPosition).thenComparing(QuizItem::getId))
+                .collect(Collectors.groupingBy(i -> i.getQuiz().getId()));
+        EnChapterLinks.Snapshot snapshot = links.snapshot();
+        Map<Long, EnChapterLinks.Resolved> byQuiz = new HashMap<>();
+        Map<Long, Integer> counts = new HashMap<>();
+        for (ReviewAnswer review : confident) {
+            Long quizId = review.getItem().getQuiz().getId();
+            EnChapter chapter = byQuiz.computeIfAbsent(quizId,
+                    q -> snapshot.resolve(itemsByQuiz.getOrDefault(q, List.of()))).itemChapter(review.getItem());
+            if (chapter != null) {
+                counts.merge(chapter.getId(), 1, Integer::sum);
+            }
+        }
+        return counts;
     }
 
     /** The teacher's grid: the class's students (alphabetical) × the EN chapters any of them has met. */

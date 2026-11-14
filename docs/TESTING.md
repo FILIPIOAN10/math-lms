@@ -1328,6 +1328,28 @@ vedea elevul, fără copii, neindexat, verificarea răspunsului), `SimilarIndexJ
 (pytest: un embedding pe enunț, a doua rulare doar ce s-a schimbat, alt model → reindexare, simulare, ruta HTTP),
 `SimilarPractice.test.tsx` (Vitest).
 
+### 60. „La ce stau prost?” pe pagina principală a elevului — ca elev
+Un card cu cel mult 3 capitole EN la care elevul stă cel mai prost, calculate doar din răspunsurile lui (fără AI, nimic
+trimis la Google). Un capitol intră sub 70% din puncte (ultimul răspuns la fiecare întrebare, ca pe hartă) și doar dacă
+are cel puțin 2 întrebări. Cel mai slab primul; la egalitate, cel cu mai multe greșeli date cu „Știu sigur”. Pentru
+fiecare: de ce, în cifre, plus **Deschide lecția** (doar dacă pagina are conținut) și **Exersează capitolul**.
+
+| # | Ce faci | Ce trebuie să vezi |
+|---|---|---|
+| 1 | Elev nou, fără niciun răspuns → pagina principală | „La ce stau prost?” cu „Nu ai niciun capitol sub 70%…” |
+| 2 | Predă un test cu grile legate de capitole EN, greșind 2 din 3 la un capitol | Capitolul apare: „Ai 33% din puncte, din 3 întrebări. În ultimele 2 săptămâni ai greșit 2 din 3.” |
+| 3 | Greșește o singură întrebare la alt capitol | Nu apare (o singură întrebare nu spune nimic) |
+| 4 | La recapitulare, răspunde greșit cu **Știu sigur** la o întrebare din capitol | Apare „O dată ai zis „Știu sigur” și era greșit.” |
+| 5 | Patru capitole slabe | Doar cele mai slabe 3, cel mai slab primul |
+| 6 | **Deschide lecția** la o secțiune | Se deschide capitolul ei, derulat la secțiune |
+| 7 | **Exersează capitolul** | Exersarea pe capitol (`/capitole/<id>/exersare`) |
+| 8 | Refă întrebările greșite corect (exersare sau recapitulare) | Procentul crește; peste 70% capitolul dispare |
+| 9 | Ca profesor: `GET /api/quiz/weak-spots` | 403 |
+
+**Teste automate:** `WeakSpotsTest` (ordinea, pragurile, ultimul răspuns, „Știu sigur”), `WeakSpotsIntegrationTest`
+(Testcontainers: date reale, secțiune → capitol, fără răspunsuri, doar elevul), `weakSpots.test.ts` și
+`WeakSpotsSection.test.tsx` (Vitest).
+
 ## E. Debugging — unde te uiți când pică ceva
 
 ```bash

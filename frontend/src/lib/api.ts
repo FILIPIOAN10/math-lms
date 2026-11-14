@@ -2670,3 +2670,26 @@ export async function answerSimilar(itemId: number, optionId: number): Promise<C
   const response = await postJson(`/quiz/practice/items/${itemId}/answer`, { optionId })
   return response.json()
 }
+
+// ---------- „La ce stau prost?": the student's weakest EN chapters, from their own answers (no AI) ----------
+
+/** `lessonChapterId` is the page to open (a section opens its chapter at `lessonSectionId`); `ready` = it has content. */
+export interface WeakSpot {
+  chapterId: number
+  code: string
+  title: string
+  percent: number
+  questions: number
+  recentWrong: number
+  recentAnswered: number
+  sureWrong: number
+  lastAnsweredAt: string | null
+  lessonChapterId: number
+  lessonSectionId: number | null
+  ready: boolean
+}
+
+export async function getWeakSpots(): Promise<WeakSpot[]> {
+  const response = await apiFetch('/quiz/weak-spots')
+  return response.json()
+}

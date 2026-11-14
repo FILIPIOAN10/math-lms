@@ -28,6 +28,7 @@ import { ClockLine, ClockPill } from '@/components/TestClock'
 import { clockNote, runningClock } from '@/lib/countdown'
 import { useNow } from '@/lib/useNow'
 import { cn } from '@/lib/utils'
+import { WeakSpotsSection } from '@/components/WeakSpotsSection'
 
 interface StudentData {
   assignments: StudentAssignment[]
@@ -223,6 +224,7 @@ export function StudentHome() {
           </Card>
         </HomeSection>
       )}
+      <WeakSpotsSection />
       <HomeSection
         title="Rezultate"
         action={
