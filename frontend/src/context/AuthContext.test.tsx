@@ -88,9 +88,13 @@ describe('AuthProvider', () => {
   })
 
   it('tries again as soon as the device is back online', async () => {
+    const listening = vi.spyOn(window, 'addEventListener')
     api.getCurrentUser.mockRejectedValue(new TypeError('Failed to fetch'))
     renderApp()
     await screen.findByTestId('server-unreachable')
+    // The screen paints before the effect that listens for "online" runs: on a slow CI runner an event sent in
+    // between was lost and the test failed now and then. Send it only once someone is listening.
+    await waitFor(() => expect(listening).toHaveBeenCalledWith('online', expect.any(Function)))
 
     api.getCurrentUser.mockResolvedValue(student)
     act(() => {
