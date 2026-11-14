@@ -7,15 +7,12 @@ import ro.mathlms.enchapter.EnChapter;
 import ro.mathlms.enchapter.EnChapterNotFoundException;
 import ro.mathlms.enchapter.EnChapterRepository;
 import ro.mathlms.quiz.AnswerKeys;
-import ro.mathlms.quiz.AttemptMode;
 import ro.mathlms.quiz.EnChapterLinks;
 import ro.mathlms.quiz.ItemResponse;
 import ro.mathlms.quiz.ItemResponseRepository;
-import ro.mathlms.quiz.Quiz;
 import ro.mathlms.quiz.QuizAttempt;
 import ro.mathlms.quiz.QuizAttemptRepository;
 import ro.mathlms.quiz.QuizAttemptService;
-import ro.mathlms.quiz.QuizAttemptStatus;
 import ro.mathlms.quiz.QuizItem;
 import ro.mathlms.quiz.QuizItemRepository;
 import ro.mathlms.quiz.QuizItemType;
@@ -57,7 +54,6 @@ public class ChapterPracticeService {
 
     private final UserRepository userRepository;
     private final EnChapterRepository chapterRepository;
-    private final QuizAttemptService quizAttemptService;
     private final QuizAttemptRepository attemptRepository;
     private final QuizItemRepository itemRepository;
     private final QuizOptionRepository optionRepository;
@@ -65,7 +61,7 @@ public class ChapterPracticeService {
     private final ItemResponseRepository responseRepository;
     private final ReviewAnswerRepository reviewAnswerRepository;
     private final EnChapterLinks enChapterLinks;
-    private final AnswerKeys answerKeys;
+    private final PracticePool practicePool;
 
     public ChapterPracticeService(UserRepository userRepository, EnChapterRepository chapterRepository,
                                   QuizAttemptService quizAttemptService, QuizAttemptRepository attemptRepository,
@@ -76,14 +72,13 @@ public class ChapterPracticeService {
         this.practiceQuestions = new PracticeQuestions(optionRepository, hintRepository);
         this.userRepository = userRepository;
         this.chapterRepository = chapterRepository;
-        this.quizAttemptService = quizAttemptService;
         this.attemptRepository = attemptRepository;
         this.itemRepository = itemRepository;
         this.optionRepository = optionRepository;
         this.responseRepository = responseRepository;
         this.reviewAnswerRepository = reviewAnswerRepository;
         this.enChapterLinks = enChapterLinks;
-        this.answerKeys = new AnswerKeys(quizRepository);
+        this.practicePool = new PracticePool(quizAttemptService, quizRepository);
     }
 
     @Transactional(readOnly = true)
@@ -132,19 +127,7 @@ public class ChapterPracticeService {
      * {@code onlyQuizId}: just that test's grile (checking one answer), null = every test.
      */
     private List<QuizItem> pool(User student, EnChapter chapter, List<QuizAttempt> attempts, Long onlyQuizId) {
-        Set<Long> handedIn = attempts.stream()
-                .filter(a -> a.getMode() == AttemptMode.TEST && a.getStatus() != QuizAttemptStatus.IN_PROGRESS)
-                .map(a -> a.getQuiz().getId()).collect(Collectors.toSet());
-        Set<Long> running = attempts.stream()
-                .filter(a -> a.getMode() == AttemptMode.TEST && a.getStatus() == QuizAttemptStatus.IN_PROGRESS)
-                .map(a -> a.getQuiz().getId()).collect(Collectors.toSet());
-        Set<Long> keyHidden = answerKeys.hiddenQuizzes(attempts).getOrDefault(student.getId(), Set.of());
-        Set<Long> quizIds = quizAttemptService.listPublished(student.getEmail()).stream()
-                .filter(q -> onlyQuizId == null || onlyQuizId.equals(q.getId()))
-                .filter(q -> !running.contains(q.getId()))
-                .filter(q -> q.isPracticeAllowed() || (handedIn.contains(q.getId()) && !keyHidden.contains(q.getId())))
-                .map(Quiz::getId)
-                .collect(Collectors.toSet());
+        Set<Long> quizIds = practicePool.quizIds(student, attempts, onlyQuizId);
         if (quizIds.isEmpty()) {
             return List.of();
         }

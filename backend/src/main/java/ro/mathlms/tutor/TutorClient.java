@@ -80,6 +80,10 @@ public class TutorClient {
                                @JsonProperty("cost_usd") double costUsd) {
     }
 
+    /** What {@code POST /similar-index} did: statements embedded now, left as they were, rows dropped. */
+    public record IndexReport(int inserted, int unchanged, int removed) {
+    }
+
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
     private final String token;
@@ -129,6 +133,15 @@ public class TutorClient {
             throw new TutorException(FAILED);
         }
         return answer;
+    }
+
+    /** „Dă-mi una asemănătoare": embeds the questions and examples that are new or changed since the last run. */
+    public IndexReport indexSimilar() {
+        IndexReport report = post("/similar-index", java.util.Map.of(), IndexReport.class);
+        if (report == null) {
+            throw new TutorException(FAILED);
+        }
+        return report;
     }
 
     private <T> T post(String path, Object body, Class<T> type) {

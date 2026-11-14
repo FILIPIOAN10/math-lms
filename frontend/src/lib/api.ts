@@ -2634,3 +2634,39 @@ export async function listExplanationRequests(): Promise<ExplanationRequestsRow[
   const response = await apiFetch('/admin/explanation-requests')
   return response.json()
 }
+
+// ---------- „Dă-mi una asemănătoare": the nearest grile and worked examples by meaning (search only) ----------
+
+/** A worked example of an EN chapter page: `chapterId` owns its picture, `lesson` is where to read it. */
+export interface SimilarExample {
+  id: number
+  chapterId: number
+  statement: string
+  solution: string
+  image: string | null
+  lesson: TutorLessonLink | null
+}
+
+/** QUESTION: a grilă to answer (`question`); EXAMPLE: a worked example (`example`). */
+export interface SimilarEntry {
+  kind: 'QUESTION' | 'EXAMPLE'
+  question: ReviewQuestion | null
+  example: SimilarExample | null
+}
+
+/** `indexed` false = the question has no embedding yet (the nightly indexing has not seen it). */
+export interface SimilarPractice {
+  indexed: boolean
+  entries: SimilarEntry[]
+}
+
+export async function getSimilar(itemId: number): Promise<SimilarPractice> {
+  const response = await apiFetch(`/quiz/items/${itemId}/similar`)
+  return response.json()
+}
+
+/** Checks one answer to a similar grilă at once; nothing is stored. */
+export async function answerSimilar(itemId: number, optionId: number): Promise<ChapterPracticeResult> {
+  const response = await postJson(`/quiz/practice/items/${itemId}/answer`, { optionId })
+  return response.json()
+}

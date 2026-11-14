@@ -217,6 +217,14 @@ app:
     # text goes to the model provider (check its terms for apps used by minors first). Questions per student per day.
     student-enabled: ${TUTOR_STUDENT_ENABLED:false}
     student-daily-limit: ${TUTOR_STUDENT_DAILY_LIMIT:20}
+    # „Dă-mi una asemănătoare": when the tutor embeds the new or changed statements (questions + worked examples).
+    similar-index-cron: ${TUTOR_SIMILAR_INDEX_CRON:0 30 3 * * *}
+  # „Dă-mi una asemănătoare": the nearest grile/examples by cosine distance (similar_index, V71). Closer than min = a copy
+  # of the same question (nothing new to practise); farther than max = not similar enough to show. Measured for neither
+  # model yet: re-check max on real data once the bank is indexed.
+  similar:
+    min-distance: ${SIMILAR_MIN_DISTANCE:0.02}
+    max-distance: ${SIMILAR_MAX_DISTANCE:0.5}
 
 # Rate limiting (Phase 6.1): per-endpoint fixed windows in Redis, rules in RateLimitConfig.
 rate:

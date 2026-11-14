@@ -1300,6 +1300,34 @@ obicei „Nu am asta în manual.”, iar profesorul scrie explicația de mână.
 elevii o văd, reguli 409/404, propunerea din lecții, GDPR), `MistakeDraftServiceTest`, `tutor/tests/test_mistake.py` +
 `test_api.py` (pytest), `WhyWrong.test.tsx`, `MistakeEditor.test.tsx`, `ExplanationRequestsSection.test.tsx` (Vitest).
 
+### 59. „Dă-mi una asemănătoare” pe pagina de rezultat (V71) — ca elev
+Sub o întrebare greșită, butonul **Dă-mi una asemănătoare** aduce până la 3 grile și exemple rezolvate apropiate ca sens,
+cele mai apropiate primele: grilele doar din testele pe care elevul are voie să le exerseze (predate fără încercări
+rămase sau deschise pentru exersare, niciodată unul nescris încă), exemplele din lecțiile EN. E doar căutare prin
+embedding-uri calculate dinainte, fără text generat. Răspunsurile se verifică pe loc și nu se salvează nicăieri.
+
+**Pregătire:** embedding-urile se calculează de tutor: `cd tutor && uv run python -X utf8 -m tutor.similar_index --dry-run`
+(arată câte ar face), apoi fără `--dry-run` (plătit, câțiva cenți pentru toată banca). Cu `TUTOR_ENABLED=true` backend-ul
+o face singur în fiecare noapte la 03:30. Ai nevoie de cel puțin o întrebare apropiată într-un test exersabil.
+
+| # | Ce faci | Ce trebuie să vezi |
+|---|---|---|
+| 1 | Elev → rezultatul unui test → o întrebare greșită | Butonul **Dă-mi una asemănătoare** (nu și la cele corecte) |
+| 2 | Înainte de indexare, apasă-l | „Încă nu am căutat exerciții asemănătoare pentru această întrebare. Revino mâine.” |
+| 3 | Rulează indexarea, reîncarcă, apasă din nou | „Întrebarea 1 din N”: o grilă apropiată ca sens, cu variantele, fără răspuns marcat |
+| 4 | Alege o variantă → **Verifică** | Corect/greșit pe loc, cu rezolvarea (la greșit, încă o încercare, ca la exersare) |
+| 5 | **Următoarea** până la un exemplu rezolvat | „Exemplul … din …”, enunțul; **Arată rezolvarea** o afișează; **Deschide lecția …** duce la capitol |
+| 6 | Un test pe care elevul nu l-a scris încă (fără exersare permisă) are o întrebare foarte apropiată | Nu apare niciodată |
+| 7 | Aceeași întrebare copiată în alt test | Nu apare (nu e nimic nou de exersat) |
+| 8 | Ca alt elev, `GET /api/quiz/items/<id>/similar` pentru o întrebare dintr-un test pe care nu l-a dat | 404 |
+| 9 | Schimbă enunțul unei întrebări, rulează indexarea din nou | „Noi: 1, neschimbate: …”: doar enunțul schimbat se trimite din nou |
+| 10 | În DB: `SELECT count(*) FROM similar_index;` | Câte un rând pe întrebare și pe exemplu |
+
+**Teste automate:** `SimilarPracticeIntegrationTest` (Testcontainers + pgvector: ordinea după distanță, doar ce poate
+vedea elevul, fără copii, neindexat, verificarea răspunsului), `SimilarIndexJobTest`, `tutor/tests/test_similar_index.py`
+(pytest: un embedding pe enunț, a doua rulare doar ce s-a schimbat, alt model → reindexare, simulare, ruta HTTP),
+`SimilarPractice.test.tsx` (Vitest).
+
 ## E. Debugging — unde te uiți când pică ceva
 
 ```bash

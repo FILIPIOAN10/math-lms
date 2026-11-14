@@ -1,6 +1,7 @@
 package ro.mathlms.review;
 
 import ro.mathlms.enchapter.EnChapterLinkDto;
+import ro.mathlms.enchapter.LessonLinks;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -67,5 +68,21 @@ public final class ReviewDtos {
     /** One row of the teacher's class view. */
     public record StudentReviewStatusDto(Long studentId, String fullName, int doneToday, int remainingToday, int streak,
                                          int totalCards, int mastered, LocalDate lastReviewOn) {
+    }
+
+    /**
+     * „Dă-mi una asemănătoare": the nearest grile and worked examples by meaning, nearest first. {@code indexed} false =
+     * the question has no embedding yet (the nightly indexing has not seen it), so nothing could be searched.
+     */
+    public record SimilarPracticeDto(boolean indexed, List<SimilarEntryDto> entries) {
+    }
+
+    /** {@code kind} QUESTION (a grilă to answer, {@code question} set) or EXAMPLE (a worked example, {@code example} set). */
+    public record SimilarEntryDto(String kind, ReviewQuestionDto question, SimilarExampleDto example) {
+    }
+
+    /** A worked example of an EN chapter page: {@code chapterId} owns its picture, {@code lesson} is where to read it. */
+    public record SimilarExampleDto(Long id, Long chapterId, String statement, String solution, String image,
+                                    LessonLinks.LessonLinkDto lesson) {
     }
 }

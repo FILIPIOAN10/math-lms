@@ -20,6 +20,7 @@ import { celebrateFirstTen } from '@/lib/celebrate'
 import { chapterExercisesHref, missed, mistakesOf, practiceMistakesHref } from '@/lib/mistakes'
 import { MistakeNote } from '@/components/MistakeNote'
 import { WhyWrongButton } from '@/components/WhyWrongButton'
+import { SimilarPractice } from '@/components/SimilarPractice'
 import { RevisionNote } from '@/components/RevisionNote'
 import { revisionLinks } from '@/lib/enChapters'
 
@@ -217,6 +218,7 @@ function ItemResult({
           && !item.mistake && (
           <WhyWrongButton attemptId={attemptId} itemId={item.itemId} requested={item.explanationRequested ?? false} />
         )}
+        {own && missed(item) && <SimilarPractice itemId={item.itemId} />}
 
         {(revisionLinks(item).length > 0 || exercises) && (
           <div className="space-y-3" data-testid="revision-links">

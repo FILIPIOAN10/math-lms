@@ -273,3 +273,9 @@ capitolului **doar unde profesorul nu a scris deja**. Merge numai cu `FILE_STORA
 ajunge la furnizorul modelului (Gemini prin Vertex AI): pornește-o doar după ce ai verificat termenii furnizorului pentru
 aplicații folosite de minori și ai trecut asta în nota de informare. Fără lecții încărcate în `tutor_chunks`, caseta
 răspunde aproape mereu „Nu am asta în manual.”.
+
+**„Dă-mi una asemănătoare”** (V71) caută prin embedding-urile enunțurilor (întrebări + exemple rezolvate) din
+`similar_index`. Cu `TUTOR_ENABLED=true`, backend-ul cere tutorului în fiecare noapte (`TUTOR_SIMILAR_INDEX_CRON`, implicit
+03:30) să facă embedding doar pentru enunțurile noi sau schimbate; ajung la Google doar enunțurile scrise de profesor,
+nimic de la elevi. Prima dată, ca să nu aștepți noaptea: `$COMPOSE exec tutor python -m tutor.similar_index --dry-run`,
+apoi fără `--dry-run`. Pragurile `SIMILAR_MIN_DISTANCE` / `SIMILAR_MAX_DISTANCE` (0,02 / 0,5) nu sunt încă măsurate pe date reale.

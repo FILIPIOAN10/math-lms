@@ -8,6 +8,8 @@ teacher approves the text before any student sees it.
                   graded test is open, and it keeps the history (this service keeps no state between requests)
     POST /mistake {"statement": ..., "slot": ..., "chosen": ..., "correct": ...}  ->  MistakeResponse
                   „De ce am greșit?": a draft for the teacher of why the chosen option is wrong, from the lessons
+    POST /similar-index  ->  {"inserted", "unchanged", "removed"}
+                  „Dă-mi una asemănătoare": embeds the new or changed statements (the backend's nightly job)
     GET  /health  {"status": "ok"}
 
 The textbook passages stay in the database: the answer names them (chapter, page) but does not carry their text.
@@ -16,6 +18,7 @@ Run:  uv run uvicorn tutor.api:app --port 8001
 """
 
 import hmac
+from collections.abc import Callable
 from functools import lru_cache
 from typing import Annotated, Literal
 
@@ -26,6 +29,7 @@ from tutor.config import Settings, get_settings
 from tutor.conversation import Turn
 from tutor.explain import ExplainService
 from tutor.mistake import MistakeService
+from tutor.similar_index import IndexReport, run_index
 from tutor.help_chain import LEVELS, HelpError, HelpService, HelpStep, Refusal, Source
 from tutor.transcribe import cost_usd
 
@@ -113,6 +117,11 @@ def mistake_service() -> MistakeService:
     return MistakeService.from_settings(get_settings())
 
 
+def similar_indexer() -> Callable[[], IndexReport]:
+    """What POST /similar-index runs; tests override it."""
+    return run_index
+
+
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
     app = FastAPI(title="math-lms tutor", docs_url=None, redoc_url=None, openapi_url=None)
@@ -175,6 +184,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             input_tokens=result.input_tokens, output_tokens=result.output_tokens,
             cost_usd=round(cost_usd(result.input_tokens, result.output_tokens, settings), 6),
         )
+
+    # A plain `def`: embedding and writing are synchronous, so FastAPI runs it in its thread pool.
+    @app.post("/similar-index", dependencies=[Depends(check_token)])
+    def write_similar_index(run: Annotated[Callable[[], IndexReport], Depends(similar_indexer)]) -> dict:
+        report = run()
+        return {"inserted": report.inserted, "unchanged": report.unchanged, "removed": report.removed}
 
     return app
 
