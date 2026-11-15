@@ -32,16 +32,16 @@ export const sumOf = (steps: BaremStep[], ticked: boolean[]): number =>
   steps.reduce((sum, s, i) => sum + (ticked[i] ? s.points : 0), 0)
 
 /**
- * Which steps a saved score stands for: none for no score or 0, all for the full score, else the one subset of steps
- * adding up to it. Two subsets (or none) give the same sum: nothing is ticked, the score still shows in the points row.
+ * Which steps a saved score stands for: none for no score or 0, all for the full score, else a subset of steps adding
+ * up to it - the earliest one when several do (2 of 2+2+1 shows the first step ticked, and the teacher can move the
+ * tick). No subset at all (the score was typed in the points row): nothing ticked, the score still shows there.
  */
 export function stepsTicked(steps: BaremStep[], value: number | null): boolean[] {
   const none = steps.map(() => false)
   if (value === null || value === 0) return none
-  const found: boolean[][] = []
-  for (let mask = 1; mask < 1 << steps.length && found.length < 2; mask++) {
+  for (let mask = 1; mask < 1 << steps.length; mask++) {
     const ticked = steps.map((_, i) => (mask & (1 << i)) !== 0)
-    if (sumOf(steps, ticked) === value) found.push(ticked)
+    if (sumOf(steps, ticked) === value) return ticked
   }
-  return found.length === 1 ? found[0] : none
+  return none
 }

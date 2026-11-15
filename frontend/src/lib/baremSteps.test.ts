@@ -47,9 +47,14 @@ describe('stepsTicked', () => {
     expect(stepsTicked(steps, 3)).toEqual([false, true])
   })
 
-  it('ticks nothing when the points match no subset or several', () => {
+  it('ticks nothing when the points match no subset', () => {
     expect(stepsTicked(steps, 4)).toEqual([false, false])
-    expect(stepsTicked([{ text: 'a', points: 1 }, { text: 'b', points: 1 }, { text: 'c', points: 2 }], 2)).toEqual([false, false, false])
+  })
+
+  it('ticks the earliest subset when several give the points', () => {
+    const three = [{ text: 'a', points: 2 }, { text: 'b', points: 2 }, { text: 'c', points: 1 }]
+    expect(stepsTicked(three, 2)).toEqual([true, false, false])
+    expect(stepsTicked(three, 3)).toEqual([true, false, true])
   })
 })
 
