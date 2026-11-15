@@ -78,3 +78,51 @@ describe('ItemGradeForm: the final result typed for a requirement (V72)', () => 
     expect(screen.getAllByTestId('result-check')[0]).toHaveTextContent('✓ corect') // still said, next to the AI's reason
   })
 })
+
+describe('ItemGradeForm: barem steps with their own points', () => {
+  const stepped: AdminItemReview = {
+    ...problem,
+    points: 10,
+    parts: [
+      {
+        id: 41, label: 'd', statement: 'Calculează.', points: 5, awardedPoints: null,
+        barem: 'R: dezvoltă pătratele (2p); $= 6x^2 + 2$ (3p)',
+      },
+      { id: 42, label: 'e', statement: 'Arată.', points: 5, barem: 'R: $x = 1$ (5p)', awardedPoints: null },
+    ],
+  }
+
+  it('ticking a step gives its points; the other step stays unpaid', async () => {
+    const save = vi.fn().mockResolvedValue(undefined)
+    render(<ItemGradeForm item={stepped} save={save} />)
+
+    await userEvent.click(screen.getByRole('checkbox', { name: /pasul 1/i }))
+
+    await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({ parts: { 41: 2, 42: null } })))
+    expect(within(screen.getByTestId('grade-part-d')).getByRole('radio', { name: '2' })).toBeChecked()
+    expect(screen.getByRole('checkbox', { name: /pasul 2/i })).not.toBeChecked()
+  })
+
+  it('both steps ticked = the full points; unticking one takes only its points off', async () => {
+    const save = vi.fn().mockResolvedValue(undefined)
+    render(<ItemGradeForm item={stepped} save={save} />)
+
+    await userEvent.click(screen.getByRole('checkbox', { name: /pasul 1/i }))
+    await userEvent.click(screen.getByRole('checkbox', { name: /pasul 2/i }))
+    await waitFor(() => expect(within(screen.getByTestId('grade-part-d')).getByRole('radio', { name: '5' })).toBeChecked())
+
+    await userEvent.click(screen.getByRole('checkbox', { name: /pasul 1/i }))
+    await waitFor(() => expect(within(screen.getByTestId('grade-part-d')).getByRole('radio', { name: '3' })).toBeChecked())
+  })
+
+  it('a requirement worth one step has no tick boxes, only the points row', () => {
+    render(<ItemGradeForm item={stepped} save={vi.fn().mockResolvedValue(undefined)} />)
+    expect(screen.getAllByRole('checkbox')).toHaveLength(2) // only d)'s two steps
+  })
+
+  it('a saved score of 3 shows the second step ticked', () => {
+    render(<ItemGradeForm item={{ ...stepped, parts: [{ ...stepped.parts![0], awardedPoints: 3 }, stepped.parts![1]] }} save={vi.fn().mockResolvedValue(undefined)} />)
+    expect(screen.getByRole('checkbox', { name: /pasul 2/i })).toBeChecked()
+    expect(screen.getByRole('checkbox', { name: /pasul 1/i })).not.toBeChecked()
+  })
+})

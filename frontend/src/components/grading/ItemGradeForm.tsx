@@ -8,6 +8,7 @@ import { AiProposalPanel } from '@/components/grading/AiProposalPanel'
 import { ResultCheckLine } from '@/components/ResultCheckLine'
 import { MathContent } from '@/components/MathContent'
 import type { AdminItemReview, AiProposal } from '@/lib/api'
+import { parseBaremSteps, stepsTicked, sumOf } from '@/lib/baremSteps'
 import { errorMessage } from '@/lib/errors'
 import { gradeReady, hasParts, initialGrade, sameGrade, totalOf, type GradeValue } from '@/lib/grading'
 import { useAutosave, type SaveStatus } from '@/lib/useAutosave'
@@ -132,12 +133,43 @@ export function ItemGradeForm({
                 <span className="shrink-0 font-semibold">{part.label})</span>
                 <MathContent className="min-w-0 flex-1">{part.statement}</MathContent>
               </div>
-              {part.barem && (
-                <div className="ml-5 rounded-md bg-muted p-2 text-xs">
-                  <span className="font-medium">Barem {part.label}): </span>
-                  <MathContent inline>{part.barem}</MathContent>
-                </div>
-              )}
+              {(() => {
+                const steps = parseBaremSteps(part.barem, part.points)
+                if (steps) {
+                  const ticked = stepsTicked(steps, value.parts[part.id] ?? null)
+                  return (
+                    <fieldset className="ml-5 space-y-1 rounded-md bg-muted p-2 text-xs" data-testid="barem-steps">
+                      <legend className="font-medium">Barem {part.label}) — bifează pașii făcuți</legend>
+                      {steps.map((step, i) => (
+                        <label key={i} className="flex cursor-pointer items-start gap-2">
+                          <input
+                            type="checkbox"
+                            className="mt-0.5 size-4 shrink-0"
+                            checked={ticked[i]}
+                            disabled={readOnly}
+                            aria-label={`Pasul ${i + 1} (${step.points} p) cerința ${part.label})`}
+                            onChange={(e) => {
+                              const next = ticked.map((t, j) => (j === i ? e.target.checked : t))
+                              setValue({ ...value, parts: { ...value.parts, [part.id]: sumOf(steps, next) } })
+                              void flush()
+                            }}
+                          />
+                          <span className="min-w-0 flex-1">
+                            <MathContent inline>{step.text}</MathContent>{' '}
+                            <span className="font-medium tabular-nums">({step.points} p)</span>
+                          </span>
+                        </label>
+                      ))}
+                    </fieldset>
+                  )
+                }
+                return part.barem ? (
+                  <div className="ml-5 rounded-md bg-muted p-2 text-xs">
+                    <span className="font-medium">Barem {part.label}): </span>
+                    <MathContent inline>{part.barem}</MathContent>
+                  </div>
+                ) : null
+              })()}
               <div className="ml-5">
                 <PointsPicker
                   max={part.points}
