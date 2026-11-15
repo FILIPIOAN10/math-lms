@@ -115,6 +115,23 @@ describe('ItemGradeForm: barem steps with their own points', () => {
     await waitFor(() => expect(within(screen.getByTestId('grade-part-d')).getByRole('radio', { name: '3' })).toBeChecked())
   })
 
+  it('with steps 2p, 1p, 2p the tick stays on the step the teacher chose, even when another gives the same score', async () => {
+    const three: AdminItemReview = {
+      ...stepped,
+      parts: [{ ...stepped.parts![0], barem: 'R: $a$ (2p); $b$ (1p); $c$ (2p)' }, stepped.parts![1]],
+    }
+    render(<ItemGradeForm item={three} save={vi.fn().mockResolvedValue(undefined)} />)
+
+    await userEvent.click(screen.getByRole('checkbox', { name: /pasul 3/i }))
+    expect(screen.getByRole('checkbox', { name: /pasul 3/i })).toBeChecked()
+    expect(screen.getByRole('checkbox', { name: /pasul 1/i })).not.toBeChecked()
+
+    await userEvent.click(screen.getByRole('checkbox', { name: /pasul 2/i }))
+    expect(screen.getByRole('checkbox', { name: /pasul 2/i })).toBeChecked()
+    expect(screen.getByRole('checkbox', { name: /pasul 3/i })).toBeChecked()
+    expect(screen.getByRole('checkbox', { name: /pasul 1/i })).not.toBeChecked()
+  })
+
   it('a requirement worth one step has no tick boxes, only the points row', () => {
     render(<ItemGradeForm item={stepped} save={vi.fn().mockResolvedValue(undefined)} />)
     expect(screen.getAllByRole('checkbox')).toHaveLength(2) // only d)'s two steps

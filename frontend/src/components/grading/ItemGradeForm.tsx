@@ -1,4 +1,4 @@
-import { useEffect, useId, useLayoutEffect, useRef } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { CommentBank } from '@/components/grading/CommentBank'
@@ -64,6 +64,8 @@ export function ItemGradeForm({
     isReady: (g) => gradeReady(item, g),
   })
   const { value, setValue, status, flush } = autosave
+  // The ticks the teacher chose, per requirement: a score alone cannot say which of two equal steps (2p, 1p, 2p) was ticked.
+  const [chosen, setChosen] = useState<Record<number, boolean[]>>({})
   const parted = hasParts(item)
   const total = totalOf(item, value)
 
@@ -136,7 +138,12 @@ export function ItemGradeForm({
               {(() => {
                 const steps = parseBaremSteps(part.barem, part.points)
                 if (steps) {
-                  const ticked = stepsTicked(steps, value.parts[part.id] ?? null)
+                  const score = value.parts[part.id] ?? null
+                  const mine = chosen[part.id]
+                  // The teacher's own ticks while they still add up to the score (the points row or the AI may change it).
+                  const ticked = mine && mine.length === steps.length && sumOf(steps, mine) === (score ?? 0)
+                    ? mine
+                    : stepsTicked(steps, score)
                   return (
                     <fieldset className="ml-5 space-y-1 rounded-md bg-muted p-2 text-xs" data-testid="barem-steps">
                       <legend className="font-medium">Barem {part.label}) — bifează pașii făcuți</legend>
@@ -150,6 +157,7 @@ export function ItemGradeForm({
                             aria-label={`Pasul ${i + 1} (${step.points} p) cerința ${part.label})`}
                             onChange={(e) => {
                               const next = ticked.map((t, j) => (j === i ? e.target.checked : t))
+                              setChosen((c) => ({ ...c, [part.id]: next }))
                               setValue({ ...value, parts: { ...value.parts, [part.id]: sumOf(steps, next) } })
                               void flush()
                             }}
