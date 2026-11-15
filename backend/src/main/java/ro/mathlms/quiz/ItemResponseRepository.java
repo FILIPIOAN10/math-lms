@@ -25,9 +25,12 @@ public interface ItemResponseRepository extends JpaRepository<ItemResponse, Long
             + " from ItemResponse r where r.attempt.id in :attemptIds and r.selectedOption is not null")
     List<OptionChoice> findChoicesByAttemptIds(@Param("attemptIds") java.util.Collection<Long> attemptIds);
 
-    /** Every number typed in the attempts that count, in one query. */
+    /**
+     * Every number typed in the attempts that count, in one query. Oldest first: the statistics show the way the first
+     * student wrote a value (3/4 or 0,75), and without an ORDER BY Postgres may return the rows in any order.
+     */
     @Query("select new ro.mathlms.quiz.NumericChoice(r.item.id, r.numericAnswer, r.correct)"
-            + " from ItemResponse r where r.attempt.id in :attemptIds and r.numericAnswer is not null")
+            + " from ItemResponse r where r.attempt.id in :attemptIds and r.numericAnswer is not null order by r.id")
     List<NumericChoice> findNumbersByAttemptIds(@Param("attemptIds") java.util.Collection<Long> attemptIds);
 
     /** Every answer to one question, with its attempt: a corrected answer key marks them all again. */
