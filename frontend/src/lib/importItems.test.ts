@@ -210,5 +210,24 @@ R: $x = 4$
         ],
       })
     })
+
+    it("gives each requirement its own barem from 'R: a) …' lines; a plain 'R:' stays the answer's", () => {
+      const { items, errors } = parseItems([
+        '1. Calculați:',
+        '(5p) a) $(2x + 3y)^2 =$',
+        '(5p) b) $(4x - 3)^2 =$',
+        'R: a) $4x^2 + 12xy + 9y^2$ (5p)',
+        'R: b) $16x^2 - 24x + 9$ (2p); $= 1$ (3p)',
+        'continuă baremul lui b',
+        'R: Observație generală.',
+      ].join('\n'))
+
+      expect(errors).toEqual([])
+      expect(items[0].parts).toEqual([
+        { statement: '$(2x + 3y)^2 =$', points: 5, solution: '$4x^2 + 12xy + 9y^2$ (5p)' },
+        { statement: '$(4x - 3)^2 =$', points: 5, solution: '$16x^2 - 24x + 9$ (2p); $= 1$ (3p)\ncontinuă baremul lui b' },
+      ])
+      expect(items[0].solution).toBe('Observație generală.')
+    })
   })
 })

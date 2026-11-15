@@ -61,7 +61,8 @@ interface Draft {
   options: { text: string; correct: boolean }[]
   /** Requirements a), b)... with their points (EN Subiectul III). */
   parts: { text: string; points: number }[]
-  solution: string[]
+  /** The solution's lines; `fresh` = the line began with "R:" (the others continue the line before). */
+  solution: { text: string; fresh: boolean }[]
   hints: string[]
   /** "N: 3/4": the question is answered with this number. */
   numeric: string | null
@@ -141,7 +142,7 @@ export function parseItems(text: string): ParsedItems {
     }
     const solution = SOLUTION.exec(line)
     if (solution) {
-      current.solution.push(solution[1].trim())
+      current.solution.push({ text: solution[1].trim(), fresh: true })
       current.part = 'solution'
       return
     }
@@ -157,7 +158,7 @@ export function parseItems(text: string): ParsedItems {
       const last = current.parts[current.parts.length - 1]
       last.text = `${last.text}\n${line}` // a requirement over several lines
     } else if (current.part === 'solution') {
-      current.solution.push(line)
+      current.solution.push({ text: line, fresh: false })
     } else {
       errors.push(`Întrebarea ${current.number}, linia ${index + 1}: nu știu ce e „${line}” `
         + '(variantele încep cu a), b)…, rezolvarea cu R:, indiciile cu I:, răspunsul numeric cu N:).')
@@ -191,6 +192,28 @@ export function parseItems(text: string): ParsedItems {
     if (draft.section && draft.section.length > MAX_SECTION) {
       errors.push(`${label}: titlul secțiunii (cu instrucțiunea) are peste ${MAX_SECTION} de caractere.`)
     }
+    // On a problem with requirements, "R: a) …" lines (and the plain lines after them) are that requirement's barem;
+    // the rest of the solution stays the answer's.
+    const partBarem: string[][] = draft.parts.map(() => [])
+    const general: string[] = []
+    if (!choice && draft.parts.length > 0) {
+      let into: number | null = null
+      for (const { text: line, fresh } of draft.solution) {
+        const lettered = fresh ? /^\s*([a-f])\)\s*(.*)$/i.exec(line) : null
+        const index = lettered ? lettered[1].toLowerCase().charCodeAt(0) - 97 : -1
+        if (lettered && index < draft.parts.length) {
+          into = index
+          partBarem[index].push(lettered[2].trim())
+        } else if (into !== null && !fresh) {
+          partBarem[into].push(line)
+        } else {
+          into = null
+          general.push(line)
+        }
+      }
+    } else {
+      general.push(...draft.solution.map((l) => l.text))
+    }
     items.push({
       type: draft.numeric !== null ? 'NUMERIC' : choice ? 'SINGLE_CHOICE' : 'OPEN',
       position: i,
@@ -198,14 +221,14 @@ export function parseItems(text: string): ParsedItems {
       points: draft.parts.length > 0
         ? draft.parts.reduce((sum, p) => sum + p.points, 0)
         : points ? Number(points[1]) : draft.pointsFirst ?? 1,
-      solution: draft.solution.join('\n').trim() || null,
+      solution: general.join('\n').trim() || null,
       options: choice ? draft.options.map((o, p) => ({ position: p, text: o.text, correct: o.correct })) : null,
       numericAnswer: draft.numeric,
       hints: draft.hints,
       section: draft.section,
       imageRequired: draft.imageRequired,
       parts: !choice && draft.parts.length > 0
-        ? draft.parts.map((p) => ({ statement: p.text, points: p.points, solution: null }))
+        ? draft.parts.map((p, i) => ({ statement: p.text, points: p.points, solution: partBarem[i].join('\n').trim() || null }))
         : null,
     })
   })

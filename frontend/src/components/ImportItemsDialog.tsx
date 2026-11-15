@@ -59,7 +59,7 @@ export function ImportItemsDialog({
       open={open}
       onOpenChange={(o) => !o && onClose()}
       title="Importă întrebări din text"
-      description="O întrebare începe cu „1.”, variantele cu a), b)… sau „- a)” (* marchează varianta corectă: „*b)” / „- *b)”), rezolvarea cu R:, indiciile cu I:, răspunsul unei întrebări numerice cu N: (N: 3/4). La Subiectul III, „(2p) a) …”, „(3p) b) …” sunt cerințe notate separat. „(2p)” la finalul enunțului dă punctajul (implicit 1). Format Evaluare Națională: „SUBIECTUL I” (cu instrucțiunea pe rândul următor) grupează întrebările, iar „5p 1.” dă punctajul la început. Un rând „[imagine]” în întrebare o marchează: după import lipești figura (Ctrl+V) din „Editează”."
+      description="O întrebare începe cu „1.”, variantele cu a), b)… sau „- a)” (* marchează varianta corectă: „*b)” / „- *b)”), rezolvarea cu R:, indiciile cu I:, răspunsul unei întrebări numerice cu N: (N: 3/4). La Subiectul III, „(2p) a) …”, „(3p) b) …” sunt cerințe notate separat, iar baremul fiecăreia se scrie „R: a) …”, „R: b) …”. „(2p)” la finalul enunțului dă punctajul (implicit 1). Format Evaluare Națională: „SUBIECTUL I” (cu instrucțiunea pe rândul următor) grupează întrebările, iar „5p 1.” dă punctajul la început. Un rând „[imagine]” în întrebare o marchează: după import lipești figura (Ctrl+V) din „Editează”."
     >
       <div className="flex max-h-[75vh] flex-col gap-4 overflow-y-auto pr-1">
         <div className="flex flex-col gap-2">
