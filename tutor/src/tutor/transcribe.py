@@ -50,7 +50,8 @@ Rules:
 - page_number is the printed page number (often circled in a bottom corner), or null if you cannot see one.
 """
 
-MAX_OUTPUT_TOKENS = 8_000
+# A dense page of formulas is ~1.5k tokens of answer; Gemini counts its thinking in the same budget, so leave room.
+MAX_OUTPUT_TOKENS = 24_000
 
 SCHEMA = {
     "type": "object",
@@ -225,6 +226,8 @@ def transcribe_with_gemini(jpeg: bytes, settings: Settings) -> Transcription:
         max_output_tokens=MAX_OUTPUT_TOKENS,
         response_mime_type="application/json",
         response_json_schema=SCHEMA,
+        # Reading a page is not reasoning: a low level keeps the budget for the page, not for thinking about it.
+        thinking_config=types.ThinkingConfig(thinking_level=types.ThinkingLevel.LOW),
     )
     contents = [types.Part.from_bytes(data=jpeg, mime_type="image/jpeg"), "Transcribe this page."]
     try:
