@@ -1,57 +1,57 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { PhotoPages } from '@/components/PhotoPages'
 
-const urls = ['/p/1', '/p/2', '/p/3']
-const alt = (page: number) => `Rezolvarea, pagina ${page}`
+const alt = (page: number) => `Poza ${page}`
 
-describe('PhotoPages', () => {
-  it('opens a page large on the same page and goes page to page', async () => {
-    const user = userEvent.setup()
-    render(<PhotoPages urls={urls} alt={alt} />)
+describe('PhotoPages, as the teacher grades (stacked)', () => {
+  it('turns a sideways photo in place, without opening a window over the form', async () => {
+    render(<PhotoPages stacked urls={['/p/1']} alt={alt} />)
+    const image = screen.getByRole('img', { name: 'Poza 1' })
+    expect(image).toHaveStyle({ transform: 'rotate(0deg)' })
 
-    await user.click(screen.getByRole('button', { name: 'Rezolvarea, pagina 2 — deschide mare' }))
-    const viewer = await screen.findByRole('dialog', { name: 'Pagina 2 din 3' })
-    expect(within(viewer).getByTestId('photo-viewer-image')).toHaveAttribute('src', '/p/2')
-    expect(within(viewer).getByRole('link', { name: 'Tab nou' })).toHaveAttribute('href', '/p/2')
+    await userEvent.click(screen.getByRole('button', { name: 'Rotește poza 90°' }))
 
-    await user.click(within(viewer).getByRole('button', { name: 'Pagina următoare' }))
-    expect(within(viewer).getByTestId('photo-viewer-image')).toHaveAttribute('src', '/p/3')
-    expect(within(viewer).getByRole('button', { name: 'Pagina următoare' })).toBeDisabled()
-    await user.keyboard('{ArrowLeft}')
-    expect(within(viewer).getByTestId('photo-viewer-image')).toHaveAttribute('src', '/p/2')
-  })
-
-  // A photo that arrives late must not push the page down under the teacher's click (the AI-import review lost the
-  // first click on a grilă variant this way): each picture holds its final box before it has loaded.
-  it('reserves the box of each photo before it loads', () => {
-    const { rerender } = render(<PhotoPages urls={urls} alt={alt} />)
-    for (const img of screen.getAllByRole('img')) {
-      expect(img).toHaveClass('h-64', 'w-48', 'object-contain')
-    }
-
-    rerender(<PhotoPages urls={urls} alt={alt} stacked />)
-    for (const img of screen.getAllByRole('img')) {
-      expect(img).toHaveClass('h-[28rem]', 'object-contain')
-    }
-  })
-
-  it('turns a sideways photo only on screen, and remembers it per page', async () => {
-    const user = userEvent.setup()
-    render(<PhotoPages urls={urls} alt={alt} />)
-
-    await user.click(screen.getByRole('button', { name: 'Rezolvarea, pagina 1 — deschide mare' }))
-    const viewer = await screen.findByRole('dialog')
-    await user.click(within(viewer).getByRole('button', { name: 'Rotește 90°' }))
-    expect(within(viewer).getByTestId('photo-viewer-image').style.transform).toBe('rotate(90deg)')
-
-    await user.click(within(viewer).getByRole('button', { name: 'Pagina următoare' }))
-    expect(within(viewer).getByTestId('photo-viewer-image').style.transform).toBe('rotate(0deg)')
-    await user.click(within(viewer).getByRole('button', { name: 'Pagina anterioară' }))
-    expect(within(viewer).getByTestId('photo-viewer-image').style.transform).toBe('rotate(90deg)')
-
-    await user.click(within(viewer).getByRole('button', { name: 'Închide' }))
+    expect(image).toHaveStyle({ transform: 'rotate(90deg)' })
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('switches to real size and back', async () => {
+    render(<PhotoPages stacked urls={['/p/1']} alt={alt} />)
+    const toggle = screen.getByRole('button', { name: '100%' })
+
+    await userEvent.click(toggle)
+
+    expect(screen.getByRole('button', { name: 'Potrivește' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('has a link that opens the photo in a new tab', () => {
+    render(<PhotoPages stacked urls={['/p/1']} alt={alt} />)
+    const link = screen.getByRole('link', { name: 'Tab nou' })
+    expect(link).toHaveAttribute('href', '/p/1')
+    expect(link).toHaveAttribute('target', '_blank')
+  })
+
+  it('each page has its own turn', async () => {
+    render(<PhotoPages stacked urls={['/p/1', '/p/2']} alt={alt} />)
+
+    await userEvent.click(screen.getAllByRole('button', { name: 'Rotește poza 90°' })[1])
+
+    expect(screen.getByRole('img', { name: 'Poza 1' })).toHaveStyle({ transform: 'rotate(0deg)' })
+    expect(screen.getByRole('img', { name: 'Poza 2' })).toHaveStyle({ transform: 'rotate(90deg)' })
+  })
+
+  it('still opens the large viewer on a click on the photo', async () => {
+    render(<PhotoPages stacked urls={['/p/1']} alt={alt} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Poza 1 — deschide mare' }))
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+  })
+})
+
+describe('PhotoPages as thumbnails', () => {
+  it('has no controls', () => {
+    render(<PhotoPages urls={['/p/1']} alt={alt} />)
+    expect(screen.queryByRole('button', { name: 'Rotește poza 90°' })).not.toBeInTheDocument()
   })
 })
