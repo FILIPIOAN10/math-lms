@@ -1384,6 +1384,27 @@ copie), `GdprExportServiceTest`; în frontend `ResultCheckLine.test.tsx`, `ItemG
 `TakeQuizPage.test.tsx` (salvare la pauză, setul întreg, exersare), `ItemDialog.test.tsx`, `answerQueue.test.ts`,
 `AttemptResultView.test.tsx`, `AdminQuizPreviewPage.test.tsx`.
 
+### 62. Lecții din poze pe capitolele EN, pentru „Propune din lecții” — ca profesor, apoi din terminal
+Pozele (sau PDF-ul) puse pe pagina unui capitol EN devin pasajele în care caută „Propune din lecții”, „Sugerează indicii
+(AI)” și caseta „Nu înțeleg…”. Pasajele rămân pe capitolul pe care ai pus pozele, oricare ar fi cartea sau caietul din
+poze. Citirea pozelor e plătită o dată pe poză (plafon `--max-usd`); pasul 3 nu costă nimic.
+
+| # | Ce faci | Ce trebuie să vezi |
+|---|---|---|
+| 1 | Profesor → Clase → **Capitole EN** → A1 → **Materia** → **Adaugă poze** (2 poze cu teorie, din orice sursă) | Pozele apar pe pagină ca „Pagina 1 din 2”, „Pagina 2 din 2” |
+| 2 | Din `tutor/`: `uv run python -X utf8 -m tutor.build_chapter A1 --dry-run` | „2 poze, 0 deja transcrise, 2 de transcris” și linia „Pasajele rămân pe pagina A1…”; nimic trimis |
+| 3 | Aceeași comandă pe un capitol fără poze (`A2`) | „nicio poză încărcată pe pagina capitolului” |
+| 4 | `uv run python -X utf8 -m tutor.build_chapter A1 --max-usd 0.10` (apel plătit) | Costul pe fiecare poză, apoi „Chunk-uri pentru bot: N noi…”; nicio linie `ATENȚIE: … NU au fost salvate` |
+| 5 | Textul paginii A1 (scris de tine) | Neschimbat: „0 subcapitole scrise, 1 păstrate (au text de la profesor)” |
+| 6 | Statistici la un test → o variantă greșită de la o întrebare din S I.1 → **Propune din lecții** | O explicație propusă + „Din lecția A1, pagina 1 sau 2” (nu „Nu am asta în manual.”) |
+| 7 | Șterge prima poză de pe A1, rulează din nou comanda de la pasul 4 | „0 de transcris”, 0 chunk-uri noi; citările spun acum „pagina 1” pentru fosta a doua poză |
+| 8 | `uv run python -X utf8 -m tutor.build_chapter AI --dry-run` (capitol al manualului) | Linia „Capitol din manual: pasajele se împart după cuprinsul manualului…” |
+
+**Teste automate** (`tutor/`, `uv run pytest -q`): `test_chunking.py` (cu `home` nimic nu pleacă pe alt capitol; pagină
+din afara cuprinsului păstrată), `test_store.py` (`whole_source`: renumerotare după o poză ștearsă, fără embedding nou),
+`test_build_chapter.py` (poze pe A1 → pasaje pe A1 cu pagina și poza lor; textul profesorului păstrat; capitolele
+manualului neschimbate; pasajele fără pagină sunt raportate; poziția din examen le găsește).
+
 ## E. Debugging — unde te uiți când pică ceva
 
 ```bash

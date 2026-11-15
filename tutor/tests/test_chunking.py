@@ -214,3 +214,62 @@ def test_read_transcript_parses_the_front_matter(tmp_path: pathlib.Path):
     page = read_transcript(path)
 
     assert (page.source_name, page.book_page, page.markdown) == ("I. MULTIMEA.pdf", 9, "# Titlu")
+
+
+# --- `home`: photos uploaded on a page that is not a chapter of the book stay on that page ---
+
+
+def test_with_a_home_page_every_passage_stays_under_it_whatever_the_cuprins_says():
+    documents, problems = chunk_pages([PAGE_9, PAGE_10], home="A1")
+
+    assert problems == []
+    # the same cuts at the numbered headings, under the page the photos were uploaded on instead of the book's AI
+    assert codes(documents) == ["A1S1", "A1S1P1", "A1S2P1", "A1S2P1", "A1S2P2", "A1S3P1"]
+    assert documents[0].page_content.startswith("# I. MULȚIMEA NUMERELOR NATURALE")
+    assert all(page_map.parents(code)[-1] == "A1" for code in codes(documents))
+
+
+def test_with_a_home_page_a_page_outside_the_cuprins_is_kept():
+    tests_page = Page("A3 (poze LMS)", 58, "Procentul $p\\%$ din $a$ este $\\frac{p}{100}\\cdot a$.")
+
+    documents, problems = chunk_pages([tests_page], home="A3")
+
+    assert problems == []
+    assert codes(documents) == ["A3"]
+    assert documents[0].metadata["book_page"] == 58
+
+
+def test_with_a_home_page_a_chapter_heading_of_the_book_moves_nothing_elsewhere():
+    page = Page("G2 (poze LMS)", 1, "# II. RAPOARTE ȘI PROPORȚII\n\nUnghiuri opuse la vârf: sunt congruente.")
+
+    documents, _ = chunk_pages([page], home="G2")
+
+    assert codes(documents) == ["G2"]  # not AII: the teacher put this photo on G2
+    assert "II. RAPOARTE" in documents[0].page_content  # the heading stays as text
+
+
+def test_with_a_home_page_a_notebook_whose_numbering_restarts_still_gives_passages():
+    first = Page("A7 (poze LMS)", 1, "## 1. Ecuația\n\n$ax+b=0$.\n\n## 2. Rezolvare\n\n$x=-\\frac{b}{a}$.")
+    second = Page("A7 (poze LMS)", 2, "## 1. Probleme\n\nNotăm necunoscuta cu $x$.")
+
+    documents, problems = chunk_pages([first, second], home="A7")
+
+    assert problems == []
+    assert [d.metadata["book_page"] for d in documents] == [1, 1, 2]
+    assert "Notăm necunoscuta" in documents[-1].page_content  # kept, under the section it continues
+    assert all(page_map.parents(code)[-1] == "A7" for code in codes(documents))
+
+
+def test_with_a_home_page_a_page_still_needs_a_number():
+    documents, problems = chunk_pages([Page("A1 (poze LMS)", None, "text")], home="A1")
+
+    assert documents == []  # the caller numbers the photos (see build_chapter.numbered_pages)
+    assert any("fără număr" in problem for problem in problems)
+
+
+@pytest.mark.parametrize("code,expected", [
+    ("AI", True), ("ai", True), ("AIS5P5", True), ("AX", True), ("GVII", True), ("GIIIS10", True),
+    ("A1", False), ("A15", False), ("G10", False), ("A1S2", False), ("GVIII", False), ("LECTIE", False),
+])
+def test_only_the_books_own_chapters_follow_its_cuprins(code, expected):
+    assert page_map.follows_book(code) is expected

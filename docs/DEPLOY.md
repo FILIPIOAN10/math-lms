@@ -255,12 +255,23 @@ doar pentru citire:
 ```bash
 COMPOSE="docker compose -f docker-compose.prod.yml --env-file .env.prod"
 $COMPOSE exec tutor ls /app/uploads/en-chapters | head            # pozele se văd?
-$COMPOSE exec tutor python -m tutor.build_chapter AI --dry-run    # ce ar face, fără apeluri plătite
-$COMPOSE exec tutor python -m tutor.build_chapter AI --max-usd 0.10
+$COMPOSE exec tutor python -m tutor.build_chapter A1 --dry-run    # ce ar face, fără apeluri plătite
+$COMPOSE exec tutor python -m tutor.build_chapter A1 --max-usd 0.10
 ```
 `build_chapter` transcrie pozele (o singură dată pe poză), le taie în pasaje, face embeddings și scrie textul în paginile
-capitolului **doar unde profesorul nu a scris deja**. Merge numai cu `FILE_STORAGE_PROVIDER=local`: cu S3 pozele nu sunt pe disc
-(neacoperit încă).
+capitolului **doar unde profesorul nu a scris deja** (`--no-publish` = nu scrie deloc text în pagini). Merge numai cu
+`FILE_STORAGE_PROVIDER=local`: cu S3 pozele nu sunt pe disc (neacoperit încă).
+
+**Unde ajung pasajele** depinde de pagina pe care sunt pozele (comanda o spune pe a doua linie, și la `--dry-run`):
+- pe un capitol EN (`A1`…`A15`, `G1`…`G10`) sau pe orice altă pagină făcută de profesor: **rămân pe pagina aceea**, orice
+  ar fi în poze — alt manual, caiet, pagini fără număr. „Pagina N” dintr-o citare e a N-a poză a capitolului (sau prima
+  pagină setată pe capitol + N − 1), exact cum o numește pagina lecției. O comandă pe capitol; la fiecare rulare se iau
+  toate pozele lui, deci după ce ștergi sau adaugi o poză rulezi din nou (pozele deja citite nu se mai plătesc).
+- pe un capitol al manualului (`AI`…`AX`, `GI`…`GVII`, cu secțiunile lor): se împart după cuprinsul manualului și numărul
+  tipărit al paginii (`tutor/src/tutor/page_map.py`), ca înainte. Paginile acelea trebuie să existe în „Capitole EN”.
+
+Dacă un pasaj nu are nicio pagină în LMS, comanda scrie `ATENȚIE: N pasaje NU au fost salvate…` cu codurile lipsă (înainte
+tăcea, deși poza fusese citită și plătită).
 
 **Verificare:** `$COMPOSE exec tutor python -c "import urllib.request; print(urllib.request.urlopen('http://localhost:8001/health').read())"`
 → `{"status":"ok"}`; apoi în aplicație, pe o întrebare salvată din „SUBIECTUL I”, „Sugerează indicii (AI)”.

@@ -213,6 +213,8 @@ cd interview; node build_story.js                         # reface documentul Wo
 - PowerShell: `Get-Content | Set-Content -Encoding utf8` strică UTF-8 și adaugă BOM; folosește `python -X utf8` sau editorul.
 - Codurile paginilor sunt doar litere + cifre, ≤ 10 caractere (`AIS5P5`), altfel formularul din LMS le respinge.
 - Chunk-urile se leagă de cea mai apropiată pagină LMS **existentă**; creează paginile înainte de a rula `build_chapter`.
+  Asta e valabil doar pentru capitolele manualului (`AI`…, `page_map.follows_book`): pozele puse pe un capitol EN
+  (`A1`…`G10`) rămân pe pagina lui, numerotate ca pe pagina lecției. Ce nu se poate salva e anunțat cu `ATENȚIE:`.
 - Biblioteca `rank_bm25` dă scor 0 pe un corpus de 2 chunk-uri (IDF = log 1); de aceea BM25 e scris de mână.
 - Testele partajează simulatoarele din `tests/fakes.py` (se importă simplu: `from fakes import ...`).
 - Modelul `gpt-6-luna` respinge `temperature` („Unsupported parameter"); nu-l pune în setări.

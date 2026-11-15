@@ -3,6 +3,9 @@
 A page is split at its numbered headings ("## 2. Adunarea", "### 2.2. SCĂDEREA"); the number plus the chapter
 (from the heading "I. MULȚIMEA ..." or from the printed page number) gives the code of the LMS page, for example
 AIS2P2. Text before the first heading of a page continues the section the previous page ended in.
+
+Photos uploaded on a page that is not a chapter of that textbook (an EN chapter, A1...G10) have a `home`: every passage
+stays under that page, whatever book or notebook the photos show (see chunk_pages).
 """
 
 import hashlib
@@ -110,8 +113,16 @@ def is_example(text: str) -> bool:
     return bool(body) and _EXAMPLE.match(body[0]) is not None
 
 
-def chunk_pages(pages: list[Page], max_chars: int = MAX_CHARS, min_chars: int = MIN_CHARS) -> tuple[list[Document], list[str]]:
-    """Returns the chunks (LangChain Documents) and a list of human-readable problems (skipped pages)."""
+def chunk_pages(pages: list[Page], max_chars: int = MAX_CHARS, min_chars: int = MIN_CHARS,
+                home: str | None = None) -> tuple[list[Document], list[str]]:
+    """
+    Returns the chunks (LangChain Documents) and a list of human-readable problems (skipped pages).
+
+    `home` is the code of the LMS page the photos were uploaded on, when that page is not a chapter of the textbook:
+    then every page belongs to it - the Cuprins is not asked, and a chapter title of some book ("II. RAPOARTE") is just
+    text. The numbered headings still cut the passages (A1S2), and the store falls back to the page itself (A1) where
+    no page exists for a section. Without `home` the textbook's Cuprins decides, as it always did.
+    """
     problems: list[str] = []
     documents: list[Document] = []
     state_chapter: str | None = None
@@ -125,7 +136,7 @@ def chunk_pages(pages: list[Page], max_chars: int = MAX_CHARS, min_chars: int = 
             problems.append(f"{page.source_name}: pagină fără număr citit din imagine, sărită")
 
     for page in numbered:
-        chapter = page_map.chapter_for_page(page.book_page)
+        chapter = home or page_map.chapter_for_page(page.book_page)
         continuing = previous_page is not None and page.book_page == previous_page + 1
         if not continuing:
             state_chapter, state_section, state_point = None, None, None
@@ -150,7 +161,7 @@ def chunk_pages(pages: list[Page], max_chars: int = MAX_CHARS, min_chars: int = 
             heading = _HEADING.match(line)
             if heading is not None:
                 title = heading.group(2)
-                from_heading = page_map.chapter_from_heading(title, page.book_page)
+                from_heading = None if home else page_map.chapter_from_heading(title, page.book_page)
                 if from_heading is not None:
                     chapter, state_section, state_point = from_heading, None, None
                     open_block()

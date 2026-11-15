@@ -108,3 +108,69 @@ def test_chunks_embedded_by_another_model_are_embedded_again(conn):
 
     assert (report.inserted, report.removed, report.unchanged) == (1, 1, 0)
     assert [row[5] for row in rows(conn)] == ["model-nou"]
+
+
+# --- whole_source: the run holds everything the source has (all the photos of a chapter page) ---
+
+
+def _page_with_photos(conn, code: str, count: int) -> list[int]:
+    chapter_id = conn.execute(
+        "INSERT INTO en_chapters (code, title, area, position) VALUES (%s, 'Ordinea operațiilor', 'ALGEBRA', 9) "
+        "RETURNING id", (code,)).fetchone()[0]
+    return [conn.execute(
+        "INSERT INTO en_chapter_photos (chapter_id, position, image_key) VALUES (%s, %s, %s) RETURNING id",
+        (chapter_id, n, f"{n}.jpg")).fetchone()[0] for n in range(1, count + 1)]
+
+
+def _photo_rows(conn):
+    return conn.execute("SELECT content, book_page, photo_id, position FROM tutor_chunks ORDER BY book_page").fetchall()
+
+
+def test_a_whole_source_run_gives_kept_chunks_their_new_page_and_photo(conn):
+    first, second, third = _page_with_photos(conn, "A1", 3)
+    store_chunks(conn, [doc("A1", "prima", page=1), doc("A1", "a doua", page=2), doc("A1", "a treia", page=3)],
+                 EMBEDDINGS, "m", "A1 (poze LMS)", source="PHOTO", photo_by_page={1: first, 2: second, 3: third},
+                 whole_source=True)
+    # The teacher deletes the first photo: its chunk goes with it, and the lesson page now calls the others 1 and 2.
+    conn.execute("DELETE FROM en_chapter_photos WHERE id = %s", (first,))
+
+    embedded: list[str] = []
+
+    class Counting(DeterministicFakeEmbedding):
+        def embed_documents(self, texts):
+            embedded.extend(texts)
+            return super().embed_documents(texts)
+
+    report = store_chunks(conn, [doc("A1", "a doua", page=1), doc("A1", "a treia", page=2)],
+                          Counting(size=1536), "m", "A1 (poze LMS)", source="PHOTO",
+                          photo_by_page={1: second, 2: third}, whole_source=True)
+
+    assert (report.inserted, report.unchanged, report.removed) == (0, 2, 0)
+    assert embedded == []  # the same texts: nothing is paid for again
+    assert _photo_rows(conn) == [("a doua", 1, second, 1), ("a treia", 2, third, 1)]
+
+
+def test_a_whole_source_run_drops_what_the_source_no_longer_has_on_any_page(conn):
+    first, second = _page_with_photos(conn, "A1", 2)
+    photos = {1: first, 2: second}
+    store_chunks(conn, [doc("A1", "rămâne", page=1), doc("A1", "dispare", page=2)], EMBEDDINGS, "m", "A1 (poze LMS)",
+                 source="PHOTO", photo_by_page=photos, whole_source=True)
+    store_chunks(conn, [doc("AI", "din carte", page=9)], EMBEDDINGS, "m", "book.pdf")  # another source: never touched
+
+    # Page 2 gives nothing any more (its photo was transcribed again and came out empty): page 2 is not in the run.
+    report = store_chunks(conn, [doc("A1", "rămâne", page=1)], EMBEDDINGS, "m", "A1 (poze LMS)", source="PHOTO",
+                          photo_by_page=photos, whole_source=True)
+
+    assert (report.inserted, report.unchanged, report.removed) == (0, 1, 1)
+    assert [row[0] for row in conn.execute("SELECT content FROM tutor_chunks ORDER BY book_page")] == ["rămâne", "din carte"]
+
+
+def test_an_empty_whole_source_run_removes_the_chunks_the_source_had(conn):
+    (photo,) = _page_with_photos(conn, "A1", 1)
+    store_chunks(conn, [doc("A1", "text", page=1)], EMBEDDINGS, "m", "A1 (poze LMS)", source="PHOTO",
+                 photo_by_page={1: photo}, whole_source=True)
+
+    report = store_chunks(conn, [], EMBEDDINGS, "m", "A1 (poze LMS)", source="PHOTO", whole_source=True)
+
+    assert report.removed == 1
+    assert conn.execute("SELECT count(*) FROM tutor_chunks").fetchone()[0] == 0

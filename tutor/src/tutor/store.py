@@ -43,10 +43,15 @@ def _breadcrumb(code: str, pages: dict[str, tuple[int, str]]) -> str:
 
 def store_chunks(conn: psycopg.Connection, documents: list[Document], embeddings: Embeddings,
                  embedding_model: str, source_name: str, *, source: str = "PDF",
-                 photo_by_page: dict[int, int] | None = None) -> StoreReport:
+                 photo_by_page: dict[int, int] | None = None, whole_source: bool = False) -> StoreReport:
     """
     Does not commit: the caller decides (a dry run or a test rolls back). `source` is where the text came from
     (PDF file, or PHOTO uploaded on a chapter page, in which case `photo_by_page` links each chunk to its photo).
+
+    By default a run replaces what the same pages produced before and leaves the source's other pages alone.
+    `whole_source` says the documents are everything the source has now (every photo of a chapter page, numbered by
+    their place): a chunk the source had on any page and no longer has is gone, and a kept chunk takes the page, place
+    and photo it has in this run - deleting a photo renumbers the ones after it, and nothing is embedded again.
     """
     register_vector(conn)
     report = StoreReport()
@@ -64,12 +69,18 @@ def store_chunks(conn: psycopg.Connection, documents: list[Document], embeddings
         wanted[key] = (document.model_copy(update={"metadata": {**document.metadata, "chapter_id": chapter_id}}), embed_text)
         report.by_code[code] = report.by_code.get(code, 0) + 1
 
-    book_pages = sorted({d.metadata["book_page"] for d in documents})
-    existing = conn.execute(
-        "SELECT id, chapter_id, content_hash, embedded_with FROM tutor_chunks "
-        "WHERE source = %s AND source_name = %s AND book_page = ANY(%s)",
-        (source, source_name, book_pages),
-    ).fetchall()
+    if whole_source:
+        existing = conn.execute(
+            "SELECT id, chapter_id, content_hash, embedded_with FROM tutor_chunks WHERE source = %s AND source_name = %s",
+            (source, source_name),
+        ).fetchall()
+    else:
+        book_pages = sorted({d.metadata["book_page"] for d in documents})
+        existing = conn.execute(
+            "SELECT id, chapter_id, content_hash, embedded_with FROM tutor_chunks "
+            "WHERE source = %s AND source_name = %s AND book_page = ANY(%s)",
+            (source, source_name, book_pages),
+        ).fetchall()
     # A chunk embedded by another model is not comparable with the rest of the index: it counts as gone, and comes back.
     existing_keys = {(chapter_id, digest): row_id for row_id, chapter_id, digest, model in existing
                      if model == embedding_model}
@@ -82,6 +93,13 @@ def store_chunks(conn: psycopg.Connection, documents: list[Document], embeddings
 
     fresh = [key for key in wanted if key not in existing_keys]
     report.unchanged = len(wanted) - len(fresh)
+    if whole_source:
+        for key, row_id in existing_keys.items():
+            if key in wanted:
+                metadata = wanted[key][0].metadata
+                conn.execute(
+                    "UPDATE tutor_chunks SET book_page = %s, position = %s, photo_id = %s WHERE id = %s",
+                    (metadata["book_page"], metadata["position"], (photo_by_page or {}).get(metadata["book_page"]), row_id))
     if fresh:
         vectors = embeddings.embed_documents([wanted[key][1] for key in fresh])
         for key, vector in zip(fresh, vectors, strict=True):

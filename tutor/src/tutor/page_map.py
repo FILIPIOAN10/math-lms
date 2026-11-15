@@ -49,6 +49,15 @@ def section_code(chapter: str, section: int | None, point: int | None) -> str:
     return code
 
 
+def follows_book(code: str) -> bool:
+    """
+    Is `code` one of the textbook's own chapters or a section of one (AI, AIS5, GVII)? Photos uploaded on such a page
+    are cut by the Cuprins above. On any other page of the LMS - the EN chapters A1...G10, a page the teacher made -
+    the Cuprins says nothing: the passages stay on the page the photos were uploaded on.
+    """
+    return parents(code.upper())[-1] in {chapter for _, _, chapter in CHAPTER_PAGES}
+
+
 def parents(code: str) -> list[str]:
     """AIS5P5 -> [AIS5P5, AIS5, AI]: the most specific code first, for falling back to a page that exists."""
     out = [code]
