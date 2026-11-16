@@ -153,6 +153,7 @@ def main(argv: list[str] | None = None) -> int:
 
         images_dir = pathlib.Path(settings.en_chapter_images_dir)
         spent = 0.0
+        failed = 0
         with httpx.Client(timeout=180) as client:
             for photo in todo:
                 if spent >= args.max_usd:
@@ -166,8 +167,9 @@ def main(argv: list[str] | None = None) -> int:
                 try:
                     result = transcribe_page(jpeg, settings, client)
                 except TranscriptionError as error:
-                    print(f"  poza {photo.position}: EROARE: {error}")
-                    return 1
+                    print(f"  poza {photo.position}: EROARE: {error} (sărită; restul capitolului continuă)")
+                    failed += 1
+                    continue
                 cost = cost_usd(result.input_tokens, result.output_tokens, settings)
                 spent += cost
                 content = render_markdown(f"{args.code.upper()} (LMS)", PageImage(photo.position, jpeg, width, height),

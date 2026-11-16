@@ -234,12 +234,19 @@ def transcribe_with_gemini(jpeg: bytes, settings: Settings) -> Transcription:
         client = gemini_client(settings)
     except (RuntimeError, OSError, ValueError) as error:
         raise TranscriptionError(str(error)) from error
-    try:
-        response = client.models.generate_content(model=settings.chat_model, contents=contents, config=config)
-    except errors.APIError as error:
-        raise TranscriptionError(f"Gemini a răspuns {error.code}: {str(error.message)[:300]}") from error
-    finish = response.candidates[0].finish_reason if response.candidates else None
-    if finish == types.FinishReason.MAX_TOKENS:
+    # A page can send the model into a loop (a long table, a row of dots) that ends only at the token limit, the same way
+    # every time at the default temperature: a warmer retry breaks the loop. Each attempt is paid for, so only two retries.
+    for temperature in (None, 0.7, 1.0):
+        if temperature is not None:
+            config.temperature = temperature
+        try:
+            response = client.models.generate_content(model=settings.chat_model, contents=contents, config=config)
+        except errors.APIError as error:
+            raise TranscriptionError(f"Gemini a răspuns {error.code}: {str(error.message)[:300]}") from error
+        finish = response.candidates[0].finish_reason if response.candidates else None
+        if finish != types.FinishReason.MAX_TOKENS:
+            break
+    else:
         raise TranscriptionError("Răspunsul a fost tăiat (prea lung); încearcă o pagină mai mică.")
     if not response.text:
         raise TranscriptionError("Răspunsul nu conține text.")
