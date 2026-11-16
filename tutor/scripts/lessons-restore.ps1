@@ -22,7 +22,7 @@ if ($LASTEXITCODE -ne 0) { throw 'truncate failed' }
 docker exec mathlms-postgres pg_restore -U mathlms -d mathlms --data-only --exit-on-error /tmp/tutor-lessons.dump
 if ($LASTEXITCODE -ne 0) { throw 'pg_restore failed (the chapters must have the same ids as when the backup was made)' }
 # Identity counters follow the restored ids, so the next upload does not reuse one.
-docker exec mathlms-postgres psql -U mathlms -d mathlms -At -c "select setval(pg_get_serial_sequence('en_chapter_photos','id'), (select coalesce(max(id),1) from en_chapter_photos)), setval(pg_get_serial_sequence('tutor_chunks','id'), (select coalesce(max(id),1) from tutor_chunks)), setval(pg_get_serial_sequence('tutor_photo_transcripts','id'), (select coalesce(max(id),1) from tutor_photo_transcripts))" | Out-Null
+docker exec mathlms-postgres psql -U mathlms -d mathlms -At -c "select setval(pg_get_serial_sequence('en_chapter_photos','id'), (select coalesce(max(id),1) from en_chapter_photos)), setval(pg_get_serial_sequence('tutor_chunks','id'), (select coalesce(max(id),1) from tutor_chunks))" | Out-Null
 
 $counts = docker exec mathlms-postgres psql -U mathlms -d mathlms -At -c "select (select count(*) from en_chapter_photos), (select count(*) from tutor_photo_transcripts), (select count(*) from tutor_chunks)"
 Write-Host "Restored (photos | transcripts | chunks): $counts"
