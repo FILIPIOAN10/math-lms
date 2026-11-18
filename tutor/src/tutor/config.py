@@ -28,6 +28,9 @@ class Settings(BaseSettings):
 
     # With LLM_PROVIDER=openai set these too: CHAT_MODEL=gpt-6-luna, EMBEDDING_MODEL=text-embedding-3-small.
     chat_model: str = "gemini-3.8-flash"
+    # Reading a page (build_chapter, the PDF/photo transcription) can use another model than the answers students get:
+    # empty = the chat model. Gemini only; a heavier model costs more per page, the price estimate stays the chat one.
+    transcribe_model: str | None = None
     embedding_model: str = "gemini-embedding-001"
     embedding_dimensions: int = 1536  # the size of the tutor_chunks.embedding column
 

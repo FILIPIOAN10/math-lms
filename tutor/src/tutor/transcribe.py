@@ -236,11 +236,12 @@ def transcribe_with_gemini(jpeg: bytes, settings: Settings) -> Transcription:
         raise TranscriptionError(str(error)) from error
     # A page can send the model into a loop (a long table, a row of dots) that ends only at the token limit, the same way
     # every time at the default temperature: a warmer retry breaks the loop. Each attempt is paid for, so only two retries.
+    model = settings.transcribe_model or settings.chat_model
     for temperature in (None, 0.7, 1.0):
         if temperature is not None:
             config.temperature = temperature
         try:
-            response = client.models.generate_content(model=settings.chat_model, contents=contents, config=config)
+            response = client.models.generate_content(model=model, contents=contents, config=config)
         except errors.APIError as error:
             raise TranscriptionError(f"Gemini a răspuns {error.code}: {str(error.message)[:300]}") from error
         finish = response.candidates[0].finish_reason if response.candidates else None
@@ -255,7 +256,7 @@ def transcribe_with_gemini(jpeg: bytes, settings: Settings) -> Transcription:
     except json.JSONDecodeError as error:
         raise TranscriptionError("Răspunsul nu e JSON-ul așteptat.") from error
     usage = response.usage_metadata
-    return transcription(data, settings.chat_model,
+    return transcription(data, model,
                          (usage.prompt_token_count or 0) if usage else 0,
                          (usage.candidates_token_count or 0) if usage else 0)
 
