@@ -68,8 +68,12 @@ export function PhotoViewer({
             <DialogPrimitive.Title className="mr-auto text-sm font-medium">
               {title ? title(page + 1, urls.length) : `Pagina ${page + 1} din ${urls.length}`}
             </DialogPrimitive.Title>
-            <Button size="sm" variant="outline" onClick={() => go(page - 1)} disabled={page === 0} aria-label="Pagina anterioară">←</Button>
-            <Button size="sm" variant="outline" onClick={() => go(page + 1)} disabled={page >= urls.length - 1} aria-label="Pagina următoare">→</Button>
+            {urls.length > 1 && (
+              <>
+                <Button size="sm" variant="outline" onClick={() => go(page - 1)} disabled={page === 0} aria-label="Pagina anterioară">←</Button>
+                <Button size="sm" variant="outline" onClick={() => go(page + 1)} disabled={page >= urls.length - 1} aria-label="Pagina următoare">→</Button>
+              </>
+            )}
             <Button size="sm" variant="outline" onClick={rotate} aria-label="Rotește 90°">⟳ 90°</Button>
             <Button size="sm" variant="outline" onClick={() => setActualSize((v) => !v)} aria-pressed={actualSize}>
               {actualSize ? 'Potrivește' : '100%'}

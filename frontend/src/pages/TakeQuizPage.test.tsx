@@ -350,7 +350,8 @@ describe('TakeQuizPage', () => {
 
       expect(await screen.findByTestId('revision-note')).toHaveTextContent('Dacă vrei să recapitulezi noțiunile despre simetrie și segmente:')
       const lesson = screen.getByRole('link', { name: /Vezi lecția: G1 Segmente/ })
-      expect(lesson).toHaveAttribute('href', '/capitole/16')
+      // the lesson knows the test it came from, for its "Înapoi la test"
+      expect(lesson).toHaveAttribute('href', '/capitole/16?test=%2Fquizzes%2F7%2Ftake%3Fmode%3Dpractice&fila=noua')
       expect(lesson).toHaveAttribute('target', '_blank')
     })
 

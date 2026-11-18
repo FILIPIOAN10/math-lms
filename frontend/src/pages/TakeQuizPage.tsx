@@ -8,6 +8,7 @@ import { MathContent } from '@/components/MathContent'
 import { MistakeNote } from '@/components/MistakeNote'
 import { NumberAnswer } from '@/components/NumberAnswer'
 import { QuestionImage } from '@/components/QuestionImage'
+import { PhotoViewer } from '@/components/PhotoViewer'
 import { RevisionNote } from '@/components/RevisionNote'
 import { baremLessons } from '@/lib/enChapters'
 import { SectionHeadingView } from '@/components/SectionHeadingView'
@@ -282,6 +283,8 @@ export function TakeQuizPage() {
   const [currentItem, setCurrentItem] = useState<number | null>(null)
   // "Revin la ea": the questions marked to come back to, kept per attempt on this device (lib/flags).
   const [flagged, setFlagged] = useState<Set<number>>(new Set())
+  // The student's own photo pages, large on the same page (a new tab would leave the test behind).
+  const [viewingOwn, setViewingOwn] = useState<{ itemId: number; index: number } | null>(null)
   const flagsAttempt = attempt?.attemptId ?? null
   useEffect(() => {
     setFlagged(flagsAttempt === null ? new Set() : loadFlags(flagsAttempt))
@@ -992,13 +995,17 @@ export function TakeQuizPage() {
                     <ul className="flex flex-wrap gap-3" aria-label={`Pozele tale pentru întrebarea ${labelOf.get(item.id)}`}>
                       {pagesOf(item.id).map((photoId, index) => (
                         <li key={photoId} className="flex flex-col items-start gap-1" data-testid="item-photo-page">
-                          <a href={ownPhotoUrl(attempt.attemptId, item.id, photoId)} target="_blank" rel="noreferrer">
+                          <button
+                            type="button"
+                            onClick={() => setViewingOwn({ itemId: item.id, index })}
+                            className="cursor-zoom-in rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                          >
                             <img
                               src={ownPhotoUrl(attempt.attemptId, item.id, photoId)}
                               alt={`Pagina ${index + 1} a rezolvării, întrebarea ${labelOf.get(item.id)}`}
                               className="h-32 w-auto rounded-lg border bg-background object-contain"
                             />
-                          </a>
+                          </button>
                           <span className="flex items-center gap-1 text-xs text-muted-foreground">
                             Pagina {index + 1}
                             <Button
@@ -1249,6 +1256,17 @@ export function TakeQuizPage() {
         Pare că nu ai internet. Așteaptă să revină conexiunea și încearcă din nou; dacă trimiți acum, întrebările marcate cu
         punct galben se predau fără răspuns.
       </ConfirmDialog>
+
+      {attempt && (
+        <PhotoViewer
+          urls={viewingOwn ? pagesOf(viewingOwn.itemId).map((photoId) => ownPhotoUrl(attempt.attemptId, viewingOwn.itemId, photoId)) : []}
+          alt={(n) => `Pagina ${n} a rezolvării`}
+          title={(n, total) => `Rezolvarea ta, pagina ${n} din ${total}`}
+          index={viewingOwn?.index ?? null}
+          onIndexChange={(index) => setViewingOwn((v) => (v ? { ...v, index } : v))}
+          onClose={() => setViewingOwn(null)}
+        />
+      )}
     </div>
   )
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  baremLessons, nextEnChapter, revisionLinks, revisionSentence, enPageForStudents, withoutRepeatedTitle,
+  baremLessons, nextEnChapter, previousEnChapter, returnLabel, returnPathOf, revisionLinks, revisionSentence, enPageForStudents,
+  withReturn, withoutRepeatedTitle,
 } from '@/lib/enChapters'
 import type { EnChapterLink, EnChapterSummary, GradedPart, ItemResultDto } from '@/lib/api'
 
@@ -129,5 +130,40 @@ describe('revisionLinks', () => {
       parts: [part('a', 2, 0, G8), part('b', 3, null, G9)],
     })
     expect(revisionLinks(halfGraded)).toEqual([])
+  })
+})
+
+describe('the way back to a test', () => {
+  it('reads only a path inside the app', () => {
+    expect(returnPathOf(new URLSearchParams('test=%2Fquizzes%2F7%2Ftake'))).toBe('/quizzes/7/take')
+    expect(returnPathOf(new URLSearchParams('test=%2F%2Fevil.example'))).toBeNull()
+    expect(returnPathOf(new URLSearchParams('test=https%3A%2F%2Fevil.example'))).toBeNull()
+    expect(returnPathOf(new URLSearchParams('test=%2F%5Cevil.example'))).toBeNull()
+    expect(returnPathOf(new URLSearchParams(''))).toBeNull()
+  })
+
+  it('adds itself to a link, after a section if there is one', () => {
+    expect(withReturn('/capitole/2', '/quizzes/7/take?mode=practice')).toBe('/capitole/2?test=%2Fquizzes%2F7%2Ftake%3Fmode%3Dpractice')
+    expect(withReturn('/capitole/2?sectiune=5', '/review')).toBe('/capitole/2?sectiune=5&test=%2Freview')
+    expect(withReturn('/capitole/2', null)).toBe('/capitole/2')
+    expect(withReturn('/capitole/2', '/review', true)).toBe('/capitole/2?test=%2Freview&fila=noua')
+  })
+
+  it('names the review page by its name', () => {
+    expect(returnLabel('/review')).toBe('Înapoi la recapitulare')
+    expect(returnLabel('/quizzes/attempts/3/result')).toBe('Înapoi la test')
+  })
+})
+
+describe('previousEnChapter', () => {
+  const summary = (id: number, exampleCount: number): EnChapterSummary => ({
+    id, code: `A${id}`, title: `Capitolul ${id}`, area: 'ALGEBRA', position: id, parentId: null, bookPage: null,
+    photoCount: 0, exampleCount,
+  })
+
+  it('is the chapter before with something to read; none before the first', () => {
+    const list = [summary(1, 1), summary(2, 0), summary(3, 1)]
+    expect(previousEnChapter(list, 3)?.id).toBe(1)
+    expect(previousEnChapter(list, 1)).toBeNull()
   })
 })

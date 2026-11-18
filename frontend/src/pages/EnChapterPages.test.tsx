@@ -32,6 +32,7 @@ function renderAt(url: string) {
       <Routes>
         <Route path="/capitole" element={<EnChaptersPage />} />
         <Route path="/capitole/:id" element={<EnChapterPage />} />
+        <Route path="/quizzes/:id/take" element={<p>Pagina testului</p>} />
       </Routes>
     </MemoryRouter>,
   )
@@ -131,8 +132,71 @@ describe('EnChapterPage', () => {
     renderAt('/capitole/1')
 
     const next = await screen.findByRole('navigation', { name: 'Mai departe' })
-    expect(await within(next).findByRole('link', { name: 'Capitolul următor: A3 · Procente' })).toHaveAttribute('href', '/capitole/3')
+    expect(await within(next).findByRole('link', { name: 'Capitolul următor: A3 · Procente →' })).toHaveAttribute('href', '/capitole/3')
     expect(within(next).getByRole('link', { name: 'Toate capitolele EN' })).toHaveAttribute('href', '/capitole')
+    // the first chapter has none before it
+    expect(within(next).queryByRole('link', { name: /Capitolul anterior/ })).not.toBeInTheDocument()
+  })
+
+  it('goes back to the previous chapter that has something to read', async () => {
+    api.getEnChapter.mockResolvedValue(page({ id: 3, rootId: 3, code: 'A3', examples: [{ id: 3, statement: '2 + 3', solution: '5', image: null }] }))
+    api.listEnChapters.mockResolvedValue([
+      chapter(1, { title: 'Ordinea efectuării operațiilor', exampleCount: 1 }),
+      chapter(2, { title: 'Rapoarte și proporții', exampleCount: 0 }),
+      chapter(3, { title: 'Procente', exampleCount: 2 }),
+    ])
+    renderAt('/capitole/3')
+
+    const nav = await screen.findByRole('navigation', { name: 'Mai departe' })
+    expect(await within(nav).findByRole('link', { name: '← Capitolul anterior: A1 · Ordinea efectuării operațiilor' }))
+      .toHaveAttribute('href', '/capitole/1')
+  })
+
+  describe('opened from a test', () => {
+    const fromTest = '/capitole/1?test=%2Fquizzes%2F7%2Ftake%3Fmode%3Dpractice'
+
+    beforeEach(() => {
+      sessionStorage.clear()
+      vi.restoreAllMocks()
+      api.getEnChapter.mockResolvedValue(page({ examples: [{ id: 3, statement: '2 + 3', solution: '5', image: null }] }))
+      api.listEnChapters.mockResolvedValue([chapter(1, { exampleCount: 1 }), chapter(2, { exampleCount: 1 })])
+    })
+
+    it('keeps "Înapoi la test" through the next chapter and the practice', async () => {
+      renderAt(fromTest)
+
+      expect(await screen.findByTestId('back-to-test')).toHaveTextContent('← Înapoi la test')
+      const nav = await screen.findByRole('navigation', { name: 'Mai departe' })
+      expect(within(nav).getByRole('button', { name: '← Înapoi la test' })).toBeInTheDocument()
+      expect(await within(nav).findByRole('link', { name: /Capitolul următor: A2/ }))
+        .toHaveAttribute('href', '/capitole/2?test=%2Fquizzes%2F7%2Ftake%3Fmode%3Dpractice')
+      expect(within(nav).getByRole('link', { name: 'Exersează capitolul' }))
+        .toHaveAttribute('href', '/capitole/1/exersare?test=%2Fquizzes%2F7%2Ftake%3Fmode%3Dpractice')
+    })
+
+    it('takes the student back to the test', async () => {
+      const close = vi.spyOn(window, 'close').mockImplementation(() => undefined)
+      renderAt(fromTest)
+
+      fireEvent.click(await screen.findByTestId('back-to-test'))
+      expect(await screen.findByText('Pagina testului')).toBeInTheDocument()
+      expect(close).not.toHaveBeenCalled()
+    })
+
+    it('closes a tab opened only for the lesson, so the test is not opened twice', async () => {
+      const close = vi.spyOn(window, 'close').mockImplementation(() => undefined)
+      renderAt(`${fromTest}&fila=noua`)
+
+      fireEvent.click(await screen.findByTestId('back-to-test'))
+      expect(close).toHaveBeenCalledTimes(1)
+    })
+
+    it('ignores a way back that leaves the app', async () => {
+      renderAt('/capitole/1?test=%2F%2Fevil.example')
+
+      await screen.findByRole('navigation', { name: 'Mai departe' })
+      expect(screen.queryByTestId('back-to-test')).not.toBeInTheDocument()
+    })
   })
 
   it('offers a student to practise the chapter, as the main step after the theory', async () => {
@@ -167,6 +231,9 @@ describe('EnChapterPage', () => {
 
     expect(await screen.findByRole('heading', { level: 1, name: 'A1 · Ordinea efectuării operațiilor' })).toBeInTheDocument()
     expect(screen.getByText('Întâi parantezele, apoi puterile.')).toBeInTheDocument()
+    // the book's pages wait under "Vezi mai mult", even before the theory is written out
+    expect(screen.queryByRole('img', { name: /Materia, pagina/ })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Vezi mai mult: paginile cărții (2)' }))
     const photos = screen.getAllByRole('img', { name: /Materia, pagina/ })
     expect(photos.map((p) => p.getAttribute('src'))).toEqual(['/api/en-chapters/1/photos/7', '/api/en-chapters/1/photos/8'])
     expect(screen.getByRole('img', { name: 'Figura modelului 2' })).toHaveAttribute('src', '/api/en-chapters/1/examples/4/image?v=fig.png')
@@ -298,7 +365,7 @@ describe('EnChapterPage', () => {
         await screen.findByRole('region', { name: 'Materia' })
 
         expect(screen.queryByRole('img', { name: /Materia, pagina 9/ })).not.toBeInTheDocument()
-        fireEvent.click(screen.getByRole('button', { name: /Arată pozele cu paginile cărții \(13\)/ }))
+        fireEvent.click(screen.getByRole('button', { name: /Vezi mai mult: paginile cărții \(13\)/ }))
 
         expect(screen.getByRole('img', { name: 'Materia, pagina 9' })).toBeInTheDocument()
       })

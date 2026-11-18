@@ -47,6 +47,72 @@ export function nextEnChapter(chapters: EnChapterSummary[], currentId: number): 
   return ordered.slice(at + 1).find(hasEnContent) ?? null
 }
 
+/** The chapter before this one, in the same order as {@link nextEnChapter}, that has something to read; null at the start. */
+export function previousEnChapter(chapters: EnChapterSummary[], currentId: number): EnChapterSummary | null {
+  const ordered = EN_AREAS.flatMap((area) => inArea(rootsOf(chapters), area.value))
+  const at = ordered.findIndex((c) => c.id === currentId)
+  if (at === -1) return null
+  return ordered.slice(0, at).reverse().find(hasEnContent) ?? null
+}
+
+/**
+ * The test (or review) a student left to read a lesson travels with them as `?test=/quizzes/7/take`, through the next
+ * and previous chapters and the chapter's practice, so "Înapoi la test" is there however far they went.
+ */
+export const RETURN_PARAM = 'test'
+
+/** The page to go back to, from the address; only a path inside the app counts (never another site). */
+export function returnPathOf(search: URLSearchParams): string | null {
+  const path = search.get(RETURN_PARAM)
+  if (!path || !path.startsWith('/') || path.startsWith('//') || path.includes('\\')) return null
+  return path
+}
+
+/** Marks a lesson opened in a tab of its own, so "Înapoi la test" closes that tab instead of opening the test twice. */
+const NEW_TAB_PARAM = 'fila'
+
+/** `path` with the way back added, when there is one; `newTab` when the link opens a tab of its own. */
+export function withReturn(path: string, back: string | null, newTab = false): string {
+  if (!back) return path
+  const query = `${RETURN_PARAM}=${encodeURIComponent(back)}${newTab ? `&${NEW_TAB_PARAM}=noua` : ''}`
+  return `${path}${path.includes('?') ? '&' : '?'}${query}`
+}
+
+const LESSON_TAB_KEY = 'mathlms.lessonTab'
+
+/**
+ * Called when a lesson page opens: a lesson opened in a tab of its own (from a practice, so the test stays as it was)
+ * says so in its address and starts that tab's history. The mark is per tab (sessionStorage), so it survives going on
+ * to other chapters, whose links no longer carry it.
+ */
+export function rememberLessonTab(search: URLSearchParams): void {
+  try {
+    if (search.get(NEW_TAB_PARAM) === 'noua' && window.history.length === 1) sessionStorage.setItem(LESSON_TAB_KEY, '1')
+  } catch {
+    // Storage blocked: "Înapoi la test" then opens the test in this tab instead of closing it.
+  }
+}
+
+/**
+ * Back to the test: a tab opened only for the lesson closes, and the student is again on the test they left, answers
+ * and all; otherwise (or when the browser does not let the tab close) the test opens here.
+ */
+export function backToTest(back: string, navigate: (to: string) => void): void {
+  let ownTab = false
+  try {
+    ownTab = sessionStorage.getItem(LESSON_TAB_KEY) === '1'
+  } catch {
+    ownTab = false
+  }
+  if (ownTab) window.close()
+  navigate(back)
+}
+
+/** What the way-back button says: the review page is not a test. */
+export function returnLabel(back: string): string {
+  return back.startsWith('/review') ? 'Înapoi la recapitulare' : 'Înapoi la test'
+}
+
 const comparable = (text: string) => text.toLocaleLowerCase('ro').replace(/\s+/g, ' ').trim().replace(/[.:]$/, '')
 
 /**

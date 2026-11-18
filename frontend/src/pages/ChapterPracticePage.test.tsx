@@ -20,11 +20,12 @@ const practice = (questions: ReviewQuestion[], over: Partial<ChapterPractice> = 
   chapterId: 4, code: 'A4', title: 'Fracții', available: questions.length, questions, ...over,
 })
 
-function renderPage() {
+function renderPage(url = '/capitole/4/exersare') {
   return render(
-    <MemoryRouter initialEntries={['/capitole/4/exersare']}>
+    <MemoryRouter initialEntries={[url]}>
       <Routes>
         <Route path="/capitole/:id/exersare" element={<ChapterPracticePage />} />
+        <Route path="/quizzes/:id/take" element={<p>Pagina testului</p>} />
       </Routes>
     </MemoryRouter>,
   )
@@ -33,6 +34,26 @@ function renderPage() {
 describe('ChapterPracticePage', () => {
   beforeEach(() => {
     Object.values(api).forEach((fn) => fn.mockReset())
+  })
+
+  it('always has the way back to the lesson, and to the test when it came from one', async () => {
+    const user = userEvent.setup()
+    api.getChapterPractice.mockResolvedValue(practice([question(1)]))
+    renderPage('/capitole/4/exersare?test=%2Fquizzes%2F7%2Ftake')
+
+    const back = await screen.findByRole('navigation', { name: 'Înapoi' })
+    expect(within(back).getByRole('link', { name: '← Înapoi la lecție' })).toHaveAttribute('href', '/capitole/4?test=%2Fquizzes%2F7%2Ftake')
+    await user.click(within(back).getByRole('button', { name: '← Înapoi la test' }))
+    expect(await screen.findByText('Pagina testului')).toBeInTheDocument()
+  })
+
+  it('has no "Înapoi la test" when opened from the lesson list', async () => {
+    api.getChapterPractice.mockResolvedValue(practice([question(1)]))
+    renderPage()
+
+    const back = await screen.findByRole('navigation', { name: 'Înapoi' })
+    expect(within(back).getByRole('link', { name: '← Înapoi la lecție' })).toHaveAttribute('href', '/capitole/4')
+    expect(screen.queryByTestId('back-to-test')).not.toBeInTheDocument()
   })
 
   it('checks each grilă at once, with the solution, and ends with how it went', async () => {

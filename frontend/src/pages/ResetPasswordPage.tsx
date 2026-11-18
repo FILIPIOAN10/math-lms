@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { AuthLayout } from '@/components/AuthLayout'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
+import { PasswordInput } from '@/components/PasswordInput'
 import { Label } from '@/components/ui/label'
 import { ApiError, resetPassword } from '@/lib/api'
 import { usePageTitle } from '@/lib/usePageTitle'
@@ -102,9 +102,8 @@ function ResetForm({ token }: { token: string }) {
         <form className="flex flex-col gap-4" onSubmit={handleSubmit} noValidate>
           <div className="flex flex-col gap-2">
             <Label htmlFor="newPassword">Parolă nouă</Label>
-            <Input
+            <PasswordInput
               id="newPassword"
-              type="password"
               autoComplete="new-password"
               required
               value={newPassword}
@@ -113,9 +112,8 @@ function ResetForm({ token }: { token: string }) {
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="confirm">Confirmă parola</Label>
-            <Input
+            <PasswordInput
               id="confirm"
-              type="password"
               autoComplete="new-password"
               required
               value={confirm}

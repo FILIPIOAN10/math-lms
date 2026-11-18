@@ -1,7 +1,7 @@
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { buttonVariants } from '@/components/ui/button'
 import { type EnChapterLink } from '@/lib/api'
-import { revisionSentence } from '@/lib/enChapters'
+import { revisionSentence, withReturn } from '@/lib/enChapters'
 import { cn } from '@/lib/utils'
 
 /**
@@ -17,11 +17,13 @@ export function RevisionNote({
   parts?: string[]
   newTab?: boolean
 }) {
+  // The lesson remembers the test it was opened from, for its "Înapoi la test" button.
+  const here = useLocation()
   return (
     <div data-testid="revision-note" className="space-y-2 text-sm max-sm:text-base">
       <p>{revisionSentence(chapter, parts)}</p>
       <Link
-        to={`/capitole/${chapter.id}`}
+        to={withReturn(`/capitole/${chapter.id}`, here.pathname + here.search, newTab)}
         {...(newTab && { target: '_blank', rel: 'noopener' })}
         className={cn(
           buttonVariants({ size: 'sm', variant: 'outline' }),

@@ -8,6 +8,7 @@ import { MarkdownText } from '@/components/MarkdownText'
 import { MathContent } from '@/components/MathContent'
 import { PageHeader } from '@/components/PageHeader'
 import { PhotoViewer } from '@/components/PhotoViewer'
+import { ZoomableImage } from '@/components/QuestionImage'
 import { HomeSection } from '@/components/home/HomeBits'
 import {
   enChapterPhotoUrl,
@@ -19,7 +20,17 @@ import {
   type EnExample,
   type EnSection,
 } from '@/lib/api'
-import { nextEnChapter, photoIndexOf, withoutRepeatedTitle } from '@/lib/enChapters'
+import {
+  backToTest,
+  nextEnChapter,
+  photoIndexOf,
+  previousEnChapter,
+  rememberLessonTab,
+  returnLabel,
+  returnPathOf,
+  withReturn,
+  withoutRepeatedTitle,
+} from '@/lib/enChapters'
 import { errorMessage } from '@/lib/errors'
 import { LoadingCards } from '@/components/LoadingCards'
 
@@ -32,13 +43,11 @@ function ExampleCard({ chapterId, example, number }: { chapterId: number; exampl
         <p className="text-sm font-medium text-muted-foreground">Modelul {number}</p>
         <MathContent className="whitespace-pre-wrap">{example.statement}</MathContent>
         {example.image && (
-          <a href={enExampleImageUrl(chapterId, example.id, example.image)} target="_blank" rel="noreferrer" className="block w-fit">
-            <img
-              src={enExampleImageUrl(chapterId, example.id, example.image)}
-              alt={`Figura modelului ${number}`}
-              className="max-h-72 rounded-lg border bg-white object-contain"
-            />
-          </a>
+          <ZoomableImage
+            src={enExampleImageUrl(chapterId, example.id, example.image)}
+            alt={`Figura modelului ${number}`}
+            imgClassName="max-h-72"
+          />
         )}
         <Button variant="outline" size="sm" onClick={() => setShown((s) => !s)} aria-expanded={shown}>
           {shown ? 'Ascunde rezolvarea' : 'Arată rezolvarea'}
@@ -91,10 +100,16 @@ export function EnChapterPage() {
   const [photosShown, setPhotosShown] = useState(false)
   const [contentsShown, setContentsShown] = useState(false)
   const [next, setNext] = useState<EnChapterSummary | null>(null)
+  const [previous, setPrevious] = useState<EnChapterSummary | null>(null)
   const openedFor = useRef<number | null>(null)
   const navigate = useNavigate()
   // Arrived from inside the app (a result's "revezi capitolul", the list): "Înapoi" returns there.
   const cameFromApp = useLocation().key !== 'default'
+  // Opened from a test's "Vezi lecția": the way back to it, kept through the next/previous chapters and the practice.
+  const back = returnPathOf(search)
+  useEffect(() => {
+    if (back) rememberLessonTab(search)
+  }, [back, search])
   // After the theory a student practises it (Khan's "practice this unit"); staff and parents only read the page.
   const student = useAuth().user?.role === 'STUDENT'
 
@@ -104,9 +119,13 @@ export function EnChapterPage() {
     getEnChapter(chapterId)
       .then((p) => !cancelled && setPage(p))
       .catch((e) => !cancelled && setError(errorMessage(e)))
-    // Only for "Capitolul următor": the page works without it.
+    // Only for "Capitolul anterior / următor": the page works without it.
     listEnChapters()
-      .then((list) => !cancelled && setNext(nextEnChapter(list, chapterId)))
+      .then((list) => {
+        if (cancelled) return
+        setNext(nextEnChapter(list, chapterId))
+        setPrevious(previousEnChapter(list, chapterId))
+      })
       .catch(() => undefined)
     return () => {
       cancelled = true
@@ -141,7 +160,7 @@ export function EnChapterPage() {
   }, [page, wantedSection])
 
   if (page && page.rootId !== page.id) {
-    return <Navigate to={`/capitole/${page.rootId}?sectiune=${page.id}`} replace />
+    return <Navigate to={withReturn(`/capitole/${page.rootId}?sectiune=${page.id}`, back)} replace />
   }
 
   const photoUrls = page ? page.photos.map((p) => enChapterPhotoUrl(page.id, p.id)) : []
@@ -153,8 +172,9 @@ export function EnChapterPage() {
   const written = sections.filter((s) => s.notes)
   const empty = page && !page.notes && written.length === 0 && page.photos.length === 0 && page.examples.length === 0
   const bookPageOf = (n: number) => (page?.bookPage != null ? page.bookPage + n - 1 : n)
-  // With no written text yet the photos and the contents show straight away; with text they wait behind a button.
-  const photosOpen = photosShown || written.length === 0
+  // The book's pages are only for checking the text against: always behind "Vezi mai mult", the lesson reads first.
+  // With no written text yet the contents show straight away; with text they wait behind a button too.
+  const photosOpen = photosShown
   const contentsOpen = contentsShown || written.length === 0
   const photoUrl = page ? (photoId: number) => enChapterPhotoUrl(page.id, photoId) : undefined
   // The text repeats the chapter's name on its first line; the page title says it already.
@@ -167,6 +187,11 @@ export function EnChapterPage() {
           title={page ? `${page.code} · ${page.title}` : 'Capitol EN'}
           breadcrumbs={[{ label: 'Capitole EN', to: '/capitole' }, ...(page ? [{ label: page.code }] : [])]}
         />
+        {back && (
+          <Button variant="outline" size="sm" onClick={() => backToTest(back, navigate)} data-testid="back-to-test">
+            ← {returnLabel(back)}
+          </Button>
+        )}
         {error && <ErrorState message={error} />}
         {!page && !error && <LoadingCards />}
         {empty && <p className="text-muted-foreground">Profesorul n-a pus încă materia pentru acest capitol.</p>}
@@ -259,11 +284,9 @@ export function EnChapterPage() {
 
         {page && page.photos.length > 0 && (
           <HomeSection title="Paginile cărții">
-            {written.length > 0 && (
-              <Button variant="outline" size="sm" onClick={() => setPhotosShown((s) => !s)} aria-expanded={photosOpen}>
-                {photosOpen ? 'Ascunde pozele' : `Arată pozele cu paginile cărții (${page.photos.length})`}
-              </Button>
-            )}
+            <Button variant="outline" size="sm" onClick={() => setPhotosShown((s) => !s)} aria-expanded={photosOpen}>
+              {photosOpen ? 'Ascunde paginile cărții' : `Vezi mai mult: paginile cărții (${page.photos.length})`}
+            </Button>
             {photosOpen && (
               <>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -297,19 +320,37 @@ export function EnChapterPage() {
         {/* Not a dead end: back to where the student came from, on to the next chapter, or to all of them. */}
         {page && (
           <nav aria-label="Mai departe" className="flex flex-wrap items-center gap-2 border-t pt-4">
-            {cameFromApp && (
-              <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
-                ← Înapoi
+            {back ? (
+              <Button variant="outline" size="sm" onClick={() => backToTest(back, navigate)}>
+                ← {returnLabel(back)}
               </Button>
+            ) : (
+              cameFromApp && (
+                <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
+                  ← Înapoi
+                </Button>
+              )
             )}
             {student && (
-              <Link to={`/capitole/${page.id}/exersare`} data-testid="chapter-practice" className={buttonVariants({ size: 'sm' })}>
+              <Link
+                to={withReturn(`/capitole/${page.id}/exersare`, back)}
+                data-testid="chapter-practice"
+                className={buttonVariants({ size: 'sm' })}
+              >
                 Exersează capitolul
               </Link>
             )}
+            {previous && (
+              <Link to={withReturn(`/capitole/${previous.id}`, back)} className={buttonVariants({ size: 'sm', variant: 'outline' })}>
+                ← Capitolul anterior: {previous.code} · {previous.title}
+              </Link>
+            )}
             {next && (
-              <Link to={`/capitole/${next.id}`} className={buttonVariants({ size: 'sm', variant: student ? 'outline' : 'default' })}>
-                Capitolul următor: {next.code} · {next.title}
+              <Link
+                to={withReturn(`/capitole/${next.id}`, back)}
+                className={buttonVariants({ size: 'sm', variant: student ? 'outline' : 'default' })}
+              >
+                Capitolul următor: {next.code} · {next.title} →
               </Link>
             )}
             <Link to="/capitole" className={buttonVariants({ variant: 'ghost', size: 'sm' })}>

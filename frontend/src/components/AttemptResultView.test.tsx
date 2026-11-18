@@ -355,7 +355,8 @@ describe('AttemptResultView', () => {
     expect(screen.getAllByTestId('revision-links')).toHaveLength(1)
     expect(screen.getByTestId('revision-note')).toHaveTextContent('Dacă vrei să recapitulezi noțiunile despre cerc:')
     const lesson = screen.getByRole('link', { name: /Vezi lecția: G6 Cercul/ })
-    expect(lesson).toHaveAttribute('href', '/capitole/17')
+    // the lesson keeps the way back to this result, for its "Înapoi la test"
+    expect(lesson.getAttribute('href')).toMatch(/^\/capitole\/17\?test=/)
     expect(lesson).not.toHaveAttribute('target')
     expect(screen.queryByRole('link', { name: /A1/ })).not.toBeInTheDocument()
   })

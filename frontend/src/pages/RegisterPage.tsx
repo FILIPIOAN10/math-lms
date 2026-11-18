@@ -4,6 +4,7 @@ import { AuthLayout } from '@/components/AuthLayout'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { PasswordInput } from '@/components/PasswordInput'
 import { Label } from '@/components/ui/label'
 import { ApiError, previewInvite, register, type InvitePreview } from '@/lib/api'
 import { usePageTitle } from '@/lib/usePageTitle'
@@ -163,9 +164,8 @@ function RegisterForm({ inviteToken, preview }: { inviteToken: string; preview: 
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="password">Parolă</Label>
-            <Input
+            <PasswordInput
               id="password"
-              type="password"
               autoComplete="new-password"
               required
               value={password}
@@ -174,9 +174,8 @@ function RegisterForm({ inviteToken, preview }: { inviteToken: string; preview: 
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="confirm">Confirmă parola</Label>
-            <Input
+            <PasswordInput
               id="confirm"
-              type="password"
               autoComplete="new-password"
               required
               value={confirm}

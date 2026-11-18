@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { PasswordInput } from '@/components/PasswordInput'
 import { HomeSection } from '@/components/home/HomeBits'
 import { InstallAppSection } from '@/components/InstallApp'
 import { PageHeader } from '@/components/PageHeader'
@@ -30,12 +31,12 @@ import { LoadingCards } from '@/components/LoadingCards'
 
 const okText = 'text-sm text-emerald-700 dark:text-emerald-300'
 
-function Field({ label, ...props }: { label: string } & React.ComponentProps<typeof Input>) {
+function Field({ label, type, ...props }: { label: string } & React.ComponentProps<typeof Input>) {
   const id = useId()
   return (
     <div className="space-y-1">
       <label htmlFor={id} className="text-sm font-medium">{label}</label>
-      <Input id={id} {...props} />
+      {type === 'password' ? <PasswordInput id={id} {...props} /> : <Input id={id} type={type} {...props} />}
     </div>
   )
 }

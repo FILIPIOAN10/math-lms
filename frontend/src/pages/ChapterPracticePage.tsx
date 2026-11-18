@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { EmptyArt } from '@/components/EmptyArt'
 import { ErrorState } from '@/components/ErrorState'
 import { LoadingCards } from '@/components/LoadingCards'
@@ -8,6 +8,7 @@ import { PracticeQuestionCard } from '@/components/PracticeQuestionCard'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { answerChapterPractice, getChapterPractice, type ChapterPractice, type ChapterPracticeResult } from '@/lib/api'
+import { backToTest, returnLabel, returnPathOf, withReturn } from '@/lib/enChapters'
 import { errorMessage } from '@/lib/errors'
 import { usePageTitle } from '@/lib/usePageTitle'
 
@@ -18,6 +19,9 @@ import { usePageTitle } from '@/lib/usePageTitle'
  */
 export function ChapterPracticePage() {
   const chapterId = Number(useParams<{ id: string }>().id)
+  const navigate = useNavigate()
+  // Came from a test through the lesson: the way back to it stays on this page too.
+  const back = returnPathOf(useSearchParams()[0])
   const [practice, setPractice] = useState<ChapterPractice | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [index, setIndex] = useState(0)
@@ -55,7 +59,7 @@ export function ChapterPracticePage() {
 
   const question = practice && !finished ? practice.questions[index] ?? null : null
   const isLast = practice !== null && index === practice.questions.length - 1
-  const chapterHref = `/capitole/${chapterId}`
+  const chapterHref = withReturn(`/capitole/${chapterId}`, back)
 
   async function check() {
     if (!question || selected === null) return
@@ -93,6 +97,16 @@ export function ChapterPracticePage() {
           description="Grile din testele tale despre capitolul acesta, întâi cele greșite. Nu se dă notă."
           breadcrumbs={[{ label: 'Capitole EN', to: '/capitole' }, { label: practice?.code ?? 'Capitol', to: chapterHref }, { label: 'Exersează' }]}
         />
+        <nav aria-label="Înapoi" className="flex flex-wrap gap-2">
+          <Link to={chapterHref} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+            ← Înapoi la lecție
+          </Link>
+          {back && (
+            <Button variant="outline" size="sm" onClick={() => backToTest(back, navigate)} data-testid="back-to-test">
+              ← {returnLabel(back)}
+            </Button>
+          )}
+        </nav>
         {loadError && <ErrorState message={loadError} />}
         {!practice && !loadError && <LoadingCards />}
 
@@ -127,6 +141,11 @@ export function ChapterPracticePage() {
                 <Link to={chapterHref} className={buttonVariants({ variant: 'outline' })}>
                   Înapoi la capitol
                 </Link>
+                {back && (
+                  <Button variant="outline" onClick={() => backToTest(back, navigate)}>
+                    {returnLabel(back)}
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>

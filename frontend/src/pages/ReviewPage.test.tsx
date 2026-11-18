@@ -93,7 +93,7 @@ describe('ReviewPage', () => {
 
     expect(await screen.findByTestId('revision-note')).toHaveTextContent('Dacă vrei să recapitulezi noțiunile despre simetrie și segmente:')
     const lesson = screen.getByRole('link', { name: /Vezi lecția: G1 Segmente/ })
-    expect(lesson).toHaveAttribute('href', '/capitole/16')
+    expect(lesson).toHaveAttribute('href', '/capitole/16?test=%2F&fila=noua')
     expect(lesson).toHaveAttribute('target', '_blank')
   })
 
