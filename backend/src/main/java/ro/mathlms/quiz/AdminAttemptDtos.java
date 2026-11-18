@@ -61,7 +61,14 @@ public final class AdminAttemptDtos {
             List<Long> photoIds, // S2: the pages of the answer, oldest first
             List<PartDtos.GradedPartDto> parts, // requirements a), b)... graded one by one; empty = none
             String selectedOptionLetter, // "a", "b"... as on the paper test; null = no answer / not a grilă
-            String correctOptionLetter
+            String correctOptionLetter,
+            // „De ce am greșit?" answered from the paper itself: the wrong option chosen (null = right, none, not a
+            // grilă), the teacher's explanation of it and its lesson (null = not written), and how many students of
+            // the test are waiting for one on that option.
+            Long selectedOptionId,
+            String mistake,
+            ro.mathlms.enchapter.LessonLinks.LessonLinkDto mistakeLesson,
+            int explanationRequests
     ) {
     }
 

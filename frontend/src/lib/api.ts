@@ -1929,6 +1929,13 @@ export interface AdminItemReview {
   image?: string | null
   /** Requirements a), b)... graded one by one; empty/absent = one grade for the whole answer. */
   parts?: GradedPart[]
+  /** The wrong option chosen, to explain from the paper; null/absent = right, no answer or not a grilă. */
+  selectedOptionId?: number | null
+  /** The teacher's explanation of that option (what the student sees); null/absent = not written yet. */
+  mistake?: string | null
+  mistakeLesson?: TutorLessonLink | null
+  /** Students of this test waiting for „De ce am greșit?" on that option; absent = 0. */
+  explanationRequests?: number
 }
 
 export interface AdminAttemptDetail {

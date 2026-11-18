@@ -11,6 +11,7 @@ import { QuestionImage } from '@/components/QuestionImage'
 import { FilterBar, FilterSelect, NoMatches } from '@/components/FilterBar'
 import { GradeByItem } from '@/components/GradeByItem'
 import { AiAutoProposalsSwitch } from '@/components/grading/AiAutoProposalsSwitch'
+import { GradingMistake } from '@/components/grading/GradingMistake'
 import { useConfirm } from '@/components/useConfirm'
 import { ItemGradeForm } from '@/components/grading/ItemGradeForm'
 import { CommentPreview } from '@/components/grading/CommentPreview'
@@ -22,6 +23,8 @@ import {
   commentOnAttempt,
   finalizeGrading,
   getAiGradingSettings,
+  getAiImportSettings,
+  getTutorSettings,
   getAiProposals,
   getAttemptForGrading,
   grantExtraAttempt,
@@ -35,6 +38,7 @@ import {
   type AiProposal,
   type AdminAttemptSummary,
   type AdminItemReview,
+  type TutorLessonLink,
   type QuizAttemptStatus,
 } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
@@ -468,6 +472,30 @@ export function AdminGradingPage({ aiPollMs = AI_POLL_MS }: { aiPollMs?: number 
       .then((s) => setAiOn(s.enabled))
       .catch(() => undefined) // no proposals shown, grading works as before
   }, [])
+  // „De ce e greșit” from the paper: the same helpers as on Statistici, hidden where the server has them off.
+  const [mistakeAiOn, setMistakeAiOn] = useState(false)
+  const [tutorOn, setTutorOn] = useState(false)
+  useEffect(() => {
+    getAiImportSettings()
+      .then((s) => setMistakeAiOn(s.enabled))
+      .catch(() => undefined)
+    getTutorSettings()
+      .then((s) => setTutorOn(s.enabled))
+      .catch(() => undefined)
+  }, [])
+  /** A saved explanation answers the students who asked: the paper shows it at once, with no one waiting. */
+  function mistakeSaved(optionId: number, mistake: string, lesson: TutorLessonLink | null) {
+    setDetail((d) => d && {
+      ...d,
+      items: d.items.map((i) => i.selectedOptionId !== optionId ? i : {
+        ...i,
+        mistake: mistake || null,
+        mistakeLesson: mistake ? lesson : null,
+        explanationRequests: mistake ? 0 : i.explanationRequests,
+      }),
+    })
+    window.dispatchEvent(new Event(NAV_COUNTS_CHANGED))
+  }
   const paperId = detail?.attemptId ?? null
   // The test of the open paper (the detail itself does not name it; the list it was opened from does).
   const detailQuizId = attempts.find((a) => a.attemptId === paperId)?.quizId ?? null
@@ -647,6 +675,12 @@ export function AdminGradingPage({ aiPollMs = AI_POLL_MS }: { aiPollMs?: number 
                           <MathContent inline>{item.correctOptionText}</MathContent>
                         </p>
                       )}
+                      <GradingMistake
+                        item={item}
+                        aiOn={mistakeAiOn}
+                        tutorOn={tutorOn}
+                        onSaved={(mistake, lesson) => mistakeSaved(item.selectedOptionId!, mistake, lesson)}
+                      />
                     </div>
                   ) : (
                     <OpenItemGrader

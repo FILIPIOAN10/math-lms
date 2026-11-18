@@ -25,7 +25,8 @@ export function MistakeEditor({ option, aiOn, tutorOn = false, onSaved }: {
   aiOn: boolean
   /** The tutor service is on: drafts come from the EN lessons, with the page. */
   tutorOn?: boolean
-  onSaved: () => void
+  /** Called with what was saved (an empty text = the explanation was removed). */
+  onSaved: (mistake: string, lesson: TutorLessonLink | null) => void
 }) {
   const [editing, setEditing] = useState(false)
   const [text, setText] = useState(option.mistake ?? '')
@@ -47,7 +48,7 @@ export function MistakeEditor({ option, aiOn, tutorOn = false, onSaved }: {
         await saveOptionMistake(option.id, trimmed)
       }
       setEditing(false)
-      onSaved()
+      onSaved(trimmed, trimmed ? lesson : null)
     } catch (e) {
       setError(errorMessage(e))
     } finally {

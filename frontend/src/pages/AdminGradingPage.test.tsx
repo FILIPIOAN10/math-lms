@@ -24,6 +24,9 @@ const api = vi.hoisted(() => ({
   getAutoProposals: vi.fn(),
   setAutoProposals: vi.fn(),
   grantExtraAttempt: vi.fn(),
+  getAiImportSettings: vi.fn(),
+  getTutorSettings: vi.fn(),
+  saveOptionMistake: vi.fn(),
 }))
 vi.mock('@/lib/api', async (original) => ({ ...(await original<typeof import('@/lib/api')>()), ...api }))
 
@@ -80,6 +83,47 @@ describe('AdminGradingPage', () => {
     api.markCommentSnippetUsed.mockResolvedValue(undefined)
     api.getAiGradingSettings.mockResolvedValue({ enabled: false, baremMaxPages: 0, baremDailyPageLimit: 0, baremPagesUsedToday: 0 })
     api.getAiProposals.mockResolvedValue([])
+    api.getAiImportSettings.mockResolvedValue({ enabled: false })
+    api.getTutorSettings.mockResolvedValue({ enabled: false })
+    api.saveOptionMistake.mockResolvedValue(undefined)
+  })
+
+  describe('„De ce e greșit” from the paper', () => {
+    const grila = (over: Partial<AdminAttemptDetail['items'][number]> = {}): AdminAttemptDetail['items'][number] => ({
+      itemId: 201, position: 1, type: 'SINGLE_CHOICE', statement: 'Rezolvă', points: 5, barem: null,
+      selectedOptionText: '200', correctOptionText: '150', selectedOptionLetter: 'c', correctOptionLetter: 'b',
+      correct: false, awardedPoints: 0, photoUploaded: false, photoIds: [], teacherComment: null,
+      selectedOptionId: 3003, mistake: null, explanationRequests: 2, ...over,
+    })
+
+    it('answers the students who asked, right under the wrong grilă', async () => {
+      await openAttempt(detail({ items: [grila()] }))
+
+      const box = screen.getByTestId('grading-mistake-201')
+      expect(box).toHaveTextContent('De ce e greșit „c)”')
+      expect(within(box).getByTestId('option-requests')).toHaveTextContent('2 elevi au întrebat „De ce am greșit?”')
+      await userEvent.click(within(box).getByRole('button', { name: 'Ce greșeală ascunde?' }))
+      await userEvent.type(within(box).getByRole('textbox'), 'Ai luat 10% din 2000.')
+      await userEvent.click(within(box).getByRole('button', { name: 'Salvează' }))
+
+      expect(api.saveOptionMistake).toHaveBeenCalledWith(3003, 'Ai luat 10% din 2000.')
+      await waitFor(() => expect(box).toHaveTextContent('elevii care l-au ales văd:'))
+      expect(box).toHaveTextContent('Ai luat 10% din 2000.')
+      expect(within(box).queryByTestId('option-requests')).not.toBeInTheDocument()
+    })
+
+    it('shows the explanation the student already reads, and nothing under a right answer', async () => {
+      await openAttempt(detail({
+        items: [
+          grila({ mistake: 'Ai adunat numitorii.', explanationRequests: 0 }),
+          grila({ itemId: 202, position: 2, correct: true, awardedPoints: 5, selectedOptionId: null, statement: 'Alta' }),
+        ],
+      }))
+
+      expect(screen.getByTestId('grading-mistake-201')).toHaveTextContent('Ai adunat numitorii.')
+      expect(screen.getByRole('button', { name: 'Schimbă explicația' })).toBeInTheDocument()
+      expect(screen.queryByTestId('grading-mistake-202')).not.toBeInTheDocument()
+    })
   })
 
   it('shows graded papers as "x / max p · nota"', async () => {

@@ -1074,6 +1074,52 @@ class QuizAttemptServiceTest {
     }
 
     @Test
+    void getAttemptForGradingLetsTheTeacherAnswerWhyWrongFromThePaper() {
+        ExplanationRequests requests = org.mockito.Mockito.mock(ExplanationRequests.class);
+        ro.mathlms.enchapter.LessonLinks lessons = org.mockito.Mockito.mock(ro.mathlms.enchapter.LessonLinks.class);
+        service.useExplanations(requests, lessons);
+        QuizItem asked = singleChoice(100L, 5);
+        QuizOption wrongAsked = option(asked, 1000L, false);
+        QuizOption rightAsked = withId(new QuizOption(asked, 1, "corect", true), 1001L);
+        QuizItem explained = singleChoice(102L, 5);
+        QuizOption wrongExplained = option(explained, 1020L, false);
+        wrongExplained.explainMistake("Ai adunat numitorii.");
+        QuizOption rightExplained = withId(new QuizOption(explained, 1, "corect", true), 1021L);
+        QuizItem good = singleChoice(103L, 5);
+        QuizOption rightGood = withId(new QuizOption(good, 0, "corect", true), 1030L);
+        QuizAttempt attempt = attempt(50L, student);
+        ItemResponse r1 = new ItemResponse(attempt, asked);
+        r1.answerSingleChoice(wrongAsked);
+        ItemResponse r2 = new ItemResponse(attempt, explained);
+        r2.answerSingleChoice(wrongExplained);
+        ItemResponse r3 = new ItemResponse(attempt, good);
+        r3.answerSingleChoice(rightGood);
+        attempt.submit();
+        when(attemptRepository.findById(50L)).thenReturn(Optional.of(attempt));
+        when(itemRepository.findByQuizIdOrderByPosition(10L)).thenReturn(List.of(asked, explained, good));
+        when(responseRepository.findByAttemptId(50L)).thenReturn(List.of(r1, r2, r3));
+        when(optionRepository.findByItemIdOrderByPosition(100L)).thenReturn(List.of(wrongAsked, rightAsked));
+        when(optionRepository.findByItemIdOrderByPosition(102L)).thenReturn(List.of(wrongExplained, rightExplained));
+        when(optionRepository.findByItemIdOrderByPosition(103L)).thenReturn(List.of(rightGood));
+        when(requests.countsForQuiz(10L)).thenReturn(java.util.Map.of(1000L, 2));
+        when(lessons.ofId(any(), any())).thenReturn(Optional.empty());
+
+        AdminAttemptDetailDto detail = service.getAttemptForGrading(50L);
+
+        // asked about, not explained yet: the option to explain and the 2 students waiting
+        assertThat(detail.items().get(0).selectedOptionId()).isEqualTo(1000L);
+        assertThat(detail.items().get(0).mistake()).isNull();
+        assertThat(detail.items().get(0).explanationRequests()).isEqualTo(2);
+        // explained already: the teacher sees what the student sees
+        assertThat(detail.items().get(1).selectedOptionId()).isEqualTo(1020L);
+        assertThat(detail.items().get(1).mistake()).isEqualTo("Ai adunat numitorii.");
+        assertThat(detail.items().get(1).explanationRequests()).isZero();
+        // a right answer has nothing to explain
+        assertThat(detail.items().get(2).selectedOptionId()).isNull();
+        assertThat(detail.items().get(2).mistake()).isNull();
+    }
+
+    @Test
     void getAttemptForGradingRejectsInProgressAttempt() {
         QuizAttempt attempt = attempt(50L, student); // still IN_PROGRESS
         when(attemptRepository.findById(50L)).thenReturn(Optional.of(attempt));

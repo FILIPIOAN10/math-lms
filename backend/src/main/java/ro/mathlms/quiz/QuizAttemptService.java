@@ -1191,6 +1191,9 @@ public class QuizAttemptService {
                 .collect(Collectors.toMap(r -> r.getItem().getId(), Function.identity()));
 
         Map<Long, List<QuizItemPart>> partsByItem = partsOf(items);
+        // Students waiting for „De ce am greșit?", per option: the teacher answers from the paper they are marking.
+        Map<Long, Integer> waiting = explanationRequests == null
+                ? Map.of() : explanationRequests.countsForQuiz(attempt.getQuiz().getId());
         int maxScore = 0;
         List<AdminItemReviewDto> reviews = new ArrayList<>();
         for (QuizItem item : items) {
@@ -1200,6 +1203,7 @@ public class QuizAttemptService {
             String correctText = null;
             String selectedLetter = null;
             String correctLetter = null;
+            QuizOption wrongChoice = null;
             if (item.getType() == QuizItemType.SINGLE_CHOICE) {
                 List<QuizOption> options = optionRepository.findByItemIdOrderByPosition(item.getId());
                 QuizOption correctOption = options.stream().filter(QuizOption::isCorrect).findFirst().orElse(null);
@@ -1210,6 +1214,9 @@ public class QuizAttemptService {
                 if (response != null && response.getSelectedOption() != null) {
                     selectedText = response.getSelectedOption().getText();
                     selectedLetter = letterOf(options, response.getSelectedOption());
+                    if (!response.getSelectedOption().isCorrect()) {
+                        wrongChoice = response.getSelectedOption();
+                    }
                 }
             } else if (item.getType() == QuizItemType.NUMERIC) {
                 correctText = item.getNumericAnswer();
@@ -1226,7 +1233,11 @@ public class QuizAttemptService {
                     item.getImageKey(),
                     response == null ? List.of() : response.photoIds(),
                     PartDtos.GradedPartDto.of(partsByItem.getOrDefault(item.getId(), List.of()), response),
-                    selectedLetter, correctLetter));
+                    selectedLetter, correctLetter,
+                    wrongChoice == null ? null : wrongChoice.getId(),
+                    wrongChoice == null ? null : wrongChoice.getMistake(),
+                    wrongChoice == null ? null : mistakeLesson(response),
+                    wrongChoice == null ? 0 : waiting.getOrDefault(wrongChoice.getId(), 0)));
         }
         // Where the student stands against the limit: the grading page offers "+1 încercare" from here.
         AttemptAllowance allowance = allowanceFor(attempt.getQuiz(), attempt.getStudent());
