@@ -112,6 +112,12 @@ app:
     # dev and automated tests (TWO_FACTOR_REQUIRED_FOR_ADMIN=false); never in production.
     two-factor:
       required-for-admin: ${TWO_FACTOR_REQUIRED_FOR_ADMIN:true}
+  # Who the emails come from: the app, not the owner of the SMTP account. With a relay (Brevo, Amazon SES, Mailgun)
+  # MAIL_FROM is its verified no-reply address; empty = the SMTP login (Gmail rewrites any other From to it anyway).
+  mail:
+    from: ${MAIL_FROM:}
+    from-name: ${MAIL_FROM_NAME:Math LMS}
+    reply-to: ${MAIL_REPLY_TO:}
   # Base URL of the frontend; verification / reset email links point here.
   frontend:
     base-url: ${FRONTEND_BASE_URL:http://localhost:5173}

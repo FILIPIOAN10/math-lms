@@ -1,5 +1,7 @@
 package ro.mathlms.auth;
 
+import jakarta.mail.internet.InternetAddress;
+import java.io.UnsupportedEncodingException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -8,20 +10,51 @@ import org.springframework.stereotype.Service;
 /**
  * Sends the transactional emails of the onboarding flow. Verification and reset
  * links point at the frontend, which forwards the embedded token back to the API.
+ *
+ * <p>The sender is the app, not whoever owns the SMTP account: "Math LMS &lt;MAIL_FROM&gt;", so an email relay
+ * (Brevo, Amazon SES, Mailgun…) can send from a no-reply address while the login stays the relay's. With no
+ * MAIL_FROM the SMTP login is used (Gmail rewrites any other address to it anyway), still under the app's name.
+ * MAIL_REPLY_TO, when set, is where a parent's "Reply" lands; otherwise there is none.
  */
 @Service
 public class EmailService {
 
     private final JavaMailSender mailSender;
     private final String frontendBaseUrl;
-    private final String fromAddress;
+    private final String from;
+    private final String replyTo;
 
     public EmailService(JavaMailSender mailSender,
                         @Value("${app.frontend.base-url}") String frontendBaseUrl,
-                        @Value("${spring.mail.username:no-reply@mathlms.ro}") String fromAddress) {
+                        @Value("${app.mail.from:}") String fromAddress,
+                        @Value("${app.mail.from-name:Math LMS}") String fromName,
+                        @Value("${app.mail.reply-to:}") String replyTo,
+                        @Value("${spring.mail.username:}") String smtpUser) {
         this.mailSender = mailSender;
         this.frontendBaseUrl = frontendBaseUrl;
-        this.fromAddress = fromAddress;
+        this.from = sender(firstSet(fromAddress, smtpUser, "no-reply@mathlms.ro"), fromName);
+        this.replyTo = isBlank(replyTo) ? null : replyTo.trim();
+    }
+
+    /** "Math LMS <no-reply@x.ro>", the name encoded so diacritics survive; only the address when there is no name. */
+    static String sender(String address, String name) {
+        if (isBlank(name)) return address;
+        try {
+            return new InternetAddress(address, name.trim(), "UTF-8").toString();
+        } catch (UnsupportedEncodingException e) {
+            throw new IllegalStateException("UTF-8 is always supported", e);
+        }
+    }
+
+    private static String firstSet(String... values) {
+        for (String value : values) {
+            if (!isBlank(value)) return value.trim();
+        }
+        throw new IllegalArgumentException("no value");
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 
     public void sendVerificationEmail(String email, String token) {
@@ -133,7 +166,8 @@ public class EmailService {
 
     private void send(String to, String subject, String body) {
         SimpleMailMessage message = new SimpleMailMessage();
-        message.setFrom(fromAddress);
+        message.setFrom(from);
+        if (replyTo != null) message.setReplyTo(replyTo);
         message.setTo(to);
         message.setSubject(subject);
         message.setText(body);

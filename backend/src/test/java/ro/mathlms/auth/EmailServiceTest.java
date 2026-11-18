@@ -21,13 +21,46 @@ class EmailServiceTest {
     @BeforeEach
     void setUp() {
         mailSender = mock(JavaMailSender.class);
-        service = new EmailService(mailSender, FRONTEND, FROM);
+        service = new EmailService(mailSender, FRONTEND, FROM, "", "", "profesor@gmail.com");
     }
 
     private SimpleMailMessage captureSentMessage() {
         ArgumentCaptor<SimpleMailMessage> captor = ArgumentCaptor.forClass(SimpleMailMessage.class);
         verify(mailSender).send(captor.capture());
         return captor.getValue();
+    }
+
+    @Test
+    void sendsUnderTheAppsNameFromTheRelayAddressNotTheSmtpLogin() {
+        new EmailService(mailSender, FRONTEND, "no-reply@mathlms.ro", "Math LMS", "", "relay-login-123")
+                .sendVerificationEmail("ana@scoala.ro", "T");
+
+        SimpleMailMessage sent = captureSentMessage();
+        assertThat(sent.getFrom()).isEqualTo("Math LMS <no-reply@mathlms.ro>");
+        assertThat(sent.getReplyTo()).isNull();
+    }
+
+    @Test
+    void withoutMailFromKeepsTheSmtpAddressButHidesItBehindTheAppsName() {
+        new EmailService(mailSender, FRONTEND, " ", "Math LMS", "", "profesor@gmail.com")
+                .sendVerificationEmail("ana@scoala.ro", "T");
+
+        assertThat(captureSentMessage().getFrom()).isEqualTo("Math LMS <profesor@gmail.com>");
+    }
+
+    @Test
+    void repliesGoWhereTheTeacherWantsWhenSet() {
+        new EmailService(mailSender, FRONTEND, "no-reply@mathlms.ro", "Math LMS", "secretariat@scoala.ro", "")
+                .sendPasswordResetEmail("ana@scoala.ro", "R");
+
+        assertThat(captureSentMessage().getReplyTo()).isEqualTo("secretariat@scoala.ro");
+    }
+
+    @Test
+    void encodesADiacriticNameAndFallsBackToTheDefaultAddress() {
+        assertThat(EmailService.sender("no-reply@mathlms.ro", "Școala Gimnazială")).startsWith("=?UTF-8?").endsWith(" <no-reply@mathlms.ro>");
+        new EmailService(mailSender, FRONTEND, "", "", "", "").sendAccountApprovedEmail("ana@scoala.ro");
+        assertThat(captureSentMessage().getFrom()).isEqualTo("no-reply@mathlms.ro");
     }
 
     @Test
