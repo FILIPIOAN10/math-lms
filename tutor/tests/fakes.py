@@ -46,6 +46,35 @@ def service(model: FakeModel, found: Found | None = None) -> tuple[HelpService, 
     return HelpService(retriever, model.runnable), calls
 
 
+class FakeAsk:
+    """The strong model for the solver: `answer(request, model)` returns the JSON dict (or None for an empty answer, or
+    an `Asked`). Remembers every call; the solver asks from several threads at once, so the list is locked."""
+
+    def __init__(self, answer):
+        import threading
+
+        self.answer = answer
+        self.calls: list = []
+        self._lock = threading.Lock()
+
+    def __call__(self, request, model: str, attempts: int):
+        from tutor.solver import Asked
+
+        with self._lock:
+            self.calls.append((request, model, attempts))
+        result = self.answer(request, model)
+        if isinstance(result, Asked):
+            return result
+        return Asked(result, model, 100, 50) if result is not None else Asked(None, model, 10, 0, "răspuns gol")
+
+
+def solution(*answers: tuple[str, str, str | None], kind: str = "NUMERIC", steps: tuple[str, ...] = ("Pasul 1.",),
+             needs_figure: bool = False) -> dict:
+    """What the solving model returns: answers as (label, text, sympy)."""
+    return {"kind": kind, "steps": list(steps), "answers": [{"label": l, "text": t, "sympy": s} for l, t, s in answers],
+            "needs_figure": needs_figure, "unsure": False}
+
+
 class FakeCondenser:
     """Answers the rewrite prompt with the texts it was given, in order, and remembers every prompt it was shown."""
 

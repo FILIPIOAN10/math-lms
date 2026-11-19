@@ -26,7 +26,7 @@ import time
 from google.genai import errors, types
 
 import pilot_teme_solve as solver
-import teme_figures
+from tutor import figures as teme_figures
 from tutor.config import Settings
 from tutor.transcribe import gemini_client
 

@@ -60,6 +60,23 @@ class Settings(BaseSettings):
     price_in_per_million: float = 0.10
     price_out_per_million: float = 0.50
 
+    # „Teme recapitulative" (/solve, /similar-exercises): the strong model that solves and writes exercises (thinking
+    # HIGH), and the cheaper one that stands in when it answers empty (a preview model does, under load). Gemini only.
+    # The budgets hold the thinking too: a long geometry solution needs them. One call can take minutes.
+    solve_model: str = "gemini-3.1-pro-preview"
+    solve_fallback_model: str = "gemini-3.8-flash"
+    solve_max_output_tokens: int = 24_000
+    generate_max_output_tokens: int = 32_000
+    solve_timeout_seconds: int = 240
+    # USD per million tokens for the strong model, only for the cost estimate; its thinking is billed as output.
+    # An estimate (the pilot's 25-35 USD came from these): the Billing page has the real figure.
+    solve_price_in_per_million: float = 2.0
+    solve_price_out_per_million: float = 12.0
+    # /recap: how many lesson passages, at most, for all the exercises of one pack together, and the output budget (it
+    # holds the thinking too: 3 000 cut a pyramid recap mid-JSON).
+    recap_max_passages: int = 10
+    recap_max_output_tokens: int = 8_000
+
     # Where the backend keeps the photos uploaded on the chapter pages (its EN_CHAPTER_IMAGES_DIR).
     en_chapter_images_dir: str = "../backend/uploads/en-chapters"
 

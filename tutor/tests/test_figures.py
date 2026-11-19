@@ -1,0 +1,103 @@
+"""Figures drawn by our code from the coordinates the model gives, and the free checks that they match the statement."""
+
+import numpy as np
+
+from tutor import figures
+
+
+def P(name, x, y, z="0"):
+    return {"name": name, "x": x, "y": y, "z": z}
+
+
+def S(a, b, hidden=False):
+    return {"a": a, "b": b, "hidden": hidden}
+
+
+def plane(points, segments, marks=(), circles=()):
+    return {"type": "plane", "points": points, "segments": segments, "circles": list(circles), "functions": [],
+            "marks": list(marks)}
+
+
+EQUILATERAL = plane([P("A", "3", "3*sqrt(3)"), P("B", "0", "0"), P("C", "6", "0"), P("D", "3", "0")],
+                    [S("A", "B"), S("B", "C"), S("C", "A"), S("A", "D")],
+                    [{"kind": "right_angle", "points": ["A", "D", "C"], "text": ""},
+                     {"kind": "length", "points": ["B", "C"], "text": "6 cm"},
+                     {"kind": "angle", "points": ["A", "B", "C"], "text": "60^\\circ"},
+                     {"kind": "length", "points": ["A", "D"], "text": "3\\sqrt{3}"}])
+
+
+def test_a_true_figure_passes_every_check():
+    result = figures.check(EQUILATERAL, "Triunghiul echilateral $ABC$ are $BC = 6\\text{ cm}$ și $AD \\perp BC$.")
+
+    assert result == {"ok": True, "problems": [], "warnings": []}
+
+
+def test_a_length_written_on_the_figure_must_be_the_real_one():
+    wrong = {**EQUILATERAL, "marks": [{"kind": "length", "points": ["A", "B"], "text": "5"}]}
+
+    result = figures.check(wrong, "Triunghiul $ABC$.")
+
+    assert not result["ok"] and "AB scrie 5" in result["problems"][0]
+
+
+def test_the_lengths_and_angles_of_the_statement_must_hold_in_the_coordinates():
+    statement = "În $\\triangle ABC$, $AB = BC = 7$ și $m(\\sphericalangle ABC) = 60^\\circ$."
+
+    problems = figures.check(EQUILATERAL, statement)["problems"]
+
+    assert any("AB = 7" in p for p in problems) and any("BC = 7" in p for p in problems)
+    assert not any("ABC" in p for p in problems)  # the 60 degrees are right
+
+
+def test_a_right_angle_mark_must_be_a_right_angle():
+    wrong = {**EQUILATERAL, "marks": [{"kind": "right_angle", "points": ["A", "B", "C"], "text": ""}]}
+
+    assert "nu e de 90°" in figures.check(wrong, "")["problems"][0]
+
+
+def test_a_named_point_missing_from_the_figure_is_a_warning_but_the_circle_name_is_not_a_point():
+    result = figures.check(EQUILATERAL, "Fie $M$ mijlocul lui $AB$ și cercul $\\mathcal{C}(O, r)$.")
+
+    assert result["warnings"] == ["puncte din enunț care lipsesc din figură: M, O"]
+
+
+def test_unreadable_coordinates_are_a_problem_and_code_is_never_evaluated():
+    bad = plane([P("A", "__import__('os')", "0"), P("B", "1", "0")], [S("A", "B")])
+
+    assert not figures.check(bad, "")["ok"]
+    assert figures.parse("exp(1)") is None
+
+
+def test_the_drawing_is_a_png_for_people_and_a_jpeg_for_the_model():
+    png, jpeg = figures.render(EQUILATERAL)
+
+    assert png.startswith(b"\x89PNG") and jpeg.startswith(b"\xff\xd8\xff")
+
+
+def test_a_graph_and_a_solid_draw_too():
+    graph = {"type": "graph", "points": [P("A", "Rational(1,2)", "0"), P("B", "0", "-1")], "segments": [],
+             "circles": [], "functions": [{"expr": "2*x-1", "x_from": "-1", "x_to": "2", "label": "G_f"}], "marks": []}
+    pyramid = {"type": "solid", "points": [P("A", "0", "0"), P("B", "6", "0"), P("C", "6", "6"), P("D", "0", "6"),
+                                           P("V", "3", "3", "4")],
+               "segments": [S("A", "B"), S("B", "C"), S("C", "D", True), S("D", "A", True), S("V", "A"), S("V", "B"),
+                            S("V", "C"), S("V", "D", True)], "circles": [], "functions": [], "marks": []}
+
+    assert figures.render(graph)[0].startswith(b"\x89PNG")
+    assert figures.render(pyramid)[0].startswith(b"\x89PNG")
+
+
+def test_a_solid_is_drawn_from_a_view_where_no_edge_lies_on_another():
+    # A pool 12 x 8 x 2.5: in the textbook view the hidden edge DC falls exactly on the top edge A'B'.
+    names = {"A": ("0", "0", "0"), "B": ("12", "0", "0"), "C": ("12", "8", "0"), "D": ("0", "8", "0"),
+             "A'": ("0", "0", "5/2"), "B'": ("12", "0", "5/2"), "C'": ("12", "8", "5/2"), "D'": ("0", "8", "5/2")}
+    box = {"type": "solid", "points": [P(n, *xyz) for n, xyz in names.items()], "circles": [], "functions": [],
+           "marks": [], "segments": [S("A", "B"), S("B", "C"), S("C", "D", True), S("D", "A", True), S("A'", "B'"),
+                                     S("B'", "C'"), S("C'", "D'"), S("D'", "A'"), S("A", "A'"), S("B", "B'"),
+                                     S("C", "C'"), S("D", "D'", True)]}
+    space = {n: np.array([float(figures.parse(v)) for v in xyz]) for n, xyz in names.items()}
+
+    textbook = figures._project(space, 40, 0.5)
+    chosen = figures._best_view(box, space)
+
+    assert figures.view_issues(box, space, textbook) > 0
+    assert figures.view_issues(box, space, chosen) == 0

@@ -157,7 +157,8 @@ class HelpResult(BaseModel):
 
 Retriever = Callable[[str, str | None], Found]  # (exercise, exam position) -> passages
 
-_OUR_TAGS = re.compile(r"</?\s*(theory|already_given|exercise|conversation|message|chosen|correct)\s*>", re.IGNORECASE)
+_OUR_TAGS = re.compile(r"</?\s*(theory|already_given|exercises?|conversation|message|chosen|correct|steps|answers)\s*>",
+                       re.IGNORECASE)
 
 
 def _neutralize(text: str) -> str:
