@@ -20,21 +20,13 @@ import re
 import psycopg
 
 from tutor import figures
-from tutor.answer_check import repair_latex
+from tutor.answer_check import repair_page_latex
 from tutor.config import get_settings
 from tutor.transcribe import prepare
 
 THEORY = pathlib.Path(__file__).resolve().parent.parent / "data" / "theory"
 MARKER = re.compile(r"\[\s*figura\s+(\d+)\s*\]", re.IGNORECASE)
-# The page transcription had the same JSON-escape slip as the exercises (answer_check.repair_latex): "\neq" became a
-# new line and "eq", "\text" a tab and "ext". 10 of 289 transcripts; repaired here for display, the stored text as is.
-_BROKEN_NEWLINE = re.compile(r"\n(?=(eq|otin|abla|eg|ewline|ot)\b)")
-
-
-def readable(text: str) -> str:
-    text = repair_latex(text)
-    text = _BROKEN_NEWLINE.sub(lambda m: "\\n", text)
-    return text.replace("\\belong", "\\in")  # the transcription's own word for "∈"
+readable = repair_page_latex  # stored transcripts are repaired too (repair_lessons_latex.py); this keeps old dumps right
 
 PAGE_SCRIPT = """
 <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
@@ -80,7 +72,20 @@ def drawings(folder: pathlib.Path) -> dict[tuple[int, int], dict]:
             for line in path.read_text(encoding="utf-8").splitlines():
                 row = json.loads(line)
                 rows[row["photo"]] = row
-    return {(photo, f["number"]): f for photo, row in rows.items() for f in row["figures"]}
+    found = {(photo, f["number"]): f for photo, row in rows.items() for f in row["figures"]}
+    filled = folder / "filled.jsonl"  # the fill pass: a figure drawn after all, or the figure as text
+    if filled.exists():
+        for line in filled.read_text(encoding="utf-8").splitlines():
+            row = json.loads(line)
+            for f in row["figures"]:
+                key = (row["photo"], f["number"])
+                entry = dict(found.get(key) or {"number": f["number"]})
+                if f["kind"] == "figure" and (f.get("check") or {}).get("ok"):
+                    entry.update(drawable=True, figure=f["figure"], check=f["check"])
+                elif f["kind"] == "text" and f.get("text"):
+                    entry["as_text"] = f["text"]
+                found[key] = entry
+    return found
 
 
 def figure_html(entry: dict | None) -> str:
@@ -123,9 +128,17 @@ def main() -> None:
             for n in dict.fromkeys(numbers):
                 entry = drawn.get((photo, n))
                 counts["figuri"] += 1
-                counts["desenate" if entry and entry.get("drawable") else "nedesenate"] += 1
+                counts["ca text" if entry and entry.get("as_text") else
+                       "desenate" if entry and entry.get("drawable") else "nedesenate"] += 1
                 hidden.append(f'<div class=figs id="{photo}-{n}">{figure_html(entry)}</div>')
-            text = MARKER.sub(lambda m: f"\n\n@@FIG{m.group(1)}@@\n\n", text)
+
+            def placed(match: re.Match) -> str:
+                entry = drawn.get((photo, int(match.group(1))))
+                if entry and entry.get("as_text"):  # a table or a calculation scheme: part of the text itself
+                    return f"\n\n{readable(entry['as_text'])}\n\n"
+                return f"\n\n@@FIG{match.group(1)}@@\n\n"
+
+            text = MARKER.sub(placed, text)
             book = base64.b64encode(prepare((pathlib.Path(settings.en_chapter_images_dir) / key).read_bytes(),
                                             900, 70)[0]).decode()
             sections.append(
@@ -141,14 +154,14 @@ def main() -> None:
             f"{''.join(sections)}{PAGE_SCRIPT}</body></html>", encoding="utf-8")
         index.append(f'<tr><td><a href="lesson-{code}.html">{html.escape(code)} · {html.escape(pages[0][1])}</a></td>'
                      f'<td>{counts["pagini"]}</td><td>{counts["figuri"]}</td><td>{counts["desenate"]}</td>'
-                     f'<td>{counts["nedesenate"]}</td></tr>')
+                     f'<td>{counts["ca text"]}</td><td>{counts["nedesenate"]}</td></tr>')
         print(code, dict(counts))
     (out / "index.html").write_text(
         f"<!doctype html><html lang=ro><head><meta charset=utf-8><title>Lecțiile, curate</title>{STYLE}</head><body>"
         f"<h1>Lecțiile: textul paginilor și desenele aplicației</h1><p>{len(rows)} pagini. Textul vine din "
         f"transcrierile făcute deja; în locul fiecărei figuri e desenul aplicației. Poza din carte se deschide sub "
         f"„Pagina din carte”.</p><table class=idx><tr><th>Capitol</th><th>pagini</th><th>figuri</th><th>desenate</th>"
-        f"<th>nedesenate</th></tr>{''.join(index)}</table></body></html>", encoding="utf-8")
+        f"<th>scrise ca text</th><th>nedesenate</th></tr>{''.join(index)}</table></body></html>", encoding="utf-8")
     print("pagina:", out / "index.html")
 
 

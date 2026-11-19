@@ -59,8 +59,23 @@ FIGURE_SCHEMA = {
 }
 # A graph can show the unit marks of its axes (1, 2, 3 ... on each axis), as a lesson about the coordinate plane does.
 FIGURE_SCHEMA["properties"]["units"] = _BOOL
+# A number line (type "numberline"): the points are the marked numbers (x = the value, name = what is printed under it)
+# and each interval is drawn above the line, "oo" / "-oo" for an end that goes on, closed ends filled, open ends hollow.
+FIGURE_SCHEMA["properties"]["type"]["enum"] = ["plane", "solid", "graph", "numberline", "venn"]
+FIGURE_SCHEMA["properties"]["intervals"] = {"type": "array", "items": {"type": "object", "properties": {
+    "from": _STR, "to": _STR, "from_closed": _BOOL, "to_closed": _BOOL, "label": _STR},
+    "required": ["from", "to", "from_closed", "to_closed"]}}
+# A Venn diagram of two sets (type "venn"): which parts are shaded, and what is written in each part.
+_VENN_PARTS = ["A-B", "B-A", "AnB", "outside"]
+FIGURE_SCHEMA["properties"]["venn"] = {"type": "object", "properties": {
+    "sets": {"type": "array", "items": _STR},
+    "shade": {"type": "array", "items": {"type": "string", "enum": _VENN_PARTS[:3]}},
+    "elements": {"type": "array", "items": {"type": "object", "properties": {
+        "part": {"type": "string", "enum": _VENN_PARTS}, "text": _STR}, "required": ["part", "text"]}},
+    "universe": _STR},
+    "required": ["sets", "shade"]}
 
-_NAMES = ("sqrt", "Rational", "pi", "sin", "cos", "tan", "Abs")
+_NAMES = ("sqrt", "Rational", "pi", "sin", "cos", "tan", "Abs", "oo")
 _SAFE = re.compile(r"^[0-9A-Za-z_+\-*/^().,\s]+$")
 _VIEWS = [(40, 0.5), (30, 0.5), (50, 0.5), (35, 0.6), (45, 0.4), (25, 0.45), (55, 0.55), (20, 0.6)]  # (angle, depth)
 
@@ -161,8 +176,18 @@ def _points(figure: dict) -> tuple[dict, list[str]]:
 
 def check(figure: dict, statement: str) -> dict:
     """Problems = the figure contradicts itself or the statement; warnings = something only a person can judge."""
+    if figure.get("type") == "venn":
+        venn = figure.get("venn") or {}
+        problems = [] if len(venn.get("sets") or []) == 2 else ["o diagramă Venn are aici exact două mulțimi"]
+        return {"ok": not problems, "problems": problems, "warnings": []}
     exact, problems = _points(figure)
     warnings: list[str] = []
+    for interval in figure.get("intervals") or []:
+        ends = [parse(interval.get("from")), parse(interval.get("to"))]
+        if any(e is None for e in ends):
+            problems.append(f"interval necitibil: {interval.get('from')} .. {interval.get('to')}")
+        elif not bool(ends[0] < ends[1]):
+            problems.append(f"intervalul {interval.get('from')} .. {interval.get('to')} are capetele inversate")
 
     def known(names) -> bool:
         missing = [n for n in names if _norm(n) not in exact]
@@ -434,7 +459,96 @@ def render(figure: dict) -> tuple[bytes, bytes]:
         return _render(figure)
 
 
+def _save(fig) -> tuple[bytes, bytes]:
+    png, jpeg = io.BytesIO(), io.BytesIO()
+    fig.savefig(png, format="png", bbox_inches="tight", pad_inches=0.15, facecolor="white")
+    fig.savefig(jpeg, format="jpeg", bbox_inches="tight", pad_inches=0.15, facecolor="white")
+    plt.close(fig)
+    return png.getvalue(), jpeg.getvalue()
+
+
+def _render_numberline(figure: dict) -> tuple[bytes, bytes]:
+    marks = {}  # what is printed under the mark (as given, "\sqrt{2}" keeps its braces) -> its value
+    for p in figure["points"]:
+        value = parse(p.get("x"))
+        if value is not None and value.is_finite:
+            marks[p["name"]] = float(sympy.N(value))
+    intervals = []
+    for interval in figure.get("intervals") or []:
+        a, b = parse(interval["from"]), parse(interval["to"])
+        if a is not None and b is not None:
+            intervals.append((a, b, interval))
+    finite = list(marks.values()) + [float(e) for a, b, _ in intervals for e in (a, b) if e.is_finite]
+    lo, hi = (min(finite), max(finite)) if finite else (-1.0, 1.0)
+    width = (hi - lo) or 2.0
+    left, right = lo - 0.25 * width, hi + 0.25 * width
+    fig, ax = plt.subplots(figsize=(6.4, 1.6 + 0.35 * len(intervals)), dpi=160)
+    ax.axis("off")
+    ax.annotate("", xy=(right, 0), xytext=(left, 0), arrowprops={"arrowstyle": "-|>", "color": "black", "lw": 1.1},
+                annotation_clip=False)
+    tick = 0.06 * width
+    for name, x in marks.items():
+        ax.plot([x, x], [-tick / 2, tick / 2], color="black", lw=1.1)
+        ax.text(x, -tick, _label(name), ha="center", va="top", fontsize=11)
+    for level, (a, b, interval) in enumerate(intervals):
+        y = (0.18 + 0.16 * level) * width
+        x0 = float(a) if a.is_finite else left
+        x1 = float(b) if b.is_finite else right
+        ax.plot([x0, x1], [y, y], color="#1f4e9c", lw=3, solid_capstyle="butt")
+        for end, closed, finite_end in ((x0, interval["from_closed"], a.is_finite), (x1, interval["to_closed"], b.is_finite)):
+            ax.plot([end, end], [0, y], color="#1f4e9c", lw=0.8, ls=(0, (3, 2)))
+            if finite_end:
+                ax.plot(end, y, "o", ms=7, mec="#1f4e9c", mfc="#1f4e9c" if closed else "white", mew=1.6)
+        if interval.get("label"):
+            ax.text((x0 + x1) / 2, y + 0.05 * width, _label(interval["label"]), ha="center", va="bottom",
+                    color="#1f4e9c", fontsize=10)
+    ax.set_xlim(left - 0.02 * width, right + 0.02 * width)
+    ax.set_ylim(-0.25 * width, (0.3 + 0.16 * len(intervals)) * width)
+    ax.set_aspect("equal")
+    return _save(fig)
+
+
+def _render_venn(figure: dict) -> tuple[bytes, bytes]:
+    venn = figure.get("venn") or {}
+    names = (list(venn.get("sets") or []) + ["A", "B"])[:2]
+    shade = set(venn.get("shade") or [])
+    fig, ax = plt.subplots(figsize=(5.2, 3.6), dpi=160)
+    ax.set_aspect("equal")
+    ax.axis("off")
+    a_centre, b_centre, radius = (-0.9, 0.0), (0.9, 0.0), 1.6
+    grey = "#cfcfcf"
+
+    def disc(centre, colour, zorder):
+        return ax.add_patch(plt.Circle(centre, radius, color=colour, lw=0, zorder=zorder))
+
+    if "A-B" in shade:
+        disc(a_centre, grey, 1)
+    if "B-A" in shade:
+        disc(b_centre, grey, 1)
+    if shade & {"A-B", "B-A"} or "AnB" in shade:  # the common part painted last, grey or white, cut to both circles
+        common = disc(a_centre, grey if "AnB" in shade else "white", 2)
+        common.set_clip_path(plt.Circle(b_centre, radius, transform=ax.transData))
+    for centre in (a_centre, b_centre):
+        ax.add_patch(plt.Circle(centre, radius, fill=False, color="black", lw=1.5, zorder=3))
+    if venn.get("universe"):
+        ax.add_patch(matplotlib.patches.Rectangle((-3.0, -2.1), 6.0, 4.2, fill=False, color="black", lw=1.2, zorder=3))
+        ax.text(-2.85, 1.95, _label(venn["universe"]), ha="left", va="top", fontsize=11)
+    ax.text(-2.3, 1.45, _label(names[0]), ha="center", fontsize=13)
+    ax.text(2.3, 1.45, _label(names[1]), ha="center", fontsize=13)
+    places = {"A-B": (-1.6, 0.0), "B-A": (1.6, 0.0), "AnB": (0.0, 0.0), "outside": (2.55, -1.7)}
+    for element in venn.get("elements") or []:
+        x, y = places.get(element["part"], (0, 0))
+        ax.text(x, y, _label(element["text"]), ha="center", va="center", fontsize=11, zorder=4)
+    ax.set_xlim(-3.1, 3.1)
+    ax.set_ylim(-2.2, 2.2)
+    return _save(fig)
+
+
 def _render(figure: dict) -> tuple[bytes, bytes]:
+    if figure.get("type") == "numberline":
+        return _render_numberline(figure)
+    if figure.get("type") == "venn":
+        return _render_venn(figure)
     exact, problems = _points(figure)
     if problems and not exact:
         raise ValueError("; ".join(problems))

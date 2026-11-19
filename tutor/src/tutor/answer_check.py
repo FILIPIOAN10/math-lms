@@ -40,6 +40,19 @@ def repair_latex(value):
     return value
 
 
+# In a transcribed page the same slip also turns "\neq" into a new line and "eq" (a page's text has real new lines,
+# so only the LaTeX words that cannot start a Romanian line are put back), and the transcription once wrote "\belong"
+# for the sign of belonging.
+_BROKEN_NEWLINE = re.compile(r"\n(?=(eq|otin|abla|eg|ewline|ot)\b)")
+
+
+def repair_page_latex(text: str) -> str:
+    """A transcribed page with the LaTeX that JSON escapes ate put back."""
+    text = repair_latex(text)
+    text = _BROKEN_NEWLINE.sub(lambda _: "\\n", text)
+    return text.replace("\\belong", "\\in")
+
+
 def clean_statement(text: str) -> str:
     """A statement without the "[figura N]" markers the page transcription leaves where a drawing was."""
     out: list[str] = []

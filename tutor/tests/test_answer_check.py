@@ -2,7 +2,7 @@
 
 import pytest
 
-from tutor.answer_check import clean_statement, compare, repair_latex, same
+from tutor.answer_check import clean_statement, compare, repair_latex, repair_page_latex, same
 
 
 def run(*answers, kind="NUMERIC", needs_figure=False) -> dict:
@@ -78,6 +78,21 @@ def test_latex_eaten_by_json_escapes_is_put_back():
 
     assert fixed["statement"] == "$PQ \\text{ || } DF$ și $AB \\bot CD$, $\\frac{1}{2}$"
     assert fixed["steps"] == ["\ta) rămâne"]  # a real tab before "a)" is left alone
+
+
+def test_a_transcribed_page_gets_its_latex_back():
+    page = "***Atenție!*** $(a, b)\neq (b, a)$ și $a \x08elong A$, $2 \times 3$.\nUn rând nou rămâne."
+
+    assert repair_page_latex(page) == ("***Atenție!*** $(a, b)\\neq (b, a)$ și $a \\in A$, $2 \\times 3$.\n"
+                                       "Un rând nou rămâne.")
+
+
+def test_a_new_page_transcription_comes_back_repaired():
+    from tutor.transcribe import transcription
+
+    page = transcription({"page_number": 3, "markdown": "$x\neq 0$", "figures": [], "warnings": []}, "m", 1, 1)
+
+    assert page.markdown == "$x\\neq 0$"
 
 
 def test_figure_markers_are_taken_out_of_a_statement():

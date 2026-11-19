@@ -121,6 +121,21 @@ def test_a_round_solid_is_seen_from_the_front_so_its_bases_are_level_ellipses():
     assert figures._best_projection(cylinder, space) == (90.0, 0.35)
 
 
+def test_number_lines_and_venn_diagrams_draw():
+    line = {"type": "numberline", "points": [P("-2", "-2", "0"), P("\\sqrt{2}", "sqrt(2)", "0")], "segments": [],
+            "circles": [], "functions": [], "marks": [],
+            "intervals": [{"from": "-2", "to": "oo", "from_closed": True, "to_closed": False, "label": "[-2, \\infty)"}]}
+    venn = {"type": "venn", "points": [], "segments": [], "circles": [], "functions": [], "marks": [],
+            "venn": {"sets": ["A", "B"], "shade": ["A-B", "AnB"], "elements": [{"part": "AnB", "text": "3"}]}}
+    backwards = {**line, "intervals": [{"from": "3", "to": "-2", "from_closed": True, "to_closed": True}]}
+
+    for figure in (line, venn):
+        assert figures.check(figure, "")["ok"]
+        assert figures.render(figure)[0].startswith(b"\x89PNG")
+    assert "capetele inversate" in figures.check(backwards, "")["problems"][0]
+    assert not figures.check({**venn, "venn": {"sets": ["A"], "shade": []}}, "")["ok"]
+
+
 def test_an_arc_goes_counterclockwise_from_start_towards_end():
     ring = figures._circle3d(np.zeros(3), np.array([2.0, 0.0, 0.0]), np.array([0.0, 5.0, 0.0]))
 

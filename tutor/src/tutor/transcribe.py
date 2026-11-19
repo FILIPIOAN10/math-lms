@@ -204,9 +204,11 @@ def transcription(data: dict, model: str, input_tokens: int, output_tokens: int)
         width, height = min(max(float(raw["width"]), 0.0), 1.0 - x), min(max(float(raw["height"]), 0.0), 1.0 - y)
         if width > 0 and height > 0:
             figures.append(Figure(int(raw["number"]), str(raw["description"]), x, y, width, height))
+    from tutor.answer_check import repair_page_latex  # LaTeX that the JSON escapes ate ("\neq", "\text"), put back
+
     return Transcription(
         page_number=data.get("page_number"),
-        markdown=data.get("markdown", ""),
+        markdown=repair_page_latex(data.get("markdown", "")),
         warnings=list(data.get("warnings", [])),
         model=model,
         input_tokens=input_tokens,
