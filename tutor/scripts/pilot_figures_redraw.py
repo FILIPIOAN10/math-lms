@@ -20,6 +20,7 @@ import html
 import json
 import pathlib
 import re
+import threading
 
 import psycopg
 
@@ -437,19 +438,49 @@ def main() -> None:
         todo = [row for row in base if row["photo"] not in done]
         print(f"{len(todo)} pagini de comparat cu cartea ({len(done)} deja făcute)", flush=True)
         ask = GeminiAsk(settings, settings.generate_max_output_tokens)
-        batch = args.workers * 2
+        # Every figure is a task of its own in one pool, so a page with nine figures does not wait for one call after
+        # another; a page is written once all its figures are back (a stopped run leaves it to the next one).
+        jpegs: dict[int, bytes] = {}
+        lock, stop = threading.Lock(), threading.Event()
+        total = [spent(with_polish(base), settings)]
+
+        def page_jpeg(photo: int) -> bytes:
+            with lock:
+                if photo not in jpegs:
+                    key = pages(settings, [photo])[0]["image_key"]
+                    jpegs[photo] = prepare((pathlib.Path(settings.en_chapter_images_dir) / key).read_bytes(), 1800)[0]
+                return jpegs[photo]
+
+        def one(row: dict, index: int):
+            if stop.is_set():
+                return index, None, [0, 0]
+            entry, tokens = polish(row["figures"][index], page_jpeg(row["photo"]), ask, settings, args.rounds)
+            return index, entry, tokens
+
         with concurrent.futures.ThreadPoolExecutor(args.workers) as pool, target.open("a", encoding="utf-8") as handle:
-            for start in range(0, len(todo), batch):
-                if spent(with_polish(base), settings) > args.max_usd:
+            submitted = []
+            for row in todo:
+                indices = [i for i, f in enumerate(row["figures"])
+                           if f.get("drawable") and f.get("figure") and (f.get("check") or {}).get("ok")]
+                submitted.append((row, [pool.submit(one, row, i) for i in indices]))
+            for row, futures in submitted:
+                results = [future.result() for future in futures]
+                if any(entry is None for _, entry, _ in results):
+                    continue  # stopped before all its figures were compared: the next run does this page
+                out_row = {**row, "figures": list(row["figures"])}
+                for index, entry, tokens in results:
+                    out_row["figures"][index] = entry
+                    out_row["tokens"] = [out_row["tokens"][0] + tokens[0], out_row["tokens"][1] + tokens[1]]
+                    total[0] += strong_cost_usd(tokens[0], tokens[1], settings)
+                handle.write(json.dumps(out_row, ensure_ascii=False) + "\n")
+                handle.flush()
+                print(out_row["code"], out_row["photo"], [(f["number"], (f.get("polish") or {}).get("matches"),
+                                                           len((f.get("polish") or {}).get("rounds") or []))
+                                                          for f in out_row["figures"] if f.get("polish")],
+                      f"| {total[0]:.2f} USD", flush=True)
+                if total[0] > args.max_usd and not stop.is_set():
                     print(f"OPRIT: costul estimat a trecut de {args.max_usd} USD", flush=True)
-                    break
-                for row in pool.map(lambda r: polish_row(r, ask, settings, args.rounds), todo[start:start + batch]):
-                    handle.write(json.dumps(row, ensure_ascii=False) + "\n")
-                    handle.flush()
-                    print(row["code"], row["photo"], [(f["number"], (f.get("polish") or {}).get("matches"),
-                                                       len((f.get("polish") or {}).get("rounds") or []))
-                                                      for f in row["figures"] if f.get("polish")],
-                          f"| {spent(with_polish(base), settings):.2f} USD", flush=True)
+                    stop.set()
     elif not args.review:
         ids = (pathlib.Path(args.photos[1:]).read_text(encoding="utf-8") if args.photos.startswith("@") else args.photos)
         rows = [json.loads(line) for line in out.read_text(encoding="utf-8").splitlines()] if out.exists() else []
