@@ -26,6 +26,9 @@ public enum AuditAction {
     EN_CHAPTER_DELETED(AuditCategory.CONTENT),
     EN_CHAPTER_PHOTO_ADDED(AuditCategory.CONTENT),
     EN_CHAPTER_PHOTO_REMOVED(AuditCategory.CONTENT),
+    /** The written-out book pages of a chapter (V73) shown to students, or hidden again. */
+    EN_CHAPTER_LESSON_SHOWN(AuditCategory.CONTENT),
+    EN_CHAPTER_LESSON_HIDDEN(AuditCategory.CONTENT),
     EN_EXAMPLE_ADDED(AuditCategory.CONTENT),
     EN_EXAMPLE_UPDATED(AuditCategory.CONTENT),
     EN_EXAMPLE_DELETED(AuditCategory.CONTENT),

@@ -1,0 +1,182 @@
+package ro.mathlms.enchapter;
+
+import com.jayway.jsonpath.JsonPath;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.RequestBuilder;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
+import ro.mathlms.TestcontainersConfiguration;
+import ro.mathlms.audit.AuditAction;
+import ro.mathlms.audit.AuditEntryRepository;
+import ro.mathlms.user.Role;
+import ro.mathlms.user.User;
+import ro.mathlms.user.UserRepository;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+/**
+ * V73: the book's pages written out (each photo's text with the app's own drawings of its figures, filled by
+ * tutor/scripts/publish_lessons.py). The teacher reads them first; students and parents only once the teacher shows
+ * them, like every other text the AI wrote.
+ */
+@Import(TestcontainersConfiguration.class)
+@SpringBootTest
+@AutoConfigureMockMvc
+class EnChapterLessonIntegrationTest {
+
+    private static final byte[] PNG = java.util.Base64.getDecoder().decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==");
+
+    @Autowired private MockMvc mockMvc;
+    @Autowired private UserRepository userRepository;
+    @Autowired private AuditEntryRepository auditRepository;
+    @Autowired private JdbcTemplate jdbc;
+
+    private RequestPostProcessor teacher;
+    private RequestPostProcessor student;
+    private RequestPostProcessor parent;
+    private String stamp;
+
+    private static RequestPostProcessor as(User u) {
+        return user(u.getEmail()).authorities(new SimpleGrantedAuthority("ROLE_" + u.getRole()),
+                new SimpleGrantedAuthority("STATUS_ACTIVE"));
+    }
+
+    @BeforeEach
+    void setUp() {
+        stamp = String.valueOf(System.nanoTime());
+        teacher = as(userRepository.save(new User("prof." + stamp + "@scoala.ro", "Prof", Role.ADMIN)));
+        student = as(userRepository.save(new User("ana." + stamp + "@scoala.ro", "Ana", Role.STUDENT)));
+        parent = as(userRepository.save(new User("maria." + stamp + "@scoala.ro", "Maria", Role.PARENT)));
+    }
+
+    private String json(RequestBuilder request, int expectedStatus) throws Exception {
+        return mockMvc.perform(request).andExpect(status().is(expectedStatus)).andReturn().getResponse().getContentAsString();
+    }
+
+    private long chapter(String suffix) throws Exception {
+        String code = "L" + stamp.substring(stamp.length() - 5) + suffix;
+        String body = json(post("/api/admin/en-chapters").with(csrf()).with(teacher).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"code\":\"" + code + "\",\"title\":\"Lecție\",\"area\":\"GEOMETRY\"}"), 201);
+        return ((Number) JsonPath.read(body, "$.id")).longValue();
+    }
+
+    private long photo(long chapterId) throws Exception {
+        String body = json(multipart("/api/admin/en-chapters/" + chapterId + "/photos")
+                .file(new MockMultipartFile("file", "pagina.png", "image/png", PNG)).with(csrf()).with(teacher), 201);
+        return ((Number) JsonPath.read(body, "$.id")).longValue();
+    }
+
+    /** What the import writes for one page: a drawing, then the page's text pointing at it. */
+    private long written(long photoId, String text) {
+        Long drawing = jdbc.queryForObject("INSERT INTO en_photo_drawings (photo_id, number, description, png) "
+                + "VALUES (?, 1, 'Triunghiul ABC', ?) RETURNING id", Long.class, photoId, PNG);
+        jdbc.update("INSERT INTO en_photo_lessons (photo_id, markdown) VALUES (?, ?)",
+                photoId, text + "\n\n![Triunghiul ABC](desen:" + drawing + ")");
+        return drawing;
+    }
+
+    private void show(long chapterId, boolean published, RequestPostProcessor who, int expected) throws Exception {
+        mockMvc.perform(put("/api/admin/en-chapters/" + chapterId + "/lesson").with(csrf()).with(who)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"published\":" + published + "}"))
+                .andExpect(status().is(expected));
+    }
+
+    @Test
+    void theTeacherReadsTheWrittenOutPagesBeforeAnyStudent() throws Exception {
+        long id = chapter("A");
+        long photo = photo(id);
+        long drawing = written(photo, "## Teorema lui Pitagora\n$a^2 + b^2 = c^2$");
+
+        mockMvc.perform(get("/api/en-chapters/" + id + "/lesson").with(teacher))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.published").value(false))
+                .andExpect(jsonPath("$.pages[0].photoId").value(photo))
+                .andExpect(jsonPath("$.pages[0].markdown").value(org.hamcrest.Matchers.containsString("desen:" + drawing)));
+        mockMvc.perform(get("/api/en-chapters/" + id + "/drawings/" + drawing).with(teacher))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.IMAGE_PNG))
+                .andExpect(content().bytes(PNG));
+
+        mockMvc.perform(get("/api/en-chapters/" + id + "/lesson").with(student))
+                .andExpect(jsonPath("$.published").value(false))
+                .andExpect(jsonPath("$.pages").isEmpty());
+        mockMvc.perform(get("/api/en-chapters/" + id + "/drawings/" + drawing).with(student)).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void onceShownEveryAccountReadsItAndHidingItAgainIsJournalled() throws Exception {
+        long id = chapter("B");
+        long drawing = written(photo(id), "Text");
+
+        show(id, true, teacher, 204);
+        mockMvc.perform(get("/api/en-chapters/" + id + "/lesson").with(student))
+                .andExpect(jsonPath("$.published").value(true))
+                .andExpect(jsonPath("$.pages.length()").value(1));
+        mockMvc.perform(get("/api/en-chapters/" + id + "/drawings/" + drawing).with(parent)).andExpect(status().isOk());
+
+        show(id, false, teacher, 204);
+        mockMvc.perform(get("/api/en-chapters/" + id + "/lesson").with(student)).andExpect(jsonPath("$.pages").isEmpty());
+        assertThat(auditRepository.findAll()).extracting(e -> e.getAction())
+                .contains(AuditAction.EN_CHAPTER_LESSON_SHOWN, AuditAction.EN_CHAPTER_LESSON_HIDDEN);
+    }
+
+    @Test
+    void onlyTheTeacherShowsOrHidesIt() throws Exception {
+        long id = chapter("C");
+
+        show(id, true, student, 403);
+        show(id, true, parent, 403);
+        show(999_999_999L, true, teacher, 404);
+    }
+
+    @Test
+    void pagesComeInBookOrderAndAPageWithoutTextIsLeftOut() throws Exception {
+        long id = chapter("D");
+        long first = photo(id);
+        photo(id);  // a photo the import has not written out yet
+        long third = photo(id);
+        written(third, "A treia");
+        written(first, "Prima");
+
+        mockMvc.perform(get("/api/en-chapters/" + id + "/lesson").with(teacher))
+                .andExpect(jsonPath("$.pages.length()").value(2))
+                .andExpect(jsonPath("$.pages[0].photoId").value(first))
+                .andExpect(jsonPath("$.pages[1].photoId").value(third));
+    }
+
+    @Test
+    void aDrawingIsReachedOnlyThroughItsOwnChapterAndGoesWithItsPhoto() throws Exception {
+        long id = chapter("E");
+        long other = chapter("F");
+        long photo = photo(id);
+        long drawing = written(photo, "Text");
+        show(id, true, teacher, 204);
+
+        mockMvc.perform(get("/api/en-chapters/" + other + "/drawings/" + drawing).with(teacher)).andExpect(status().isNotFound());
+
+        mockMvc.perform(delete("/api/admin/en-chapters/" + id + "/photos/" + photo).with(csrf()).with(teacher))
+                .andExpect(status().isNoContent());
+        mockMvc.perform(get("/api/en-chapters/" + id + "/lesson").with(teacher)).andExpect(jsonPath("$.pages").isEmpty());
+        mockMvc.perform(get("/api/en-chapters/" + id + "/drawings/" + drawing).with(teacher)).andExpect(status().isNotFound());
+    }
+}

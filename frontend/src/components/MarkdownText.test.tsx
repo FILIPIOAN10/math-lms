@@ -66,6 +66,24 @@ describe('figures', () => {
     expect(screen.getByRole('img', { name: 'Axa numerelor' }).tagName).toBe('CANVAS')
   })
 
+  it("reads a drawing line as the app's own drawing and draws it from the address it is given", () => {
+    expect(parseBlocks('Text.\n\n![Triunghiul ABC](desen:17)\n\nDupă.')).toEqual([
+      { kind: 'paragraph', text: 'Text.' },
+      { kind: 'drawing', alt: 'Triunghiul ABC', drawingId: 17 },
+      { kind: 'paragraph', text: 'După.' },
+    ])
+    render(<MarkdownText drawingUrl={(id) => `/api/en-chapters/9/drawings/${id}`}>{'![Triunghiul ABC](desen:17)'}</MarkdownText>)
+
+    expect(screen.getByRole('img', { name: 'Triunghiul ABC' })).toHaveAttribute('src', '/api/en-chapters/9/drawings/17')
+  })
+
+  it('shows only the description of a drawing when it is not told where drawings are', () => {
+    render(<MarkdownText>{'![Triunghiul ABC](desen:17)'}</MarkdownText>)
+
+    expect(screen.getByText(/figură: Triunghiul ABC/)).toBeInTheDocument()
+    expect(screen.queryByRole('img')).not.toBeInTheDocument()
+  })
+
   it('shows only the description when it is not told where photos are', () => {
     render(<MarkdownText>{'![Axa numerelor](poza:42?x=0.1&y=0.2&w=0.5&h=0.1)'}</MarkdownText>)
 

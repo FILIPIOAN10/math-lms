@@ -2226,6 +2226,7 @@ export type AuditAction =
   | 'CHAPTER_CREATED' | 'CHAPTER_UPDATED' | 'CHAPTER_DELETED'
   | 'EXERCISE_CREATED' | 'EXERCISE_UPDATED' | 'EXERCISE_DELETED'
   | 'EN_CHAPTER_CREATED' | 'EN_CHAPTER_UPDATED' | 'EN_CHAPTER_DELETED' | 'EN_CHAPTER_PHOTO_ADDED' | 'EN_CHAPTER_PHOTO_REMOVED'
+  | 'EN_CHAPTER_LESSON_SHOWN' | 'EN_CHAPTER_LESSON_HIDDEN'
   | 'EN_EXAMPLE_ADDED' | 'EN_EXAMPLE_UPDATED' | 'EN_EXAMPLE_DELETED' | 'EN_CHAPTER_SLOTS_UPDATED'
   | 'QUIZ_CREATED' | 'QUIZ_UPDATED' | 'QUIZ_COPIED' | 'QUIZ_PUBLISHED' | 'QUIZ_UNPUBLISHED' | 'QUIZ_DELETED'
   | 'QUESTION_ADDED' | 'QUESTION_UPDATED' | 'QUESTION_DELETED' | 'QUESTION_IMAGE_SET' | 'QUESTION_IMAGE_REMOVED' | 'QUIZ_FROM_PHOTOS'
@@ -2373,6 +2374,33 @@ export async function getEnChapter(id: number): Promise<EnChapterPage> {
 /** A photo never changes (a replaced page is a new photo), so its id is enough for the browser cache. */
 export function enChapterPhotoUrl(chapterId: number, photoId: number): string {
   return `/api/en-chapters/${chapterId}/photos/${photoId}`
+}
+
+/** One book page written out (V73): the photo it comes from and its text, with "![…](desen:<id>)" for each drawing. */
+export interface EnLessonPage {
+  photoId: number
+  position: number
+  markdown: string
+}
+
+/** A chapter's book pages written out; a student gets them only once the teacher has shown them (published). */
+export interface EnLesson {
+  published: boolean
+  pages: EnLessonPage[]
+}
+
+export async function getEnChapterLesson(id: number): Promise<EnLesson> {
+  const response = await apiFetch(`/en-chapters/${id}/lesson`)
+  return response.json()
+}
+
+/** A drawing the app made of a figure; a redrawn figure gets a new id. */
+export function enChapterDrawingUrl(chapterId: number, drawingId: number): string {
+  return `/api/en-chapters/${chapterId}/drawings/${drawingId}`
+}
+
+export async function showEnChapterLesson(id: number, published: boolean): Promise<void> {
+  await putJson(`/admin/en-chapters/${id}/lesson`, { published })
 }
 
 export function enExampleImageUrl(chapterId: number, exampleId: number, version: string): string {

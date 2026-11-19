@@ -16,9 +16,13 @@ export type Block =
   | { kind: 'table'; header: string[]; rows: string[][] }
   /** A drawing: the part (x, y, w, h as fractions) of the page photo `photoId`. */
   | { kind: 'figure'; alt: string; photoId: number; x: number; y: number; w: number; h: number }
+  /** A figure the app drew itself from the book's (a written-out lesson page, V73). */
+  | { kind: 'drawing'; alt: string; drawingId: number }
 
 // ![Axa numerelor](poza:42?x=0.078&y=0.396&w=0.844&h=0.061)
 const FIGURE = /^\s*!\[([^\]]*)\]\(poza:(\d+)\?x=([\d.]+)&y=([\d.]+)&w=([\d.]+)&h=([\d.]+)\)\s*$/
+// ![Triunghiul ABC](desen:17)
+const DRAWING = /^\s*!\[([^\]]*)\]\(desen:(\d+)\)\s*$/
 
 const MATH = /\$\$[\s\S]+?\$\$|\$[^$\n]+?\$/g
 const ITALIC = /(?<![*\w])\*(?![*\s])([^*\n]+?)(?<![*\s])\*(?![*\w])/g
@@ -104,6 +108,12 @@ export function parseBlocks(markdown: string): Block[] {
       continue
     }
     flushList()
+    const drawing = DRAWING.exec(line)
+    if (drawing) {
+      flushParagraph()
+      blocks.push({ kind: 'drawing', alt: drawing[1], drawingId: Number(drawing[2]) })
+      continue
+    }
     const figure = FIGURE.exec(line)
     if (figure) {
       flushParagraph()
@@ -152,11 +162,13 @@ function Inline({ text }: { text: string }) {
  * Theory written as text in the app: paragraphs and bold labels, tables as tables and formulas typeset, all as React
  * elements (the text is never inserted as HTML, so nothing in it can inject markup).
  */
-export function MarkdownText({ children, className, photoUrl, headingLevel = 3 }: {
+export function MarkdownText({ children, className, photoUrl, drawingUrl, headingLevel = 3 }: {
   children: string
   className?: string
   /** Where a page photo is served; without it a figure shows only its description. */
   photoUrl?: (photoId: number) => string
+  /** Where the app's drawings are served; without it a drawing shows only its description. */
+  drawingUrl?: (drawingId: number) => string
   /** The level of the text's own headings, one below the heading the text sits under. */
   headingLevel?: 2 | 3 | 4 | 5 | 6
 }) {
@@ -165,6 +177,16 @@ export function MarkdownText({ children, className, photoUrl, headingLevel = 3 }
   return (
     <div className={cn('space-y-3', className)}>
       {blocks.map((block, i) => {
+        if (block.kind === 'drawing') {
+          return drawingUrl ? (
+            <figure key={i} className="my-3 flex justify-center">
+              <img src={drawingUrl(block.drawingId)} alt={block.alt} loading="lazy"
+                className="max-h-96 w-auto max-w-full rounded bg-white" />
+            </figure>
+          ) : (
+            <p key={i} className="text-sm italic text-muted-foreground">[figură: {block.alt}]</p>
+          )
+        }
         if (block.kind === 'figure') {
           return photoUrl ? (
             <figure key={i} className="my-2">

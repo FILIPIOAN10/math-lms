@@ -9,6 +9,8 @@ const api = vi.hoisted(() => ({
   listEnChapters: vi.fn(),
   getEnChapter: vi.fn(),
   getMyEnMastery: vi.fn(),
+  getEnChapterLesson: vi.fn(),
+  showEnChapterLesson: vi.fn(),
 }))
 vi.mock('@/lib/api', async (original) => ({ ...(await original<typeof import('@/lib/api')>()), ...api }))
 
@@ -107,7 +109,55 @@ describe('EnChapterPage', () => {
   beforeEach(() => {
     Object.values(api).forEach((fn) => fn.mockReset())
     api.listEnChapters.mockResolvedValue([])
+    api.getEnChapterLesson.mockResolvedValue({ published: false, pages: [] })
     auth.value.user.role = 'STUDENT'
+  })
+
+  describe('the whole lesson, written out', () => {
+    const lesson = (published: boolean) => ({
+      published,
+      pages: [
+        { photoId: 8, position: 2, markdown: '## Teorema lui Pitagora\n\n$a^2 + b^2 = c^2$\n\n![Triunghiul ABC](desen:41)' },
+        { photoId: 7, position: 1, markdown: 'A doua pagină.' },
+      ],
+    })
+
+    it('lets a student read the book pages as text with the drawings, and open each page of the book', async () => {
+      api.getEnChapter.mockResolvedValue(page({ notes: 'Rezumat.', photos: [{ id: 7 }, { id: 8 }] }))
+      api.getEnChapterLesson.mockResolvedValue(lesson(true))
+      renderAt('/capitole/1')
+
+      fireEvent.click(await screen.findByRole('button', { name: 'Citește lecția completă (2 pagini)' }))
+
+      expect(screen.getByRole('heading', { name: 'Teorema lui Pitagora' })).toBeInTheDocument()
+      expect(screen.getByRole('img', { name: 'Triunghiul ABC' })).toHaveAttribute('src', '/api/en-chapters/1/drawings/41')
+      expect(screen.queryByRole('button', { name: /elevilor/ })).not.toBeInTheDocument()
+      fireEvent.click(screen.getAllByRole('button', { name: 'Vezi pagina din carte' })[0])
+      expect(await screen.findByText('Pagina 2 din 2')).toBeInTheDocument()  // the photo of that page (id 8, second)
+    })
+
+    it('shows nothing to a student while the teacher has not shown it', async () => {
+      api.getEnChapter.mockResolvedValue(page({ notes: 'Rezumat.', photos: [{ id: 7 }] }))
+      renderAt('/capitole/1')
+
+      await screen.findByText('Rezumat.')
+      expect(screen.queryByRole('heading', { name: 'Lecția completă' })).not.toBeInTheDocument()
+    })
+
+    it('lets the teacher read it first and show it to the students', async () => {
+      auth.value.user.role = 'ADMIN'
+      api.getEnChapter.mockResolvedValue(page({ notes: 'Rezumat.', photos: [{ id: 7 }, { id: 8 }] }))
+      api.getEnChapterLesson.mockResolvedValue(lesson(false))
+      api.showEnChapterLesson.mockResolvedValue(undefined)
+      renderAt('/capitole/1')
+
+      expect(await screen.findByText(/Elevii n-o văd încă/)).toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', { name: 'Arată-o elevilor' }))
+
+      await waitFor(() => expect(api.showEnChapterLesson).toHaveBeenCalledWith(1, true))
+      expect(await screen.findByRole('button', { name: 'Ascunde-o elevilor' })).toBeInTheDocument()
+      expect(screen.queryByText(/Elevii n-o văd încă/)).not.toBeInTheDocument()
+    })
   })
 
   it('does not repeat the title at the top of the text, and sets its sub-headings as headings over lists', async () => {

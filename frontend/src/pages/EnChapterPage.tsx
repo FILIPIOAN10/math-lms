@@ -11,11 +11,15 @@ import { PhotoViewer } from '@/components/PhotoViewer'
 import { ZoomableImage } from '@/components/QuestionImage'
 import { HomeSection } from '@/components/home/HomeBits'
 import {
+  enChapterDrawingUrl,
   enChapterPhotoUrl,
   enExampleImageUrl,
   getEnChapter,
+  getEnChapterLesson,
   listEnChapters,
+  showEnChapterLesson,
   type EnChapterPage as EnChapterPageDto,
+  type EnLesson,
   type EnChapterSummary,
   type EnExample,
   type EnSection,
@@ -111,14 +115,26 @@ export function EnChapterPage() {
     if (back) rememberLessonTab(search)
   }, [back, search])
   // After the theory a student practises it (Khan's "practice this unit"); staff and parents only read the page.
-  const student = useAuth().user?.role === 'STUDENT'
+  const role = useAuth().user?.role
+  const student = role === 'STUDENT'
+  const teacher = role === 'ADMIN'
+  // The book's pages written out with the app's drawings; a student gets them once the teacher has shown them.
+  const [lesson, setLesson] = useState<EnLesson | null>(null)
+  const [lessonOpen, setLessonOpen] = useState(false)
+  const [showing, setShowing] = useState(false)
 
   useEffect(() => {
     let cancelled = false
     setPage(null)
+    setLesson(null)
+    setLessonOpen(false)
     getEnChapter(chapterId)
       .then((p) => !cancelled && setPage(p))
       .catch((e) => !cancelled && setError(errorMessage(e)))
+    // Only for "Lecția completă": the page works without it.
+    getEnChapterLesson(chapterId)
+      .then((l) => !cancelled && setLesson(l))
+      .catch(() => undefined)
     // Only for "Capitolul anterior / următor": the page works without it.
     listEnChapters()
       .then((list) => {
@@ -147,6 +163,17 @@ export function EnChapterPage() {
     }
     const index = photoIndexOf(section.bookPage, page.bookPage, page.photos.length)
     if (index !== null) setViewing(index)
+  }
+
+  /** The teacher shows the written-out lesson to the students, or hides it again. */
+  function toggleShown() {
+    if (!lesson || !page) return
+    const published = !lesson.published
+    setShowing(true)
+    showEnChapterLesson(page.id, published)
+      .then(() => setLesson({ ...lesson, published }))
+      .catch((e) => setError(errorMessage(e)))
+      .finally(() => setShowing(false))
   }
 
   // Arriving from a link to a section: go to it, once.
@@ -279,6 +306,44 @@ export function EnChapterPage() {
                 </section>
               ))}
             </div>
+          </HomeSection>
+        )}
+
+        {page && lesson && lesson.pages.length > 0 && (
+          <HomeSection title="Lecția completă">
+            <p className="text-sm text-muted-foreground">
+              Paginile cărții scrise ca text, cu figurile desenate din nou de aplicație.
+              {teacher && !lesson.published && ' Elevii n-o văd încă: citește-o și arat-o când e bună.'}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" onClick={() => setLessonOpen((o) => !o)} aria-expanded={lessonOpen}>
+                {lessonOpen ? 'Ascunde lecția completă' : `Citește lecția completă (${lesson.pages.length} pagini)`}
+              </Button>
+              {teacher && (
+                <Button size="sm" variant={lesson.published ? 'outline' : 'default'} disabled={showing} onClick={toggleShown}>
+                  {lesson.published ? 'Ascunde-o elevilor' : 'Arată-o elevilor'}
+                </Button>
+              )}
+            </div>
+            {lessonOpen && (
+              <div className="space-y-8">
+                {lesson.pages.map((written) => {
+                  const index = page.photos.findIndex((p) => p.id === written.photoId)
+                  return (
+                    <article key={written.photoId} className="space-y-2 border-t pt-4" data-testid={`lesson-page-${written.photoId}`}>
+                      {index >= 0 && (
+                        <div className="flex justify-end">
+                          <Button size="sm" variant="ghost" onClick={() => setViewing(index)}>Vezi pagina din carte</Button>
+                        </div>
+                      )}
+                      <MarkdownText photoUrl={photoUrl} drawingUrl={(id) => enChapterDrawingUrl(page.id, id)} headingLevel={4}>
+                        {written.markdown}
+                      </MarkdownText>
+                    </article>
+                  )
+                })}
+              </div>
+            )}
           </HomeSection>
         )}
 
