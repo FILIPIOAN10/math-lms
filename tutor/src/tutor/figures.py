@@ -215,6 +215,13 @@ def _label(text: str) -> str:
         return re.sub(r"[\\${}]", "", text)
 
 
+def _distance_to_segment(q, a, b) -> float:
+    d = b - a
+    length2 = float(np.dot(d, d))
+    t = 0.0 if length2 < 1e-12 else min(1.0, max(0.0, float(np.dot(q - a, d)) / length2))
+    return float(np.linalg.norm(a + t * d - q))
+
+
 def _project(space: dict, angle: float, scale: float) -> dict:
     dx, dy = scale * math.cos(math.radians(angle)), scale * math.sin(math.radians(angle))
     return {name: np.array([v[0] + v[1] * dx, v[2] + v[1] * dy]) for name, v in space.items()}
@@ -420,13 +427,20 @@ def _render(figure: dict) -> tuple[bytes, bytes]:
             ax.plot(square[:, 0], square[:, 1], color="black", lw=0.9)
         elif mark["kind"] == "length" and len(p) == 2:
             mid, d = (p[0] + p[1]) / 2, p[1] - p[0]
-            if any(np.linalg.norm(q - mid) < 0.08 * span for q in pts.values()):
-                mid = p[0] + 0.75 * d
+            this = {_norm(n) for n in mark["points"]}
+            crossed = any(_distance_to_segment(mid, pts[_norm(s["a"])], pts[_norm(s["b"])]) < 0.03 * span
+                          for s in figure["segments"] if {_norm(s["a"]), _norm(s["b"])} != this
+                          and _norm(s["a"]) in pts and _norm(s["b"]) in pts)
+            if crossed or any(np.linalg.norm(q - mid) < 0.08 * span for q in pts.values()):
+                mid = p[0] + 0.72 * d  # a point or another line (the other diagonal) sits in the middle
             normal = np.array([-d[1], d[0]]) / (np.linalg.norm(d) or 1)
             if np.dot(normal, mid - centre) < 0:
                 normal = -normal
-            ax.text(*(mid + 0.05 * span * normal), _label(mark["text"]), ha="center", va="center", fontsize=10,
-                    color="#9c2b1f")
+            # Written along the segment, as in a textbook (a diagonal's length lies on the diagonal), never upside down.
+            angle = math.degrees(math.atan2(d[1], d[0]))
+            angle = angle - 180 if angle > 90 else angle + 180 if angle <= -90 else angle
+            ax.text(*(mid + 0.04 * span * normal), _label(mark["text"]), ha="center", va="center", fontsize=10,
+                    color="#9c2b1f", rotation=angle, rotation_mode="anchor")
         elif mark["kind"] == "angle" and len(p) == 3:
             a1 = math.degrees(math.atan2(*(p[0] - p[1])[::-1]))
             a2 = math.degrees(math.atan2(*(p[2] - p[1])[::-1]))
