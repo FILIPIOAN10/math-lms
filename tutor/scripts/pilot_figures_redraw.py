@@ -156,10 +156,18 @@ def redraw(page: dict, ask: GeminiAsk, settings: Settings) -> dict:
     return row
 
 
-def review(settings: Settings) -> None:
-    """The comparison page; every drawing is drawn again from its saved coordinates first (free), so a change to
-    `tutor.figures` shows without asking the model again."""
-    rows = [json.loads(line) for line in (OUT / "redraw.jsonl").read_text(encoding="utf-8").splitlines()]
+STYLE = """<style>body{font:15px/1.5 system-ui,sans-serif;max-width:1400px;margin:0 auto;padding:16px;background:#fff;
+color:#111}section{border-top:2px solid #ddd;padding:14px 0}.row{display:flex;gap:18px;flex-wrap:wrap;
+align-items:flex-start}.page{width:min(560px,100%);border:1px solid #ccc}.figs{flex:1 1 420px;display:flex;
+flex-direction:column;gap:14px}.card{border:1px solid #e3e3e3;border-radius:8px;padding:10px}.card img{max-width:100%;
+max-height:420px}.no{color:#a4161a}.warn{color:#8a5a00}.fix{color:#11713a}h2{font-size:18px;margin:0 0 8px}
+h3{margin:0;font-size:15px}table{border-collapse:collapse}td,th{border:1px solid #ddd;padding:4px 10px;text-align:right}
+td:first-child,th:first-child{text-align:left}</style>"""
+
+
+def redrawn(rows: list[dict]) -> None:
+    """Every drawing drawn again from its saved coordinates (free), so a change to `tutor.figures` shows without asking
+    the model again."""
     for row in rows:
         for f in row["figures"]:
             if f.get("drawable") and f.get("figure"):
@@ -169,71 +177,109 @@ def review(settings: Settings) -> None:
                     (OUT / f["png"]).write_bytes(figures.render(f["figure"])[0])
                 except Exception as error:  # noqa: BLE001
                     f["check"] = {"ok": False, "problems": [f"nu s-a putut desena: {error}"], "warnings": []}
-    sections = []
-    for row in rows:
-        page = (pathlib.Path(settings.en_chapter_images_dir) / pages(settings, [row["photo"]])[0]["image_key"]).read_bytes()
-        photo = base64.b64encode(prepare(page, 1100)[0]).decode()
-        cards = []
-        for f in row["figures"]:
-            if f.get("png") and (OUT / f["png"]).exists():
-                body = f'<img src="data:image/png;base64,{base64.b64encode((OUT / f["png"]).read_bytes()).decode()}">'
-            else:
-                body = f'<p class=no>Nu se poate desena așa: {html.escape(f.get("missing") or "")}</p>'
-            check = f.get("check") or {}
-            notes = "".join(f"<li class=no>{html.escape(p)}</li>" for p in check.get("problems", [])) + \
-                "".join(f"<li class=warn>{html.escape(w)}</li>" for w in check.get("warnings", []))
-            if f.get("repaired"):
-                notes += "<li class=fix>reparată după verificare: " + html.escape("; ".join(f["before_repair"])) + "</li>"
-            cards.append(f'<div class=card><h3>Figura {f["number"]}</h3><p>{html.escape(f["description"] or "")}</p>'
-                         f'{body}<ul>{notes}</ul></div>')
-        sections.append(
-            f'<section><h2>{html.escape(row["code"])} · {html.escape(row["title"])} · poza {row["position"]}</h2>'
+
+
+def section(row: dict, settings: Settings) -> str:
+    page = (pathlib.Path(settings.en_chapter_images_dir) / pages(settings, [row["photo"]])[0]["image_key"]).read_bytes()
+    photo = base64.b64encode(prepare(page, 1100)[0]).decode()
+    cards = []
+    for f in row["figures"]:
+        if f.get("png") and (OUT / f["png"]).exists():
+            body = f'<img src="data:image/png;base64,{base64.b64encode((OUT / f["png"]).read_bytes()).decode()}">'
+        else:
+            body = f'<p class=no>Nu se poate desena așa: {html.escape(f.get("missing") or "")}</p>'
+        check = f.get("check") or {}
+        notes = "".join(f"<li class=no>{html.escape(p)}</li>" for p in check.get("problems", [])) + \
+            "".join(f"<li class=warn>{html.escape(w)}</li>" for w in check.get("warnings", []))
+        if f.get("repaired"):
+            notes += "<li class=fix>reparată după verificare: " + html.escape("; ".join(f["before_repair"])) + "</li>"
+        cards.append(f'<div class=card><h3>Figura {f["number"]}</h3><p>{html.escape(f["description"] or "")}</p>'
+                     f'{body}<ul>{notes}</ul></div>')
+    if row.get("error") and not row["figures"]:
+        cards.append(f'<p class=no>Modelul nu a răspuns: {html.escape(row["error"])}</p>')
+    return (f'<section><h2>{html.escape(row["code"])} · {html.escape(row["title"])} · poza {row["position"]}</h2>'
             f'<div class=row><img class=page src="data:image/jpeg;base64,{photo}"><div class=figs>{"".join(cards)}'
             f'</div></div></section>')
-    page_html = f"""<!doctype html><html lang=ro><head><meta charset=utf-8><title>Figuri redesenate</title>
-<style>body{{font:15px/1.5 system-ui,sans-serif;max-width:1400px;margin:0 auto;padding:16px;background:#fff;color:#111}}
-section{{border-top:2px solid #ddd;padding:14px 0}}.row{{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start}}
-.page{{width:min(560px,100%);border:1px solid #ccc}}.figs{{flex:1 1 420px;display:flex;flex-direction:column;gap:14px}}
-.card{{border:1px solid #e3e3e3;border-radius:8px;padding:10px}}.card img{{max-width:100%;max-height:420px}}
-.no{{color:#a4161a}}.warn{{color:#8a5a00}}.fix{{color:#11713a}}h2{{font-size:18px;margin:0 0 8px}}h3{{margin:0;font-size:15px}}</style>
-</head><body><h1>Figurile din teorie, redesenate ({sum(len(r["figures"]) for r in rows)} figuri, {len(rows)} pagini)</h1>
-<p>Stânga: pagina din carte. Dreapta: fiecare figură desenată de aplicație din coordonate, cu verificările ei.</p>
-{"".join(sections)}</body></html>"""
-    (OUT / "review.html").write_text(page_html, encoding="utf-8")
+
+
+def review(settings: Settings) -> None:
+    """One comparison page per chapter (book page left, our drawings right) and an index with the counts."""
+    rows = [json.loads(line) for line in (OUT / "redraw.jsonl").read_text(encoding="utf-8").splitlines()]
+    redrawn(rows)
+    by_code: dict[str, list[dict]] = collections.defaultdict(list)
+    for row in sorted(rows, key=lambda r: (r["code"][0], int(re.sub(r"\D", "", r["code"]) or 0), r["position"])):
+        by_code[row["code"]].append(row)
+    lines = []
+    for code, chapter in by_code.items():
+        items = [f for r in chapter for f in r["figures"]]
+        body = "".join(section(row, settings) for row in chapter)
+        (OUT / f"review-{code}.html").write_text(
+            f"<!doctype html><html lang=ro><head><meta charset=utf-8><title>Figuri {code}</title>{STYLE}</head><body>"
+            f"<p><a href=review.html>← toate capitolele</a></p><h1>{html.escape(code)} · "
+            f"{html.escape(chapter[0]['title'])}</h1>{body}</body></html>", encoding="utf-8")
+        lines.append(f'<tr><td><a href="review-{code}.html">{html.escape(code)} · {html.escape(chapter[0]["title"])}</a>'
+                     f'</td><td>{len(chapter)}</td><td>{len(items)}</td>'
+                     f'<td>{sum(bool((f.get("check") or {}).get("ok")) for f in items)}</td>'
+                     f'<td>{sum(bool(f.get("repaired")) for f in items)}</td>'
+                     f'<td>{sum(not f.get("drawable") for f in items)}</td></tr>')
+    items = [f for r in rows for f in r["figures"]]
+    (OUT / "review.html").write_text(
+        f"<!doctype html><html lang=ro><head><meta charset=utf-8><title>Figuri redesenate</title>{STYLE}</head><body>"
+        f"<h1>Figurile din teorie, redesenate</h1><p>{len(items)} figuri pe {len(rows)} pagini. Pe fiecare capitol: "
+        f"stânga pagina din carte, dreapta desenul aplicației, cu verificările lui.</p><table><tr><th>Capitol</th>"
+        f"<th>pagini</th><th>figuri</th><th>desenate, verificări ok</th><th>reparate</th><th>nedesenabile</th></tr>"
+        f"{''.join(lines)}</table></body></html>", encoding="utf-8")
     print("pagina:", OUT / "review.html")
+
+
+def spent(rows: list[dict], settings: Settings) -> float:
+    return strong_cost_usd(sum(r["tokens"][0] for r in rows), sum(r["tokens"][1] for r in rows), settings)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--photos", default=",".join(map(str, PILOT_PHOTOS)))
+    parser.add_argument("--photos", default=",".join(map(str, PILOT_PHOTOS)),
+                        help="photo ids, comma separated, or @file with them")
     parser.add_argument("--workers", type=int, default=3)
     parser.add_argument("--review", action="store_true")
     parser.add_argument("--out", default="redraw", help="folder under data/theory (a new one keeps an earlier round)")
     parser.add_argument("--no-repair", action="store_true", help="no second call when the free checks fail")
+    parser.add_argument("--max-usd", type=float, default=50.0,
+                        help="stop before the next batch once the estimated cost of this folder passes it")
     args = parser.parse_args()
     global OUT, REPAIR
     OUT, REPAIR = OUT.parent / args.out, not args.no_repair
     settings = get_settings()
     OUT.mkdir(parents=True, exist_ok=True)
+    out = OUT / "redraw.jsonl"
     if not args.review:
-        out = OUT / "redraw.jsonl"
-        done = {json.loads(line)["photo"] for line in out.read_text(encoding="utf-8").splitlines()} if out.exists() else set()
-        todo = [p for p in pages(settings, [int(i) for i in args.photos.split(",")]) if p["photo"] not in done]
+        ids = (pathlib.Path(args.photos[1:]).read_text(encoding="utf-8") if args.photos.startswith("@") else args.photos)
+        rows = [json.loads(line) for line in out.read_text(encoding="utf-8").splitlines()] if out.exists() else []
+        done = {row["photo"] for row in rows}
+        todo = [p for p in pages(settings, [int(i) for i in ids.split(",") if i.strip()]) if p["photo"] not in done]
         print(f"{len(todo)} pagini de redesenat ({len(done)} deja făcute)", flush=True)
         ask = GeminiAsk(settings, settings.generate_max_output_tokens)
+        batch = args.workers * 2
         with concurrent.futures.ThreadPoolExecutor(args.workers) as pool, out.open("a", encoding="utf-8") as handle:
-            for row in pool.map(lambda p: redraw(p, ask, settings), todo):
-                handle.write(json.dumps(row, ensure_ascii=False) + "\n")
-                handle.flush()
-                print(row["code"], row["photo"], [(f["number"], f["drawable"], (f.get("check") or {}).get("ok"))
-                                                  for f in row["figures"]] or row["error"], flush=True)
-    rows = [json.loads(line) for line in (OUT / "redraw.jsonl").read_text(encoding="utf-8").splitlines()]
+            for start in range(0, len(todo), batch):
+                if spent(rows, settings) > args.max_usd:
+                    print(f"OPRIT: costul estimat a trecut de {args.max_usd} USD; mai sunt {len(todo) - start} pagini",
+                          flush=True)
+                    break
+                for row in pool.map(lambda p: redraw(p, ask, settings), todo[start:start + batch]):
+                    handle.write(json.dumps(row, ensure_ascii=False) + "\n")
+                    handle.flush()
+                    rows.append(row)
+                    print(row["code"], row["photo"], [(f["number"], f["drawable"], (f.get("check") or {}).get("ok"))
+                                                      for f in row["figures"]] or row["error"],
+                          f"| {spent(rows, settings):.2f} USD", flush=True)
+    rows = [json.loads(line) for line in out.read_text(encoding="utf-8").splitlines()]
     items = [f for r in rows for f in r["figures"]]
-    tokens = [sum(r["tokens"][i] for r in rows) for i in (0, 1)]
     print("figuri:", len(items), "| desenabile:", sum(bool(f["drawable"]) for f in items),
           "| verificări ok:", sum(bool((f.get("check") or {}).get("ok")) for f in items),
+          "| reparate:", sum(bool(f.get("repaired")) for f in items),
           "| ce lipsește:", dict(collections.Counter((f.get("missing") or "").strip()[:40] for f in items if not f["drawable"])),
-          f"| tokeni {tokens[0]} / {tokens[1]} ≈ {strong_cost_usd(*tokens, settings):.2f} USD")
+          f"| ≈ {spent(rows, settings):.2f} USD")
     review(settings)
 
 
