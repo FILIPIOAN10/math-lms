@@ -66,6 +66,25 @@ SCHEMA = {
 
 SAFE = re.compile(r"^[0-9A-Za-z_+\-*/^().,\s]+$")
 
+# A model that writes LaTeX inside JSON sometimes forgets to double the backslash, and then JSON reads "\text" as a TAB
+# and "ext", "\bot" as a backspace and "ot", "\frac" as a form feed and "rac". Followed by letters, such a control
+# character can only have been a LaTeX command (a real TAB before "a)" is followed by one letter and a bracket).
+_BROKEN_LATEX = [(re.compile(r"\x08(?=[A-Za-z])"), r"\\b"), (re.compile(r"\x0c(?=[A-Za-z])"), r"\\f"),
+                 (re.compile(r"\t(?=[A-Za-z]{2})"), r"\\t"), (re.compile(r"\r(?=[A-Za-z]{2})"), r"\\r")]
+
+
+def repair_latex(value):
+    """The same JSON value with the LaTeX commands that JSON escapes ate put back (strings, lists and dicts, in place)."""
+    if isinstance(value, str):
+        for pattern, replacement in _BROKEN_LATEX:
+            value = pattern.sub(replacement, value)
+        return value
+    if isinstance(value, list):
+        return [repair_latex(v) for v in value]
+    if isinstance(value, dict):
+        return {k: repair_latex(v) for k, v in value.items()}
+    return value
+
 
 def page_images() -> dict[int, bytes]:
     """Book page number -> the rendered page (only what a figure exercise needs), read from the transcript headers."""
@@ -108,7 +127,7 @@ def solve_once(exercise: dict, images: dict[int, bytes], temperature: float, mod
         if not response.text:
             continue
         try:
-            data = json.loads(response.text)
+            data = repair_latex(json.loads(response.text))
             break
         except json.JSONDecodeError:
             continue
@@ -137,12 +156,20 @@ def to_expr(text: str | None):
         return None
 
 
+def exact(value):
+    """Decimals as fractions (-1.2 -> -6/5), so {-1.2; 0.25} and {-6/5; 1/4} are the same set."""
+    import sympy
+    floats = value.atoms(sympy.Float) if isinstance(value, sympy.Basic) else set()
+    return value.xreplace({f: sympy.Rational(str(f)) for f in floats}) if floats else value
+
+
 def same(a: str | None, b: str | None) -> bool | None:
     """True/False when both answers can be compared as math, None when one of them is not an expression."""
     import sympy
     x, y = to_expr(a), to_expr(b)
     if x is None or y is None:
         return None
+    x, y = exact(x), exact(y)
     try:
         if isinstance(x, sympy.Basic) and x.is_number and y.is_number:
             return bool(sympy.simplify(x - y) == 0 or abs(complex(sympy.N(x - y))) < 1e-9)
@@ -153,6 +180,19 @@ def same(a: str | None, b: str | None) -> bool | None:
 
 def plain(text: str) -> str:
     return re.sub(r"\\(left|right|text|mathrm|,|;|!)|[\s$]", "", text.lower())
+
+
+PROOF_WORDS = re.compile(r"demonstr|arăt|arat|verific|adevărat|adevarat|q\.?e\.?d|proof")
+
+
+def label_key(label: str) -> str:
+    """"a)", "a.", "$a$" are one requirement."""
+    return re.sub(r"[^0-9a-z]", "", plain(label))
+
+
+def answer_key(text: str) -> str:
+    """A point written with or without its name, "P(2, 2)" or "(2, 2)", is the same answer."""
+    return re.sub(r"^[a-z]'*(?=\()", "", plain(text))
 
 
 def compare(first: dict, second: dict) -> str:
@@ -167,18 +207,23 @@ def compare(first: dict, second: dict) -> str:
     if values_a and values_b and all(any(same(x, y) for y in values_b) for x in values_a) \
             and all(any(same(y, x) for x in values_a) for y in values_b):
         return "AGREE"  # the same set of values, even when the two runs named or grouped the requirements differently
-    by_label = {a["label"]: a for a in second["answers"]}
+    by_label = {label_key(a["label"]): a for a in second["answers"]}  # "$A \cap \mathbb{N}$", "A \cap \mathbb{N}": one label
     verdicts = []
     for answer in first["answers"]:
-        other = by_label.get(answer["label"])
+        other = by_label.get(label_key(answer["label"]))
+        if other is None and len(first["answers"]) == 1 and len(second["answers"]) == 1:
+            other = second["answers"][0]  # one answer each: they answer the same question, whatever the label
         if other is None:
             verdicts.append(None)  # labelled differently in the other run: the value check above is the fair test
             continue
-        verdict = same(answer["sympy"], other["sympy"])
-        if verdict is None and not answer["sympy"] and not other["sympy"]:
-            # not a number or an expression (a pair of values, a word): the two texts, without markup, must be the same
-            # equal text is agreement; different text proves nothing (a proof worded twice), so it is "not comparable"
-            verdict = True if plain(answer["text"]) == plain(other["text"]) else None
+        mine, theirs = (None if a["sympy"] in (None, "", "null", "None") else a["sympy"] for a in (answer, other))
+        verdict = same(mine, theirs)
+        if verdict is None:
+            # not comparable as math (a pair of values, a word, a SymPy form we do not read): the two texts, without
+            # markup, must be the same. Equal text is agreement; different text proves nothing, so "not comparable".
+            # Two runs that both just say "Demonstrație" have not been checked against each other at all.
+            mine_text, theirs_text = answer_key(answer["text"]), answer_key(other["text"])
+            verdict = True if mine_text == theirs_text and not PROOF_WORDS.search(mine_text) else None
         verdicts.append(verdict)
     if not verdicts:
         return "UNPARSED"
@@ -220,6 +265,7 @@ def main() -> None:
     out = DATA / "solutions.jsonl"
     saved = [json.loads(line) for line in out.read_text(encoding="utf-8").splitlines()] if out.exists() else []
     if args.recompare or args.redo_errors:
+        saved = [repair_latex(row) for row in saved]
         for row in saved:
             row["status"] = compare(*row["runs"])
         if args.redo_errors:

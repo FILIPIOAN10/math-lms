@@ -83,7 +83,7 @@ def generate(source: dict, solved: dict, model: str) -> dict:
             return {"error": f"{error.code}"}
         if response.text:
             try:
-                return json.loads(response.text)
+                return solver.repair_latex(json.loads(response.text))
             except json.JSONDecodeError:
                 continue
     return {"error": "empty"}
@@ -110,20 +110,40 @@ def process(source: dict, solved: dict) -> dict:
         gen_run = {"kind": item["kind"], "answers": item["answers"], "needs_figure": False, "unsure": False}
         status = solver.compare(gen_run, checked) if "error" not in checked else "ERROR"
         same_as_original = solver.plain(item["statement"]) == solver.plain(source["statement"])
-        items.append({"statement": item["statement"], "steps": item["steps"], "answers": item["answers"],
-                      "difficulty": item["difficulty"], "verify": status, "copied": same_as_original,
+        items.append({"statement": item["statement"], "steps": item["steps"], "kind": item["kind"],
+                      "answers": item["answers"], "difficulty": item["difficulty"], "verify": status,
+                      "copied": same_as_original, "verifier_kind": checked.get("kind"),
                       "verifier_answers": checked.get("answers")})
     return {"source": source["id"], "items": items}
+
+
+def recompare(out: pathlib.Path) -> None:
+    """The statuses again with the current comparator (it learns new answer forms); free, no calls."""
+    rows = [solver.repair_latex(json.loads(line)) for line in out.read_text(encoding="utf-8").splitlines()]
+    for row in rows:
+        for item in row.get("items", []):
+            if item.get("verifier_answers") is None:
+                continue
+            mine = {"kind": item.get("kind", ""), "answers": item["answers"], "needs_figure": False, "unsure": False}
+            theirs = {"kind": item.get("verifier_kind") or "", "answers": item["verifier_answers"], "needs_figure": False,
+                      "unsure": False}
+            item["verify"] = solver.compare(mine, theirs)
+    out.write_text("".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows), encoding="utf-8")
+    print("recomparat:", dict(collections.Counter(i["verify"] for r in rows for i in r.get("items", []))))
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--limit", type=int, default=30)
     parser.add_argument("--workers", type=int, default=2)
+    parser.add_argument("--recompare", action="store_true", help="recompute the statuses of the saved results, no calls")
     args = parser.parse_args()
+    out = DATA / "generated.jsonl"
+    if args.recompare:
+        recompare(out)
+        return
     exercises = json.loads((DATA / "exercises.json").read_text(encoding="utf-8"))
     solved = {json.loads(l)["id"]: json.loads(l) for l in (DATA / "solutions.jsonl").read_text(encoding="utf-8").splitlines()}
-    out = DATA / "generated.jsonl"
     done = {json.loads(l)["source"] for l in out.read_text(encoding="utf-8").splitlines()} if out.exists() else set()
     candidates = [e for e in exercises if solved.get(e["id"], {}).get("status") == "AGREE" and not e["has_figure"]]
     per_tema: dict[int, list[dict]] = collections.defaultdict(list)
