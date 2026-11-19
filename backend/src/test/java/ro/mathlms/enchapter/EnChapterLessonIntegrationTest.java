@@ -55,6 +55,17 @@ class EnChapterLessonIntegrationTest {
     private RequestPostProcessor student;
     private RequestPostProcessor parent;
     private String stamp;
+    private final java.util.List<Long> created = new java.util.ArrayList<>();
+
+    /**
+     * The chapter list is shared by every test of the run (EnChapterIntegrationTest moves chapters around the end of
+     * it), so the chapters made here go away again, with their photos, text and drawings (ON DELETE CASCADE).
+     */
+    @org.junit.jupiter.api.AfterEach
+    void removeChapters() {
+        created.forEach(id -> jdbc.update("DELETE FROM en_chapters WHERE id = ?", id));
+        created.clear();
+    }
 
     private static RequestPostProcessor as(User u) {
         return user(u.getEmail()).authorities(new SimpleGrantedAuthority("ROLE_" + u.getRole()),
@@ -77,7 +88,9 @@ class EnChapterLessonIntegrationTest {
         String code = "L" + stamp.substring(stamp.length() - 5) + suffix;
         String body = json(post("/api/admin/en-chapters").with(csrf()).with(teacher).contentType(MediaType.APPLICATION_JSON)
                 .content("{\"code\":\"" + code + "\",\"title\":\"Lecție\",\"area\":\"GEOMETRY\"}"), 201);
-        return ((Number) JsonPath.read(body, "$.id")).longValue();
+        long id = ((Number) JsonPath.read(body, "$.id")).longValue();
+        created.add(id);
+        return id;
     }
 
     private long photo(long chapterId) throws Exception {
