@@ -66,11 +66,13 @@ def main() -> None:
                 placed[number] = Placed(description)
                 counts["spre pagina din carte"] += 1
             markdown = app_markdown(transcript, placed)
+            page_number = re.search(r"^book_page:\s*(\d+)", transcript, re.M)  # V74: "pagina N" links find it
             counts["pagini"] += 1
             if not args.dry_run:
                 conn.execute(
-                    "INSERT INTO en_photo_lessons (photo_id, markdown) VALUES (%s, %s) ON CONFLICT (photo_id) "
-                    "DO UPDATE SET markdown = EXCLUDED.markdown, updated_at = now()", (photo, markdown))
+                    "INSERT INTO en_photo_lessons (photo_id, markdown, book_page) VALUES (%s, %s, %s) "
+                    "ON CONFLICT (photo_id) DO UPDATE SET markdown = EXCLUDED.markdown, book_page = EXCLUDED.book_page, "
+                    "updated_at = now()", (photo, markdown, int(page_number.group(1)) if page_number else None))
         if args.dry_run:
             conn.rollback()
         else:

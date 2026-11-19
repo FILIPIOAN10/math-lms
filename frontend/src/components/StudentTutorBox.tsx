@@ -13,6 +13,7 @@ import {
   type TutorTurn,
 } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
+import { lessonHref } from '@/lib/lessons'
 import { roCount } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
@@ -189,7 +190,7 @@ function Answer({ answer, onFollow }: { answer: TutorExplanation; onFollow: () =
             {answer.lessons.map((lesson) => (
               <Link
                 key={`${lesson.chapterId}-${lesson.sectionId}`}
-                to={lesson.sectionId === null ? `/capitole/${lesson.chapterId}` : `/capitole/${lesson.chapterId}?sectiune=${lesson.sectionId}`}
+                to={lessonHref(lesson)}
                 onClick={onFollow}
                 className={cn(buttonVariants({ size: 'sm', variant: 'outline' }), 'h-auto py-1.5 text-left whitespace-normal')}
               >

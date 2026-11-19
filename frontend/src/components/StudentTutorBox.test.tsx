@@ -70,7 +70,7 @@ describe('StudentTutorBox', () => {
     expect(api.askStudentTutor).toHaveBeenCalledWith('cum scot factor comun?', [])
     expect(await screen.findByText('Scrii factorul comun în fața parantezei.')).toBeInTheDocument()
     expect(screen.getByTestId('tutor-answer')).toHaveTextContent('Răspuns AI')
-    expect(screen.getByRole('link', { name: /Deschide lecția A7, pagina 34/ })).toHaveAttribute('href', '/capitole/7?sectiune=9')
+    expect(screen.getByRole('link', { name: /Deschide lecția A7, pagina 34/ })).toHaveAttribute('href', '/capitole/7?sectiune=9&pagina=34')
     expect(screen.getByRole('link', { name: /Exersează capitolul/ })).toHaveAttribute('href', '/capitole/7/exersare')
     expect(screen.getByText(/Îți mai rămân 19 întrebări azi/)).toBeInTheDocument()
   })
@@ -82,7 +82,7 @@ describe('StudentTutorBox', () => {
 
     await ask('ce este calculul algebric?')
 
-    expect(await screen.findByRole('link', { name: /Deschide lecția A7/ })).toHaveAttribute('href', '/capitole/7')
+    expect(await screen.findByRole('link', { name: /Deschide lecția A7/ })).toHaveAttribute('href', '/capitole/7?pagina=34')
   })
 
   it('sends what was said before with a follow-up', async () => {

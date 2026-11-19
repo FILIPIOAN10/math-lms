@@ -163,6 +163,36 @@ class EnChapterLessonIntegrationTest {
     }
 
     @Test
+    void eachPageSaysWhichPageOfTheBookItIs() throws Exception {
+        long id = chapter("G");
+        long photo = photo(id);
+        written(photo, "Text");
+        jdbc.update("UPDATE en_photo_lessons SET book_page = 144 WHERE photo_id = ?", photo);
+
+        mockMvc.perform(get("/api/en-chapters/" + id + "/lesson").with(teacher))
+                .andExpect(jsonPath("$.pages[0].bookPage").value(144));
+    }
+
+    @Test
+    void v74FillsTheBookPageFromTheTranscriptHeader() {
+        // What V74 ran on the pages already written: the same statement, on a page written before it.
+        long id = jdbc.queryForObject("INSERT INTO en_chapters (code, title, area, position) VALUES (?, 'V74', 'ALGEBRA', 999) "
+                + "RETURNING id", Long.class, "W" + stamp.substring(stamp.length() - 6));
+        created.add(id);
+        long photo = jdbc.queryForObject("INSERT INTO en_chapter_photos (chapter_id, position, image_key) VALUES (?, 1, 'x.jpg') "
+                + "RETURNING id", Long.class, id);
+        jdbc.update("INSERT INTO tutor_photo_transcripts (photo_id, content, transcribed_with) VALUES (?, ?, 'test')",
+                photo, "---\nsource_pdf: A1\nbook_page: 37\n---\n\nText");
+        jdbc.update("INSERT INTO en_photo_lessons (photo_id, markdown) VALUES (?, 'Text')", photo);
+
+        jdbc.update("UPDATE en_photo_lessons l SET book_page = substring(t.content from 'book_page:[ \t]*([0-9]+)')::INT "
+                + "FROM tutor_photo_transcripts t WHERE t.photo_id = l.photo_id AND l.photo_id = ?", photo);
+
+        assertThat(jdbc.queryForObject("SELECT book_page FROM en_photo_lessons WHERE photo_id = ?", Integer.class, photo))
+                .isEqualTo(37);
+    }
+
+    @Test
     void pagesComeInBookOrderAndAPageWithoutTextIsLeftOut() throws Exception {
         long id = chapter("D");
         long first = photo(id);

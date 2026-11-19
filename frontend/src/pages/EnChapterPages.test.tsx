@@ -117,9 +117,33 @@ describe('EnChapterPage', () => {
     const lesson = (published: boolean) => ({
       published,
       pages: [
-        { photoId: 8, position: 2, markdown: '## Teorema lui Pitagora\n\n$a^2 + b^2 = c^2$\n\n![Triunghiul ABC](desen:41)' },
-        { photoId: 7, position: 1, markdown: 'A doua pagină.' },
+        { photoId: 8, position: 2, bookPage: 143, markdown: '## Teorema lui Pitagora\n\n$a^2 + b^2 = c^2$\n\n![Triunghiul ABC](desen:41)' },
+        { photoId: 7, position: 1, bookPage: 144, markdown: 'A doua pagină.' },
       ],
+    })
+
+    it('opens the lesson at the page a link names ("Deschide lecția G4, pagina 144")', async () => {
+      api.getEnChapter.mockResolvedValue(page({ notes: 'Rezumat.', photos: [{ id: 7 }, { id: 8 }] }))
+      api.getEnChapterLesson.mockResolvedValue(lesson(true))
+      renderAt('/capitole/1?pagina=144')
+
+      const linked = await screen.findByTestId('lesson-page-7')
+      expect(linked).toHaveAttribute('data-linked', 'true')
+      expect(linked).toHaveTextContent('Pagina 144 din carte')
+      expect(screen.getByTestId('lesson-page-8')).not.toHaveAttribute('data-linked')
+      expect(screen.getByRole('button', { name: 'Ascunde lecția completă' })).toBeInTheDocument()
+    })
+
+    it('goes to the section as before when the page is not written out for the student', async () => {
+      api.getEnChapter.mockResolvedValue(page({
+        notes: 'Rezumat.', photos: [{ id: 7 }],
+        sections: [{ id: 5, code: 'A1S1', title: 'Paranteze', parentId: 1, bookPage: 144, notes: 'Întâi parantezele.' }],
+      }))
+      api.getEnChapterLesson.mockResolvedValue({ published: false, pages: [] })
+      renderAt('/capitole/1?sectiune=5&pagina=144')
+
+      expect(await screen.findByText('Întâi parantezele.')).toBeInTheDocument()
+      expect(screen.queryByRole('heading', { name: 'Lecția completă' })).not.toBeInTheDocument()
     })
 
     it('lets a student read the book pages as text with the drawings, and open each page of the book', async () => {

@@ -36,6 +36,7 @@ import {
   withoutRepeatedTitle,
 } from '@/lib/enChapters'
 import { errorMessage } from '@/lib/errors'
+import { cn } from '@/lib/utils'
 import { LoadingCards } from '@/components/LoadingCards'
 
 /** One worked example: try it first, then open the explained solution. */
@@ -98,6 +99,8 @@ export function EnChapterPage() {
   const chapterId = Number(id)
   const [search] = useSearchParams()
   const wantedSection = Number(search.get('sectiune')) || null
+  // A link that names a page of the book ("Deschide lecția G5, pagina 144"): its written-out page when there is one.
+  const wantedPage = Number(search.get('pagina')) || null
   const [page, setPage] = useState<EnChapterPageDto | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [viewing, setViewing] = useState<number | null>(null)
@@ -120,13 +123,18 @@ export function EnChapterPage() {
   const teacher = role === 'ADMIN'
   // The book's pages written out with the app's drawings; a student gets them once the teacher has shown them.
   const [lesson, setLesson] = useState<EnLesson | null>(null)
+  // The lesson request has answered (or failed): until then a link to a page cannot tell where it goes.
+  const [lessonSettled, setLessonSettled] = useState(false)
   const [lessonOpen, setLessonOpen] = useState(false)
   const [showing, setShowing] = useState(false)
+  const [linkedPage, setLinkedPage] = useState<number | null>(null)
+  const pageOpenedFor = useRef<number | null>(null)
 
   useEffect(() => {
     let cancelled = false
     setPage(null)
     setLesson(null)
+    setLessonSettled(false)
     setLessonOpen(false)
     getEnChapter(chapterId)
       .then((p) => !cancelled && setPage(p))
@@ -135,6 +143,7 @@ export function EnChapterPage() {
     getEnChapterLesson(chapterId)
       .then((l) => !cancelled && setLesson(l))
       .catch(() => undefined)
+      .finally(() => !cancelled && setLessonSettled(true))
     // Only for "Capitolul anterior / următor": the page works without it.
     listEnChapters()
       .then((list) => {
@@ -176,18 +185,44 @@ export function EnChapterPage() {
       .finally(() => setShowing(false))
   }
 
-  // Arriving from a link to a section: go to it, once.
+  // The written-out page a "pagina N" link points at (the first one, when two sources print the same number).
+  const lessonPageId = lesson && wantedPage !== null
+    ? lesson.pages.find((p) => p.bookPage === wantedPage)?.photoId ?? null
+    : null
+
+  // Arriving from a link to a page of the book: the lesson opens at that page, once.
+  useEffect(() => {
+    if (lessonPageId === null || pageOpenedFor.current === wantedPage) return
+    pageOpenedFor.current = wantedPage
+    setLessonOpen(true)
+    setLinkedPage(lessonPageId)
+  }, [lessonPageId, wantedPage])
+
+  // Once the lesson has opened and the chapter is on screen (they arrive in either order): scroll to that page, once.
+  const scrolledTo = useRef<number | null>(null)
+  useEffect(() => {
+    if (linkedPage === null || !lessonOpen || !page || scrolledTo.current === linkedPage) return
+    const target = document.getElementById(`pagina-${linkedPage}`)
+    if (!target) return
+    scrolledTo.current = linkedPage
+    // Straight there (arriving from a link, not reading along): a smooth scroll that long can be cut short.
+    target.scrollIntoView?.({ block: 'start' })
+  }, [linkedPage, lessonOpen, page])
+
+  // Arriving from a link to a section: go to it, once - unless the link's page of the book is written out above.
   useEffect(() => {
     if (!page || wantedSection === null || openedFor.current === wantedSection) return
+    if (wantedPage !== null && (!lessonSettled || lessonPageId !== null)) return
     const section = page.sections.find((s) => s.id === wantedSection)
     if (!section) return
     openedFor.current = wantedSection
     openSection(section)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, wantedSection])
+  }, [page, wantedSection, wantedPage, lessonSettled, lessonPageId])
 
   if (page && page.rootId !== page.id) {
-    return <Navigate to={withReturn(`/capitole/${page.rootId}?sectiune=${page.id}`, back)} replace />
+    const pageOfBook = wantedPage !== null ? `&pagina=${wantedPage}` : ''
+    return <Navigate to={withReturn(`/capitole/${page.rootId}?sectiune=${page.id}${pageOfBook}`, back)} replace />
   }
 
   const photoUrls = page ? page.photos.map((p) => enChapterPhotoUrl(page.id, p.id)) : []
@@ -330,12 +365,22 @@ export function EnChapterPage() {
                 {lesson.pages.map((written) => {
                   const index = page.photos.findIndex((p) => p.id === written.photoId)
                   return (
-                    <article key={written.photoId} className="space-y-2 border-t pt-4" data-testid={`lesson-page-${written.photoId}`}>
-                      {index >= 0 && (
-                        <div className="flex justify-end">
+                    <article
+                      key={written.photoId}
+                      id={`pagina-${written.photoId}`}
+                      data-testid={`lesson-page-${written.photoId}`}
+                      data-linked={written.photoId === linkedPage || undefined}
+                      className={cn('scroll-mt-20 space-y-2 border-t pt-4',
+                        written.photoId === linkedPage && 'rounded-lg bg-amber-500/10 px-3 ring-2 ring-amber-500/60')}
+                    >
+                      <div className="flex flex-wrap items-baseline justify-between gap-2">
+                        <span className="text-xs text-muted-foreground">
+                          {written.bookPage !== null ? `Pagina ${written.bookPage} din carte` : ''}
+                        </span>
+                        {index >= 0 && (
                           <Button size="sm" variant="ghost" onClick={() => setViewing(index)}>Vezi pagina din carte</Button>
-                        </div>
-                      )}
+                        )}
+                      </div>
                       <MarkdownText photoUrl={photoUrl} drawingUrl={(id) => enChapterDrawingUrl(page.id, id)} headingLevel={4}>
                         {written.markdown}
                       </MarkdownText>

@@ -2380,6 +2380,8 @@ export function enChapterPhotoUrl(chapterId: number, photoId: number): string {
 export interface EnLessonPage {
   photoId: number
   position: number
+  /** The page printed in the book (null when the transcript saw none): a "pagina N" link finds the page by it. */
+  bookPage: number | null
   markdown: string
 }
 

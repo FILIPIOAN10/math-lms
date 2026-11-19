@@ -18,8 +18,11 @@ import java.util.Optional;
 @Service
 public class EnChapterLessonService {
 
-    /** One page as it reads: the photo it was written from (to open the book page) and its Markdown. */
-    public record LessonPageDto(Long photoId, int position, String markdown) {
+    /**
+     * One page as it reads: the photo it was written from (to open the book page), the page printed in the book (V74;
+     * null when the transcript did not see one: a link to "pagina N" finds the page by it) and its Markdown.
+     */
+    public record LessonPageDto(Long photoId, int position, Integer bookPage, String markdown) {
     }
 
     public record LessonDto(boolean published, List<LessonPageDto> pages) {
@@ -52,9 +55,10 @@ public class EnChapterLessonService {
             return new LessonDto(false, List.of());
         }
         List<LessonPageDto> pages = jdbc.query(
-                "SELECT p.id, p.position, l.markdown FROM en_chapter_photos p JOIN en_photo_lessons l ON l.photo_id = p.id "
-                        + "WHERE p.chapter_id = ? ORDER BY p.position, p.id",
-                (rs, i) -> new LessonPageDto(rs.getLong(1), rs.getInt(2), rs.getString(3)), chapterId);
+                "SELECT p.id, p.position, l.book_page, l.markdown FROM en_chapter_photos p "
+                        + "JOIN en_photo_lessons l ON l.photo_id = p.id WHERE p.chapter_id = ? ORDER BY p.position, p.id",
+                (rs, i) -> new LessonPageDto(rs.getLong(1), rs.getInt(2), (Integer) rs.getObject(3), rs.getString(4)),
+                chapterId);
         return new LessonDto(published, pages);
     }
 

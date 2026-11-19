@@ -51,7 +51,7 @@ describe('MistakeNote', () => {
     )
 
     expect(screen.getByText('Ai adunat numitorii.')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /Deschide lecția A3, pagina 21/ })).toHaveAttribute('href', '/capitole/3?sectiune=8')
+    expect(screen.getByRole('link', { name: /Deschide lecția A3, pagina 21/ })).toHaveAttribute('href', '/capitole/3?sectiune=8&pagina=21')
   })
 
   it('has no link without a lesson', () => {

@@ -72,7 +72,7 @@ describe('SimilarPractice', () => {
     expect(screen.queryByText('Patru plus zece face 14.')).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Arată rezolvarea' }))
     expect(screen.getByText('Patru plus zece face 14.')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /Deschide lecția A1, pagina 12/ })).toHaveAttribute('href', '/capitole/3')
+    expect(screen.getByRole('link', { name: /Deschide lecția A1, pagina 12/ })).toHaveAttribute('href', '/capitole/3?pagina=12')
   })
 
   it('says when nothing close enough was found', async () => {
