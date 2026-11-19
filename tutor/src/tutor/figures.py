@@ -35,7 +35,7 @@ FIGURE_SCHEMA = {
         "functions": {"type": "array", "items": {"type": "object", "properties": {"expr": _STR, "x_from": _STR, "x_to": _STR, "label": _STR},
                                                  "required": ["expr", "x_from", "x_to", "label"]}},
         "marks": {"type": "array", "items": {"type": "object", "properties": {
-            "kind": {"type": "string", "enum": ["right_angle", "length", "angle"]},
+            "kind": {"type": "string", "enum": ["right_angle", "length", "angle", "ticks"]},
             "points": {"type": "array", "items": _STR}, "text": _STR}, "required": ["kind", "points", "text"]}},
     },
     "required": ["type", "points", "segments", "circles", "functions", "marks"],
@@ -160,16 +160,20 @@ def check(figure: dict, statement: str) -> dict:
             problems.append(f"funcție necitibilă: {f['expr']} pe [{f['x_from']}, {f['x_to']}]")
     if figure["type"] != "solid" and any(v[2] != 0 for v in exact.values()):
         warnings.append("figură plană cu z diferit de 0 (z e ignorat la desen)")
+    ticked: dict[str, list[tuple[str, object]]] = {}  # equal-segment marks: same number of ticks = same length
     for mark in figure["marks"]:
         pts = mark["points"]
-        need = 2 if mark["kind"] == "length" else 3
+        need = 2 if mark["kind"] in ("length", "ticks") else 3
         if len(pts) != need:
             problems.append(f"marcaj {mark['kind']} cu {len(pts)} puncte (trebuie {need})")
             continue
         if not known(pts):
             continue
         p = [exact[_norm(n)] for n in pts]
-        if mark["kind"] == "right_angle":
+        if mark["kind"] == "ticks":
+            ticked.setdefault(str(mark["text"]).strip() or "1", []).append(
+                ("".join(pts), sympy.sqrt((p[0] - p[1]).dot(p[0] - p[1]))))
+        elif mark["kind"] == "right_angle":
             if not _equal((p[0] - p[1]).dot(p[2] - p[1]), 0):
                 problems.append(f"unghiul {''.join(pts)} e marcat drept, dar nu e de 90°")
         elif mark["kind"] == "length":
@@ -184,6 +188,11 @@ def check(figure: dict, statement: str) -> dict:
             degrees = math.degrees(math.acos(max(-1.0, min(1.0, float(sympy.N(cos))))))
             if value is not None and abs(degrees - float(sympy.N(value))) > 0.01:
                 problems.append(f"unghiul {''.join(pts)} scrie {mark['text']}, dar din coordonate e {degrees:.2f}°")
+    for group in ticked.values():
+        first_name, first_length = group[0]
+        for name, length in group[1:]:
+            if not _equal(length, first_length):
+                problems.append(f"{first_name} și {name} sunt marcate egale, dar au lungimi diferite")
     lengths, angles = stated_values(statement)
     for a, b, text in lengths:
         if a in exact and b in exact:
@@ -425,6 +434,16 @@ def _render(figure: dict) -> tuple[bytes, bytes]:
             s = 0.05 * span
             square = np.array([p[1] + s * u, p[1] + s * (u + w), p[1] + s * w])
             ax.plot(square[:, 0], square[:, 1], color="black", lw=0.9)
+        elif mark["kind"] == "ticks" and len(p) == 2:
+            # Equal segments: the same number of short strokes across the middle of each.
+            d = p[1] - p[0]
+            unit = d / (np.linalg.norm(d) or 1)
+            normal = np.array([-unit[1], unit[0]])
+            count = max(1, min(3, int(mark["text"]) if str(mark["text"]).strip().isdigit() else 1))
+            for k in range(count):
+                c = (p[0] + p[1]) / 2 + (k - (count - 1) / 2) * 0.018 * span * unit
+                stroke = np.array([c - 0.022 * span * normal, c + 0.022 * span * normal])
+                ax.plot(stroke[:, 0], stroke[:, 1], color="black", lw=1.1)
         elif mark["kind"] == "length" and len(p) == 2:
             mid, d = (p[0] + p[1]) / 2, p[1] - p[0]
             this = {_norm(n) for n in mark["points"]}
@@ -439,6 +458,9 @@ def _render(figure: dict) -> tuple[bytes, bytes]:
             # Written along the segment, as in a textbook (a diagonal's length lies on the diagonal), never upside down.
             angle = math.degrees(math.atan2(d[1], d[0]))
             angle = angle - 180 if angle > 90 else angle + 180 if angle <= -90 else angle
+            letter = re.fullmatch(r"\$?\s*(\\[A-Za-z]+|[A-Za-z])('+|_\{?\w+\}?)?\s*\$?", mark["text"].strip())
+            if letter or abs(angle) > 75:
+                angle = 0  # a letter ("h", "\alpha") or a nearly vertical side reads best upright
             ax.text(*(mid + 0.04 * span * normal), _label(mark["text"]), ha="center", va="center", fontsize=10,
                     color="#9c2b1f", rotation=angle, rotation_mode="anchor")
         elif mark["kind"] == "angle" and len(p) == 3:

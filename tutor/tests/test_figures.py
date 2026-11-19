@@ -61,6 +61,41 @@ def test_a_named_point_missing_from_the_figure_is_a_warning_but_the_circle_name_
     assert result["warnings"] == ["puncte din enunț care lipsesc din figură: M, O"]
 
 
+def test_segments_ticked_alike_must_be_equal():
+    isosceles = plane([P("A", "3", "5"), P("B", "0", "0"), P("C", "6", "0"), P("M", "3", "0")],
+                      [S("A", "B"), S("A", "C"), S("B", "C"), S("A", "M")],
+                      [{"kind": "ticks", "points": ["A", "B"], "text": "1"},
+                       {"kind": "ticks", "points": ["A", "C"], "text": "1"},
+                       {"kind": "ticks", "points": ["B", "M"], "text": "2"},
+                       {"kind": "ticks", "points": ["M", "C"], "text": "2"}])
+    wrong = {**isosceles, "marks": [{"kind": "ticks", "points": ["A", "B"], "text": "1"},
+                                    {"kind": "ticks", "points": ["B", "C"], "text": "1"}]}
+
+    assert figures.check(isosceles, "")["ok"]
+    assert figures.check(wrong, "")["problems"] == ["AB și BC sunt marcate egale, dar au lungimi diferite"]
+    assert figures.render(isosceles)[0].startswith(b"\x89PNG")
+
+
+def test_a_diagonal_value_is_written_along_the_diagonal(monkeypatch):
+    square = plane([P("A", "0", "0"), P("B", "6", "0"), P("C", "6", "6"), P("D", "0", "6")],
+                   [S("A", "B"), S("B", "C"), S("C", "D"), S("D", "A"), S("A", "C"), S("B", "D")],
+                   [{"kind": "length", "points": ["A", "C"], "text": "6\\sqrt{2}"},
+                    {"kind": "length", "points": ["D", "A"], "text": "a"}])
+    written = []
+    real_text = figures.plt.Axes.text
+
+    def spy(self, x, y, s, *args, **kwargs):
+        written.append((s, kwargs.get("rotation", 0)))
+        return real_text(self, x, y, s, *args, **kwargs)
+
+    monkeypatch.setattr(figures.plt.Axes, "text", spy)
+    figures.render(square)
+
+    rotations = dict(written)
+    assert rotations["$6\\sqrt{2}$"] == 45  # along the diagonal
+    assert rotations["$a$"] == 0  # a single letter stays upright, even on a vertical side
+
+
 def test_unreadable_coordinates_are_a_problem_and_code_is_never_evaluated():
     bad = plane([P("A", "__import__('os')", "0"), P("B", "1", "0")], [S("A", "B")])
 
