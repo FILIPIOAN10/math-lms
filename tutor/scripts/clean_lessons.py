@@ -26,7 +26,16 @@ from tutor.transcribe import prepare
 
 THEORY = pathlib.Path(__file__).resolve().parent.parent / "data" / "theory"
 MARKER = re.compile(r"\[\s*figura\s+(\d+)\s*\]", re.IGNORECASE)
-readable = repair_page_latex  # stored transcripts are repaired too (repair_lessons_latex.py); this keeps old dumps right
+_AFTER_DOLLAR = re.compile(r"\$[ \t]*\n\s*(?=\\)")  # "($" + empty lines + "\sphericalangle A...$": one formula
+_ARRAY_SPACING = re.compile(r"@\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}")  # {r@{\,}l}: right LaTeX, but KaTeX knows no @{...}
+
+
+def readable(text: str) -> str:
+    """The stored transcript as KaTeX can draw it (the stored lessons are repaired too: repair_lessons_latex.py)."""
+    text = _AFTER_DOLLAR.sub("$", repair_page_latex(text))
+    text = re.sub(r"\\\\(?=[A-Za-z])", lambda _: "\\", text)  # "\\sqrt" (escaped twice) is "\sqrt", not a line break
+    return re.sub(r"(\\begin\{array\}\{)([^{}]*(?:\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}[^{}]*)*)\}",
+                  lambda m: m.group(1) + _ARRAY_SPACING.sub("", m.group(2)) + "}", text)
 
 PAGE_SCRIPT = """
 <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
@@ -36,8 +45,11 @@ PAGE_SCRIPT = """
 // Markdown with LaTeX: the formulas are put aside before Markdown runs (it would eat their _ and \\), then drawn by KaTeX.
 document.querySelectorAll("textarea.md").forEach(function (source) {
   var maths = [];
-  var text = source.value.replace(/\\$\\$([\\s\\S]+?)\\$\\$|\\$([^$\\n]+?)\\$/g, function (m, block, inline) {
-    maths.push([block !== undefined, block !== undefined ? block : inline]);
+  // $...$ stays on one line (a lone $ on a page must not shift every pair after it), except a system written as
+  // \\begin{aligned}...\\end{aligned} (with its \\left brace), which spans lines and is shown as a display formula.
+  var text = source.value.replace(/\\$\\$([\\s\\S]+?)\\$\\$|\\$((?:\\\\left(?:\\\\\\{|[.({\\[|])?\\s*)?\\\\begin\\{(\\w+\\*?)\\}[\\s\\S]+?\\\\end\\{\\3\\}[^$]*)\\$|\\$([^$\\n]+?)\\$/g, function (m, block, system, env, inline) {
+    var display = block !== undefined || system !== undefined;
+    maths.push([display, block !== undefined ? block : system !== undefined ? system : inline]);
     return "@@MATH" + (maths.length - 1) + "@@";
   });
   var out = document.createElement("div");
