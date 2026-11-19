@@ -22,16 +22,33 @@ import sympy  # noqa: E402
 from matplotlib.mathtext import MathTextParser  # noqa: E402
 
 _STR = {"type": "string"}
+_BOOL = {"type": "boolean"}
+# The optional parts (a point's style, a circle's dashed back half, arcs, shaded regions) may be left out: an exercise
+# figure seldom needs them, a lesson figure often does.
 FIGURE_SCHEMA = {
     "type": "object",
     "properties": {
         "type": {"type": "string", "enum": ["plane", "solid", "graph"]},
-        "points": {"type": "array", "items": {"type": "object", "properties": {"name": _STR, "x": _STR, "y": _STR, "z": _STR},
-                                              "required": ["name", "x", "y", "z"]}},
-        "segments": {"type": "array", "items": {"type": "object", "properties": {"a": _STR, "b": _STR, "hidden": {"type": "boolean"}},
+        # style: "point" = a dot and its name (the default); "label" = only the name, no dot (a line "d", a circle "C");
+        # "helper" = nothing drawn (the far end of a line, a corner of a shaded region).
+        "points": {"type": "array", "items": {"type": "object", "properties": {
+            "name": _STR, "x": _STR, "y": _STR, "z": _STR,
+            "style": {"type": "string", "enum": ["point", "label", "helper"]}},
+            "required": ["name", "x", "y", "z"]}},
+        "segments": {"type": "array", "items": {"type": "object", "properties": {"a": _STR, "b": _STR, "hidden": _BOOL},
                                                 "required": ["a", "b", "hidden"]}},
-        "circles": {"type": "array", "items": {"type": "object", "properties": {"center": _STR, "through": _STR},
-                                               "required": ["center", "through"]}},
+        # In a solid, a circle whose centre and `through` point have the same z is horizontal and is drawn as an ellipse;
+        # back_hidden dashes its far half (the bottom base of a cylinder or a cone).
+        "circles": {"type": "array", "items": {"type": "object", "properties": {
+            "center": _STR, "through": _STR, "back_hidden": _BOOL}, "required": ["center", "through"]}},
+        # An arc of the circle of centre `center` through `start`, counterclockwise to the direction of `end`;
+        # sector = also the two radii; shaded = the sector filled.
+        "arcs": {"type": "array", "items": {"type": "object", "properties": {
+            "center": _STR, "start": _STR, "end": _STR, "sector": _BOOL, "shaded": _BOOL, "hidden": _BOOL},
+            "required": ["center", "start", "end"]}},
+        # A shaded polygon, its corners in order.
+        "regions": {"type": "array", "items": {"type": "object", "properties": {
+            "points": {"type": "array", "items": _STR}, "hatched": _BOOL}, "required": ["points"]}},
         "functions": {"type": "array", "items": {"type": "object", "properties": {"expr": _STR, "x_from": _STR, "x_to": _STR, "label": _STR},
                                                  "required": ["expr", "x_from", "x_to", "label"]}},
         "marks": {"type": "array", "items": {"type": "object", "properties": {
@@ -40,6 +57,8 @@ FIGURE_SCHEMA = {
     },
     "required": ["type", "points", "segments", "circles", "functions", "marks"],
 }
+# A graph can show the unit marks of its axes (1, 2, 3 ... on each axis), as a lesson about the coordinate plane does.
+FIGURE_SCHEMA["properties"]["units"] = _BOOL
 
 _NAMES = ("sqrt", "Rational", "pi", "sin", "cos", "tan", "Abs")
 _SAFE = re.compile(r"^[0-9A-Za-z_+\-*/^().,\s]+$")
@@ -155,6 +174,15 @@ def check(figure: dict, statement: str) -> dict:
         known([s["a"], s["b"]])
     for c in figure["circles"]:
         known([c["center"], c["through"]])
+    for arc in figure.get("arcs") or []:
+        if known([arc["center"], arc["start"], arc["end"]]) and \
+                _equal((exact[_norm(arc["start"])] - exact[_norm(arc["center"])]).norm(), 0):
+            problems.append(f"arcul cu centrul {arc['center']} începe chiar în centru")
+    for region in figure.get("regions") or []:
+        if len(region["points"]) < 3:
+            problems.append("o regiune hașurată are nevoie de cel puțin 3 colțuri")
+        else:
+            known(region["points"])
     for f in figure["functions"]:
         if parse(f["expr"], allow_x=True) is None or parse(f["x_from"]) is None or parse(f["x_to"]) is None:
             problems.append(f"funcție necitibilă: {f['expr']} pe [{f['x_from']}, {f['x_to']}]")
@@ -216,6 +244,7 @@ def _label(text: str) -> str:
     unit = re.match(r"^\$?(.*?)\$?\s*(cm|dm|mm|km|m)\.?$", text.strip())
     if unit:
         return f"{_label(unit.group(1))} {unit.group(2)}"
+    text = re.sub(r"_([A-Za-z0-9]{2,})", r"_{\1}", text)  # M_AB is M with the subscript AB, not M_A then B
     candidate = text if text.startswith("$") else f"${text}$"
     try:
         MathTextParser("path").parse(candidate)
@@ -244,6 +273,7 @@ def view_issues(figure: dict, space: dict, flat: dict) -> int:
     near = 0.012 * span
     segs = [(_norm(s["a"]), _norm(s["b"])) for s in figure["segments"]
             if _norm(s["a"]) in flat and _norm(s["b"]) in flat and _norm(s["a"]) != _norm(s["b"])]
+    drawn = {name for name, style in _styles(figure).items() if style == "point"}
 
     def inside(q, a, b, tol) -> bool:
         d = b - a
@@ -256,7 +286,7 @@ def view_issues(figure: dict, space: dict, flat: dict) -> int:
     issues = 0
     for a, b in segs:
         for name in flat:
-            if name not in (a, b) and inside(flat[name], flat[a], flat[b], near) \
+            if name in drawn and name not in (a, b) and inside(flat[name], flat[a], flat[b], near) \
                     and not inside(space[name], space[a], space[b], 1e-6 * span):
                 issues += 1
     for i, (a, b) in enumerate(segs):
@@ -275,17 +305,54 @@ def view_issues(figure: dict, space: dict, flat: dict) -> int:
     return issues
 
 
-def _best_view(figure: dict, space: dict) -> dict:
-    """The textbook view (40 degrees, half depth) unless something overlaps in it; then the first view without that."""
-    best, best_issues = None, None
+def _best_projection(figure: dict, space: dict) -> tuple[float, float]:
+    """The textbook view (40 degrees, half depth) unless something overlaps in it; then the first view without that.
+    A solid with a round base (cylinder, cone, sphere) is seen from the front and a little from above, as a textbook
+    draws it: its horizontal circles become level ellipses, the far half higher up."""
+    if any(_norm(c["center"]) in space and _norm(c["through"]) in space
+           and abs(space[_norm(c["center"])][2] - space[_norm(c["through"])][2]) < 1e-9 for c in figure["circles"]):
+        return 90.0, 0.35
+    best, best_issues = _VIEWS[0], None
     for angle, scale in _VIEWS:
-        flat = _project(space, angle, scale)
-        issues = view_issues(figure, space, flat)
+        issues = view_issues(figure, space, _project(space, angle, scale))
         if best_issues is None or issues < best_issues:
-            best, best_issues = flat, issues
+            best, best_issues = (angle, scale), issues
         if issues == 0:
             break
     return best
+
+
+def _best_view(figure: dict, space: dict) -> dict:
+    return _project(space, *_best_projection(figure, space))
+
+
+def _styles(figure: dict) -> dict[str, str]:
+    return {_norm(p["name"]): p.get("style") or "point" for p in figure["points"]}
+
+
+def _circle3d(center, through, end=None, steps: int = 180) -> np.ndarray:
+    """Points of a circle (or of an arc, from `through` counterclockwise to the direction of `end`) in space: in the
+    horizontal plane when the centre and `through` have the same z, else in the upright plane facing the viewer (same y),
+    else in the side plane (same x). A plane figure has z = 0 everywhere, so its circles are the usual ones."""
+    radius_vector = through - center
+    radius = float(np.linalg.norm(radius_vector))
+    if radius < 1e-12:
+        return np.array([center])
+    u = radius_vector / radius
+    if abs(radius_vector[2]) < 1e-9 * max(1.0, radius):
+        normal = np.array([0.0, 0.0, 1.0])
+    elif abs(radius_vector[1]) < 1e-9 * max(1.0, radius):
+        normal = np.array([0.0, -1.0, 0.0])
+    else:
+        normal = np.array([1.0, 0.0, 0.0])
+    w = np.cross(normal, u)
+    w = w / (np.linalg.norm(w) or 1.0)
+    turn = 2 * math.pi
+    if end is not None:
+        e = end - center
+        turn = math.atan2(float(np.dot(e, w)), float(np.dot(e, u))) % (2 * math.pi) or 2 * math.pi
+    t = np.linspace(0.0, turn, max(8, int(steps * turn / (2 * math.pi))))
+    return center + radius * (np.cos(t)[:, None] * u + np.sin(t)[:, None] * w)
 
 
 def _lines_through(figure: dict, pts: dict, span: float) -> dict[str, list[float]]:
@@ -372,7 +439,14 @@ def _render(figure: dict) -> tuple[bytes, bytes]:
     if problems and not exact:
         raise ValueError("; ".join(problems))
     space = {name: np.array([float(sympy.N(c)) for c in v]) for name, v in exact.items()}
-    pts = _best_view(figure, space) if figure["type"] == "solid" else {name: v[:2] for name, v in space.items()}
+    solid = figure["type"] == "solid"
+    view = _best_projection(figure, space) if solid else None
+
+    def flat(v) -> np.ndarray:
+        return _project({"p": v}, *view)["p"] if solid else np.asarray(v[:2], dtype=float)
+
+    pts = {name: flat(v) for name, v in space.items()}
+    styles = _styles(figure)
     xy = np.array(list(pts.values())) if pts else np.zeros((1, 2))
     if figure["type"] == "graph":
         xy = np.vstack([xy, [0.0, 0.0]])
@@ -397,6 +471,8 @@ def _render(figure: dict) -> tuple[bytes, bytes]:
             lo = np.minimum(lo, [xs.min(), max(ys.min(), lo[1] - span)])
             hi = np.maximum(hi, [xs.max(), min(ys.max(), hi[1] + span)])
         pad = 0.12 * float(max(hi - lo) or 1.0)
+        if figure.get("units"):
+            pad = max(pad, 0.9)  # room for the last unit mark before the arrow
         (x0, y0), (x1, y1) = lo - pad, hi + pad
         x0, x1, y0, y1 = min(x0, -pad), max(x1, pad), min(y0, -pad), max(y1, pad)
         ax.set_xlim(x0, x1)
@@ -408,6 +484,18 @@ def _render(figure: dict) -> tuple[bytes, bytes]:
         ax.text(0.03 * span, y1, "$y$", ha="left", va="top")
         if "O" not in pts:
             ax.text(-0.03 * span, -0.03 * span, "$O$", ha="right", va="top")
+        if figure.get("units"):
+            reach = max(x1 - x0, y1 - y0)
+            step = 1 if reach <= 24 else 2 if reach <= 48 else 5
+            tick = 0.012 * reach
+            for k in range(math.ceil(x0 / step) * step, math.floor(x1) + 1, step):
+                if k and x0 < k < x1 - 0.3 * step:
+                    ax.plot([k, k], [-tick, tick], color="black", lw=0.9)
+                    ax.text(k, -2.2 * tick, f"${k}$", ha="center", va="top", fontsize=7)
+            for k in range(math.ceil(y0 / step) * step, math.floor(y1) + 1, step):
+                if k and y0 < k < y1 - 0.3 * step:
+                    ax.plot([-tick, tick], [k, k], color="black", lw=0.9)
+                    ax.text(-2.2 * tick, k, f"${k}$", ha="right", va="center", fontsize=7)
         for xs, ys, label in curves:
             keep = (ys >= y0) & (ys <= y1)
             ax.plot(np.where(keep, xs, np.nan), np.where(keep, ys, np.nan), color="#1f4e9c", lw=1.6)
@@ -416,14 +504,49 @@ def _render(figure: dict) -> tuple[bytes, bytes]:
                 ax.text(xs[i], ys[i], " " + _label(label), color="#1f4e9c", va="bottom")
         span = float(max(x1 - x0, y1 - y0))
 
+    dashed = (0, (4, 3))
+    for region in figure.get("regions") or []:  # under the lines
+        corners = [pts.get(_norm(n)) for n in region["points"]]
+        if len(corners) >= 3 and all(c is not None for c in corners):
+            poly = np.array(corners)
+            if region.get("hatched"):
+                ax.fill(poly[:, 0], poly[:, 1], fill=False, hatch="////", edgecolor="#777777", lw=0, zorder=0)
+            else:
+                ax.fill(poly[:, 0], poly[:, 1], color="#dcdcdc", lw=0, zorder=0)
     for s in figure["segments"]:
         a, b = pts.get(_norm(s["a"])), pts.get(_norm(s["b"]))
         if a is not None and b is not None:
-            ax.plot([a[0], b[0]], [a[1], b[1]], color="black", lw=1.4, ls=(0, (4, 3)) if s["hidden"] else "-")
+            ax.plot([a[0], b[0]], [a[1], b[1]], color="black", lw=1.4, ls=dashed if s["hidden"] else "-")
     for c in figure["circles"]:
-        o, t = pts.get(_norm(c["center"])), pts.get(_norm(c["through"]))
-        if o is not None and t is not None:
-            ax.add_patch(plt.Circle(o, float(np.linalg.norm(t - o)), fill=False, color="black", lw=1.4))
+        o3, t3 = space.get(_norm(c["center"])), space.get(_norm(c["through"]))
+        if o3 is None or t3 is None:
+            continue
+        if not solid:
+            ax.add_patch(plt.Circle(flat(o3), float(np.linalg.norm(t3 - o3)), fill=False, color="black", lw=1.4))
+            continue
+        # In a solid: drawn point by point in the view, so a horizontal base becomes an ellipse; its far half dashed.
+        ring = _circle3d(o3, t3)
+        drawn_ring = np.array([flat(p) for p in ring])
+        far = ring[:, 1] > o3[1] + 1e-9 if c.get("back_hidden") else np.zeros(len(ring), dtype=bool)
+        start = 0
+        for i in range(1, len(ring) + 1):  # each run of the near or the far half as one line, so the dashes show
+            if i == len(ring) or far[i] != far[start]:
+                piece = drawn_ring[start:min(i + 1, len(ring))]
+                ax.plot(piece[:, 0], piece[:, 1], color="black", lw=1.4, ls=dashed if far[start] else "-")
+                start = i
+    for arc in figure.get("arcs") or []:
+        o3, s3, e3 = (space.get(_norm(arc[key])) for key in ("center", "start", "end"))
+        if o3 is None or s3 is None or e3 is None:
+            continue
+        drawn_arc = np.array([flat(p) for p in _circle3d(o3, s3, e3)])
+        if arc.get("shaded"):
+            poly = np.vstack([flat(o3), drawn_arc])
+            ax.fill(poly[:, 0], poly[:, 1], color="#dcdcdc", lw=0, zorder=0)
+        ax.plot(drawn_arc[:, 0], drawn_arc[:, 1], color="black", lw=1.4, ls=dashed if arc.get("hidden") else "-")
+        if arc.get("sector"):
+            for end in (drawn_arc[0], drawn_arc[-1]):
+                ax.plot([flat(o3)[0], end[0]], [flat(o3)[1], end[1]], color="black", lw=1.4)
+    arcs_here: dict[str, int] = {}
     for mark in figure["marks"]:
         p = [pts.get(_norm(n)) for n in mark["points"]]
         if any(q is None for q in p):
@@ -469,16 +592,27 @@ def _render(figure: dict) -> tuple[bytes, bytes]:
             start, end = sorted((a1, a2))
             if end - start > 180:
                 start, end = end, start + 360
-            r = 0.08 * span
+            # Two angles marked at one vertex get arcs of different sizes, or they read as one bigger angle.
+            vertex = _norm(mark["points"][1])
+            arcs_here[vertex] = arcs_here.get(vertex, -1) + 1
+            r = (0.08 + 0.035 * arcs_here[vertex]) * span
             ax.add_patch(matplotlib.patches.Arc(p[1], 2 * r, 2 * r, theta1=start, theta2=end, color="#9c2b1f", lw=1.0))
             mid_angle = math.radians((start + end) / 2)
             ax.text(p[1][0] + 1.9 * r * math.cos(mid_angle), p[1][1] + 1.9 * r * math.sin(mid_angle),
                     _label(mark["text"]), ha="center", va="center", fontsize=9, color="#9c2b1f")
     lines = _lines_through(figure, pts, span)
     for name, p in pts.items():
+        style = styles.get(name, "point")
+        if style == "helper":
+            continue  # the far end of a line, a corner of a region: not drawn
+        if style == "label":
+            ax.text(*p, _label(name), ha="center", va="center", fontsize=11)  # a line "d", a circle "C": the name only
+            continue
         away = p - centre
         away = away / np.linalg.norm(away) if np.linalg.norm(away) > 1e-9 else np.array([0.6, 0.8])
         ax.plot(*p, "o", color="black", ms=2.4)
+        if name.startswith("_"):
+            continue  # an unnamed point the book shows as a dot only
         direction = _free_direction(lines.get(name, []), away)
         ax.text(*(p + 0.055 * span * direction), _label(name), ha="center", va="center", fontsize=11)
 

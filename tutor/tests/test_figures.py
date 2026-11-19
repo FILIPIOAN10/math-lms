@@ -96,6 +96,59 @@ def test_a_diagonal_value_is_written_along_the_diagonal(monkeypatch):
     assert rotations["$a$"] == 0  # a single letter stays upright, even on a vertical side
 
 
+def test_lesson_figures_draw_arcs_regions_round_solids_and_unit_marks():
+    sector = plane([P("O", "0", "0"), P("A", "4", "0"), P("B", "2", "2*sqrt(3)")], [],
+                   circles=[{"center": "O", "through": "A"}])
+    sector["arcs"] = [{"center": "O", "start": "A", "end": "B", "sector": True, "shaded": True}]
+    sector["regions"] = [{"points": ["O", "A", "B"], "hatched": True}]
+    cylinder = {"type": "solid", "points": [P("O", "0", "0"), P("A", "3", "0"), P("O'", "0", "0", "6"),
+                                            P("A'", "3", "0", "6")],
+                "segments": [S("A", "A'"), S("O", "O'", True)], "functions": [], "marks": [],
+                "circles": [{"center": "O", "through": "A", "back_hidden": True}, {"center": "O'", "through": "A'"}]}
+    plane_xy = {"type": "graph", "units": True, "points": [P("O", "0", "0"), P("A", "2", "3")], "segments": [],
+                "circles": [], "functions": [], "marks": []}
+
+    for figure in (sector, cylinder, plane_xy):
+        assert figures.check(figure, "")["ok"]
+        assert figures.render(figure)[0].startswith(b"\x89PNG")
+
+
+def test_a_round_solid_is_seen_from_the_front_so_its_bases_are_level_ellipses():
+    cylinder = {"type": "solid", "points": [P("O", "0", "0"), P("A", "3", "0")], "segments": [], "functions": [],
+                "marks": [], "circles": [{"center": "O", "through": "A"}]}
+    space = {"O": np.zeros(3), "A": np.array([3.0, 0.0, 0.0])}
+
+    assert figures._best_projection(cylinder, space) == (90.0, 0.35)
+
+
+def test_an_arc_goes_counterclockwise_from_start_towards_end():
+    ring = figures._circle3d(np.zeros(3), np.array([2.0, 0.0, 0.0]), np.array([0.0, 5.0, 0.0]))
+
+    assert np.allclose(ring[0], [2, 0, 0]) and np.allclose(ring[-1], [0, 2, 0], atol=1e-9)
+    assert all(np.isclose(np.linalg.norm(p), 2) for p in ring)
+
+
+def test_helper_points_are_not_drawn_and_label_points_have_no_dot(monkeypatch):
+    lines = plane([P("_a1", "-5", "2") | {"style": "helper"}, P("_a2", "5", "2") | {"style": "helper"},
+                   P("a", "5.6", "2") | {"style": "label"}, P("M_AB", "0", "0")], [S("_a1", "_a2")])
+    written = []
+    real_text = figures.plt.Axes.text
+    monkeypatch.setattr(figures.plt.Axes, "text",
+                        lambda self, x, y, s, *a, **k: written.append(s) or real_text(self, x, y, s, *a, **k))
+
+    figures.render(lines)
+
+    assert sorted(written) == ["$M_{AB}$", "$a$"]  # no "_a1"; the subscript AB is one subscript
+
+
+def test_an_arc_that_starts_at_its_centre_or_a_two_corner_region_is_a_problem():
+    bad = plane([P("O", "0", "0"), P("A", "1", "0")], [])
+    bad["arcs"] = [{"center": "O", "start": "O", "end": "A"}]
+    bad["regions"] = [{"points": ["O", "A"]}]
+
+    assert len(figures.check(bad, "")["problems"]) == 2
+
+
 def test_unreadable_coordinates_are_a_problem_and_code_is_never_evaluated():
     bad = plane([P("A", "__import__('os')", "0"), P("B", "1", "0")], [S("A", "B")])
 
