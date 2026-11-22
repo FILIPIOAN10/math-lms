@@ -36,6 +36,7 @@ import {
   getTutorSettings,
   getQuiz,
   getQuizActivity,
+  handedInAttempts,
   listChapterOptions,
   listClasses,
   listQuizSummaries,
@@ -1123,8 +1124,8 @@ export function AdminQuizzesPage() {
   async function removeQuiz(q: QuizSummary) {
     const yes = await confirm({
       title: `Ștergi testul „${q.title}”?`,
-      body: 'Se șterg și întrebările lui, și încercările începute de elevi dar nepredate. Un test predat deja de elevi '
-        + '(cu note) nu se poate șterge; unul pe care îl lucrează acum se depublică întâi.',
+      body: 'Se șterg și întrebările lui, și încercările începute de elevi dar nepredate. Dacă elevii l-au predat deja, '
+        + 'te mai întreb o dată înainte să șterg și notele; unul pe care îl lucrează acum se depublică întâi.',
       confirmLabel: 'Șterge',
       destructive: true,
     })
@@ -1132,6 +1133,29 @@ export function AdminQuizzesPage() {
     setError(null)
     try {
       await deleteQuiz(q.id)
+      await reloadList()
+    } catch (e) {
+      const handedIn = handedInAttempts(e)
+      if (handedIn === null) {
+        setError(errorMessage(e))
+        return
+      }
+      await removeWithResults(q, handedIn)
+    }
+  }
+
+  /** The second, explicit question: the grades students already got on this test go too, for good. */
+  async function removeWithResults(q: QuizSummary, handedIn: number) {
+    const yes = await confirm({
+      title: `Ștergi testul „${q.title}” cu tot cu note?`,
+      body: `Elevii au predat deja ${roCount(handedIn, 'încercare', 'încercări')}. Dacă continui, se șterg definitiv `
+        + 'și răspunsurile, notele și pozele lor de la acest test. Nu se poate anula.',
+      confirmLabel: 'Șterge și notele',
+      destructive: true,
+    })
+    if (!yes) return
+    try {
+      await deleteQuiz(q.id, true)
       await reloadList()
     } catch (e) {
       setError(errorMessage(e))

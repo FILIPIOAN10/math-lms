@@ -20,12 +20,20 @@ export interface User {
 export class ApiError extends Error {
   status: number
   body: string
+  headers: Headers | null
 
-  constructor(status: number, body: string) {
+  constructor(status: number, body: string, headers: Headers | null = null) {
     super(`API error: ${status}`)
     this.status = status
     this.body = body
+    this.headers = headers
   }
+}
+
+/** On a refused delete of a test students handed in: how many attempts „Șterge și notele” would take; else null. */
+export function handedInAttempts(error: unknown): number | null {
+  const value = error instanceof ApiError ? error.headers?.get('X-Handed-In-Attempts') : null
+  return value ? Number(value) : null
 }
 
 function readCookie(name: string): string | null {
@@ -87,7 +95,7 @@ async function apiFetch(path: string, options: RequestInit = {}): Promise<Respon
 
   if (!response.ok) {
     const body = await response.text().catch(() => '')
-    throw new ApiError(response.status, body)
+    throw new ApiError(response.status, body, response.headers)
   }
   return response
 }
@@ -1403,8 +1411,9 @@ export async function updateQuiz(id: number, input: QuizInput): Promise<QuizSumm
   return response.json()
 }
 
-export async function deleteQuiz(id: number): Promise<void> {
-  await del(`/admin/quizzes/${id}`)
+/** {@code withResults}: also the attempts students handed in, with their grades (asked a second time first). */
+export async function deleteQuiz(id: number, withResults = false): Promise<void> {
+  await del(`/admin/quizzes/${id}${withResults ? '?withResults=true' : ''}`)
 }
 
 /** A DRAFT copy with the same settings and items (attempts and homework are not copied). */

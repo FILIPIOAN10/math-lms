@@ -31,7 +31,19 @@ class UnfinishedAttempts {
 
     /** Deletes this quiz's in-progress attempts; returns how many there were. Call inside the deleting transaction. */
     int discard(Long quizId) {
-        List<QuizAttempt> attempts = attemptRepository.findByQuizIdAndStatus(quizId, QuizAttemptStatus.IN_PROGRESS);
+        return deleteWithAnswers(attemptRepository.findByQuizIdAndStatus(quizId, QuizAttemptStatus.IN_PROGRESS));
+    }
+
+    /**
+     * „Șterge și notele": this quiz's handed-in attempts too (grades, answers, photos; AI grade proposals go with them
+     * in the database). Only when the teacher asked for it explicitly; returns how many there were.
+     */
+    int discardHandedIn(Long quizId) {
+        return deleteWithAnswers(attemptRepository.findByQuizId(quizId).stream()
+                .filter(a -> a.getStatus() != QuizAttemptStatus.IN_PROGRESS).toList());
+    }
+
+    private int deleteWithAnswers(List<QuizAttempt> attempts) {
         for (QuizAttempt attempt : attempts) {
             List<ItemResponse> responses = responseRepository.findByAttemptId(attempt.getId());
             List<String> files = responses.stream()

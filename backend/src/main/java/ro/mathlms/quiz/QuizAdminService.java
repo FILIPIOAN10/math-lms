@@ -19,6 +19,7 @@ import ro.mathlms.quiz.QuizDtos.ItemDto;
 import ro.mathlms.quiz.QuizDtos.QuizDetailDto;
 import ro.mathlms.teaching.TeacherScope;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -488,29 +489,36 @@ public class QuizAdminService {
         return (title.length() > room ? title.substring(0, room) : title) + suffix;
     }
 
-    /**
-     * Deletes a test and its questions. A test with handed-in attempts stays: those are grades (and the mastery maps).
-     * Attempts only started go with it, but not while the test is published - a student may be writing right now;
-     * once it is unpublished they cannot finish them, so "Depublică, apoi Șterge" always works.
-     */
     @Transactional
     public void deleteQuiz(Long id) {
+        deleteQuiz(id, false);
+    }
+
+    /**
+     * Deletes a test and its questions. A test with handed-in attempts stays unless {@code withResults}: those are
+     * grades (and the mastery maps), so the teacher has to ask for them to go explicitly, a second time („Șterge și
+     * notele”). Attempts only started go with it, but not while the test is published - a student may be writing right
+     * now; once it is unpublished they cannot finish them, so "Depublică, apoi Șterge" always works.
+     */
+    @Transactional
+    public void deleteQuiz(Long id, boolean withResults) {
         Quiz quiz = getQuiz(id);
         boolean published = quiz.getStatus() == QuizStatus.PUBLISHED;
         long handedIn = quizRepository.countHandedInAttempts(id);
-        if (handedIn > 0) {
-            throw new QuizInUseException("Testul „" + quiz.getTitle() + "” nu poate fi șters: elevii au predat deja "
+        if (handedIn > 0 && !withResults) {
+            throw new QuizHasResultsException("Testul „" + quiz.getTitle() + "” nu poate fi șters: elevii au predat deja "
                     + RoCount.of(handedIn, "încercare", "încercări") + ", cu răspunsuri și note care s-ar pierde. "
                     + (published ? "Apasă „Depublică” ca să nu mai apară la elevi."
-                                 : "E deja ciornă, deci elevii nu-l mai văd; rămâne doar pentru notele lor."));
+                                 : "E deja ciornă, deci elevii nu-l mai văd; rămâne doar pentru notele lor."), handedIn);
         }
-        long started = quizRepository.countAttempts(id); // none handed in: every one is still in progress
+        long started = quizRepository.countAttempts(id) - handedIn; // still in progress
         if (started > 0 && published) {
             throw new QuizInUseException("Testul „" + quiz.getTitle() + "” nu poate fi șters acum: elevii îl lucrează ("
                     + RoCount.of(started, "încercare începută și nepredată", "încercări începute și nepredate") + "). "
                     + "Apasă întâi „Depublică”, apoi „Șterge” - încercările neterminate se șterg odată cu el.");
         }
         int discarded = unfinishedAttempts.discard(id);
+        int graded = withResults && handedIn > 0 ? unfinishedAttempts.discardHandedIn(id) : 0;
         for (QuizItem item : itemRepository.findByQuizIdOrderByPosition(id)) {
             optionRepository.deleteByItemId(item.getId());
             hintRepository.deleteByItemId(item.getId());
@@ -520,8 +528,14 @@ public class QuizAdminService {
         quizRepository.delete(quiz);
         dropScoreCaches();
         AuditEvent deleted = AuditEvent.of(AuditAction.QUIZ_DELETED, id, quiz.getTitle());
-        auditLog.record(discarded == 0 ? deleted
-                : deleted.details("cu " + RoCount.of(discarded, "încercare neterminată", "încercări neterminate")));
+        List<String> along = new ArrayList<>();
+        if (graded > 0) {
+            along.add(RoCount.of(graded, "încercare predată", "încercări predate") + " (cu note)");
+        }
+        if (discarded > 0) {
+            along.add(RoCount.of(discarded, "încercare neterminată", "încercări neterminate"));
+        }
+        auditLog.record(along.isEmpty() ? deleted : deleted.details("cu " + String.join(" și ", along)));
     }
 
     // --- item-level ---

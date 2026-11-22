@@ -505,6 +505,31 @@ describe('AdminQuizzesPage', () => {
     await waitFor(() => expect(api.deleteQuiz).toHaveBeenCalledWith(7))
   })
 
+  it('a test students handed in is deleted with its grades only after a second, explicit yes', async () => {
+    const { ApiError } = await import('@/lib/api')
+    api.deleteQuiz.mockImplementation(async (_id: number, withResults?: boolean) => {
+      if (!withResults) {
+        throw new ApiError(409, 'Testul nu poate fi șters.', new Headers({ 'X-Handed-In-Attempts': '3' }))
+      }
+    })
+    renderAt('/admin/quizzes')
+    const askTwice = async () => {
+      await userEvent.click(within(await row('Simulare EN')).getByRole('button', { name: 'Mai multe acțiuni pentru Simulare EN' }))
+      await userEvent.click(await screen.findByRole('menuitem', { name: 'Șterge' }))
+      await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Șterge' }))
+      return screen.findByRole('dialog', { name: 'Ștergi testul „Simulare EN” cu tot cu note?' })
+    }
+
+    const second = await askTwice()
+    expect(second).toHaveTextContent('3 încercări')
+    await userEvent.click(within(second).getByRole('button', { name: 'Anulează' }))
+    expect(api.deleteQuiz).not.toHaveBeenCalledWith(7, true)
+
+    await userEvent.click(within(await askTwice()).getByRole('button', { name: 'Șterge și notele' }))
+    await waitFor(() => expect(api.deleteQuiz).toHaveBeenCalledWith(7, true))
+    expect(screen.queryByText('Testul nu poate fi șters.')).not.toBeInTheDocument()
+  })
+
   it('opens the editor at its own address', async () => {
     renderAt('/admin/quizzes')
     await userEvent.click(within(await row('Simulare EN')).getByRole('link', { name: 'Simulare EN' }))

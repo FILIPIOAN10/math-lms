@@ -129,10 +129,14 @@ public class QuizAdminController {
         return QuizSummaryDto.from(service.setPublished(id, false));
     }
 
+    /** On a refused delete of a test with handed-in attempts: how many would go with {@code withResults=true}. */
+    public static final String HANDED_IN_HEADER = "X-Handed-In-Attempts";
+
     @DeleteMapping("/api/admin/quizzes/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
+    public ResponseEntity<Void> delete(@PathVariable Long id,
+                                       @RequestParam(defaultValue = "false") boolean withResults) {
         scope.requireQuiz(id);
-        service.deleteQuiz(id);
+        service.deleteQuiz(id, withResults);
         return ResponseEntity.noContent().build();
     }
 

@@ -20,6 +20,14 @@ public class QuizExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
     }
 
+    /** More specific than {@link QuizInUseException}: the same 409, plus how many handed-in attempts would go. */
+    @ExceptionHandler(QuizHasResultsException.class)
+    public ResponseEntity<String> handleHasResults(QuizHasResultsException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .header(QuizAdminController.HANDED_IN_HEADER, String.valueOf(ex.handedIn()))
+                .body(ex.getMessage());
+    }
+
     @ExceptionHandler(QuizInUseException.class)
     public ResponseEntity<String> handleInUse(QuizInUseException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
