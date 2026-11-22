@@ -21,6 +21,15 @@ public class ContentExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
     }
 
+    /** More specific than {@link ContentInUseException}: the same 409, plus what a delete withContents would take. */
+    @ExceptionHandler(ClassHasContentsException.class)
+    public ResponseEntity<String> handleClassHasContents(ClassHasContentsException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .header(SchoolClassController.BOOKS_HEADER, String.valueOf(ex.books()))
+                .header(SchoolClassController.QUIZZES_HEADER, String.valueOf(ex.quizzes()))
+                .body(ex.getMessage());
+    }
+
     @ExceptionHandler(ContentInUseException.class)
     public ResponseEntity<String> handleInUse(ContentInUseException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());

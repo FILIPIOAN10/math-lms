@@ -23,6 +23,24 @@ public interface SchoolClassRepository extends JpaRepository<SchoolClass, Long> 
     @Query("select count(q) from Quiz q where q.schoolClass.id = :classId")
     long countQuizzes(@Param("classId") Long classId);
 
+    /** The tests reserved for this class (not the ones open to everybody). */
+    @Query("select q.id from Quiz q where q.schoolClass.id = :classId")
+    List<Long> findQuizIds(@Param("classId") Long classId);
+
+    /** „Șterge cu tot conținutul": the exercises, then the chapters, then the books of the class - bulk, in order. */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("delete from Exercise e where e.chapter.id in"
+            + " (select c.id from Chapter c where c.book.id in (select b.id from Book b where b.schoolClass.id = :classId))")
+    int deleteExercises(@Param("classId") Long classId);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("delete from Chapter c where c.book.id in (select b.id from Book b where b.schoolClass.id = :classId)")
+    int deleteChapters(@Param("classId") Long classId);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("delete from Book b where b.schoolClass.id = :classId")
+    int deleteBooks(@Param("classId") Long classId);
+
     /** Bulk, so it runs before the class row is deleted in the same transaction. */
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("delete from Enrollment e where e.schoolClass.id = :classId")

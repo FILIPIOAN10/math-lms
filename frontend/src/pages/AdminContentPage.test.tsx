@@ -15,6 +15,7 @@ const api = vi.hoisted(() => ({
   listBooks: vi.fn(),
   listChapters: vi.fn(),
   moveChapter: vi.fn(),
+  deleteClass: vi.fn(),
 }))
 vi.mock('@/lib/api', async (original) => ({ ...(await original<typeof import('@/lib/api')>()), ...api }))
 
@@ -70,5 +71,45 @@ describe('AdminContentPage — the chapters of a book', () => {
     const items = (await screen.findAllByRole('menuitem')).map((i) => i.textContent)
     expect(items).toContain('Mută mai sus')
     expect(items).not.toContain('Mută mai jos')
+  })
+})
+
+describe('AdminContentPage — deleting a class that still has books and tests', () => {
+  beforeEach(() => {
+    Object.values(api).forEach((fn) => fn.mockReset())
+    auth.value = { user: { email: 'a@x.ro', fullName: 'Prof', role: 'ADMIN', status: 'ACTIVE' }, loading: false }
+    api.listClasses.mockResolvedValue([cls])
+    api.listClassSummaries.mockResolvedValue([])
+    api.listActiveUsers.mockResolvedValue([])
+  })
+
+  it('deletes it with everything in it only after a second, explicit yes', async () => {
+    const { ApiError } = await import('@/lib/api')
+    api.deleteClass.mockImplementation(async (_id: number, withContents?: boolean) => {
+      if (!withContents) {
+        throw new ApiError(409, 'Clasa nu poate fi ștearsă.', new Headers({ 'X-Class-Books': '2', 'X-Class-Quizzes': '1' }))
+      }
+    })
+    render(
+      <MemoryRouter>
+        <AdminContentPage />
+      </MemoryRouter>,
+    )
+    const askTwice = async () => {
+      await userEvent.click(await screen.findByRole('button', { name: 'Mai multe acțiuni pentru Clasa a 8-a B' }))
+      await userEvent.click(await screen.findByRole('menuitem', { name: 'Șterge' }))
+      await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Șterge' }))
+      return screen.findByRole('dialog', { name: 'Ștergi clasa „Clasa a 8-a B” cu tot conținutul?' })
+    }
+
+    const second = await askTwice()
+    expect(second).toHaveTextContent('2 cărți')
+    expect(second).toHaveTextContent('1 test')
+    await userEvent.click(within(second).getByRole('button', { name: 'Anulează' }))
+    expect(api.deleteClass).not.toHaveBeenCalledWith(1, true)
+
+    await userEvent.click(within(await askTwice()).getByRole('button', { name: 'Șterge tot' }))
+    await waitFor(() => expect(api.deleteClass).toHaveBeenCalledWith(1, true))
+    expect(screen.queryByText('Clasa nu poate fi ștearsă.')).not.toBeInTheDocument()
   })
 })

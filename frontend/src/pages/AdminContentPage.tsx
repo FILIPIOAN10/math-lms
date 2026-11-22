@@ -20,6 +20,7 @@ import {
   createExercise,
   deleteBook,
   deleteChapter,
+  classContents,
   deleteClass,
   deleteExercise,
   enrollStudent,
@@ -433,6 +434,40 @@ export function AdminContentPage() {
     }
   }
 
+  /** Like any delete; a class that still has books or tests is asked about a second time, naming what would go. */
+  async function removeClass(c: SchoolClass) {
+    if (!(await confirm({ title: `Ștergi clasa „${c.name}"?`, confirmLabel: 'Șterge', destructive: true }))) return
+    setError(null)
+    try {
+      await deleteClass(c.id)
+      await reloadClasses()
+    } catch (e) {
+      const contents = classContents(e)
+      if (contents === null) {
+        setError(errorMessage(e))
+        return
+      }
+      const what = [
+        contents.books > 0 ? `${roCount(contents.books, 'carte', 'cărți')} (cu capitolele și exercițiile lor)` : null,
+        contents.quizzes > 0 ? `${roCount(contents.quizzes, 'test', 'teste')} doar ale ei (cu notele elevilor)` : null,
+      ].filter(Boolean).join(' și ')
+      const yes = await confirm({
+        title: `Ștergi clasa „${c.name}” cu tot conținutul?`,
+        body: `Clasa are ${what}. Dacă continui, se șterg definitiv odată cu ea. Elevii rămân cu conturile lor, `
+          + 'iar teoria (capitolele EN) nu se atinge. Nu se poate anula.',
+        confirmLabel: 'Șterge tot',
+        destructive: true,
+      })
+      if (!yes) return
+      try {
+        await deleteClass(c.id, true)
+        await reloadClasses()
+      } catch (again) {
+        setError(errorMessage(again))
+      }
+    }
+  }
+
   async function handleMoveChapter(chapterId: number, up: boolean) {
     setError(null)
     try {
@@ -569,7 +604,7 @@ export function AdminContentPage() {
                     {
                       label: 'Șterge',
                       destructive: true,
-                      onClick: () => void removeWithConfirm(`clasa „${c.name}"`, () => deleteClass(c.id), reloadClasses),
+                      onClick: () => void removeClass(c),
                     },
                   ]}
                 />

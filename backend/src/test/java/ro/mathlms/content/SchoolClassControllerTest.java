@@ -79,10 +79,10 @@ class SchoolClassControllerTest {
 
     @Test
     void deleteReturns204AndDelegates() {
-        ResponseEntity<Void> response = controller.delete(5L);
+        ResponseEntity<Void> response = controller.delete(5L, false);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
-        verify(service).delete(5L);
+        verify(service).delete(5L, false);
     }
 
     @Test

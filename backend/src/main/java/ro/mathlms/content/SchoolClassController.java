@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -91,11 +92,16 @@ public class SchoolClassController {
     public record AssignTeacherRequest(@jakarta.validation.constraints.NotNull Long teacherId) {
     }
 
+    /** On a refused delete of a class with contents: how many books / tests of its own would go withContents. */
+    public static final String BOOKS_HEADER = "X-Class-Books";
+    public static final String QUIZZES_HEADER = "X-Class-Quizzes";
+
     @DeleteMapping("/api/admin/classes/{id}")
     @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
+    public ResponseEntity<Void> delete(@PathVariable Long id,
+                                       @RequestParam(defaultValue = "false") boolean withContents) {
         scope.requireClass(id);
-        service.delete(id);
+        service.delete(id, withContents);
         return ResponseEntity.noContent().build();
     }
 }

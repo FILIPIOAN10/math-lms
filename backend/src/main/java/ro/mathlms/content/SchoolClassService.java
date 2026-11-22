@@ -7,6 +7,7 @@ import ro.mathlms.audit.AuditAction;
 import ro.mathlms.audit.AuditEvent;
 import ro.mathlms.audit.AuditLog;
 import ro.mathlms.audit.AuditText;
+import ro.mathlms.quiz.QuizAdminService;
 import ro.mathlms.teaching.TeacherScope;
 import ro.mathlms.user.AccountStatus;
 import ro.mathlms.user.Role;
@@ -25,9 +26,11 @@ public class SchoolClassService {
     private final AuditLog auditLog;
     private final TeacherScope scope;
     private final UserRepository userRepository;
+    private final QuizAdminService quizAdminService;
 
     public SchoolClassService(SchoolClassRepository repository, AuditLog auditLog, TeacherScope scope,
-                              UserRepository userRepository) {
+                              UserRepository userRepository, QuizAdminService quizAdminService) {
+        this.quizAdminService = quizAdminService;
         this.repository = repository;
         this.auditLog = auditLog;
         this.scope = scope;
@@ -92,17 +95,24 @@ public class SchoolClassService {
         return saved;
     }
 
-    /**
-     * Books and class-only quizzes block the delete (they are content the teacher would lose);
-     * enrollments do not — they only say who attends the class, so they go with it. Homework
-     * for the class is removed by the database (ON DELETE CASCADE).
-     */
     @Transactional
     public void delete(Long id) {
+        delete(id, false);
+    }
+
+    /**
+     * Books and class-only quizzes block the delete (they are content the teacher would lose) unless
+     * {@code withContents}: then, after a second, explicit yes in the menu („Șterge cu tot conținutul”), its tests go
+     * first (with their grades, still refused while a student is writing one), then its exercises, chapters and books.
+     * All or nothing, in one transaction. Enrollments never block - they only say who attends the class, so they go
+     * with it. Homework for the class is removed by the database (ON DELETE CASCADE). The EN theory is not the class's.
+     */
+    @Transactional
+    public void delete(Long id, boolean withContents) {
         SchoolClass schoolClass = get(id);
         long books = repository.countBooks(id);
         long quizzes = repository.countQuizzes(id);
-        if (books > 0 || quizzes > 0) {
+        if ((books > 0 || quizzes > 0) && !withContents) {
             List<String> blockers = new ArrayList<>();
             List<String> fixes = new ArrayList<>();
             if (books > 0) {
@@ -113,11 +123,23 @@ public class SchoolClassService {
                 blockers.add(RoCount.of(quizzes, "test destinat ei", "teste destinate ei"));
                 fixes.add("Testele le ștergi sau le muți la „Toți elevii” din pagina Teste.");
             }
-            throw new ContentInUseException("Clasa „" + schoolClass.getName() + "” nu poate fi ștearsă: are "
-                    + String.join(" și ", blockers) + ". " + String.join(" ", fixes));
+            throw new ClassHasContentsException("Clasa „" + schoolClass.getName() + "” nu poate fi ștearsă: are "
+                    + String.join(" și ", blockers) + ". " + String.join(" ", fixes), books, quizzes);
+        }
+        List<String> along = new ArrayList<>();
+        if (quizzes > 0) {
+            repository.findQuizIds(id).forEach(quizId -> quizAdminService.deleteQuiz(quizId, true));
+            along.add(RoCount.of(quizzes, "test", "teste"));
+        }
+        if (books > 0) {
+            repository.deleteExercises(id);
+            repository.deleteChapters(id);
+            repository.deleteBooks(id);
+            along.add(0, RoCount.of(books, "carte", "cărți"));
         }
         repository.deleteEnrollments(id);
         repository.deleteById(id);
-        auditLog.record(AuditEvent.of(AuditAction.CLASS_DELETED, id, schoolClass.getName()));
+        AuditEvent deleted = AuditEvent.of(AuditAction.CLASS_DELETED, id, schoolClass.getName());
+        auditLog.record(along.isEmpty() ? deleted : deleted.details("cu " + String.join(" și ", along)));
     }
 }

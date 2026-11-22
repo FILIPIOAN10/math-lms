@@ -25,7 +25,7 @@ class SchoolClassServiceTest {
     private final SchoolClassRepository repository = mock(SchoolClassRepository.class);
     private final AuditLog auditLog = mock(AuditLog.class);
     private final SchoolClassService service = new SchoolClassService(repository, auditLog, new TeacherScope(null),
-            mock(ro.mathlms.user.UserRepository.class));
+            mock(ro.mathlms.user.UserRepository.class), mock(ro.mathlms.quiz.QuizAdminService.class));
 
     @Test
     void classesAreListedInNaturalOrderSoTenthGradeComesAfterNinth() {

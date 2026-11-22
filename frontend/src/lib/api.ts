@@ -495,8 +495,15 @@ export async function assignClassTeacher(id: number, teacherId: number): Promise
   return response.json()
 }
 
-export async function deleteClass(id: number): Promise<void> {
-  await del(`/admin/classes/${id}`)
+/** {@code withContents}: also its books (chapters, exercises) and its own tests with their grades (asked twice first). */
+export async function deleteClass(id: number, withContents = false): Promise<void> {
+  await del(`/admin/classes/${id}${withContents ? '?withContents=true' : ''}`)
+}
+
+/** On a refused delete of a class that has books or tests of its own: how many of each would go; else null. */
+export function classContents(error: unknown): { books: number; quizzes: number } | null {
+  if (!(error instanceof ApiError) || !error.headers?.has('X-Class-Books')) return null
+  return { books: Number(error.headers.get('X-Class-Books')), quizzes: Number(error.headers.get('X-Class-Quizzes') ?? 0) }
 }
 
 export async function createBook(classId: number, title: string, description: string | null): Promise<Book> {
