@@ -1,6 +1,6 @@
 import numpy as np
 from langchain_core.documents import Document
-from langchain_core.embeddings import DeterministicFakeEmbedding
+from langchain_core.embeddings import DeterministicFakeEmbedding, Embeddings
 
 from tutor.evaluate import best_threshold, first_hit_rank, is_hit, metrics
 from tutor.retrieval import (
@@ -133,6 +133,71 @@ def test_an_exam_position_whose_page_has_no_text_yet_falls_back_to_the_search(co
     retrieval = retrieve_for_exercise(conn, "Scăderea numerelor", EMBEDDINGS, slot="I.1", max_distance=2.0)
 
     assert retrieval.strategy == "vector" and [h.code for h in retrieval.hits] == ["AIS2P2"]  # AIS5P5 has no chunks
+
+
+def slots_to(conn, slot: str, code: str) -> None:
+    conn.execute("CREATE TABLE IF NOT EXISTS en_chapter_slots (slot VARCHAR(12) PRIMARY KEY, "
+                 "chapter_id BIGINT NOT NULL REFERENCES en_chapters (id))")
+    conn.execute("INSERT INTO en_chapter_slots (slot, chapter_id) SELECT %s, id FROM en_chapters WHERE code = %s",
+                 (slot, code))
+
+
+class TopicEmbeddings(Embeddings):
+    """Proportions and intervals point in different directions, so "about the exercise" is measurable in a test."""
+
+    @staticmethod
+    def _vector(text: str) -> list[float]:
+        vector = [0.0] * 1536
+        vector[0] = 1.0 if "propor" in text.lower() else 0.0
+        vector[1] = 1.0 if "interval" in text.lower() else 0.0
+        vector[2] = 0.1  # never the zero vector
+        return vector
+
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        return [self._vector(t) for t in texts]
+
+    def embed_query(self, text: str) -> list[float]:
+        return self._vector(text)
+
+
+TOPICS = TopicEmbeddings()
+
+
+def test_an_exam_position_decides_when_its_page_is_about_the_exercise(conn):
+    add_pages(conn, "AIS5P5")
+    store_chunks(conn, [doc("AIS5P5", "Rapoarte și proporții", position=1), doc("AIS2P2", "Intervale", position=2)],
+                 TOPICS, "m", "book.pdf")
+    slots_to(conn, "I.2", "AIS5P5")
+
+    retrieval = retrieve_for_exercise(conn, "Află termenul necunoscut al proporției", TOPICS, slot="I.2", max_distance=2.0)
+
+    assert retrieval.strategy == "slot" and [h.code for h in retrieval.hits] == ["AIS5P5"]
+
+
+def test_under_the_page_of_an_exam_position_the_chunk_about_the_exercise_comes_first(conn):
+    # The rule of a proportion is on page 4 of the chapter, after pages about other things: book order would miss it.
+    add_pages(conn, "AIS5P5")
+    store_chunks(conn, [doc("AIS5P5", "Rapoarte, definiții", page=1, position=1),
+                        doc("AIS5P5", "Proprietatea fundamentală a proporției", page=4, position=2)],
+                 TOPICS, "m", "book.pdf")
+    slots_to(conn, "I.2", "AIS5P5")
+
+    retrieval = retrieve_for_exercise(conn, "Află termenul necunoscut al proporției", TOPICS, slot="I.2", max_distance=2.0)
+
+    assert retrieval.strategy == "slot" and retrieval.hits[0].book_page == 4
+
+
+def test_a_scanned_test_out_of_exam_order_is_searched_by_meaning_not_by_its_position(conn):
+    # A textbook test puts intervals at I.2, where the exam puts proportions: the page linked to I.2 is far from the
+    # exercise while another page matches it, so the position is not trusted.
+    add_pages(conn, "AIS5P5")
+    store_chunks(conn, [doc("AIS5P5", "Rapoarte și proporții", position=1), doc("AIS2P2", "Intervale", position=2)],
+                 TOPICS, "m", "book.pdf")
+    slots_to(conn, "I.2", "AIS5P5")
+
+    retrieval = retrieve_for_exercise(conn, "Produsul numerelor întregi din intervalul [1,4]", TOPICS, slot="I.2", max_distance=2.0)
+
+    assert retrieval.strategy == "vector" and retrieval.hits[0].code == "AIS2P2"
 
 
 def test_a_book_with_nothing_stored_gives_no_passages(conn):

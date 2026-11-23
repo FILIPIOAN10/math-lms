@@ -171,17 +171,23 @@ def max_marginal_relevance(query: np.ndarray, candidates: list[tuple[Hit, np.nda
     return [hit for hit, _ in chosen]
 
 
-def slot_baseline(conn: psycopg.Connection, slot: str, limit: int) -> list[Hit]:
-    """The platform's own rule: the page the exam position links to, and every chunk under it, in book order."""
+def slot_page(conn: psycopg.Connection, slot: str) -> str | None:
+    """The code of the page an exam position (I.1, III.5.b, ...) links to, or None."""
     row = conn.execute(
         "SELECT c.code FROM en_chapter_slots s JOIN en_chapters c ON c.id = s.chapter_id WHERE s.slot = %s", (slot,)
     ).fetchone()
-    if row is None:
+    return row[0] if row else None
+
+
+def slot_baseline(conn: psycopg.Connection, slot: str, limit: int) -> list[Hit]:
+    """The platform's own rule: the page the exam position links to, and every chunk under it, in book order."""
+    linked = slot_page(conn, slot)
+    if linked is None:
         return []
     rows = conn.execute(
         "SELECT t.id, c.code, t.book_page, t.content FROM tutor_chunks t JOIN en_chapters c ON c.id = t.chapter_id "
         "ORDER BY t.book_page, t.position").fetchall()
-    hits = [Hit(i, code, page, content, 0.0) for i, code, page, content in rows if under(code, row[0])]
+    hits = [Hit(i, code, page, content, 0.0) for i, code, page, content in rows if under(code, linked)]
     return hits[:limit]
 
 
@@ -219,6 +225,11 @@ def search(conn: psycopg.Connection, strategy: str, question: str, embeddings: E
     return max_marginal_relevance(np.asarray(vector, dtype=float), candidates, k)
 
 
+#: how much farther (cosine distance) the page of an exam position may be than the nearest page in the book and still
+#: decide. Measured on the demo book: the right page 0.02-0.03 behind the nearest, a wrong one (scanned test) 0.08.
+SLOT_MARGIN = 0.05
+
+
 @dataclass(frozen=True)
 class Retrieval:
     """What the help chain gets for an exercise: the passages, how they were found and, if none, why."""
@@ -239,12 +250,21 @@ def retrieve_for_exercise(conn: psycopg.Connection, statement: str, embeddings: 
     The policy measured in eval/report.md: when the exercise has a place in the exam paper (I.1, III.5.b, ...) the
     page linked to it decides, with no search; otherwise the nearest chunks by meaning, refused as a whole when even
     the nearest is farther than `max_distance`. A slot whose page has no text yet falls back to the search.
+
+    Under the linked page the chunks nearest to the exercise come first, not the first ones of the chapter: the rule
+    of a proportion sits on page 4 of A2, past what four chunks in book order reach.
+
+    The position is trusted only while its page is about the exercise: its nearest chunk at most `SLOT_MARGIN` farther
+    than the nearest in the whole book. A test scanned from a textbook does not follow the exam order (intervals at
+    I.2, where the exam puts proportions), and the page of the position would then hand the model the wrong lesson.
     """
-    if slot:
-        hits = slot_baseline(conn, slot, k)
-        if hits:
-            return Retrieval("slot", hits, None)
-    hits = search(conn, "vector", statement, embeddings, k=k)
+    vector = embeddings.embed_query(statement)
+    hits = search(conn, "vector", statement, embeddings, k=k, query_vector=vector)
+    if slot and hits:
+        page = slot_page(conn, slot)
+        on_page = search(conn, "vector", statement, embeddings, k=k, only_under=page, query_vector=vector) if page else []
+        if on_page and on_page[0].score - hits[0].score <= SLOT_MARGIN:
+            return Retrieval("slot", on_page, None)
     if not hits:
         return Retrieval("vector", [], None, "no_passages")
     best = hits[0].score
