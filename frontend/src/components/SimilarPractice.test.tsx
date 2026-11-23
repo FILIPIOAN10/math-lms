@@ -70,9 +70,38 @@ describe('SimilarPractice', () => {
 
     expect(screen.getByText('Exemplu: patru plus doi ori cinci.')).toBeInTheDocument()
     expect(screen.queryByText('Patru plus zece face 14.')).not.toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Arată rezolvarea' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Nu știu, arată rezolvarea' }))
     expect(screen.getByText('Patru plus zece face 14.')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Deschide lecția A1, pagina 12/ })).toHaveAttribute('href', '/capitole/3?pagina=12')
+  })
+
+  it('lets the student solve a worked example first, then compare with the solution', async () => {
+    api.getSimilar.mockResolvedValue({ indexed: true, entries: [found.entries[1]] })
+    renderPanel()
+    await userEvent.click(screen.getByRole('button', { name: 'Dă-mi una asemănătoare' }))
+
+    const check = await screen.findByRole('button', { name: 'Verifică cu rezolvarea' })
+    expect(check).toBeDisabled() // nothing to compare yet
+    await userEvent.type(screen.getByLabelText('Rezultatul tău'), '14')
+    await userEvent.click(check)
+
+    expect(screen.getByTestId('similar-own-answer')).toHaveTextContent('14')
+    expect(screen.getByText('Patru plus zece face 14.')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Da, mi-a ieșit' }))
+    expect(screen.getByText(/Bravo/)).toBeInTheDocument()
+    expect(api.answerSimilar).not.toHaveBeenCalled() // nothing is graded or stored
+  })
+
+  it('points a student who got the example wrong back to the lesson', async () => {
+    api.getSimilar.mockResolvedValue({ indexed: true, entries: [found.entries[1]] })
+    renderPanel()
+    await userEvent.click(screen.getByRole('button', { name: 'Dă-mi una asemănătoare' }))
+
+    await userEvent.type(await screen.findByLabelText('Rezultatul tău'), '30')
+    await userEvent.click(screen.getByRole('button', { name: 'Verifică cu rezolvarea' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Nu, am greșit' }))
+
+    expect(screen.getByText(/Urmărește pașii rezolvării/)).toBeInTheDocument()
   })
 
   it('says when nothing close enough was found', async () => {

@@ -4,6 +4,7 @@ import { MathContent } from '@/components/MathContent'
 import { PracticeQuestionCard } from '@/components/PracticeQuestionCard'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
 import {
   answerSimilar,
   enExampleImageUrl,
@@ -123,7 +124,14 @@ function ExampleCard({ example, position, total, isLast, onNext }: {
   isLast: boolean
   onNext: () => void
 }) {
+  // The student solves it first (on paper, the result typed here), then compares with the worked solution and says
+  // whether it matched. A worked example has no answer key to check against, so the comparison is theirs; nothing is
+  // graded or stored.
   const [shown, setShown] = useState(false)
+  const [own, setOwn] = useState('')
+  const [compared, setCompared] = useState(false)
+  const [matched, setMatched] = useState<boolean | null>(null)
+  const answerId = `similar-own-${example.id}`
   return (
     <Card data-testid="similar-example">
       <CardContent className="space-y-3 py-5">
@@ -135,13 +143,48 @@ function ExampleCard({ example, position, total, isLast, onNext }: {
           <img src={enExampleImageUrl(example.chapterId, example.id, example.image)} alt="Figura exemplului" className="max-h-64 w-auto rounded-md border" />
         )}
         {shown ? (
-          <div className="rounded-lg bg-muted p-3 text-sm">
-            <MathContent>{example.solution}</MathContent>
-          </div>
+          <>
+            {compared && (
+              <p className="text-sm" data-testid="similar-own-answer">
+                <span className="font-medium">Rezultatul tău: </span>{own.trim()}
+              </p>
+            )}
+            <div className="rounded-lg bg-muted p-3 text-sm">
+              <MathContent>{example.solution}</MathContent>
+            </div>
+            {compared && matched === null && (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm">Ți-a ieșit la fel?</span>
+                <Button type="button" size="sm" variant="outline" onClick={() => setMatched(true)}>Da, mi-a ieșit</Button>
+                <Button type="button" size="sm" variant="outline" onClick={() => setMatched(false)}>Nu, am greșit</Button>
+              </div>
+            )}
+            {matched === true && <p className="text-sm text-emerald-700 dark:text-emerald-400">Bravo! Ai rezolvat-o singur.</p>}
+            {matched === false && (
+              <p className="text-sm text-amber-800 dark:text-amber-200">
+                Urmărește pașii rezolvării de mai sus și caută unde ai luat-o pe alt drum. Lecția de mai jos explică regula.
+              </p>
+            )}
+          </>
         ) : (
-          <Button type="button" size="sm" variant="outline" onClick={() => setShown(true)}>
-            Arată rezolvarea
-          </Button>
+          <div className="space-y-2">
+            <label htmlFor={answerId} className="block text-sm font-medium">Rezultatul tău</label>
+            <Input
+              id={answerId}
+              value={own}
+              maxLength={200}
+              placeholder="Rezolvă pe foaie și scrie aici ce ți-a ieșit"
+              onChange={(e) => setOwn(e.target.value)}
+            />
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" size="sm" disabled={!own.trim()} onClick={() => { setCompared(true); setShown(true) }}>
+                Verifică cu rezolvarea
+              </Button>
+              <Button type="button" size="sm" variant="ghost" onClick={() => setShown(true)}>
+                Nu știu, arată rezolvarea
+              </Button>
+            </div>
+          </div>
         )}
         <div className="flex flex-wrap gap-2">
           {example.lesson && (
