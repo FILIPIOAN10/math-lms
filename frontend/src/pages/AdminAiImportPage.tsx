@@ -814,7 +814,7 @@ function DraftCard({ draft: d, place, enChapters, onChange, pageUrl, barem = nul
                 ) : (
                   <>
                     <PhotoCrop src={pageUrl(d.figure.page)} box={boxToPhoto(d.figure.box)} alt={`Desenul întrebării ${d.key + 1}`}
-                               className="max-h-72" />
+                               className="mx-auto block max-h-72" />
                     <div className="flex flex-wrap gap-2">
                       <Button type="button" variant="outline" size="xs" onClick={() => setEditingFigure(true)}>
                         Ajustează decupajul

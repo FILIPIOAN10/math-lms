@@ -467,7 +467,9 @@ public class AiImportService implements AiQueue {
                         page.type()));
             }
             ExtractionResult result = extractor.get().extract(pages);
-            List<ExtractedItem> items = ExtractedItems.normalize(result.items(), pages.size());
+            // The AI's figure boxes are loose (a strip of frame, half a line of text): tightened onto the drawing, so the
+            // review, the crop editor and the cut picture all start centred on it.
+            List<ExtractedItem> items = FigureTrimmer.tightenAll(ExtractedItems.normalize(result.items(), pages.size()), pages);
             if (items.isEmpty()) {
                 return Outcome.failed(NOTHING_FOUND);
             }
