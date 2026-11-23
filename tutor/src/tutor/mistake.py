@@ -12,7 +12,7 @@ from langchain_core.runnables import Runnable
 
 from tutor.config import Settings
 from tutor.explain import checked, passage_block
-from tutor.help_chain import DbRetriever, Drafted, Found, Refusal, Retriever, Source, _neutralize, chat_model
+from tutor.help_chain import DbRetriever, Drafted, Found, HelpError, Refusal, Retriever, Source, _neutralize, chat_model
 
 MISTAKE_SYSTEM = """\
 You draft, for a Romanian grade-8 maths teacher, why ONE wrong option of a multiple-choice question is wrong. A teacher \
@@ -87,12 +87,18 @@ class MistakeService:
         found: Found = self.retriever(statement, slot)
         if not found.usable:
             return MistakeDraft(refusal=Refusal(reason=found.reason or "no_passages"))
-        drafted: Drafted = self.chain.invoke({
+        inputs = {
             "passages": passage_block(found),
             "statement": _neutralize(statement.strip()),
             "chosen": _neutralize(chosen.strip()),
             "correct": _neutralize(correct.strip()) if correct and correct.strip() else "(necunoscut)",
-        })
+        }
+        try:
+            drafted: Drafted = self.chain.invoke(inputs)
+        except HelpError:
+            # About one answer in forty is JSON that does not load even repaired (2026-11-23); a second try costs a
+            # cent's fraction, a refusal costs the teacher a click.
+            drafted = self.chain.invoke(inputs)
         text, sources, reason = checked(found, drafted)
         return MistakeDraft(text, sources, Refusal(reason=reason) if reason else None,
                             drafted.input_tokens, drafted.output_tokens)

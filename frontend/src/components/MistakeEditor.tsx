@@ -12,7 +12,7 @@ import {
 } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
 import { roCount } from '@/lib/format'
-import { lessonHref } from '@/lib/lessons'
+import { lessonHref, lessonLabel } from '@/lib/lessons'
 import { MAX_MISTAKE } from '@/lib/quizStats'
 
 /**
@@ -43,7 +43,10 @@ export function MistakeEditor({ option, aiOn, tutorOn = false, onSaved }: {
     try {
       const trimmed = text.trim()
       if (lesson && trimmed) {
-        await saveOptionMistake(option.id, trimmed, { lessonId: lesson.sectionId ?? lesson.chapterId, lessonPage: lesson.bookPage })
+        await saveOptionMistake(option.id, trimmed, {
+          lessonId: lesson.sectionId ?? lesson.chapterId,
+          lessonPage: lesson.bookPage > 0 ? lesson.bookPage : null, // a rule read in a whole textbook: no page
+        })
       } else {
         await saveOptionMistake(option.id, trimmed)
       }
@@ -100,7 +103,7 @@ export function MistakeEditor({ option, aiOn, tutorOn = false, onSaved }: {
         <MathContent inline>{option.mistake}</MathContent>
         {option.mistakeLesson && (
           <Link to={lessonHref(option.mistakeLesson)} className="text-xs underline">
-            Lecția {option.mistakeLesson.chapterCode}, pagina {option.mistakeLesson.bookPage}
+            Lecția {lessonLabel(option.mistakeLesson)}
           </Link>
         )}
         <Button type="button" size="xs" variant="ghost" onClick={() => { setText(option.mistake ?? ''); setLesson(option.mistakeLesson ?? null); setEditing(true) }}>
@@ -130,7 +133,7 @@ export function MistakeEditor({ option, aiOn, tutorOn = false, onSaved }: {
       />
       {lesson && (
         <p data-testid="mistake-lesson" className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          Din lecția {lesson.chapterCode}, pagina {lesson.bookPage} ({lesson.title}): elevul primește linkul sub explicație.
+          Din lecția {lessonLabel(lesson)} ({lesson.title}): elevul primește linkul sub explicație.
           <Button type="button" size="xs" variant="ghost" onClick={() => setLesson(null)}>
             Fără lecție
           </Button>

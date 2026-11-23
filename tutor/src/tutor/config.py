@@ -51,7 +51,9 @@ class Settings(BaseSettings):
     # the second-nearest uncovered one (0.5057); the one uncovered question closer than that (0.4048) is stopped by the
     # model's own `covered` flag (eval/help-report.md). Do not round the measured boundary down: 0.46 refused a covered one.
     # Measured with text-embedding-3-small: another embedding model has other distances, so measure it again after a switch.
-    retrieval_k: int = 4
+    # 8, not 4, since whole textbooks are in the store (tutor.manual): with the grade-5 book, the rule an exercise needs
+    # was often the 5th or 6th passage; drafts for the demo test went 21/36 with 4 passages, 32/36 with 8 (2026-11-23).
+    retrieval_k: int = 8
     max_distance: float = 0.48
 
     # Conversation: how many of the last messages (student + tutor) are kept, and how long a message can be and still

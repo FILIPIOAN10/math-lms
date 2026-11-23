@@ -11,3 +11,8 @@ export function lessonHref(lesson: TutorLessonLink): string {
   const search = query.toString()
   return search ? `/capitole/${lesson.chapterId}?${search}` : `/capitole/${lesson.chapterId}`
 }
+
+/** "A3, pagina 21", or just "A3" when the link opens the chapter without a page of its lesson. */
+export function lessonLabel(lesson: TutorLessonLink): string {
+  return lesson.bookPage > 0 ? `${lesson.chapterCode}, pagina ${lesson.bookPage}` : lesson.chapterCode
+}

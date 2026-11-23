@@ -172,7 +172,7 @@ def test_an_exam_position_decides_when_its_page_is_about_the_exercise(conn):
 
     retrieval = retrieve_for_exercise(conn, "Află termenul necunoscut al proporției", TOPICS, slot="I.2", max_distance=2.0)
 
-    assert retrieval.strategy == "slot" and [h.code for h in retrieval.hits] == ["AIS5P5"]
+    assert retrieval.strategy == "slot" and [h.code for h in retrieval.hits] == ["AIS5P5", "AIS2P2"]  # page first
 
 
 def test_under_the_page_of_an_exam_position_the_chunk_about_the_exercise_comes_first(conn):

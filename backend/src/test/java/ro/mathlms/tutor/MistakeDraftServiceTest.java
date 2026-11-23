@@ -31,4 +31,13 @@ class MistakeDraftServiceTest {
                 e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND));
         verifyNoInteractions(client, options);
     }
+
+    @Test
+    void aPageOfTheClassLessonIsLinkedBeforeAPassageReadInAWholeTextbook() {
+        TutorClient.Source manual = new TutorClient.Source(1, "G1", "Segmente · Manual clasa a V-a, pagina 212", 0);
+        TutorClient.Source lesson = new TutorClient.Source(2, "G3", "Triunghiul", 4);
+
+        assertThat(MistakeDraftService.lessonPagesFirst(java.util.List.of(manual, lesson))).containsExactly(lesson, manual);
+        assertThat(MistakeDraftService.lessonPagesFirst(java.util.List.of(manual))).containsExactly(manual);
+    }
 }

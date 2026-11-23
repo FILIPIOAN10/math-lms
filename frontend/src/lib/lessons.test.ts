@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { lessonHref } from '@/lib/lessons'
+import { lessonHref, lessonLabel } from '@/lib/lessons'
 
 const link = (sectionId: number | null, bookPage: number) => ({
   chapterId: 3, chapterCode: 'A3', chapterTitle: 'Fracții', sectionId, title: 'Adunarea fracțiilor', bookPage,
@@ -14,5 +14,12 @@ describe('lessonHref', () => {
   it('leaves the page out when the link has none', () => {
     expect(lessonHref(link(8, 0))).toBe('/capitole/3?sectiune=8')
     expect(lessonHref(link(null, 0))).toBe('/capitole/3')
+  })
+})
+
+describe('lessonLabel', () => {
+  it('names the page of the lesson only when there is one (a rule read in a whole textbook links only its chapter)', () => {
+    expect(lessonLabel(link(null, 21))).toBe('A3, pagina 21')
+    expect(lessonLabel(link(null, 0))).toBe('A3')
   })
 })

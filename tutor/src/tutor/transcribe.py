@@ -148,10 +148,10 @@ def pdf_pages(path: pathlib.Path, max_side: int, only: set[int] | None = None) -
     return pages
 
 
-def build_request(jpeg: bytes, settings: Settings) -> dict:
+def build_request(jpeg: bytes, settings: Settings, instructions: str = INSTRUCTIONS) -> dict:
     body: dict = {
         "model": settings.chat_model,
-        "instructions": INSTRUCTIONS,
+        "instructions": instructions,
         "store": False,
         "max_output_tokens": MAX_OUTPUT_TOKENS,
         "input": [{
@@ -221,10 +221,10 @@ def gemini_client(settings: Settings) -> genai.Client:
     return genai.Client(vertexai=True, **gemini_access(settings))
 
 
-def transcribe_with_gemini(jpeg: bytes, settings: Settings) -> Transcription:
+def transcribe_with_gemini(jpeg: bytes, settings: Settings, instructions: str = INSTRUCTIONS) -> Transcription:
     """One page through Gemini: the same instructions and JSON shape as the OpenAI request."""
     config = types.GenerateContentConfig(
-        system_instruction=INSTRUCTIONS,
+        system_instruction=instructions,
         max_output_tokens=MAX_OUTPUT_TOKENS,
         response_mime_type="application/json",
         response_json_schema=SCHEMA,
@@ -263,16 +263,17 @@ def transcribe_with_gemini(jpeg: bytes, settings: Settings) -> Transcription:
                          (usage.candidates_token_count or 0) if usage else 0)
 
 
-def transcribe_page(jpeg: bytes, settings: Settings, client: httpx.Client) -> Transcription:
+def transcribe_page(jpeg: bytes, settings: Settings, client: httpx.Client,
+                    instructions: str = INSTRUCTIONS) -> Transcription:
     if not using_openai(settings):
-        return transcribe_with_gemini(jpeg, settings)
+        return transcribe_with_gemini(jpeg, settings, instructions)
     if settings.openai_api_key is None:
         raise TranscriptionError("Lipsește OPENAI_API_KEY (pune-l în tutor/.env).")
     try:
         response = client.post(
             f"{settings.openai_base_url}/responses",
             headers={"Authorization": f"Bearer {settings.openai_api_key.get_secret_value()}"},
-            json=build_request(jpeg, settings),
+            json=build_request(jpeg, settings, instructions),
         )
     except httpx.HTTPError as error:
         raise TranscriptionError(f"OpenAI nu a putut fi contactat ({type(error).__name__}).") from error

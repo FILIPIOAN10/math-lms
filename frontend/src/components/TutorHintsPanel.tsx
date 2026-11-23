@@ -91,7 +91,7 @@ export function TutorHintsPanel({
               <MathContent className="text-sm">{level.text}</MathContent>
               {level.sources.length > 0 && (
                 <p className="text-xs text-muted-foreground">
-                  Din manual: {level.sources.map((s) => `${s.title}, pag. ${s.bookPage}`).join('; ')}
+                  Din manual: {level.sources.map((s) => (s.bookPage > 0 ? `${s.title}, pag. ${s.bookPage}` : s.title)).join('; ')}
                 </p>
               )}
               <div className="flex flex-wrap gap-2">

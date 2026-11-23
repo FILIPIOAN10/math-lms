@@ -13,7 +13,7 @@ import {
   type TutorTurn,
 } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
-import { lessonHref } from '@/lib/lessons'
+import { lessonHref, lessonLabel } from '@/lib/lessons'
 import { roCount } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
@@ -194,7 +194,7 @@ function Answer({ answer, onFollow }: { answer: TutorExplanation; onFollow: () =
                 onClick={onFollow}
                 className={cn(buttonVariants({ size: 'sm', variant: 'outline' }), 'h-auto py-1.5 text-left whitespace-normal')}
               >
-                Deschide lecția {lesson.chapterCode}, pagina {lesson.bookPage}
+                Deschide lecția {lessonLabel(lesson)}
                 <span className="sr-only"> ({lesson.title})</span>
               </Link>
             ))}

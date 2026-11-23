@@ -1,0 +1,31 @@
+{
+  "name": "Manual clasa a V-a (Intuitext)",
+  "pdf": "data/pdf/manuale/cls5.pdf",
+  "pdf_offset": 2,
+  "note": "Printed pages from the Cuprins, mapped lesson by lesson to the EN chapters of the platform. Evaluare and Exersezi si progresezi pages (tests without theory) and the grade-4 recap (7-10) are left out.",
+  "lessons": [
+    [12, 19, "A5", "Numere naturale: scriere, axa, comparare, aproximari"],
+    [24, 37, "A1", "Operatii cu numere naturale"],
+    [42, 51, "A1", "Puteri cu exponent natural"],
+    [56, 61, "A1", "Ordinea efectuarii operatiilor"],
+    [66, 77, "A13", "Metode aritmetice de rezolvare a problemelor"],
+    [82, 91, "A5", "Divizibilitatea numerelor naturale"],
+    [96, 109, "A12", "Fractii ordinare"],
+    [114, 119, "A12", "Operatii cu fractii ordinare"],
+    [120, 121, "A3", "Fractii/procente dintr-un numar"],
+    [122, 123, "A12", "Operatii cu fractii ordinare - recapitulare"],
+    [128, 137, "A12", "Fractii zecimale"],
+    [142, 159, "A12", "Operatii cu fractii zecimale, media aritmetica, periodicitate"],
+    [164, 167, "A12", "Numar rational pozitiv, ordinea operatiilor"],
+    [168, 169, "A13", "Probleme cu fractii si unitati de masura"],
+    [170, 174, "A8", "Organizarea datelor, frecventa, media unui set de date"],
+    [178, 189, "G1", "Punct, dreapta, segment, mijlocul unui segment"],
+    [194, 207, "G2", "Unghiuri"],
+    [212, 213, "G1", "Unitati de lungime, perimetre"],
+    [214, 217, "G5", "Aria patratului si a dreptunghiului"],
+    [218, 223, "G8", "Volumul cubului si al paralelipipedului"],
+    [228, 228, "A5", "Divizibilitate - recapitulare finala"],
+    [229, 229, "A12", "Numere rationale pozitive - recapitulare finala"],
+    [230, 231, "G1", "Geometrie si unitati de masura - recapitulare finala"]
+  ]
+}

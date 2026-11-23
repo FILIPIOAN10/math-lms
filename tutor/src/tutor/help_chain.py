@@ -162,6 +162,11 @@ _OUR_TAGS = re.compile(r"</?\s*(theory|already_given|exercises?|conversation|mes
                        re.IGNORECASE)
 
 
+def passage_heading(passage: Passage) -> str:
+    """How a numbered passage is introduced to the model; a textbook passage names its page in its title already."""
+    return f"{passage.title} (pagina {passage.book_page} din manual)" if passage.book_page > 0 else passage.title
+
+
 def _neutralize(text: str) -> str:
     """Text that is data must not be able to close the section it sits in."""
     return _OUR_TAGS.sub("[tag]", text)
@@ -170,7 +175,7 @@ def _neutralize(text: str) -> str:
 def _prompt_variables(inputs: dict) -> dict:
     found: Found = inputs["found"]
     passages = "\n\n".join(
-        f"[{p.n}] {p.title} (pagina {p.book_page} din manual)\n{_neutralize(p.content)}" for p in found.passages)
+        f"[{p.n}] {passage_heading(p)}\n{_neutralize(p.content)}" for p in found.passages)
     given = "\n".join(f"Treapta {i}: {text}" for i, text in enumerate(inputs.get("previous") or [], start=1))
     return {
         "passages": passages,
@@ -277,12 +282,17 @@ class DbRetriever:
             retrieval = retrieve_for_exercise(conn, statement, self.embeddings, slot, self.k, self.max_distance)
             codes = sorted({hit.code for hit in retrieval.hits})
             titles = dict(conn.execute("SELECT code, title FROM en_chapters WHERE code = ANY(%s)", (codes,)).fetchall())
-        passages = [
-            Passage(n=n, code=hit.code, title=titles.get(hit.code, hit.code), book_page=hit.book_page,
-                    chunk_id=hit.chunk_id, content=hit.content,
-                    distance=hit.score if retrieval.strategy == "vector" else None)
-            for n, hit in enumerate(retrieval.hits, start=1)
-        ]
+            ids = [hit.chunk_id for hit in retrieval.hits]
+            manuals = dict(conn.execute("SELECT id, source_name FROM tutor_chunks WHERE id = ANY(%s) AND source = 'MANUAL'",
+                                        (ids,)).fetchall())
+        passages = []
+        for n, hit in enumerate(retrieval.hits, start=1):
+            title, page = titles.get(hit.code, hit.code), hit.book_page
+            if hit.chunk_id in manuals:
+                # A page of a whole textbook is not a page of the chapter's lesson: name the book, link no page.
+                title, page = f"{title} · {manuals[hit.chunk_id]}, pagina {hit.book_page}", 0
+            passages.append(Passage(n=n, code=hit.code, title=title, book_page=page, chunk_id=hit.chunk_id,
+                                    content=hit.content, distance=hit.score if retrieval.strategy == "vector" else None))
         return Found(retrieval.strategy, passages, retrieval.best_distance, retrieval.reason)
 
 

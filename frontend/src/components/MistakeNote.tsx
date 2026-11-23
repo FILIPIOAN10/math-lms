@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import { MathContent } from '@/components/MathContent'
 import { buttonVariants } from '@/components/ui/button'
 import { type TutorLessonLink } from '@/lib/api'
-import { lessonHref } from '@/lib/lessons'
+import { lessonHref, lessonLabel } from '@/lib/lessons'
 import { cn } from '@/lib/utils'
 
 /**
@@ -19,7 +19,7 @@ export function MistakeNote({ text, lesson = null }: { text: string; lesson?: Tu
           to={lessonHref(lesson)}
           className={cn(buttonVariants({ size: 'sm', variant: 'outline' }), 'h-auto py-1.5 text-left whitespace-normal')}
         >
-          Deschide lecția {lesson.chapterCode}, pagina {lesson.bookPage}
+          Deschide lecția {lessonLabel(lesson)}
           <span className="sr-only"> ({lesson.title})</span>
         </Link>
       )}

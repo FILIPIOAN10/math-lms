@@ -1066,7 +1066,7 @@ export async function getQuizStats(quizId: number): Promise<QuizStatsDto> {
 export async function saveOptionMistake(
   optionId: number,
   mistake: string,
-  lesson?: { lessonId: number; lessonPage: number },
+  lesson?: { lessonId: number; lessonPage: number | null },
 ): Promise<void> {
   await putJson(`/admin/quiz-options/${optionId}/mistake`, { mistake, ...lesson })
 }

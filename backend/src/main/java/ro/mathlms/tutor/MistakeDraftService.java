@@ -67,7 +67,7 @@ public class MistakeDraftService {
         if (answer.inputTokens() > 0 || answer.outputTokens() > 0) {
             usage.record("tutor-mistake", "tutor", answer.inputTokens(), answer.outputTokens());
         }
-        LessonLinkDto lesson = !answer.answered() ? null : answer.sources().stream()
+        LessonLinkDto lesson = !answer.answered() ? null : lessonPagesFirst(answer.sources()).stream()
                 .map(s -> lessonLinks.ofCode(s.code(), s.bookPage()).orElse(null))
                 .filter(java.util.Objects::nonNull).findFirst().orElse(null);
         // Rule 1 holds for drafts too: no page that still exists, no draft.
@@ -76,6 +76,14 @@ public class MistakeDraftService {
                 answer.inputTokens(), answer.outputTokens());
         String refusal = answered ? null : answer.refusal() != null ? answer.refusal().message() : "Nu am asta în manual.";
         return new MistakeDraftDto(answered, answered ? answer.text().strip() : null, answered ? lesson : null, refusal);
+    }
+
+    /**
+     * The link under the draft goes to a page of the class's own lesson when one of the cited passages has one; a
+     * passage read in a whole textbook (grades 5-8, book page 0 from the tutor) links only its chapter.
+     */
+    static List<TutorClient.Source> lessonPagesFirst(List<TutorClient.Source> sources) {
+        return sources.stream().sorted(java.util.Comparator.comparing(s -> s.bookPage() > 0 ? 0 : 1)).toList();
     }
 
     private Asked asked(Long optionId) {

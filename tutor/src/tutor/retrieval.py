@@ -228,6 +228,8 @@ def search(conn: psycopg.Connection, strategy: str, question: str, embeddings: E
 #: how much farther (cosine distance) the page of an exam position may be than the nearest page in the book and still
 #: decide. Measured on the demo book: the right page 0.02-0.03 behind the nearest, a wrong one (scanned test) 0.08.
 SLOT_MARGIN = 0.05
+#: how many of the passages the page of a trusted exam position gives; the others come from the whole book
+SLOT_SHARE = 2
 
 
 @dataclass(frozen=True)
@@ -267,6 +269,10 @@ def retrieve_for_exercise(conn: psycopg.Connection, statement: str, embeddings: 
     The position is trusted only while its page is about the exercise: its nearest chunk at most `SLOT_MARGIN` farther
     than the nearest in the whole book. A test scanned from a textbook does not follow the exam order (intervals at
     I.2, where the exam puts proportions), and the page of the position would then hand the model the wrong lesson.
+
+    Even trusted, the page gives only `SLOT_SHARE` of the passages; the rest are the nearest in the whole book. A rule
+    an exercise needs often sits in another chapter (the perimeter of a triangle asked at the triangle's position is
+    in Segmente), and a whole textbook in the store brings it only if the search may look beyond the page.
     """
     statement = search_text(statement)
     vector = embeddings.embed_query(statement)
@@ -275,7 +281,10 @@ def retrieve_for_exercise(conn: psycopg.Connection, statement: str, embeddings: 
         page = slot_page(conn, slot)
         on_page = search(conn, "vector", statement, embeddings, k=k, only_under=page, query_vector=vector) if page else []
         if on_page and on_page[0].score - hits[0].score <= SLOT_MARGIN:
-            return Retrieval("slot", on_page, None)
+            chosen = on_page[:SLOT_SHARE]
+            taken = {hit.chunk_id for hit in chosen}
+            chosen += [hit for hit in hits if hit.chunk_id not in taken][:k - len(chosen)]
+            return Retrieval("slot", chosen, None)
     if not hits:
         return Retrieval("vector", [], None, "no_passages")
     best = hits[0].score

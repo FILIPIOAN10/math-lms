@@ -5,6 +5,7 @@ from fakes import FakeModel, passage, service, usable, written
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 
+from tutor.explain import passage_block
 from tutor.help_chain import NOT_IN_BOOK, DbRetriever, Found, Source, _neutralize
 from tutor.store import store_chunks
 
@@ -195,4 +196,20 @@ def test_an_exam_position_decides_the_passages_without_a_search(conn):
     found = retriever("Calculează 100 : (5 + 5) · 3", "I.1")  # nothing in the sentence is about powers or order
 
     assert found.strategy == "slot" and found.best_distance is None
-    assert [p.code for p in found.passages] == ["AIS5P5"] and found.passages[0].distance is None
+    # the page of the position first, then what is nearest in the whole book
+    assert [p.code for p in found.passages] == ["AIS5P5", "AIS5P2"] and found.passages[0].distance is None
+
+
+def test_a_passage_from_a_whole_textbook_names_the_textbook_and_links_no_page_of_the_lesson(conn):
+    # Page 212 of the grade-5 textbook is not page 212 of the chapter's lesson: the link opens the chapter, and the
+    # title says where the rule was read.
+    add_pages(conn, "AIS5P2")
+    store_chunks(conn, [chunk("AIS5P2", "Compararea puterilor.", 212)], TopicEmbeddings(), "m",
+                 "Manual clasa a V-a (Intuitext)", source="MANUAL")
+    retriever = DbRetriever(lambda: contextlib.nullcontext(conn), TopicEmbeddings(), k=4, max_distance=0.46)
+
+    found = retriever("Cum compar puterile?", None)
+
+    assert [(p.title, p.book_page) for p in found.passages] == [
+        ("Titlul AIS5P2 · Manual clasa a V-a (Intuitext), pagina 212", 0)]
+    assert "(pagina 0" not in passage_block(found)

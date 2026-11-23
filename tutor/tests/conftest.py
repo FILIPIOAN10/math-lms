@@ -17,6 +17,7 @@ VERSIONS = [
     "V36__tutor_chunks.sql",
     "V37__tutor_chunk_source.sql",
     "V38__en_chapter_sections.sql",
+    "V75__tutor_chunk_source_manual.sql",
 ]
 
 

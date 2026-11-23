@@ -18,7 +18,17 @@ from langchain_core.runnables import Runnable
 
 from tutor.config import Settings
 from tutor.conversation import CONDENSE_PROMPT, Turn, condense_model, rewrite_follow_up
-from tutor.help_chain import DbRetriever, Drafted, Found, Refusal, Retriever, Source, _neutralize, chat_model
+from tutor.help_chain import (
+    DbRetriever,
+    Drafted,
+    Found,
+    Refusal,
+    Retriever,
+    Source,
+    _neutralize,
+    chat_model,
+    passage_heading,
+)
 
 EXPLAIN_SYSTEM = """\
 You explain ONE idea to a Romanian grade-8 student who wrote what they do not understand. No teacher reads your text \
@@ -114,7 +124,7 @@ class ExplainService:
 def passage_block(found: Found) -> str:
     """The numbered passages as the prompt shows them, each one data that cannot close its section."""
     return "\n\n".join(
-        f"[{p.n}] {p.title} (pagina {p.book_page} din manual)\n{_neutralize(p.content)}" for p in found.passages)
+        f"[{p.n}] {passage_heading(p)}\n{_neutralize(p.content)}" for p in found.passages)
 
 
 def checked(found: Found, drafted: Drafted) -> tuple[str, list[Source], str | None]:
