@@ -234,3 +234,18 @@ def test_the_best_threshold_separates_questions_the_book_answers_from_those_it_d
 
     assert 0.40 <= threshold < 0.55
     assert accuracy == 1.0
+
+
+def test_the_rules_an_exercise_needs_bring_their_passages_next_to_the_nearest_by_wording(conn):
+    # A long statement with letters and centimetres is near other exercises; the rules it needs, searched as rules,
+    # bring the definition. Both go to the model, the wording's first.
+    add_pages(conn, "AIS5P5")
+    store_chunks(conn, [doc("AIS5P5", "Exercițiu cu proporții și litere", position=1),
+                        doc("AIS2P2", "Definiția intervalului închis", position=2)], TOPICS, "m", "book.pdf")
+
+    plain = retrieve_for_exercise(conn, "Află termenul proporției", TOPICS, k=1, max_distance=2.0)
+    with_rules = retrieve_for_exercise(conn, "Află termenul proporției", TOPICS, k=2, max_distance=2.0,
+                                       rules="ce conține un interval")
+
+    assert [h.code for h in plain.hits] == ["AIS5P5"]
+    assert [h.code for h in with_rules.hits] == ["AIS5P5", "AIS2P2"]

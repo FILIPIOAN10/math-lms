@@ -1,0 +1,22 @@
+{
+  "name": "Manual clasa a VII-a (Art Klett)",
+  "pdf": "data/pdf/manuale/cls7.pdf",
+  "pdf_offset": 2,
+  "note": "Printed pages from the Cuprins, mapped lesson by lesson to the EN chapters of the platform. Each lesson runs to the page before the next one. Left out: unit openers, every Recapitulare si evaluare (55-57, 79-81, 95-97, 138-141, 162-165, 184-187, 214-215) and the solutions (216-).",
+  "lessons": [
+    [10, 39, "A6", "Radacina patrata, numere reale, reguli cu radicali, operatii"],
+    [40, 44, "A1", "Puteri cu exponent intreg. Ordinea efectuarii operatiilor in R"],
+    [45, 52, "A6", "Rationalizarea numitorului. Media aritmetica ponderata si media geometrica"],
+    [53, 54, "A14", "Ecuatia x^2 = a"],
+    [58, 73, "A7", "Egalitati echivalente, ecuatii ax + b = 0, sisteme de ecuatii liniare"],
+    [74, 78, "A9", "Probleme rezolvate cu ecuatii sau sisteme"],
+    [82, 87, "A11", "Produs cartezian, sistem de axe, distanta dintre doua puncte"],
+    [88, 94, "A8", "Dependente functionale in tabele, diagrame, grafice. Poligonul frecventelor"],
+    [98, 106, "G5", "Patrulaterul convex. Paralelogramul"],
+    [107, 110, "G3", "Linia mijlocie in triunghi, centrul de greutate"],
+    [111, 137, "G5", "Dreptunghi, romb, patrat, trapez. Perimetre si arii"],
+    [142, 161, "G6", "Cercul: coarde, arce, unghi inscris, tangente, poligoane regulate, lungime si arie"],
+    [166, 183, "G7", "Segmente proportionale, teorema lui Thales, asemanarea triunghiurilor"],
+    [188, 213, "G4", "Relatii metrice, Pitagora, trigonometrie, rezolvarea triunghiului dreptunghic"]
+  ]
+}

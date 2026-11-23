@@ -89,3 +89,93 @@ def test_only_the_theory_of_a_page_is_kept_its_exercises_are_not_searched():
 
     assert "perimetrul poligonului" in kept and "P = 4" in kept and "Perimetre" in kept
     assert "Completează" not in kept and "7 dam" not in kept and "Măsoară" not in kept
+
+
+def test_other_publishers_exercise_boxes_are_dropped_also_when_they_come_as_headings():
+    page = "\n".join([
+        "### Lecția 6: Pătratul. Proprietăți",
+        "**De reținut**",
+        "Pătratul are toate laturile congruente și toate unghiurile drepte.",
+        "**Aplicăm cunoștințele**",
+        "1 Calculează perimetrul unui pătrat cu latura 4 cm.",
+        "### Exersează, fixează și aprofundează cunoștințele",
+        "2 Un pătrat are aria 36.",
+        "**Minitest**",
+        "3 Alege răspunsul corect.",
+        "### Aplicații ale paralelogramului în geometria triunghiului",
+        "Linia mijlocie este paralelă cu latura a treia.",
+    ])
+
+    kept = theory_only(page)
+
+    assert "laturile congruente" in kept and "Linia mijlocie" in kept  # a lesson about applications is a lesson
+    assert "latura 4 cm" not in kept and "aria 36" not in kept and "Alege" not in kept
+
+
+def test_practice_boxes_and_test_scoring_of_the_grade_6_8_books_are_dropped_their_theory_boxes_kept():
+    page = "\n".join([
+        "**Descoperim, înțelegem, exemplificăm**",
+        "Un triunghi echilateral are toate laturile congruente.",
+        "**Exersăm, ne antrenăm, ne dezvoltăm**",
+        "1 Calculați perimetrul.",
+        "**Rezolvăm împreună**",
+        "Perimetrul triunghiului echilateral de latură $l$ este $3l$.",
+        "**Știm să aplicăm, identificăm conexiuni**",
+        "2 Aflați latura.",
+        "**Din oficiu: 1 punct**",
+        "**2 puncte**",
+        "3 Alegeți răspunsul corect.",
+    ])
+
+    kept = theory_only(page)
+
+    assert "toate laturile congruente" in kept and "$3l$" in kept
+    assert "Calculați" not in kept and "Aflați" not in kept and "Alegeți" not in kept
+
+
+def test_numbered_exercises_without_a_label_are_dropped_numbered_properties_kept():
+    page = "\n".join([
+        "Un triunghi este *echilateral*, dacă toate cele trei laturi ale sale sunt congruente.",
+        "**2.** Orice triunghi echilateral este isoscel.",
+        "10. Se notează cu $P$ perimetrul triunghiului echilateral $ABC$. Demonstrați că $P = 2p$.",
+        "a) pentru $AB = 6$ cm;",
+        "14. Punctele $A$, $B$, $C$, $D$ sunt coliniare în această ordine. Calculați $AD$.",
+        "3 Determină cel mai mare divizor comun al numerelor 4 și 6.",
+        "**Observație.** Perimetrul unui poligon este suma lungimilor laturilor sale.",
+    ])
+
+    kept = theory_only(page)
+
+    assert "toate cele trei laturi" in kept and "Orice triunghi echilateral este isoscel" in kept
+    assert "suma lungimilor laturilor" in kept
+    assert "Demonstrați" not in kept and "AB = 6" not in kept and "Calculați" not in kept and "Determină" not in kept
+
+
+def test_a_worked_problem_keeps_its_numbered_statement_and_its_solution():
+    page = "\n".join([
+        "**Problemă rezolvată**",
+        "1. Calculați perimetrul unui triunghi echilateral cu latura de $9$ cm.",
+        r"**Rezolvare:** $P = 3 \cdot 9 = 27$ cm.",
+        "**Rezolvăm împreună**",
+        r"2. Aflați $10\%$ din $1500$.",
+        r"$\frac{10}{100} \cdot 1500 = 150$.",
+        "**Exersăm, ne antrenăm, ne dezvoltăm**",
+        "3. Calculați perimetrul.",
+    ])
+
+    kept = theory_only(page)
+
+    assert "latura de $9$ cm" in kept and "27" in kept and "1500" in kept and "150$" in kept
+    assert "3. Calculați" not in kept
+
+
+def test_an_exercise_whose_task_is_on_its_second_line_is_dropped():
+    page = "\n".join([
+        "10. Punctul $M$ este situat pe latura $BC$ a triunghiului $ABC$.",
+        "Aflați perimetrul triunghiului.",
+        r"11. Orice triunghi echilateral are toate unghiurile de $60^\circ$.",
+    ])
+
+    kept = theory_only(page)
+
+    assert "Punctul $M$" not in kept and "Aflați" not in kept and "60^" in kept

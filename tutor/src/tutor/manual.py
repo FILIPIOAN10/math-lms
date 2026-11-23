@@ -123,26 +123,74 @@ def markdown_page(name: str, pdf_page: int, book_page: int, markdown: str, model
 # Boxes of a lesson page that hold exercises, not rules. Searched, they are close in meaning to a test question and push
 # the rule out of the few passages the model gets (measured 2026-11-23: 27/36 drafts before the grade-5 book, 21/36
 # with all of it): only the rules, the worked problems and the unlabelled text are kept.
-_EXERCISE_BOXES = ("observă și descoperă", "descoperă", "exersează", "amintește-ți", "portofoliu", "joc",
-                   "autoevaluare", "știați că", "proiect", "calculează rapid", "lucrați", "exersezi și progresezi")
+_EXERCISE_BOXES = (
+    # Intuitext (grade 5)
+    "observă și descoperă", "descoperă", "exersează", "amintește-ți", "portofoliu", "joc", "autoevaluare",
+    "știați că", "proiect", "calculează rapid", "lucrați", "exersezi și progresezi",
+    # Litera, Art Klett, Paralela 45 (grades 6-8); "Aplicații ale ..." is a lesson title, so not "aplicații"
+    "aplicăm cunoștințele", "minitest", "temă de portofoliu", "mate practică", "test", "evaluare",
+    "probleme propuse", "exerciții propuse", "exerciții și probleme", "exersăm", "știm să aplicăm",
+    # the tests inside a chapter: scored items and their instructions
+    "din oficiu", "timp de lucru", "notă. se acordă",
+)
+_SCORE = re.compile(r"^\d+\s+puncte?\b")
+# A numbered item ("10. ...", "**3.** ...", Intuitext's "3 Determină ...") that asks for something is an exercise even
+# outside a labelled box (the grade 6-8 books list them after the theory with no label); one that states something
+# ("**2.** Orice triunghi echilateral este isoscel.") is a property and stays.
+_WORKED_BOXES = ("problemă rezolvată", "probleme rezolvate", "exemplu", "exemple", "rezolvăm împreună",
+                 "rezolvăm și observăm", "aplicație rezolvată", "exercițiu rezolvat", "exerciții rezolvate",
+                 "situație-problemă")
+_SOLUTION_LABELS = ("rezolvare", "soluție", "răspuns", "demonstrație")
+_INLINE_LABEL = re.compile(r"^\s*\*\*[^\d*\s][^*]*\*\*")
+_NUMBERED_ITEM = re.compile(r"^\s*(?:\*\*)?\d{1,2}(?:[.)])?(?:\*\*)?\s+(\S.*)$")
+_TASK = re.compile(
+    r"\b(calcula|calculeaz|determin|arăta|arată|demonstr|afla|află|desen|reprezent|construi|complet|scrie|scrieți|"
+    r"stabil|verific|alege|încercui|compar|ordona|ordonează|rezolv|transform|găsi|precizați|explicați|identific|"
+    r"justific|aproxim|estima|estimează|fie|știind|se consideră|se notează|în figura|observă|măsoară|efectua|"
+    r"efectuează|aduce|adu|simplific|amplific|descompune|exprima|exprimă|preciz|se știe|folosind|arătați)",
+    re.IGNORECASE)
 _LABEL = re.compile(r"^\s*(?:#+\s*)?\*\*(.+?)\*\*\s*$")
+_HEADING_TEXT = re.compile(r"^\s*#+\s*(.+?)\s*$")
 
 
 def theory_only(markdown: str) -> str:
-    """The page without its exercise boxes: a box runs from its bold label to the next label or heading."""
+    """The page without its exercise boxes: a box runs from its label - bold, or a heading in some books - to the next
+    label or heading."""
     kept: list[str] = []
-    dropping = False
+    item: list[str] = []  # the numbered item being read: kept or dropped as a whole, when it ends
+    dropping = False  # inside an exercise box, up to the next label or heading
+    worked = False  # inside a worked problem or example: its numbered statement goes with its solution
+
+    def close_item() -> None:
+        # The task is often on the item's second line ("10. Punctul M este pe BC. ... / Aflați ..."): judge it whole.
+        if item and (worked or _TASK.search(" ".join(item)) is None):
+            kept.extend(item)
+        item.clear()
+
     for line in markdown.splitlines():
-        label = _LABEL.match(line)
+        label = _LABEL.match(line) or _HEADING_TEXT.match(line)
         if label is not None:
-            name = label.group(1).strip().rstrip("!?.:… ").lower()
-            dropping = name.startswith(_EXERCISE_BOXES)
-            if dropping:
-                continue
-        elif line.lstrip().startswith("#"):
-            dropping = False
-        if not dropping:
+            close_item()
+            name = label.group(1).strip().strip("*").strip().rstrip("!?.:… ").lower()
+            dropping = name.startswith(_EXERCISE_BOXES) or _SCORE.match(name) is not None
+            if not name.startswith(_SOLUTION_LABELS):  # a "Rezolvare:" inside a worked problem keeps it worked
+                worked = name.startswith(_WORKED_BOXES)
+            if not dropping:
+                kept.append(line)
+            continue
+        if dropping:
+            continue
+        if _NUMBERED_ITEM.match(line):
+            close_item()
+            item.append(line)
+        elif _INLINE_LABEL.match(line):
+            close_item()  # "**Observație.** Perimetrul ..." starts the next box
             kept.append(line)
+        elif item:
+            item.append(line)
+        else:
+            kept.append(line)
+    close_item()
     return "\n".join(kept)
 
 

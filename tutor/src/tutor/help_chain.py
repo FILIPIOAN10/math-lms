@@ -277,9 +277,10 @@ class DbRetriever:
         return cls(lambda: psycopg.connect(settings.psycopg_dsn), make_embeddings(settings), settings.retrieval_k,
                    settings.max_distance)
 
-    def __call__(self, statement: str, slot: str | None) -> Found:
+    def __call__(self, statement: str, slot: str | None, rules: str | None = None) -> Found:
         with self.connect() as conn:
-            retrieval = retrieve_for_exercise(conn, statement, self.embeddings, slot, self.k, self.max_distance)
+            retrieval = retrieve_for_exercise(conn, statement, self.embeddings, slot, self.k, self.max_distance,
+                                              rules=rules)
             codes = sorted({hit.code for hit in retrieval.hits})
             titles = dict(conn.execute("SELECT code, title FROM en_chapters WHERE code = ANY(%s)", (codes,)).fetchall())
             ids = [hit.chunk_id for hit in retrieval.hits]

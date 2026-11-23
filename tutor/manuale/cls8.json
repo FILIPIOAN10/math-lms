@@ -1,0 +1,25 @@
+{
+  "name": "Manual clasa a VIII-a (Paralela 45)",
+  "pdf": "data/pdf/manuale/cls8.pdf",
+  "pdf_offset": 2,
+  "note": "Printed pages from the Cuprins, mapped lesson by lesson to the EN chapters of the platform. Each lesson runs to the page before the next one. Left out: initial recap and tests (9-12), unit openers (13, 35, 67, 91, 157), every Fisa de observare and Recapitulare si evaluare (32-34, 64-66, 88-90, 152-156, 193-196), final recap, EN-type tests and solutions (197-).",
+  "lessons": [
+    [14, 24, "A5", "Multimi definite printr-o proprietate. Intervale, intersectie, reuniune"],
+    [25, 28, "A5", "Inecuatii ax + b >= 0"],
+    [29, 31, "A9", "Probleme rezolvate cu inecuatii"],
+    [36, 59, "A10", "Calcul algebric: operatii, formule de calcul prescurtat, descompuneri, fractii algebrice"],
+    [60, 63, "A14", "Ecuatii de forma ax^2 + bx + c = 0"],
+    [68, 82, "A11", "Functii, graficul unei functii, functia f(x) = ax + b"],
+    [83, 87, "A15", "Statistica: indicatorii tendintei centrale"],
+    [92, 96, "G9", "Puncte, drepte, plane"],
+    [97, 110, "G8", "Corpuri geometrice: piramida, prisma, cubul, cilindrul, conul"],
+    [111, 123, "G9", "Paralelism: drepte paralele, dreapta paralela cu un plan, plane paralele"],
+    [124, 127, "G10", "Sectiuni paralele cu baza, trunchiul de piramida si de con"],
+    [128, 136, "G9", "Perpendicularitate, inaltimi, distanta dintre plane paralele"],
+    [137, 139, "G10", "Sectiuni diagonale si axiale"],
+    [140, 151, "G9", "Proiectii, unghiul dreptei cu planul, unghi diedru, teorema celor trei perpendiculare"],
+    [158, 172, "G8", "Cubul, paralelipipedul, prisma, piramida: distante, unghiuri, arii, volume"],
+    [174, 184, "G10", "Trunchiul de piramida regulata: arii si volum"],
+    [185, 192, "G8", "Cilindrul, conul si trunchiul de con, sfera: arii si volume"]
+  ]
+}

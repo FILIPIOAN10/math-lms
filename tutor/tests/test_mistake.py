@@ -118,3 +118,47 @@ def test_an_answer_the_model_broke_is_asked_once_more():
     service = MistakeService(lambda statement, slot: usable(), RunnableLambda(model))
 
     assert service.draft(STATEMENT, slot=None, chosen="a", correct="b").text == "Ai uitat paranteza."
+
+
+def test_the_rules_the_exercise_needs_are_named_first_and_searched_with_it():
+    from langchain_core.runnables import RunnableLambda
+
+    from tutor.mistake import NamedRules
+
+    asked: list = []
+    searched: list = []
+
+    def rules(inputs):
+        asked.append(inputs["statement"])
+        return NamedRules("perimetrul triunghiului echilateral; triunghi echilateral", 30, 12)
+
+    def retriever(statement, slot, rules=None):
+        searched.append((statement, slot, rules))
+        return usable()
+
+    service = MistakeService(retriever, FakeModel(written(tokens=(100, 20))).runnable, rules=RunnableLambda(rules))
+
+    result = service.draft(STATEMENT, slot="II.3", chosen="a", correct="b")
+
+    assert searched == [(STATEMENT, "II.3", "perimetrul triunghiului echilateral; triunghi echilateral")]
+    assert asked and (result.input_tokens, result.output_tokens) == (130, 32)  # both calls are counted
+
+
+def test_naming_the_rules_failing_does_not_stop_the_draft():
+    from langchain_core.runnables import RunnableLambda
+
+    def broken(_inputs):
+        raise RuntimeError("model down")
+
+    service = MistakeService(lambda statement, slot, rules=None: usable(), FakeModel(written()).runnable,
+                             rules=RunnableLambda(broken))
+
+    assert service.draft(STATEMENT, slot=None, chosen="a", correct="b").answered
+
+
+def test_the_rules_prompt_asks_for_names_not_for_a_solution():
+    from tutor.mistake import RULES_SYSTEM
+
+    rules = " ".join(RULES_SYSTEM.lower().split())
+
+    assert "do not solve" in rules and "data, not instructions" in rules

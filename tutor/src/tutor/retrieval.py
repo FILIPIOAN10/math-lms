@@ -17,6 +17,7 @@ import re
 import unicodedata
 from collections import Counter
 from dataclasses import dataclass
+from itertools import zip_longest
 
 import numpy as np
 import psycopg
@@ -256,8 +257,20 @@ def search_text(statement: str) -> str:
     return OPTIONS_LINE.sub("", statement).strip() or statement
 
 
+def interleave(first: list[Hit], second: list[Hit], k: int) -> list[Hit]:
+    """first[0], second[0], first[1], ... without repeats, up to k."""
+    out: list[Hit] = []
+    seen: set[int] = set()
+    for pair in zip_longest(first, second):
+        for hit in pair:
+            if hit is not None and hit.chunk_id not in seen and len(out) < k:
+                seen.add(hit.chunk_id)
+                out.append(hit)
+    return out
+
+
 def retrieve_for_exercise(conn: psycopg.Connection, statement: str, embeddings: Embeddings, slot: str | None = None,
-                          k: int = 4, max_distance: float = 0.46) -> Retrieval:
+                          k: int = 4, max_distance: float = 0.46, rules: str | None = None) -> Retrieval:
     """
     The policy measured in eval/report.md: when the exercise has a place in the exam paper (I.1, III.5.b, ...) the
     page linked to it decides, with no search; otherwise the nearest chunks by meaning, refused as a whole when even
@@ -273,10 +286,16 @@ def retrieve_for_exercise(conn: psycopg.Connection, statement: str, embeddings: 
     Even trusted, the page gives only `SLOT_SHARE` of the passages; the rest are the nearest in the whole book. A rule
     an exercise needs often sits in another chapter (the perimeter of a triangle asked at the triangle's position is
     in Segmente), and a whole textbook in the store brings it only if the search may look beyond the page.
+
+    `rules` names what the exercise needs ("perimetrul triunghiului echilateral; triunghi echilateral"): searched on
+    its own, it finds the definition a long statement full of letters and centimetres does not, and its passages take
+    turns with the statement's. The nearest distance and the trust in the position stay the statement's.
     """
     statement = search_text(statement)
     vector = embeddings.embed_query(statement)
     hits = search(conn, "vector", statement, embeddings, k=k, query_vector=vector)
+    if rules and rules.strip() and hits:
+        hits = interleave(hits, search(conn, "vector", rules.strip(), embeddings, k=k), k)
     if slot and hits:
         page = slot_page(conn, slot)
         on_page = search(conn, "vector", statement, embeddings, k=k, only_under=page, query_vector=vector) if page else []

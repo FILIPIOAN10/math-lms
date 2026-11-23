@@ -45,6 +45,8 @@ class Settings(BaseSettings):
     # The teacher's "Propune din lecții" draft: as short, but a geometry question with a figure the model cannot see
     # spent the whole 1 500 thinking and the JSON came back cut (2026-11-23), so it gets the help chain's budget.
     mistake_max_output_tokens: int = 3_000
+    # Naming the rules an exercise needs before the search (one short line, plus the model's thinking).
+    rules_max_output_tokens: int = 1_000
 
     # Help chain: how many textbook passages go into the prompt, and the nearest-passage distance above which the
     # question is declared "not in the book". 0.48 sits in the gap between the farthest covered question (0.4646) and
