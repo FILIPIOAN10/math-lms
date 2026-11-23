@@ -8,6 +8,7 @@ from tutor.retrieval import (
     max_marginal_relevance,
     reciprocal_rank_fusion,
     retrieve_for_exercise,
+    search_text,
     search,
     slot_baseline,
     tokens,
@@ -198,6 +199,13 @@ def test_a_scanned_test_out_of_exam_order_is_searched_by_meaning_not_by_its_posi
     retrieval = retrieve_for_exercise(conn, "Produsul numerelor întregi din intervalul [1,4]", TOPICS, slot="I.2", max_distance=2.0)
 
     assert retrieval.strategy == "vector" and retrieval.hits[0].code == "AIS2P2"
+
+
+def test_the_options_of_a_grila_are_not_searched_for():
+    statement = "Produsul numerelor întregi din intervalul $[1,4]$ este egal cu:\nVariante: a) $24$; b) $10$; c) $2$"
+
+    assert search_text(statement) == "Produsul numerelor întregi din intervalul $[1,4]$ este egal cu:"
+    assert search_text("Calculează $2+3$.\na) primul pas") == "Calculează $2+3$.\na) primul pas"  # parts stay
 
 
 def test_a_book_with_nothing_stored_gives_no_passages(conn):

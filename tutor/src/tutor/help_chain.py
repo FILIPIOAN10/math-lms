@@ -11,6 +11,7 @@ Run:  uv run python -X utf8 -m tutor.help_chain "Rezultatul calculului 20 - 2*(7
 """
 
 import argparse
+import json
 import re
 import sys
 from collections.abc import Callable, Sequence
@@ -285,10 +286,43 @@ class DbRetriever:
         return Found(retrieval.strategy, passages, retrieval.best_distance, retrieval.reason)
 
 
+# A model writing LaTeX inside JSON often leaves its backslashes single: "\circ" is then not a JSON escape (the whole
+# answer fails to parse) and "\times", "\frac", "\beta" are (a tab, a form feed, a backspace end up in the text).
+_LONE_BACKSLASH = re.compile(r'\\\\|\\(?!["/]|u[0-9a-fA-F]{4}|n(?![a-z]))')
+_CONTROL_TO_LATEX = {"\t": "\\t", "\f": "\\f", "\b": "\\b", "\r": "\\r", "\v": "\\v"}
+
+
+def _raw_text(raw: object) -> str:
+    content = getattr(raw, "content", "")
+    if isinstance(content, list):
+        return "".join(part.get("text", "") for part in content if isinstance(part, dict))
+    return content if isinstance(content, str) else ""
+
+
+def _repaired(raw: object) -> Draft | None:
+    """The answer parsed again after doubling the backslashes JSON does not know; None if still not a `Draft`."""
+    text = _raw_text(raw).strip()
+    start, end = text.find("{"), text.rfind("}")
+    if start < 0 or end <= start:
+        return None
+    try:
+        doubled = _LONE_BACKSLASH.sub(lambda m: m.group(0) if len(m.group(0)) == 2 else "\\\\", text[start:end + 1])
+        return Draft.model_validate(json.loads(doubled))
+    except (ValueError, TypeError):
+        return None
+
+
+def _latex_restored(draft: Draft) -> Draft:
+    """Control characters never belong in an explanation: each is the start of a LaTeX command the JSON ate."""
+    text = "".join(_CONTROL_TO_LATEX.get(ch, ch) for ch in draft.text)
+    return draft if text == draft.text else draft.model_copy(update={"text": text})
+
+
 def _drafted(result: dict) -> Drafted:
-    parsed = result.get("parsed")
+    parsed = result.get("parsed") or _repaired(result.get("raw"))
     if parsed is None:
         raise HelpError("Modelul nu a întors JSON-ul așteptat.")
+    parsed = _latex_restored(parsed)
     usage = getattr(result.get("raw"), "usage_metadata", None) or {}
     return Drafted(parsed, usage.get("input_tokens", 0), usage.get("output_tokens", 0))
 

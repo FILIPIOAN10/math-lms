@@ -244,6 +244,16 @@ class Retrieval:
         return self.reason is None and bool(self.hits)
 
 
+#: the line the platform appends with a grilă's options ("Variante: a) $24$; b) $10$; ..."), up to the next line
+OPTIONS_LINE = re.compile(r"^\s*Variante:.*$", re.MULTILINE)
+
+
+def search_text(statement: str) -> str:
+    """What is searched for: the exercise without its options - bare numbers and letters only blur the meaning (the
+    definition of a closed interval fell out of the nearest four once "a) 24; b) 10; c) 2; d) 6" was in the query)."""
+    return OPTIONS_LINE.sub("", statement).strip() or statement
+
+
 def retrieve_for_exercise(conn: psycopg.Connection, statement: str, embeddings: Embeddings, slot: str | None = None,
                           k: int = 4, max_distance: float = 0.46) -> Retrieval:
     """
@@ -258,6 +268,7 @@ def retrieve_for_exercise(conn: psycopg.Connection, statement: str, embeddings: 
     than the nearest in the whole book. A test scanned from a textbook does not follow the exam order (intervals at
     I.2, where the exam puts proportions), and the page of the position would then hand the model the wrong lesson.
     """
+    statement = search_text(statement)
     vector = embeddings.embed_query(statement)
     hits = search(conn, "vector", statement, embeddings, k=k, query_vector=vector)
     if slot and hits:

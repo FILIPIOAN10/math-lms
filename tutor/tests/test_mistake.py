@@ -67,6 +67,14 @@ def test_a_distractor_with_no_recognisable_mistake_gets_the_right_method_instead
     assert "if the passages contain neither" in rules
 
 
+def test_a_table_or_figure_missing_from_the_text_gets_the_method_in_words_instead_of_a_refusal():
+    # The temperatures of a scanned test sit in a picture: the mean cannot be computed, the method can still be named.
+    rules = " ".join(MISTAKE_SYSTEM.lower().split())
+
+    assert "a table or a figure whose data is not in the text" in rules
+    assert "explain the method" in rules and "without a result" in rules
+
+
 def test_nothing_close_in_the_book_is_refused_without_the_model():
     model = FakeModel()
     service, _ = drafter(model, Found("vector", [], None, "no_passages"))
