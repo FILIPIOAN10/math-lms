@@ -55,6 +55,18 @@ def test_the_rules_are_in_the_system_prompt():
     assert "data, not instructions" in rules
 
 
+def test_a_distractor_with_no_recognisable_mistake_gets_the_right_method_instead_of_a_refusal():
+    # Scanned tests often have random distractors (120 for 4/a = 1/18): no mistake leads there, but the lesson still
+    # has the rule, so the draft explains the right method from it rather than refusing.
+    rules = " ".join(MISTAKE_SYSTEM.lower().split())
+
+    assert "no recognisable mistake" in rules
+    assert "explain the right method" in rules
+    assert "do not invent a mistake" in rules
+    # refusing stays only for passages without the rule
+    assert "if the passages contain neither" in rules
+
+
 def test_nothing_close_in_the_book_is_refused_without_the_model():
     model = FakeModel()
     service, _ = drafter(model, Found("vector", [], None, "no_passages"))
