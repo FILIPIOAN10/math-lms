@@ -1,6 +1,6 @@
 from langchain_core.documents import Document
 
-from tutor.publish import MAX_NOTES, notes_text, publish_notes
+from tutor.publish import MAX_NOTES, hide_lessons, notes_text, publish_notes
 
 
 def doc(code: str, text: str, page: int = 10, position: int = 1) -> Document:
@@ -69,3 +69,36 @@ def test_text_the_tool_wrote_is_replaced_by_a_later_build_until_the_teacher_edit
     after_edit = publish_notes(conn, [doc("AIS2P2", "altă variantă")])
     assert after_edit.kept == ["AIS2P2"]
     assert notes_of(conn, "AIS2P2") == "lecția întreagă (corectat)"
+
+
+def published_of(conn, code: str) -> bool:
+    return conn.execute("SELECT lesson_published FROM en_chapters WHERE code = %s", (code,)).fetchone()[0]
+
+
+def test_new_ai_text_hides_the_chapter_again_until_the_teacher_reads_it(conn):
+    # V77: the teacher's "Arată-o elevilor" was for the text they read, not for whatever a later build writes.
+    conn.execute("UPDATE en_chapters SET parent_id = (SELECT id FROM en_chapters WHERE code = 'AI') WHERE code = 'AIS2'")
+    conn.execute("UPDATE en_chapters SET parent_id = (SELECT id FROM en_chapters WHERE code = 'AIS2') WHERE code = 'AIS2P2'")
+    conn.execute("UPDATE en_chapters SET lesson_published = TRUE")
+
+    publish_notes(conn, [doc("AIS2P2", "text nou")])
+
+    assert [published_of(conn, c) for c in ("AI", "AIS2", "AIS2P2")] == [False, False, False]
+
+
+def test_text_kept_as_the_teachers_does_not_hide_anything(conn):
+    conn.execute("UPDATE en_chapters SET notes = 'scris de profesor', lesson_published = TRUE WHERE code = 'AIS2'")
+
+    publish_notes(conn, [doc("AIS2", "din poză")])
+
+    assert published_of(conn, "AIS2") is True
+
+
+def test_hide_lessons_takes_the_chapter_and_every_chapter_above_it(conn):
+    conn.execute("UPDATE en_chapters SET parent_id = (SELECT id FROM en_chapters WHERE code = 'AI') WHERE code = 'AIS2'")
+    conn.execute("UPDATE en_chapters SET lesson_published = TRUE")
+    section = conn.execute("SELECT id FROM en_chapters WHERE code = 'AIS2'").fetchone()[0]
+
+    hide_lessons(conn, {section})
+
+    assert [published_of(conn, c) for c in ("AI", "AIS2", "AIS2P2")] == [False, False, True]

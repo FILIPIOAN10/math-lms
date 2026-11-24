@@ -29,6 +29,8 @@ public enum AuditAction {
     /** The written-out book pages of a chapter (V73) shown to students, or hidden again. */
     EN_CHAPTER_LESSON_SHOWN(AuditCategory.CONTENT),
     EN_CHAPTER_LESSON_HIDDEN(AuditCategory.CONTENT),
+    /** A written-out page the transcription flagged ([?], a warning), read by the teacher (V77). */
+    EN_CHAPTER_LESSON_PAGE_REVIEWED(AuditCategory.CONTENT),
     EN_EXAMPLE_ADDED(AuditCategory.CONTENT),
     EN_EXAMPLE_UPDATED(AuditCategory.CONTENT),
     EN_EXAMPLE_DELETED(AuditCategory.CONTENT),

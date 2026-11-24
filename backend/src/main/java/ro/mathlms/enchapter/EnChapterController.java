@@ -8,6 +8,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.MediaTypeFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -57,8 +58,9 @@ public class EnChapterController {
     }
 
     @GetMapping("/api/en-chapters/{id}")
-    public EnChapterPageDto page(@PathVariable Long id) {
-        return service.page(id);
+    public EnChapterPageDto page(@PathVariable Long id, Authentication auth) {
+        return service.page(id, auth != null && auth.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority())));
     }
 
     /** A photo never changes (a replaced page is a new photo with a new id), so the browser may keep it a while. */

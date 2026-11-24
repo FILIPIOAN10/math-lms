@@ -11,6 +11,7 @@ const api = vi.hoisted(() => ({
   getMyEnMastery: vi.fn(),
   getEnChapterLesson: vi.fn(),
   showEnChapterLesson: vi.fn(),
+  markEnLessonPageReviewed: vi.fn(),
 }))
 vi.mock('@/lib/api', async (original) => ({ ...(await original<typeof import('@/lib/api')>()), ...api }))
 
@@ -109,17 +110,48 @@ describe('EnChapterPage', () => {
   beforeEach(() => {
     Object.values(api).forEach((fn) => fn.mockReset())
     api.listEnChapters.mockResolvedValue([])
-    api.getEnChapterLesson.mockResolvedValue({ published: false, pages: [] })
+    api.getEnChapterLesson.mockResolvedValue({ published: false, photoCount: 0, needsReview: 0, pages: [] })
     auth.value.user.role = 'STUDENT'
   })
 
   describe('the whole lesson, written out', () => {
     const lesson = (published: boolean) => ({
       published,
+      photoCount: 2,
+      needsReview: 0,
       pages: [
-        { photoId: 8, position: 2, bookPage: 143, markdown: '## Teorema lui Pitagora\n\n$a^2 + b^2 = c^2$\n\n![Triunghiul ABC](desen:41)' },
-        { photoId: 7, position: 1, bookPage: 144, markdown: 'A doua pagină.' },
+        { photoId: 8, position: 2, bookPage: 143, markdown: '## Teorema lui Pitagora\n\n$a^2 + b^2 = c^2$\n\n![Triunghiul ABC](desen:41)', needsReview: false, reviewNote: null },
+        { photoId: 7, position: 1, bookPage: 144, markdown: 'A doua pagină.', needsReview: false, reviewNote: null },
       ],
+    })
+
+    it('tells the teacher how much is ready and keeps the button off until every page is written and checked', async () => {
+      auth.value.user.role = 'ADMIN'
+      api.getEnChapter.mockResolvedValue(page({ photos: [{ id: 7 }, { id: 8 }, { id: 9 }] }))
+      api.getEnChapterLesson.mockResolvedValue({
+        published: false,
+        photoCount: 3,
+        needsReview: 1,
+        pages: [
+          { photoId: 8, position: 2, bookPage: 143, markdown: 'Bună.', needsReview: false, reviewNote: null },
+          { photoId: 7, position: 1, bookPage: 144, markdown: 'Cu text necitit.', needsReview: true, reviewNote: 'text necitit: [?]' },
+        ],
+      })
+      api.markEnLessonPageReviewed.mockResolvedValue(undefined)
+      renderAt('/capitole/1')
+
+      expect(await screen.findByText('2 din 3 pagini scrise, 1 de revizuit.')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Arată-o elevilor' })).toBeDisabled()
+
+      fireEvent.click(screen.getByRole('button', { name: /Citește lecția completă/ }))
+      const flagged = screen.getByTestId('lesson-page-7')
+      expect(within(flagged).getByText('De revizuit: text necitit: [?]')).toBeInTheDocument()
+      fireEvent.click(within(flagged).getByRole('button', { name: 'Am verificat pagina' }))
+
+      await waitFor(() => expect(api.markEnLessonPageReviewed).toHaveBeenCalledWith(1, 7))
+      expect(await screen.findByText('2 din 3 pagini scrise.')).toBeInTheDocument()
+      expect(within(screen.getByTestId('lesson-page-7')).queryByRole('button', { name: 'Am verificat pagina' }))
+        .not.toBeInTheDocument()
     })
 
     it('opens the lesson at the page a link names ("Deschide lecția G4, pagina 144")', async () => {
@@ -139,7 +171,7 @@ describe('EnChapterPage', () => {
         notes: 'Rezumat.', photos: [{ id: 7 }],
         sections: [{ id: 5, code: 'A1S1', title: 'Paranteze', parentId: 1, bookPage: 144, notes: 'Întâi parantezele.' }],
       }))
-      api.getEnChapterLesson.mockResolvedValue({ published: false, pages: [] })
+      api.getEnChapterLesson.mockResolvedValue({ published: false, photoCount: 0, needsReview: 0, pages: [] })
       renderAt('/capitole/1?sectiune=5&pagina=144')
 
       expect(await screen.findByText('Întâi parantezele.')).toBeInTheDocument()

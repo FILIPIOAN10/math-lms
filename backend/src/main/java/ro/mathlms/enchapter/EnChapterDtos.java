@@ -52,8 +52,8 @@ public final class EnChapterDtos {
      * null when none yet) - so the chapter page can show the whole chapter as text, section by section.
      */
     public record SectionDto(Long id, String code, String title, Long parentId, Integer bookPage, String notes) {
-        static SectionDto of(EnChapter c) {
-            return new SectionDto(c.getId(), c.getCode(), c.getTitle(), c.getParentId(), c.getBookPage(), c.getNotes());
+        static SectionDto of(EnChapter c, String notes) {
+            return new SectionDto(c.getId(), c.getCode(), c.getTitle(), c.getParentId(), c.getBookPage(), notes);
         }
     }
 

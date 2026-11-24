@@ -12,6 +12,10 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.regex.Pattern;
@@ -55,6 +59,17 @@ public class EnChapter {
     @Column(columnDefinition = "TEXT")
     private String notes;
 
+    /**
+     * The MD5 of the text tutor.build_chapter last wrote into {@link #notes} (V76). Written by the tutor service only:
+     * while it still matches, the text is the AI's, unedited ({@link #notesWrittenByAi}).
+     */
+    @Column(name = "notes_generated_md5", insertable = false, updatable = false)
+    private String notesGeneratedMd5;
+
+    /** The teacher has shown this chapter's AI-written text to students (V73); changed only by EnChapterLessonService. */
+    @Column(name = "lesson_published", insertable = false, updatable = false)
+    private boolean lessonPublished;
+
     /** The chapter this is a section (or a point) of; {@code null} = a chapter of its own. */
     @Column(name = "parent_id")
     private Long parentId;
@@ -91,6 +106,20 @@ public class EnChapter {
             throw new IllegalArgumentException("Textul paginii poate avea cel mult " + MAX_NOTES + " de caractere.");
         }
         this.notes = trimmed == null || trimmed.isEmpty() ? null : trimmed;
+    }
+
+    /** The text on this page is still exactly what the AI wrote: nobody has read it into their own words yet. */
+    public boolean notesWrittenByAi() {
+        return notes != null && notesGeneratedMd5 != null && notesGeneratedMd5.equals(md5(notes));
+    }
+
+    /** Postgres's md5(text): the hex MD5 of the UTF-8 bytes. */
+    static String md5(String text) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("MD5").digest(text.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     public void describeRevision(String topic) {

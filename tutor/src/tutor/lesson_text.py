@@ -19,10 +19,30 @@ _SYSTEM = re.compile(r"\$((?:\\left(?:\\\{|[.({\[|])?\s*)?\\begin\{(\w+\*?)\}[\s
 _MATH = re.compile(r"\$\$[\s\S]+?\$\$|\$[^$\n]+?\$")
 _TAGS = re.compile(r"</?(?:u|b|i|em|strong|span|sup|sub|br)\b[^>]*>", re.IGNORECASE)
 _UNDERSCORE_ITALIC = re.compile(r"(?<![\w\\])_([^_\n]+?)_(?!\w)")
+_UNREAD = re.compile(r"\[\s*\?\s*\]")
+_WARNING = re.compile(r"<!--\s*warning:\s*(.*?)\s*-->", re.S)
+
+
+def drawing_trusted(entry: dict) -> bool:
+    """A drawing may stand in for the book's figure only when it holds its own marks (`check`) AND the second look
+    compared it with the book and found the same figure (`polish`, pilot_figures_redraw.py --polish). The free checks
+    alone only say the drawing agrees with itself: a right triangle can be "right" and still not be the book's."""
+    return bool(entry.get("drawable") and entry.get("figure")
+                and (entry.get("check") or {}).get("ok") is True
+                and (entry.get("polish") or {}).get("matches") is True)
+
+
+def review_note(transcript: str) -> str | None:
+    """Why the teacher must read this page before any student does (V77), or None: the transcription could not read
+    part of it ([?]) or warned about it."""
+    body = _HEADER.sub("", transcript, count=1)
+    reasons = ["text necitit: [?]"] if _UNREAD.search(body) else []
+    reasons += [f"avertisment: {w.strip()}" for w in _WARNING.findall(body) if w.strip()]
+    return "; ".join(reasons) or None
 
 
 def readable(text: str) -> str:
-    """The LaTeX as KaTeX can draw it: JSON-escape slips put back, "$" and its formula on one piece, "\\sqrt" escaped
+    r"""The LaTeX as KaTeX can draw it: JSON-escape slips put back, "$" and its formula on one piece, "\\sqrt" escaped
     twice made "\sqrt" again, and the @{...} spacing of array columns (KaTeX has none) dropped."""
     text = _AFTER_DOLLAR.sub("$", repair_page_latex(text))
     text = re.sub(r"\\\\(?=[A-Za-z])", lambda _: "\\", text)
@@ -54,7 +74,7 @@ def _alt(description: str) -> str:
 
 
 def app_markdown(transcript: str, figures: dict[int, Placed]) -> str:
-    text = readable(_HEADER.sub("", transcript, count=1).strip())
+    text = readable(_WARNING.sub("", _HEADER.sub("", transcript, count=1)).strip())
     text = _SYSTEM.sub(lambda m: f"\n\n$${m.group(1)}$$\n\n" if "\n" in m.group(1) else m.group(0), text)
     text = _TAGS.sub("", text)
     text = re.sub(r"\*\*\*(.+?)\*\*\*", r"**\1**", text)

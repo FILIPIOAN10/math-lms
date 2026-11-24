@@ -18,6 +18,7 @@ import {
   getEnChapterLesson,
   listEnChapters,
   showEnChapterLesson,
+  markEnLessonPageReviewed,
   type EnChapterPage as EnChapterPageDto,
   type EnLesson,
   type EnChapterSummary,
@@ -185,6 +186,22 @@ export function EnChapterPage() {
       .finally(() => setShowing(false))
   }
 
+  /** The teacher has read a flagged page: it no longer holds the chapter back. */
+  function pageReviewed(photoId: number) {
+    if (!lesson || !page) return
+    markEnLessonPageReviewed(page.id, photoId)
+      .then(() => setLesson((l) => l && {
+        ...l,
+        needsReview: Math.max(0, l.needsReview - 1),
+        pages: l.pages.map((p) => (p.photoId === photoId ? { ...p, needsReview: false, reviewNote: null } : p)),
+      }))
+      .catch((e) => setError(errorMessage(e)))
+  }
+
+  // V77: shown only whole and checked (the server refuses otherwise; the button says so first).
+  const lessonMissing = lesson ? Math.max(0, lesson.photoCount - lesson.pages.length) : 0
+  const lessonReady = lesson !== null && lessonMissing === 0 && lesson.needsReview === 0
+
   // The written-out page a "pagina N" link points at (the first one, when two sources print the same number).
   const lessonPageId = lesson && wantedPage !== null
     ? lesson.pages.find((p) => p.bookPage === wantedPage)?.photoId ?? null
@@ -350,12 +367,24 @@ export function EnChapterPage() {
               Paginile cărții scrise ca text, cu figurile desenate din nou de aplicație.
               {teacher && !lesson.published && ' Elevii n-o văd încă: citește-o și arat-o când e bună.'}
             </p>
+            {teacher && (lessonMissing > 0 || lesson.needsReview > 0) && (
+              <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
+                {`${lesson.pages.length} din ${lesson.photoCount} pagini scrise`}
+                {lesson.needsReview > 0 ? `, ${lesson.needsReview} de revizuit.` : '.'}
+              </p>
+            )}
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" size="sm" onClick={() => setLessonOpen((o) => !o)} aria-expanded={lessonOpen}>
                 {lessonOpen ? 'Ascunde lecția completă' : `Citește lecția completă (${lesson.pages.length} pagini)`}
               </Button>
               {teacher && (
-                <Button size="sm" variant={lesson.published ? 'outline' : 'default'} disabled={showing} onClick={toggleShown}>
+                <Button
+                  size="sm"
+                  variant={lesson.published ? 'outline' : 'default'}
+                  disabled={showing || (!lesson.published && !lessonReady)}
+                  title={!lesson.published && !lessonReady ? 'Se poate arăta după ce toate paginile sunt scrise și verificate.' : undefined}
+                  onClick={toggleShown}
+                >
                   {lesson.published ? 'Ascunde-o elevilor' : 'Arată-o elevilor'}
                 </Button>
               )}
@@ -381,6 +410,12 @@ export function EnChapterPage() {
                           <Button size="sm" variant="ghost" onClick={() => setViewing(index)}>Vezi pagina din carte</Button>
                         )}
                       </div>
+                      {teacher && written.needsReview && (
+                        <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-500/60 bg-amber-500/10 px-3 py-2 text-sm">
+                          <span>{`De revizuit: ${written.reviewNote ?? 'compară pagina cu cartea'}`}</span>
+                          <Button size="sm" variant="outline" onClick={() => pageReviewed(written.photoId)}>Am verificat pagina</Button>
+                        </div>
+                      )}
                       <MarkdownText photoUrl={photoUrl} drawingUrl={(id) => enChapterDrawingUrl(page.id, id)} headingLevel={4}>
                         {written.markdown}
                       </MarkdownText>

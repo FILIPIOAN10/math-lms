@@ -20,7 +20,7 @@ import re
 import psycopg
 
 from tutor import figures
-from tutor.lesson_text import readable  # the same LaTeX repairs the app's lesson pages get
+from tutor.lesson_text import drawing_trusted, readable  # the same LaTeX repairs and drawing rule as the app
 from tutor.config import get_settings
 from tutor.transcribe import prepare
 
@@ -84,6 +84,7 @@ def drawings(folder: pathlib.Path) -> dict[tuple[int, int], dict]:
                 entry = dict(found.get(key) or {"number": f["number"]})
                 if f["kind"] == "figure" and (f.get("check") or {}).get("ok"):
                     entry.update(drawable=True, figure=f["figure"], check=f["check"])
+                    entry.pop("polish", None)  # that comparison was of the figure drawn before, not of this one
                 elif f["kind"] == "text" and f.get("text"):
                     entry["as_text"] = f["text"]
                 found[key] = entry
@@ -93,7 +94,7 @@ def drawings(folder: pathlib.Path) -> dict[tuple[int, int], dict]:
 def figure_html(entry: dict | None) -> str:
     if entry is None:
         return '<div class=missing>Figură încă nedesenată.</div>'
-    if entry.get("drawable") and entry.get("figure") and (entry.get("check") or {}).get("ok", True):
+    if drawing_trusted(entry):
         try:
             png = figures.render(entry["figure"])[0]
             return f'<img alt="{html.escape(entry.get("description") or "")}" src="data:image/png;base64,' \

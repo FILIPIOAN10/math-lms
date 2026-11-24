@@ -383,7 +383,7 @@ class ExceptionMappingCharacterizationTest {
     @MethodSource("enChapterPages")
     void theChapterPagesMapTheirOwnExceptions(String name, Supplier<? extends RuntimeException> exception, int status,
                                               String body) throws Exception {
-        when(enChapterService.page(4L)).thenThrow(exception.get());
+        when(enChapterService.page(eq(4L), org.mockito.ArgumentMatchers.anyBoolean())).thenThrow(exception.get());
 
         MvcResult result = mockMvc.perform(get("/api/en-chapters/4").accept(ACCEPT_ANY)).andReturn();
 

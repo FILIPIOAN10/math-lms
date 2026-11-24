@@ -9,6 +9,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
@@ -57,6 +58,13 @@ public class EnChapterLessonController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> show(@PathVariable Long id, @RequestBody @Validated ShowRequest request) {
         service.show(id, request.published());
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/api/admin/en-chapters/{id}/lesson/pages/{photoId}/reviewed")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> pageReviewed(@PathVariable Long id, @PathVariable Long photoId) {
+        service.pageReviewed(id, photoId);
         return ResponseEntity.noContent().build();
     }
 }

@@ -1,7 +1,10 @@
 """Writes the book pages written out into the app (V73): for every lesson photo, its text (tutor.lesson_text) and the PNG
 of every figure the app drew (pilot_figures_redraw.py: data/theory/redraw-all, with the comparison with the book and
 the fill pass). No model is called. Students see a chapter's pages only after the teacher shows them on the chapter
-page ("Arată-o elevilor"); running this again replaces the text and the drawings, and keeps that choice.
+page ("Arată-o elevilor"); running this again replaces the text and the drawings and HIDES every chapter it wrote to
+(V77): the teacher shows the text they read. A drawing is used only when it was compared with the book and matched
+(lesson_text.drawing_trusted); otherwise the page sends the reader to the book. A page with unread text ([?]) or a
+warning is marked needs_review: the chapter cannot be shown until the teacher has read it.
 
     uv run python -X utf8 scripts/publish_lessons.py --dry-run
     uv run python -X utf8 scripts/publish_lessons.py [--chapters G5,G6]
@@ -17,7 +20,8 @@ import psycopg
 
 from tutor import figures
 from tutor.config import get_settings
-from tutor.lesson_text import MARKER, Placed, app_markdown
+from tutor.lesson_text import MARKER, Placed, app_markdown, drawing_trusted, review_note
+from tutor.publish import hide_lessons
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 from clean_lessons import THEORY, drawings  # noqa: E402 - the same merged drawings the clean pages show
@@ -35,11 +39,13 @@ def main() -> None:
     counts = collections.Counter()
     with psycopg.connect(settings.psycopg_dsn) as conn:
         pages = conn.execute(
-            """SELECT ch.code, p.id, t.content FROM en_chapter_photos p JOIN en_chapters ch ON ch.id = p.chapter_id
+            """SELECT ch.code, ch.id, p.id, t.content FROM en_chapter_photos p JOIN en_chapters ch ON ch.id = p.chapter_id
                JOIN tutor_photo_transcripts t ON t.photo_id = p.id ORDER BY ch.position, p.position""").fetchall()
-        for code, photo, transcript in pages:
+        written: set[int] = set()
+        for code, chapter, photo, transcript in pages:
             if wanted and code not in wanted:
                 continue
+            written.add(chapter)
             body = re.sub(r"^---\n.*?\n---\n", "", transcript, flags=re.S)
             placed: dict[int, Placed] = {}
             if not args.dry_run:
@@ -51,7 +57,7 @@ def main() -> None:
                     placed[number] = Placed(description, text=entry["as_text"])
                     counts["ca text"] += 1
                     continue
-                if entry.get("drawable") and entry.get("figure") and (entry.get("check") or {}).get("ok", True):
+                if drawing_trusted(entry):
                     try:
                         png = figures.render(entry["figure"])[0]
                     except Exception:  # noqa: BLE001 - left to the book page
@@ -67,12 +73,19 @@ def main() -> None:
                 counts["spre pagina din carte"] += 1
             markdown = app_markdown(transcript, placed)
             page_number = re.search(r"^book_page:\s*(\d+)", transcript, re.M)  # V74: "pagina N" links find it
+            note = review_note(transcript)
             counts["pagini"] += 1
+            if note:
+                counts["de revizuit"] += 1
             if not args.dry_run:
                 conn.execute(
-                    "INSERT INTO en_photo_lessons (photo_id, markdown, book_page) VALUES (%s, %s, %s) "
-                    "ON CONFLICT (photo_id) DO UPDATE SET markdown = EXCLUDED.markdown, book_page = EXCLUDED.book_page, "
-                    "updated_at = now()", (photo, markdown, int(page_number.group(1)) if page_number else None))
+                    "INSERT INTO en_photo_lessons (photo_id, markdown, book_page, needs_review, review_note) "
+                    "VALUES (%s, %s, %s, %s, %s) ON CONFLICT (photo_id) DO UPDATE SET markdown = EXCLUDED.markdown, "
+                    "book_page = EXCLUDED.book_page, needs_review = EXCLUDED.needs_review, "
+                    "review_note = EXCLUDED.review_note, updated_at = now()",
+                    (photo, markdown, int(page_number.group(1)) if page_number else None, note is not None, note))
+        if not args.dry_run:
+            hide_lessons(conn, written)
         if args.dry_run:
             conn.rollback()
         else:

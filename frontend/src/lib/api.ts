@@ -2242,7 +2242,7 @@ export type AuditAction =
   | 'CHAPTER_CREATED' | 'CHAPTER_UPDATED' | 'CHAPTER_DELETED'
   | 'EXERCISE_CREATED' | 'EXERCISE_UPDATED' | 'EXERCISE_DELETED'
   | 'EN_CHAPTER_CREATED' | 'EN_CHAPTER_UPDATED' | 'EN_CHAPTER_DELETED' | 'EN_CHAPTER_PHOTO_ADDED' | 'EN_CHAPTER_PHOTO_REMOVED'
-  | 'EN_CHAPTER_LESSON_SHOWN' | 'EN_CHAPTER_LESSON_HIDDEN'
+  | 'EN_CHAPTER_LESSON_SHOWN' | 'EN_CHAPTER_LESSON_HIDDEN' | 'EN_CHAPTER_LESSON_PAGE_REVIEWED'
   | 'EN_EXAMPLE_ADDED' | 'EN_EXAMPLE_UPDATED' | 'EN_EXAMPLE_DELETED' | 'EN_CHAPTER_SLOTS_UPDATED'
   | 'QUIZ_CREATED' | 'QUIZ_UPDATED' | 'QUIZ_COPIED' | 'QUIZ_PUBLISHED' | 'QUIZ_UNPUBLISHED' | 'QUIZ_DELETED'
   | 'QUESTION_ADDED' | 'QUESTION_UPDATED' | 'QUESTION_DELETED' | 'QUESTION_IMAGE_SET' | 'QUESTION_IMAGE_REMOVED' | 'QUIZ_FROM_PHOTOS'
@@ -2399,11 +2399,21 @@ export interface EnLessonPage {
   /** The page printed in the book (null when the transcript saw none): a "pagina N" link finds the page by it. */
   bookPage: number | null
   markdown: string
+  /** V77: the transcription could not read part of it or warned about it; the teacher reads it before any student. */
+  needsReview: boolean
+  /** Why it needs review ("text necitit: [?]; avertisment: ..."); null when it does not. */
+  reviewNote: string | null
 }
 
-/** A chapter's book pages written out; a student gets them only once the teacher has shown them (published). */
+/**
+ * A chapter's book pages written out; a student gets them only once the teacher has shown them (published).
+ * photoCount and needsReview are for the teacher (0 for a student): it can be shown only with every photo written out
+ * and no page left to review.
+ */
 export interface EnLesson {
   published: boolean
+  photoCount: number
+  needsReview: number
   pages: EnLessonPage[]
 }
 
@@ -2419,6 +2429,11 @@ export function enChapterDrawingUrl(chapterId: number, drawingId: number): strin
 
 export async function showEnChapterLesson(id: number, published: boolean): Promise<void> {
   await putJson(`/admin/en-chapters/${id}/lesson`, { published })
+}
+
+/** The teacher has read a flagged page against the book (V77). */
+export async function markEnLessonPageReviewed(chapterId: number, photoId: number): Promise<void> {
+  await postJson(`/admin/en-chapters/${chapterId}/lesson/pages/${photoId}/reviewed`, {})
 }
 
 export function enExampleImageUrl(chapterId: number, exampleId: number, version: string): string {

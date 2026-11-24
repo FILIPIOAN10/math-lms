@@ -1,6 +1,6 @@
 """A lesson page's transcript turned into what the app's reader shows: figures in place, LaTeX and Markdown it knows."""
 
-from tutor.lesson_text import Placed, app_markdown
+from tutor.lesson_text import Placed, app_markdown, drawing_trusted, review_note
 
 
 def test_each_figure_becomes_the_drawing_the_text_or_a_note_about_the_book_page():
@@ -38,3 +38,25 @@ def test_the_latex_slips_of_the_transcription_are_repaired():
                         " și $a\x08elong A$", {})
 
     assert text == "($\\sphericalangle A\\equiv B$) și $(5\\sqrt{3})^2$ și $\\begin{array}{rl} a \\end{array}$ și $a\\in A$"
+
+
+# --- V77: what may reach a student without the teacher's look ---
+
+def test_a_drawing_is_trusted_only_when_it_holds_its_marks_and_was_compared_with_the_book():
+    figure = {"points": []}
+    assert drawing_trusted({"drawable": True, "figure": figure, "check": {"ok": True}, "polish": {"matches": True}})
+    assert not drawing_trusted({"drawable": True, "figure": figure, "check": {"ok": True}, "polish": {"matches": False}})
+    assert not drawing_trusted({"drawable": True, "figure": figure, "check": {"ok": True}})  # never compared
+    assert not drawing_trusted({"drawable": True, "figure": figure, "polish": {"matches": True}})  # never checked
+    assert not drawing_trusted({"drawable": False, "figure": figure, "check": {"ok": True}, "polish": {"matches": True}})
+
+
+def test_unread_text_or_a_warning_sends_the_page_to_the_teacher():
+    assert review_note("---\nbook_page: 3\n---\n\nTotul se citește: $a^2$.") is None
+    assert review_note("Avem $x = [?]$.") == "text necitit: [?]"
+    note = review_note("---\nb: 1\n---\n<!-- warning: exponentul e neclar -->\nText [ ? ]")
+    assert note == "text necitit: [?]; avertisment: exponentul e neclar"
+
+
+def test_the_warnings_of_the_transcription_are_not_shown_in_the_lesson():
+    assert app_markdown("<!-- warning: exponentul e neclar -->\nText", {}) == "Text"

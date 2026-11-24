@@ -207,6 +207,96 @@ class EnChapterLessonIntegrationTest {
                 .andExpect(jsonPath("$.pages[1].photoId").value(third));
     }
 
+    // --- V77: nothing half-done or unchecked reaches a student ---
+
+    @Test
+    void theTeacherSeesHowMuchIsReadyAndCannotShowItBeforeEveryPageIsWrittenAndChecked() throws Exception {
+        long id = chapter("H");
+        long first = photo(id);
+        long second = photo(id);
+        written(first, "Prima");
+
+        mockMvc.perform(get("/api/en-chapters/" + id + "/lesson").with(teacher))
+                .andExpect(jsonPath("$.photoCount").value(2))
+                .andExpect(jsonPath("$.pages.length()").value(1))
+                .andExpect(jsonPath("$.needsReview").value(0));
+        show(id, true, teacher, 409);
+
+        written(second, "A doua, cu $[?]$");
+        jdbc.update("UPDATE en_photo_lessons SET needs_review = TRUE, review_note = 'text necitit: [?]' WHERE photo_id = ?",
+                second);
+        mockMvc.perform(get("/api/en-chapters/" + id + "/lesson").with(teacher))
+                .andExpect(jsonPath("$.needsReview").value(1))
+                .andExpect(jsonPath("$.pages[1].needsReview").value(true))
+                .andExpect(jsonPath("$.pages[1].reviewNote").value("text necitit: [?]"));
+        show(id, true, teacher, 409);
+
+        mockMvc.perform(post("/api/admin/en-chapters/" + id + "/lesson/pages/" + second + "/reviewed").with(csrf()).with(student))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(post("/api/admin/en-chapters/" + id + "/lesson/pages/" + second + "/reviewed").with(csrf()).with(teacher))
+                .andExpect(status().isNoContent());
+        show(id, true, teacher, 204);
+        show(id, false, teacher, 204);  // hiding is always allowed
+        assertThat(auditRepository.findAll()).extracting(e -> e.getAction())
+                .contains(AuditAction.EN_CHAPTER_LESSON_PAGE_REVIEWED);
+    }
+
+    @Test
+    void aPageMarkedForReviewAfterTheChapterWasShownIsNotServedToStudents() throws Exception {
+        long id = chapter("I");
+        long good = photo(id);
+        long bad = photo(id);
+        written(good, "Bună");
+        written(bad, "Rea");
+        show(id, true, teacher, 204);
+        jdbc.update("UPDATE en_photo_lessons SET needs_review = TRUE WHERE photo_id = ?", bad);
+
+        mockMvc.perform(get("/api/en-chapters/" + id + "/lesson").with(student))
+                .andExpect(jsonPath("$.pages.length()").value(1))
+                .andExpect(jsonPath("$.pages[0].photoId").value(good));
+    }
+
+    @Test
+    void textTheAiWroteOnAPageStaysHiddenFromStudentsUntilTheChapterIsShown() throws Exception {
+        long id = chapter("J");
+        String sectionBody = json(post("/api/admin/en-chapters").with(csrf()).with(teacher).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"code\":\"L" + stamp.substring(stamp.length() - 5) + "JS\",\"title\":\"Secțiune\",\"area\":\"GEOMETRY\","
+                        + "\"parentId\":" + id + ",\"notes\":\"scris de profesor\"}"), 201);
+        long section = ((Number) JsonPath.read(sectionBody, "$.id")).longValue();
+        created.add(0, section);
+        // What tutor.build_chapter writes: the text and its MD5, so the backend can tell it is the AI's, still unedited.
+        jdbc.update("UPDATE en_chapters SET notes = 'scris de AI', notes_generated_md5 = md5('scris de AI') WHERE id = ?", id);
+
+        mockMvc.perform(get("/api/en-chapters/" + id).with(student))
+                .andExpect(jsonPath("$.notes").doesNotExist())
+                .andExpect(jsonPath("$.sections[0].notes").value("scris de profesor"));
+        mockMvc.perform(get("/api/en-chapters/" + id).with(teacher)).andExpect(jsonPath("$.notes").value("scris de AI"));
+        jdbc.update("UPDATE en_chapters SET notes = 'scris de AI', notes_generated_md5 = md5('scris de AI') WHERE id = ?", section);
+        mockMvc.perform(get("/api/en-chapters/" + section).with(parent)).andExpect(jsonPath("$.notes").doesNotExist());
+
+        show(id, true, teacher, 204);
+        mockMvc.perform(get("/api/en-chapters/" + id).with(student))
+                .andExpect(jsonPath("$.notes").value("scris de AI"))
+                .andExpect(jsonPath("$.sections[0].notes").value("scris de AI"));
+    }
+
+    @Test
+    void v77SendsAPageWithUnreadTextToReview() {
+        long id = jdbc.queryForObject("INSERT INTO en_chapters (code, title, area, position) VALUES (?, 'V77', 'ALGEBRA', 999) "
+                + "RETURNING id", Long.class, "X" + stamp.substring(stamp.length() - 6));
+        created.add(id);
+        long photo = jdbc.queryForObject("INSERT INTO en_chapter_photos (chapter_id, position, image_key) VALUES (?, 1, 'x.jpg') "
+                + "RETURNING id", Long.class, id);
+        jdbc.update("INSERT INTO en_photo_lessons (photo_id, markdown) VALUES (?, 'Avem $x = [?]$')", photo);
+
+        // The backfill V77 ran on the pages already written.
+        jdbc.update("UPDATE en_photo_lessons SET needs_review = TRUE, review_note = 'text necitit: [?]' "
+                + "WHERE markdown LIKE '%[?]%' AND photo_id = ?", photo);
+
+        assertThat(jdbc.queryForObject("SELECT needs_review FROM en_photo_lessons WHERE photo_id = ?", Boolean.class, photo))
+                .isTrue();
+    }
+
     @Test
     void aDrawingIsReachedOnlyThroughItsOwnChapterAndGoesWithItsPhoto() throws Exception {
         long id = chapter("E");

@@ -95,14 +95,21 @@ public class EnChapterService {
         return ready;
     }
 
+    /**
+     * {@code teacher}: text the AI wrote and nobody has edited reaches a student or a parent only once the teacher has
+     * shown the chapter it belongs to (V77; the same "Arată-o elevilor" as the written-out pages).
+     */
     @Transactional(readOnly = true)
-    public EnChapterPageDto page(Long id) {
+    public EnChapterPageDto page(Long id, boolean teacher) {
         EnChapter chapter = requireChapter(id);
         EnChapterTree tree = new EnChapterTree(chapterRepository.findAllByOrderByPositionAscIdAsc());
         EnChapter root = tree.rootOf(chapter);
+        boolean aiTextShown = teacher || root.isLessonPublished();
+        java.util.function.Function<EnChapter, String> notes =
+                c -> aiTextShown || !c.notesWrittenByAi() ? c.getNotes() : null;
         return new EnChapterPageDto(chapter.getId(), chapter.getCode(), chapter.getTitle(), chapter.getArea(),
-                chapter.getNotes(), chapter.getParentId(), root.getId(), chapter.getBookPage(),
-                tree.descendantsOf(chapter).stream().map(SectionDto::of).toList(),
+                notes.apply(chapter), chapter.getParentId(), root.getId(), chapter.getBookPage(),
+                tree.descendantsOf(chapter).stream().map(c -> SectionDto.of(c, notes.apply(c))).toList(),
                 photoRepository.findByChapterIdOrderByPositionAscIdAsc(id).stream().map(p -> new PhotoDto(p.getId())).toList(),
                 exampleRepository.findByChapterIdOrderByPositionAscIdAsc(id).stream().map(ExampleDto::from).toList(),
                 chapter.getRevisionTopic());
