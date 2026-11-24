@@ -93,14 +93,32 @@ def test_a_prerequisite_must_be_a_real_chapter():
     assert "pre.1" not in found and found["pre.2"]["colour"] == "red"
 
 
-def test_the_reviewer_sees_each_claim_with_only_the_sources_it_cites():
+def test_the_reviewer_sees_every_source_and_the_teachers_decisions():
     lesson = draft(idea=[claim("Graficul e o dreaptă.", "EN-1")])
     lesson["sources"].append({"id": "MAN-2", "kind": "MANUAL", "label": "Manual", "text": "necitat"})
+    lesson["decisions"] = [r"Funcția liniară are $a \neq 0$."]
 
     asked = review_request(lesson)
 
-    assert '<source id="EN-1"' in asked.text and "MAN-2" not in asked.text
-    assert '"id": "idea.1"' in asked.text and "You did not write it" in asked.system
+    assert '<source id="EN-1"' in asked.text and '<source id="MAN-2"' in asked.text  # to say what is missing
+    assert "<teacher_decisions>\n- Funcția liniară are $a \\neq 0$.\n</teacher_decisions>" in asked.text
+    assert '"id": "idea.1"' in asked.text and "You did not write it" in asked.system and "missing" in asked.system
+
+
+def test_what_the_lesson_leaves_out_is_red_and_flags_the_draft():
+    lesson = draft(idea=[claim("Graficul e o dreaptă.", "EN-1")])
+
+    def ask(req, model, attempts):
+        return Asked({"reviews": [{"claim_id": "idea.1", "verdict": "supported", "check_matches_text": None,
+                                   "reason": "", "language": ""}],
+                      "missing": [{"topic": "Intersecția a două grafice", "source_ids": ["EN-1"]}]}, model, 1, 1)
+
+    review = verify(lesson, always("ok"), ask, Settings())
+
+    assert review["status"] == "flagged" and review["claims"]["cover.1"]["colour"] == "red"
+    assert review["claims"]["cover.1"]["reasons"] == ["lipsește din lecție: Intersecția a două grafice (EN-1)"]
+    assert "<h2>Ce lipsește din lecție</h2>" in report_html(lesson, review)
+    assert verify(lesson, always("ok"), None, Settings(), reuse=review)["claims"]["cover.1"]["colour"] == "red"
 
 
 def test_the_reviewers_verdict_can_only_make_a_claim_worse():
@@ -172,3 +190,29 @@ def test_a_language_slip_makes_the_claim_yellow():
     result = combine(found, reviews)["idea.1"]
 
     assert result["colour"] == "yellow" and result["reasons"] == ["limba: „Dedudecem” → „Deducem”"]
+
+
+def test_a_book_figure_must_be_copied_from_a_cited_source():
+    lesson = draft(idea=[
+        claim("Triunghiul: ![ABC](poza:132?x=0.1&y=0.2&w=0.3&h=0.4)", "EN-1"),
+        claim("Altul: ![XYZ](poza:999?x=0)", "EN-1"),
+    ])
+    lesson["sources"][0]["text"] += " ![ABC](poza:132?x=0.1&y=0.2&w=0.3&h=0.4)"
+
+    found = mechanical(lesson, always("ok"))
+
+    assert found["idea.1"]["colour"] == "green"  # the link is not read as bare LaTeX either (its _ and &)
+    assert found["idea.2"]["colour"] == "red"
+    assert found["idea.2"]["reasons"] == ["figură care nu e în sursele citate: poza:999?x=0"]
+    review = {"status": "draft", "counts": {"green": 2, "yellow": 0, "red": 0}, "review_model": "m", "cost_usd": 0,
+              "claims": {"idea.1": {"colour": "green", "reasons": [], "checks": []}}}
+    assert "[Figura din carte: ABC — poza:132?x=0.1&amp;y=0.2&amp;w=0.3&amp;h=0.4]" in report_html(lesson, review)
+
+
+def test_the_reviewer_knows_the_other_chapters_so_it_does_not_ask_for_their_matter():
+    lesson = draft(idea=[claim("Graficul e o dreaptă.", "EN-1")])
+
+    asked = review_request(lesson)
+
+    assert "<chapter>A11 · Funcția liniară</chapter>" in asked.text and "A10: Calcul algebric" in asked.text
+    assert "belongs to another chapter" in asked.system and "variant of a problem type" in asked.system

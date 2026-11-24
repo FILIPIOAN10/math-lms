@@ -2,7 +2,17 @@
 
 from tutor.config import Settings
 from tutor.solver import Asked
-from tutor.synthesize import Source, chapter_sources, claims, lesson_markdown, request, synthesize
+from tutor.synthesize import (
+    ask_strong,
+    Source,
+    chapter_sources,
+    claims,
+    lesson_markdown,
+    repair_claims,
+    request,
+    revise_request,
+    synthesize,
+)
 
 CHAPTER = {"id": 1, "code": "A11", "title": "Funcția liniară"}
 SOURCES = [Source("EN-1", "EN", "Culegere EN, pagina 108", "$f(x)=ax+b$. Graficul este o dreaptă."),
@@ -98,3 +108,62 @@ def test_a_step_the_model_numbered_itself_is_not_numbered_twice():
     lesson = {**LESSON, "problem_types": [{**LESSON["problem_types"][0], "method": [claim("1. Înlocuim $x$.", "EN-1")]}]}
 
     assert "1. Înlocuim $x$." in lesson_markdown(lesson, CHAPTER) and "1. 1." not in lesson_markdown(lesson, CHAPTER)
+
+
+def test_the_teachers_decisions_come_before_the_sources_and_go_with_the_draft():
+    asked = request(CHAPTER, SOURCES, [])
+
+    assert asked.text.index("<teacher_decisions>") < asked.text.index("<sources>")
+    assert r"$a \neq 0$" in asked.text and "teacher_decisions" in asked.system
+    draft = synthesize(lambda req, model, attempts: Asked(LESSON, model, 1, 1), Settings(), CHAPTER, SOURCES, [])
+    assert any(r"a \neq 0" in d for d in draft["decisions"])
+
+
+def test_latex_whose_backslash_json_ate_is_put_back():
+    broken = {"text": "$f : R \to R$ și $(a, b) \neq (b, a)$\nunde $x$", "list": ["$x \notin A$"]}
+
+    fixed = repair_claims(broken)
+
+    assert fixed["text"] == "$f : R \\to R$ și $(a, b) \\neq (b, a)$\nunde $x$"  # a real new line stays
+    assert fixed["list"] == ["$x \\notin A$"]
+
+
+def test_a_revision_sends_the_draft_and_everything_not_green():
+    review = {"claims": {"idea.1": {"colour": "green", "reasons": []},
+                         "def1.1": {"colour": "red", "reasons": ["greșeală de matematică: $\\in$, nu $\\times$"]},
+                         "cover.1": {"colour": "red", "reasons": ["lipsește din lecție: Coliniaritate (EN-1)"]}}}
+
+    asked = revise_request(CHAPTER, SOURCES, [], {"lesson": LESSON}, review)
+
+    assert "<draft>" in asked.text and '"term": "Funcția liniară"' in asked.text
+    assert '"id": "def1.1"' in asked.text and "Coliniaritate" in asked.text and '"id": "idea.1"' not in asked.text
+    assert "Return the WHOLE corrected lesson" in asked.system and asked.schema is not None
+
+
+def test_a_revised_draft_counts_its_revision():
+    first = synthesize(lambda req, model, attempts: Asked(LESSON, model, 1, 1), Settings(), CHAPTER, SOURCES, [])
+    second = synthesize(lambda req, model, attempts: Asked(LESSON, model, 1, 1), Settings(), CHAPTER, SOURCES, [],
+                        revise=(first, {"claims": {}}))
+
+    assert (first["revision"], second["revision"]) == (0, 1)
+
+
+def test_a_lesson_is_asked_of_the_strong_model_again_never_of_the_stand_in():
+    seen = []
+
+    def ask(req, model, attempts):
+        seen.append(model)
+        return Asked(None if len(seen) < 3 else LESSON, model, 10, 10, "Gemini a răspuns 504")
+
+    asked = ask_strong(ask, request(CHAPTER, SOURCES, []), Settings(), pause_seconds=0)
+
+    assert seen == [Settings().solve_model] * 3 and asked.data == LESSON and asked.input_tokens == 30
+    assert ask_strong(lambda r, m, a: Asked(None, m, 1, 1, "504"), request(CHAPTER, SOURCES, []), Settings(),
+                      pause_seconds=0).data is None
+
+
+def test_an_empty_example_is_not_a_claim():
+    lesson = {**LESSON, "definitions": [{**LESSON["definitions"][0], "example": claim("")}]}
+
+    assert "def1.ex" not in [claim_id for claim_id, _, _ in claims(lesson)]
+    assert "*Exemplu:*" not in lesson_markdown(lesson, CHAPTER)
