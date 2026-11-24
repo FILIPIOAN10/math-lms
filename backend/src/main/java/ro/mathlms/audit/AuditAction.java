@@ -31,6 +31,9 @@ public enum AuditAction {
     EN_CHAPTER_LESSON_HIDDEN(AuditCategory.CONTENT),
     /** A written-out page the transcription flagged ([?], a warning), read by the teacher (V77). */
     EN_CHAPTER_LESSON_PAGE_REVIEWED(AuditCategory.CONTENT),
+    /** A chapter's new lesson (V78): the teacher corrected its text, or approved it for students. */
+    EN_LESSON_EDITED(AuditCategory.CONTENT),
+    EN_LESSON_APPROVED(AuditCategory.CONTENT),
     EN_EXAMPLE_ADDED(AuditCategory.CONTENT),
     EN_EXAMPLE_UPDATED(AuditCategory.CONTENT),
     EN_EXAMPLE_DELETED(AuditCategory.CONTENT),

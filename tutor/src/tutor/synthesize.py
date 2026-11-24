@@ -200,6 +200,9 @@ SCHEMA = {
 TEACHER_DECISIONS = (
     "Funcția liniară: $f : \\mathbb{R} \\to \\mathbb{R}$, $f(x) = ax + b$, cu $a, b$ numere reale și $a \\neq 0$. "
     "Condiția $a \\neq 0$ face parte din definiție și se scrie de fiecare dată când se definește funcția liniară.",
+    "Împărțirea exactă $a : b = c$ (cu $b \\neq 0$): deîmpărțitul este $a = b \\cdot c$, împărțitorul este "
+    "$b = a : c$ (pentru $c \\neq 0$). Culegerea EN are aici o greșeală de tipar ($b = c : a$): nu o copia și nu o "
+    "pomeni în lecție.",
 )
 
 

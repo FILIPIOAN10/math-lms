@@ -12,6 +12,7 @@ const api = vi.hoisted(() => ({
   getEnChapterLesson: vi.fn(),
   showEnChapterLesson: vi.fn(),
   markEnLessonPageReviewed: vi.fn(),
+  getWrittenLesson: vi.fn(),
 }))
 vi.mock('@/lib/api', async (original) => ({ ...(await original<typeof import('@/lib/api')>()), ...api }))
 
@@ -111,6 +112,7 @@ describe('EnChapterPage', () => {
     Object.values(api).forEach((fn) => fn.mockReset())
     api.listEnChapters.mockResolvedValue([])
     api.getEnChapterLesson.mockResolvedValue({ published: false, photoCount: 0, needsReview: 0, pages: [] })
+    api.getWrittenLesson.mockResolvedValue({ exists: false })
     auth.value.user.role = 'STUDENT'
   })
 

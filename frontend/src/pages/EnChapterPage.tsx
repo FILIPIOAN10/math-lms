@@ -10,6 +10,7 @@ import { PageHeader } from '@/components/PageHeader'
 import { PhotoViewer } from '@/components/PhotoViewer'
 import { ZoomableImage } from '@/components/QuestionImage'
 import { HomeSection } from '@/components/home/HomeBits'
+import { WrittenLessonSection } from '@/components/WrittenLessonSection'
 import {
   enChapterDrawingUrl,
   enChapterPhotoUrl,
@@ -360,6 +361,8 @@ export function EnChapterPage() {
             </div>
           </HomeSection>
         )}
+
+        {page && <WrittenLessonSection chapterId={page.id} teacher={teacher} photoUrl={photoUrl} />}
 
         {page && lesson && lesson.pages.length > 0 && (
           <HomeSection title="Lecția completă">

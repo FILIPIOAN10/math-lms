@@ -6,7 +6,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 /** Turns the chapter pages' errors into status codes with a Romanian message the screens show as is. */
-@RestControllerAdvice(assignableTypes = {EnChapterController.class, EnChapterLessonController.class})
+@RestControllerAdvice(assignableTypes = {EnChapterController.class, EnChapterLessonController.class,
+        EnChapterWrittenLessonController.class})
 public class EnChapterExceptionHandler {
 
     @ExceptionHandler(EnChapterNotFoundException.class)

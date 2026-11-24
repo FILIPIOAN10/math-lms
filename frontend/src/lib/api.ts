@@ -2242,7 +2242,7 @@ export type AuditAction =
   | 'CHAPTER_CREATED' | 'CHAPTER_UPDATED' | 'CHAPTER_DELETED'
   | 'EXERCISE_CREATED' | 'EXERCISE_UPDATED' | 'EXERCISE_DELETED'
   | 'EN_CHAPTER_CREATED' | 'EN_CHAPTER_UPDATED' | 'EN_CHAPTER_DELETED' | 'EN_CHAPTER_PHOTO_ADDED' | 'EN_CHAPTER_PHOTO_REMOVED'
-  | 'EN_CHAPTER_LESSON_SHOWN' | 'EN_CHAPTER_LESSON_HIDDEN' | 'EN_CHAPTER_LESSON_PAGE_REVIEWED'
+  | 'EN_CHAPTER_LESSON_SHOWN' | 'EN_CHAPTER_LESSON_HIDDEN' | 'EN_CHAPTER_LESSON_PAGE_REVIEWED' | 'EN_LESSON_EDITED' | 'EN_LESSON_APPROVED'
   | 'EN_EXAMPLE_ADDED' | 'EN_EXAMPLE_UPDATED' | 'EN_EXAMPLE_DELETED' | 'EN_CHAPTER_SLOTS_UPDATED'
   | 'QUIZ_CREATED' | 'QUIZ_UPDATED' | 'QUIZ_COPIED' | 'QUIZ_PUBLISHED' | 'QUIZ_UNPUBLISHED' | 'QUIZ_DELETED'
   | 'QUESTION_ADDED' | 'QUESTION_UPDATED' | 'QUESTION_DELETED' | 'QUESTION_IMAGE_SET' | 'QUESTION_IMAGE_REMOVED' | 'QUIZ_FROM_PHOTOS'
@@ -2429,6 +2429,54 @@ export function enChapterDrawingUrl(chapterId: number, drawingId: number): strin
 
 export async function showEnChapterLesson(id: number, published: boolean): Promise<void> {
   await putJson(`/admin/en-chapters/${id}/lesson`, { published })
+}
+
+/** One claim of a chapter's new lesson, with the colour its checks gave it (V78, tutor.verify_lesson). */
+export interface WrittenLessonClaim {
+  id: string
+  where: string
+  text: string
+  colour: 'green' | 'yellow' | 'red'
+  reasons: string[]
+  sourceIds: string[]
+}
+
+export interface WrittenLessonSource {
+  id: string
+  kind: string
+  label: string
+  text: string
+}
+
+/**
+ * A chapter's NEW lesson (V78), written from all its sources and checked claim by claim. A student gets only
+ * `exists` and `markdown`, once it is approved and the chapter shown; the rest is the teacher's review.
+ */
+export interface WrittenLesson {
+  exists: boolean
+  markdown?: string | null
+  status?: 'draft' | 'flagged' | 'approved' | null
+  editedByTeacher?: boolean | null
+  redCount?: number | null
+  yellowCount?: number | null
+  model?: string | null
+  approvedAt?: string | null
+  updatedAt?: string | null
+  claims?: WrittenLessonClaim[] | null
+  sources?: WrittenLessonSource[] | null
+}
+
+export async function getWrittenLesson(chapterId: number): Promise<WrittenLesson> {
+  const response = await apiFetch(`/en-chapters/${chapterId}/written-lesson`)
+  return response.json()
+}
+
+export async function editWrittenLesson(chapterId: number, markdown: string): Promise<void> {
+  await putJson(`/admin/en-chapters/${chapterId}/written-lesson`, { markdown })
+}
+
+export async function approveWrittenLesson(chapterId: number, readYellow: boolean): Promise<void> {
+  await postJson(`/admin/en-chapters/${chapterId}/written-lesson/approve`, { readYellow })
 }
 
 /** The teacher has read a flagged page against the book (V77). */

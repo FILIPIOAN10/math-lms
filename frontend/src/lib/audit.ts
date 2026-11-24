@@ -31,6 +31,8 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   EN_CHAPTER_LESSON_SHOWN: 'Lecția completă arătată elevilor',
   EN_CHAPTER_LESSON_HIDDEN: 'Lecția completă ascunsă elevilor',
   EN_CHAPTER_LESSON_PAGE_REVIEWED: 'Pagină din lecție verificată',
+  EN_LESSON_EDITED: 'Lecție nouă corectată',
+  EN_LESSON_APPROVED: 'Lecție nouă aprobată',
   EN_EXAMPLE_ADDED: 'Model rezolvat adăugat',
   EN_EXAMPLE_UPDATED: 'Model rezolvat modificat',
   EN_EXAMPLE_DELETED: 'Model rezolvat șters',

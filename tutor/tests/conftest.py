@@ -21,6 +21,7 @@ VERSIONS = [
     "V75__tutor_chunk_source_manual.sql",
     "V76__en_chapter_notes_generated.sql",
     "V77__lesson_pages_review.sql",
+    "V78__en_chapter_lessons.sql",
 ]
 
 
@@ -37,6 +38,8 @@ def conn():
     admin.execute(f'CREATE DATABASE "{name}"')
     connection = psycopg.connect(make_conninfo(settings.psycopg_dsn, dbname=name), autocommit=True)
     try:
+        # V78 points at users (who approved a lesson); the tutor's tests need only its key.
+        connection.execute("CREATE TABLE users (id BIGINT PRIMARY KEY)")
         for version in VERSIONS:
             connection.execute((MIGRATIONS / version).read_text(encoding="utf-8"))
         # V33 seeds A1..G9; the tests add the pages of the book they talk about.
