@@ -41,6 +41,7 @@ from tutor.conversation import Turn
 from tutor.explain import ExplainService
 from tutor.mistake import MistakeService
 from tutor.recap import RecapService
+from tutor.lesson_index import run_lesson_index
 from tutor.similar_index import IndexReport, run_index
 from tutor.help_chain import LEVELS, HelpError, HelpService, HelpStep, Refusal, Source
 from tutor.solver import (Answer, GeneratedExercise, SimilarService, SolveError, SolveRun, SolveService,
@@ -225,6 +226,11 @@ def similar_indexer() -> Callable[[], IndexReport]:
     return run_index
 
 
+def lesson_indexer() -> Callable[[], IndexReport]:
+    """What POST /lesson-index runs; tests override it."""
+    return run_lesson_index
+
+
 @lru_cache
 def solve_service() -> SolveService:
     return SolveService.from_settings(get_settings())
@@ -346,6 +352,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # A plain `def`: embedding and writing are synchronous, so FastAPI runs it in its thread pool.
     @app.post("/similar-index", dependencies=[Depends(check_token)])
     def write_similar_index(run: Annotated[Callable[[], IndexReport], Depends(similar_indexer)]) -> dict:
+        report = run()
+        return {"inserted": report.inserted, "unchanged": report.unchanged, "removed": report.removed}
+
+    # Plan step 6: the approved and shown lessons, embedded for the search (the backend calls it after an approval or a
+    # show / hide). A plain `def`, like /similar-index.
+    @app.post("/lesson-index", dependencies=[Depends(check_token)])
+    def write_lesson_index(run: Annotated[Callable[[], IndexReport], Depends(lesson_indexer)]) -> dict:
         report = run()
         return {"inserted": report.inserted, "unchanged": report.unchanged, "removed": report.removed}
 

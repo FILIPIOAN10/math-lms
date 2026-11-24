@@ -57,13 +57,16 @@ def _codes_under(conn: psycopg.Connection, page: str | None) -> list[str] | None
     return [code for (code,) in rows if under(code, page)]
 
 
-def vector_hits(conn: psycopg.Connection, vector: list[float], limit: int, only: list[str] | None = None) -> list[Hit]:
+def vector_hits(conn: psycopg.Connection, vector: list[float], limit: int, only: list[str] | None = None,
+                sources: list[str] | None = None) -> list[Hit]:
+    """`sources`: only chunks of these sources (LESSON, PHOTO, MANUAL, ...); None = all."""
     register_vector(conn)
     rows = conn.execute(
         "SELECT t.id, c.code, t.book_page, t.content, t.embedding <=> %(q)s AS distance "
         "FROM tutor_chunks t JOIN en_chapters c ON c.id = t.chapter_id "
-        "WHERE (%(only)s::text[] IS NULL OR c.code = ANY(%(only)s)) ORDER BY distance LIMIT %(n)s",
-        {"q": Vector(vector), "only": only, "n": limit},
+        "WHERE (%(only)s::text[] IS NULL OR c.code = ANY(%(only)s)) "
+        "AND (%(sources)s::text[] IS NULL OR t.source = ANY(%(sources)s)) ORDER BY distance LIMIT %(n)s",
+        {"q": Vector(vector), "only": only, "sources": sources, "n": limit},
     ).fetchall()
     return [Hit(i, code, page, content, float(distance)) for i, code, page, content, distance in rows]
 
@@ -257,6 +260,23 @@ def search_text(statement: str) -> str:
     return OPTIONS_LINE.sub("", statement).strip() or statement
 
 
+#: how much farther (cosine distance) an approved lesson's passage may be than the nearest passage of the whole store
+#: and still come first: a lesson the teacher approved explains better than a raw book page, but one about another
+#: topic must not push the right page out.
+LESSON_MARGIN = 0.03
+#: how many of the passages approved lessons may take; the rest stay the nearest of the whole store
+LESSON_SHARE = 2
+
+
+def prefer_lessons(hits: list[Hit], lesson_hits: list[Hit], k: int) -> list[Hit]:
+    """Plan step 6: the approved lessons' passages first (up to LESSON_SHARE), when they are about the exercise."""
+    if not lesson_hits or not hits or lesson_hits[0].score - hits[0].score > LESSON_MARGIN:
+        return hits
+    chosen = [h for h in lesson_hits if h.score - hits[0].score <= LESSON_MARGIN][:LESSON_SHARE]
+    taken = {h.chunk_id for h in chosen}
+    return chosen + [h for h in hits if h.chunk_id not in taken][:k - len(chosen)]
+
+
 def interleave(first: list[Hit], second: list[Hit], k: int) -> list[Hit]:
     """first[0], second[0], first[1], ... without repeats, up to k."""
     out: list[Hit] = []
@@ -296,6 +316,7 @@ def retrieve_for_exercise(conn: psycopg.Connection, statement: str, embeddings: 
     hits = search(conn, "vector", statement, embeddings, k=k, query_vector=vector)
     if rules and rules.strip() and hits:
         hits = interleave(hits, search(conn, "vector", rules.strip(), embeddings, k=k), k)
+    lessons = vector_hits(conn, vector, k, sources=["LESSON"]) if hits else []
     if slot and hits:
         page = slot_page(conn, slot)
         on_page = search(conn, "vector", statement, embeddings, k=k, only_under=page, query_vector=vector) if page else []
@@ -303,11 +324,11 @@ def retrieve_for_exercise(conn: psycopg.Connection, statement: str, embeddings: 
             chosen = on_page[:SLOT_SHARE]
             taken = {hit.chunk_id for hit in chosen}
             chosen += [hit for hit in hits if hit.chunk_id not in taken][:k - len(chosen)]
-            return Retrieval("slot", chosen, None)
+            return Retrieval("slot", prefer_lessons(chosen, lessons, k), None)
     if not hits:
         return Retrieval("vector", [], None, "no_passages")
     best = hits[0].score
-    return Retrieval("vector", hits, best, "too_far" if best > max_distance else None)
+    return Retrieval("vector", prefer_lessons(hits, lessons, k), best, "too_far" if best > max_distance else None)
 
 
 class ChunkRetriever(BaseRetriever):

@@ -22,6 +22,7 @@ VERSIONS = [
     "V76__en_chapter_notes_generated.sql",
     "V77__lesson_pages_review.sql",
     "V78__en_chapter_lessons.sql",
+    "V79__tutor_chunk_source_lesson.sql",
 ]
 
 

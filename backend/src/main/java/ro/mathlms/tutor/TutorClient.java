@@ -144,6 +144,15 @@ public class TutorClient {
         return report;
     }
 
+    /** Plan step 6: re-embed the approved and shown chapter lessons (only what changed). */
+    public IndexReport indexLessons() {
+        IndexReport report = post("/lesson-index", java.util.Map.of(), IndexReport.class);
+        if (report == null) {
+            throw new TutorException(FAILED);
+        }
+        return report;
+    }
+
     private <T> T post(String path, Object body, Class<T> type) {
         if (token.isEmpty()) {
             throw new TutorException(NOT_CONFIGURED);

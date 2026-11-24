@@ -213,3 +213,19 @@ def test_a_passage_from_a_whole_textbook_names_the_textbook_and_links_no_page_of
     assert [(p.title, p.book_page) for p in found.passages] == [
         ("Titlul AIS5P2 · Manual clasa a V-a (Intuitext), pagina 212", 0)]
     assert "(pagina 0" not in passage_block(found)
+
+
+def test_a_passage_of_an_approved_lesson_comes_first_and_names_the_lesson(conn):
+    # Plan step 6: the same idea in the teacher's approved lesson and on a raw book page: the lesson goes first, and,
+    # having no page of the book, links the chapter.
+    add_pages(conn, "AIS5P2")
+    store_chunks(conn, [chunk("AIS5P2", "Compararea puterilor (pagina din carte).", 13)], TopicEmbeddings(), "m",
+                 "book.pdf")
+    store_chunks(conn, [chunk("AIS5P2", "Compararea puterilor, explicată în lecție.", 0)], TopicEmbeddings(), "m",
+                 "AIS5P2 (lecție aprobată)", source="LESSON", whole_source=True)
+    retriever = DbRetriever(lambda: contextlib.nullcontext(conn), TopicEmbeddings(), k=4, max_distance=0.46)
+
+    found = retriever("Cum compar puterile?", None)
+
+    assert [(p.title, p.book_page) for p in found.passages][0] == ("Titlul AIS5P2 · Lecția", 0)
+    assert [p.content for p in found.passages][1] == "Compararea puterilor (pagina din carte)."

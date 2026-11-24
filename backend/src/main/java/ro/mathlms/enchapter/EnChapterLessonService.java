@@ -6,6 +6,7 @@ import org.springframework.transaction.annotation.Transactional;
 import ro.mathlms.audit.AuditAction;
 import ro.mathlms.audit.AuditEvent;
 import ro.mathlms.audit.AuditLog;
+import ro.mathlms.tutor.LessonIndexTrigger;
 
 import java.util.List;
 import java.util.Optional;
@@ -36,11 +37,14 @@ public class EnChapterLessonService {
     private final JdbcTemplate jdbc;
     private final EnChapterRepository chapterRepository;
     private final AuditLog auditLog;
+    private final LessonIndexTrigger lessonIndex;
 
-    public EnChapterLessonService(JdbcTemplate jdbc, EnChapterRepository chapterRepository, AuditLog auditLog) {
+    public EnChapterLessonService(JdbcTemplate jdbc, EnChapterRepository chapterRepository, AuditLog auditLog,
+                                  LessonIndexTrigger lessonIndex) {
         this.jdbc = jdbc;
         this.chapterRepository = chapterRepository;
         this.auditLog = auditLog;
+        this.lessonIndex = lessonIndex;
     }
 
     private boolean published(Long chapterId) {
@@ -118,6 +122,7 @@ public class EnChapterLessonService {
         jdbc.update("UPDATE en_chapters SET lesson_published = ? WHERE id = ?", published, chapterId);
         auditLog.record(AuditEvent.of(published ? AuditAction.EN_CHAPTER_LESSON_SHOWN : AuditAction.EN_CHAPTER_LESSON_HIDDEN,
                 chapterId, chapter.getCode() + " · " + chapter.getTitle()));
+        lessonIndex.lessonsChanged();  // an approved lesson enters (or leaves) the tutor's search with its chapter
     }
 
     /** The teacher has read a flagged page against the book: it may go to students with the rest of the chapter. */

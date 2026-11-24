@@ -286,10 +286,15 @@ class DbRetriever:
             ids = [hit.chunk_id for hit in retrieval.hits]
             manuals = dict(conn.execute("SELECT id, source_name FROM tutor_chunks WHERE id = ANY(%s) AND source = 'MANUAL'",
                                         (ids,)).fetchall())
+            lessons = {row[0] for row in conn.execute(
+                "SELECT id FROM tutor_chunks WHERE id = ANY(%s) AND source = 'LESSON'", (ids,)).fetchall()}
         passages = []
         for n, hit in enumerate(retrieval.hits, start=1):
             title, page = titles.get(hit.code, hit.code), hit.book_page
-            if hit.chunk_id in manuals:
+            if hit.chunk_id in lessons:
+                # The chapter's lesson the teacher approved (plan step 6): it has no page of the book.
+                title, page = f"{title} · Lecția", 0
+            elif hit.chunk_id in manuals:
                 # A page of a whole textbook is not a page of the chapter's lesson: name the book, link no page.
                 title, page = f"{title} · {manuals[hit.chunk_id]}, pagina {hit.book_page}", 0
             passages.append(Passage(n=n, code=hit.code, title=title, book_page=page, chunk_id=hit.chunk_id,

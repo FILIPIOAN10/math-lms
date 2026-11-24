@@ -6,6 +6,7 @@ import org.springframework.transaction.annotation.Transactional;
 import ro.mathlms.audit.AuditAction;
 import ro.mathlms.audit.AuditEvent;
 import ro.mathlms.audit.AuditLog;
+import ro.mathlms.tutor.LessonIndexTrigger;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -40,13 +41,15 @@ public class EnChapterWrittenLessonService {
     private final EnChapterRepository chapterRepository;
     private final AuditLog auditLog;
     private final ObjectMapper objectMapper;
+    private final LessonIndexTrigger lessonIndex;
 
     public EnChapterWrittenLessonService(JdbcTemplate jdbc, EnChapterRepository chapterRepository, AuditLog auditLog,
-                                         ObjectMapper objectMapper) {
+                                         ObjectMapper objectMapper, LessonIndexTrigger lessonIndex) {
         this.jdbc = jdbc;
         this.chapterRepository = chapterRepository;
         this.auditLog = auditLog;
         this.objectMapper = objectMapper;
+        this.lessonIndex = lessonIndex;
     }
 
     private EnChapter chapter(Long id) {
@@ -105,6 +108,7 @@ public class EnChapterWrittenLessonService {
             throw new EnChapterNotFoundException("lesson", chapterId);
         }
         auditLog.record(AuditEvent.of(AuditAction.EN_LESSON_EDITED, chapterId, label(chapter)));
+        lessonIndex.lessonsChanged();  // an approved text taken back leaves the tutor's search
     }
 
     /**
@@ -131,6 +135,7 @@ public class EnChapterWrittenLessonService {
         jdbc.update("UPDATE en_chapter_lessons SET status = 'approved', approved_by = ?, approved_at = now() "
                 + "WHERE chapter_id = ?", teacherId, chapterId);
         auditLog.record(AuditEvent.of(AuditAction.EN_LESSON_APPROVED, chapterId, label(chapter)));
+        lessonIndex.lessonsChanged();
     }
 
     private static String label(EnChapter chapter) {
