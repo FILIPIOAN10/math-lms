@@ -56,3 +56,16 @@ def test_a_text_longer_than_a_page_holds_is_reported_not_cut(conn):
 
     assert report.too_long == ["AIS2"]
     assert notes_of(conn, "AIS2") is None
+
+
+def test_text_the_tool_wrote_is_replaced_by_a_later_build_until_the_teacher_edits_it(conn):
+    publish_notes(conn, [doc("AIS2P2", "jumătate de lecție")])
+
+    rebuilt = publish_notes(conn, [doc("AIS2P2", "lecția întreagă")])
+    assert rebuilt.updated == ["AIS2P2"]
+    assert notes_of(conn, "AIS2P2") == "lecția întreagă"
+
+    conn.execute("UPDATE en_chapters SET notes = notes || ' (corectat)' WHERE code = 'AIS2P2'")
+    after_edit = publish_notes(conn, [doc("AIS2P2", "altă variantă")])
+    assert after_edit.kept == ["AIS2P2"]
+    assert notes_of(conn, "AIS2P2") == "lecția întreagă (corectat)"

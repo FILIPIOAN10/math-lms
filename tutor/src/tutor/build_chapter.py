@@ -6,6 +6,9 @@ Run:  uv run python -m tutor.build_chapter AI --max-usd 0.10
 2. the text is cut at the numbered headings into chunks, embedded and stored for the bot (tutor_chunks);
 3. each section's text is written into that section's page in the app (en_chapters.notes), where students read it.
 
+Steps 2 and 3 run only when every photo has its text (see `finish`); otherwise the run stores nothing and exits 2, and
+the next run reads only the photos still missing. --allow-partial stores the passages for the bot, never the lesson text.
+
 Where the passages go depends on the page the photos are on (page_map.follows_book):
 - a chapter of the textbook (AI, GVII): by the book's Cuprins and the printed page numbers, as tutor.ingest does;
 - any other page (the EN chapters A1...G10): they stay on that page, whatever the photos show - another book, a
@@ -118,6 +121,27 @@ def store_transcribed(conn: psycopg.Connection, code: str, first_page: int | Non
     return Built(home, stored, problems, published)
 
 
+def untranscribed(photos: list[Photo], done: dict[int, str]) -> list[Photo]:
+    """The chapter's photos with no text yet: the file was missing, the model failed, or the cost limit stopped the run."""
+    return [photo for photo in photos if photo.id not in done]
+
+
+def finish(conn: psycopg.Connection, code: str, first_page: int | None, photos: list[Photo], done: dict[int, str],
+           embedder: Embeddings, embedding_model: str, *, publish: bool = True, overwrite: bool = False,
+           allow_partial: bool = False) -> Built | None:
+    """
+    Steps 2 and 3, only for a whole chapter. With a photo still unread nothing is stored and nothing published (None):
+    the lesson students read would have a hole, and the bot would answer from half a chapter. The transcripts already
+    made stay in tutor_photo_transcripts, so the next run pays only for the missing photos. `allow_partial` stores the
+    passages for the bot anyway, but still writes nothing into the pages students read.
+    """
+    missing = untranscribed(photos, done)
+    if missing and not allow_partial:
+        return None
+    return store_transcribed(conn, code, first_page, photos, done, embedder, embedding_model,
+                             publish=publish and not missing, overwrite=overwrite)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Transformă pozele unui capitol din LMS în text scris, pe subcapitole.")
     parser.add_argument("code", help="codul capitolului, de exemplu AI")
@@ -128,6 +152,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--overwrite", action="store_true", help="înlocuiește și textul scris deja de profesor")
     parser.add_argument("--redo-figures", action="store_true",
                         help="retranscrie paginile cu figuri care n-au poziția figurilor (transcrise înainte să existe)")
+    parser.add_argument("--allow-partial", action="store_true",
+                        help="cu poze necitite: salvează totuși pasajele pentru bot (paginile din aplicație nu se scriu)")
     args = parser.parse_args(argv)
 
     settings = get_settings()
@@ -185,8 +211,18 @@ def main(argv: list[str] | None = None) -> int:
                       f"{result.input_tokens} in, {result.output_tokens} out | ~{cost:.4f} USD")
         print(f"Transcriere: {spent:.4f} USD")
 
-        built = store_transcribed(conn, args.code, first_page, photos, done, embeddings(settings),
-                                  settings.embedding_model, publish=not args.no_publish, overwrite=args.overwrite)
+        missing = untranscribed(photos, done)
+        if missing:
+            positions = ", ".join(str(photo.position) for photo in missing)
+            print(f"INCOMPLET: {len(missing)} din {len(photos)} poze fără text (pozițiile {positions}).")
+        built = finish(conn, args.code, first_page, photos, done, embeddings(settings), settings.embedding_model,
+                       publish=not args.no_publish, overwrite=args.overwrite, allow_partial=args.allow_partial)
+        if built is None:
+            print("Nimic salvat pentru bot și nimic scris în aplicație. Transcrierile făcute rămân: rulează din nou "
+                  "(eventual cu --max-usd mai mare) și se citesc doar pozele lipsă. --allow-partial salvează doar pentru bot.")
+            return 2
+        if missing and not args.no_publish:
+            print("  ATENȚIE: capitol incomplet, deci textul din aplicație NU a fost scris (doar pasajele pentru bot).")
         for warning in built.warnings():
             print("  ATENȚIE:", warning)
         report = built.stored

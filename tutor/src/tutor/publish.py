@@ -1,7 +1,9 @@
 """Writes the theory of each section as plain text into the LMS page of that section (en_chapters.notes).
 
 That text is what students read in the app, so it is only written where the teacher has not written anything: a page
-with text of its own is left alone unless `overwrite` is asked for.
+with text of its own is left alone unless `overwrite` is asked for. Text this module wrote itself is remembered by its
+MD5 (en_chapters.notes_generated_md5, V76): while the page still holds exactly that text, a later build replaces it
+(a full rebuild after a partial one); once the teacher edits it, it is the teacher's.
 """
 
 import re
@@ -18,7 +20,7 @@ MAX_NOTES = 60_000  # EnChapter.MAX_NOTES in the backend
 @dataclass
 class PublishReport:
     updated: list[str] = field(default_factory=list)
-    kept: list[str] = field(default_factory=list)  # had text of its own
+    kept: list[str] = field(default_factory=list)  # had text of its own (the teacher's, or AI text edited since)
     empty: list[str] = field(default_factory=list)
     too_long: list[str] = field(default_factory=list)
     unresolved: list[str] = field(default_factory=list)  # no page in the LMS for that code
@@ -57,8 +59,9 @@ def publish_notes(conn: psycopg.Connection, documents: list[Document], *, overwr
             report.too_long.append(code)
         else:
             changed = conn.execute(
-                "UPDATE en_chapters SET notes = %s WHERE id = %s AND (notes IS NULL OR %s)",
-                (text, pages[code][0], overwrite),
+                "UPDATE en_chapters SET notes = %(text)s, notes_generated_md5 = md5(%(text)s) WHERE id = %(id)s "
+                "AND (notes IS NULL OR %(overwrite)s OR md5(notes) = notes_generated_md5)",
+                {"text": text, "id": pages[code][0], "overwrite": overwrite},
             ).rowcount
             (report.updated if changed else report.kept).append(code)
     return report

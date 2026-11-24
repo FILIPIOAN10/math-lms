@@ -4,7 +4,7 @@ a second run."""
 
 from langchain_core.embeddings import DeterministicFakeEmbedding
 
-from tutor.build_chapter import Photo, numbered_pages, store_transcribed
+from tutor.build_chapter import Photo, finish, numbered_pages, store_transcribed
 
 EMBEDDINGS = DeterministicFakeEmbedding(size=1536)
 
@@ -158,3 +158,41 @@ def test_numbered_pages_numbers_only_a_home_page_by_position():
     book, by_page = numbered_pages("AI", 9, photos, done, home=None)
     assert [page.book_page for page in book] == [87, 28]
     assert by_page == {87: 7, 28: 9}
+
+
+def notes(conn, chapter_id: int):
+    return conn.execute("SELECT notes FROM en_chapters WHERE id = %s", (chapter_id,)).fetchone()[0]
+
+
+def test_a_chapter_with_an_unread_photo_is_neither_stored_nor_published(conn):
+    chapter_id = chapter(conn, "A5")
+    photos, done = photos_with(conn, chapter_id, [transcript("Prima pagină."), transcript("A doua.")])
+    del done[photos[1].id]  # the file was missing, the model failed or the cost limit stopped the run
+
+    assert finish(conn, "A5", None, photos, done, EMBEDDINGS, "m") is None
+    assert stored(conn) == []
+    assert notes(conn, chapter_id) is None
+
+
+def test_allow_partial_stores_for_the_bot_but_writes_no_lesson_text(conn):
+    chapter_id = chapter(conn, "A6")
+    photos, done = photos_with(conn, chapter_id, [transcript("Prima pagină."), transcript("A doua.")])
+    del done[photos[1].id]
+
+    built = finish(conn, "A6", None, photos, done, EMBEDDINGS, "m", allow_partial=True)
+
+    assert [row[2] for row in stored(conn)] == [photos[0].id]
+    assert built.published is None
+    assert notes(conn, chapter_id) is None
+
+
+def test_the_whole_chapter_replaces_a_lesson_text_the_tool_wrote_from_part_of_it(conn):
+    chapter_id = chapter(conn, "A7")
+    photos, done = photos_with(conn, chapter_id, [transcript("Prima pagină."), transcript("A doua.")])
+    store_transcribed(conn, "A7", None, photos[:1], {photos[0].id: done[photos[0].id]}, EMBEDDINGS, "m")
+    assert notes(conn, chapter_id) == "Prima pagină."  # as an older run, before finish() guarded it
+
+    built = finish(conn, "A7", None, photos, done, EMBEDDINGS, "m")
+
+    assert built.published.updated == ["A7"]
+    assert notes(conn, chapter_id) == "Prima pagină.\n\nA doua."
