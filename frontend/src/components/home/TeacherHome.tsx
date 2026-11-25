@@ -28,6 +28,7 @@ import { errorMessage } from '@/lib/errors'
 import { formatDate, roCount } from '@/lib/format'
 import { firstRunSteps, upcomingDeadlines, type FirstRunStep } from '@/lib/home'
 import { LoadingCards } from '@/components/LoadingCards'
+import { cn } from '@/lib/utils'
 import { ExplanationRequestsSection } from '@/components/ExplanationRequestsSection'
 
 const GRADING_PREVIEW = 5
@@ -149,27 +150,27 @@ export function TeacherHome({ canApprove = true }: { canApprove?: boolean }) {
   const open = data.assignments.filter((a) => !a.overdue).length
   const deadlines = upcomingDeadlines(data.assignments, loadedAt)
 
-  const hasSide = data.toGrade.length > 0 || canApprove
-
   return (
     <div className="space-y-6">
       {confirmDialog}
       {firstRun && <FirstRunChecklist steps={firstRun} />}
-      <div className={data.pending === null ? 'grid grid-cols-2 gap-3' : 'grid grid-cols-3 gap-3'}>
-        <StatTile
-          to="/admin/grading" value={data.toGrade.length} label="Lucrări de corectat" icon={PenLine}
-          urgent doneLabel="Totul corectat" testId="tile-grading"
-        />
-        {data.pending !== null && (
-          <StatTile
-            to="/admin/students" value={data.pending} label="Conturi de aprobat" icon={UserCheck}
-            urgent doneLabel="Niciun cont în așteptare" testId="tile-pending"
-          />
-        )}
-        <StatTile to="/admin/assignments" value={open} label="Teme deschise" icon={ClipboardList} testId="tile-assignments" />
-      </div>
-
       <HomeColumns
+        // On a computer the counts head the side column, so it is never empty; on a phone they come first.
+        stats={
+          <div className={cn('grid gap-3 lg:grid-cols-1', data.pending === null ? 'grid-cols-2' : 'grid-cols-3')}>
+            <StatTile
+              to="/admin/grading" value={data.toGrade.length} label="Lucrări de corectat" icon={PenLine}
+              urgent doneLabel="Totul corectat" testId="tile-grading"
+            />
+            {data.pending !== null && (
+              <StatTile
+                to="/admin/students" value={data.pending} label="Conturi de aprobat" icon={UserCheck}
+                urgent doneLabel="Niciun cont în așteptare" testId="tile-pending"
+              />
+            )}
+            <StatTile to="/admin/assignments" value={open} label="Teme deschise" icon={ClipboardList} testId="tile-assignments" />
+          </div>
+        }
         main={
           <>
             {keysToCheck.length > 0 && (
@@ -209,13 +210,14 @@ export function TeacherHome({ canApprove = true }: { canApprove?: boolean }) {
             >
               {deadlines.length === 0 ? (
                 <HomeEmpty
+                  symbol="Δt"
                   action={
-                    <Link to="/admin/assignments" className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+                    <Link to="/admin/assignments" className={buttonVariants({ size: 'sm' })}>
                       Dă o temă
                     </Link>
                   }
                 >
-                  Nicio temă cu termen apropiat.
+                  Nicio temă cu termen apropiat. Dă o temă și vezi aici cine a predat.
                 </HomeEmpty>
               ) : (
                 deadlines.map((a) => {
@@ -303,7 +305,7 @@ export function TeacherHome({ canApprove = true }: { canApprove?: boolean }) {
           </>
         }
         side={
-          hasSide ? (
+          data.toGrade.length > 0 || canApprove ? (
             <>
                 {data.toGrade.length > 0 && (
                   <HomeSection

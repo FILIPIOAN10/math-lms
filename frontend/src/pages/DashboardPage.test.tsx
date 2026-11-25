@@ -69,6 +69,7 @@ function renderHome() {
 
 beforeEach(() => {
   Object.values(api).forEach((fn) => fn.mockReset())
+  localStorage.clear()
 })
 
 describe('DashboardPage — student', () => {
@@ -82,7 +83,7 @@ describe('DashboardPage — student', () => {
 
   it('greets the student by name', async () => {
     renderHome()
-    expect(screen.getByTestId('welcome')).toHaveTextContent('Bine ai venit, Ana Student')
+    expect(screen.getByTestId('welcome')).toHaveTextContent(/^Bună (dimineața|ziua|seara), Ana Student$/)
     await screen.findByText(/Nicio temă de făcut/)
   })
 
@@ -367,9 +368,13 @@ describe('DashboardPage — teacher', () => {
     api.listQuizzes.mockResolvedValue([])
     renderHome()
 
-    const checklist = await screen.findByRole('region', { name: 'Primii pași (1 din 4)' })
-    expect(within(checklist).getByTestId('first-run-class')).toHaveAttribute('data-done', 'true')
+    const checklist = await screen.findByRole('region', { name: 'Primii pași' })
+    expect(within(checklist).getByRole('progressbar', { name: 'Primii pași' })).toHaveAttribute('aria-valuetext', '1 din 4')
+    // The step done folds into one green line; only the steps left are listed.
+    expect(within(checklist).getByTestId('first-run-done-steps')).toHaveTextContent('Creează o clasă')
+    expect(within(checklist).queryByTestId('first-run-class')).not.toBeInTheDocument()
     const next = within(checklist).getByTestId('first-run-students')
+    expect(next).toHaveTextContent('2') // keeps its number in the whole list
     expect(next).toHaveTextContent('Invită elevii')
     expect(within(next).getByRole('link', { name: 'Începe' })).toHaveAttribute('href', '/admin/content')
     expect(within(checklist).getAllByRole('link', { name: 'Începe' })).toHaveLength(1)
@@ -399,8 +404,13 @@ describe('DashboardPage — teacher', () => {
     api.listPendingUsers.mockResolvedValue([])
     renderHome()
 
-    expect(await screen.findByTestId('tile-grading')).toHaveTextContent('Totul corectat ✓')
-    expect(screen.getByTestId('tile-pending')).toHaveTextContent('Niciun cont în așteptare ✓')
+    // Same shape as any tile (the number and its label), plus the good news as a chip and in words for a screen reader.
+    const grading = await screen.findByTestId('tile-grading')
+    expect(grading).toHaveTextContent('0Lucrări de corectat')
+    expect(grading).toHaveTextContent('Totul la zi')
+    expect(grading).toHaveTextContent('Totul corectat')
+    expect(grading).toHaveAttribute('data-done', 'true')
+    expect(screen.getByTestId('tile-pending')).toHaveTextContent('Niciun cont în așteptare')
   })
 
   it('offers an admin the shortcuts to the chapters and the journal', async () => {
@@ -427,13 +437,46 @@ describe('DashboardPage — teacher', () => {
     expect(within(screen.getByTestId('home-side')).getByRole('region', { name: 'De corectat' })).toBeInTheDocument()
   })
 
-  it('keeps one column for a teacher with nothing to grade', async () => {
+  it('heads the side column with the counts, so it is never empty on a wide screen', async () => {
     auth.value = { user: user({ role: 'TEACHER' }), loading: false }
     api.listAttemptsForGrading.mockResolvedValue([])
     renderHome()
 
-    await screen.findByTestId('home-main')
+    const stats = await screen.findByTestId('home-stats')
+    expect(within(stats).getByTestId('tile-grading')).toBeInTheDocument()
     expect(screen.queryByTestId('home-side')).not.toBeInTheDocument()
+  })
+
+  it('lets the teacher hide the first steps, and remembers it', async () => {
+    api.listAttemptsForGrading.mockResolvedValue([])
+    api.listPendingUsers.mockResolvedValue([])
+    api.listAssignments.mockResolvedValue([])
+    api.listClasses.mockResolvedValue([])
+    api.listActiveUsers.mockResolvedValue([])
+    api.listQuizzes.mockResolvedValue([])
+    const { unmount } = renderHome()
+
+    const checklist = await screen.findByRole('region', { name: 'Primii pași' })
+    await userEvent.click(within(checklist).getByRole('button', { name: 'Ascunde' }))
+    expect(screen.queryByTestId('first-run')).not.toBeInTheDocument()
+    unmount()
+
+    renderHome()
+    await screen.findByTestId('tile-grading')
+    await waitFor(() => expect(api.listQuizzes).toHaveBeenCalledTimes(2))
+    expect(screen.queryByTestId('first-run')).not.toBeInTheDocument()
+  })
+
+  it('says "Gata!" once when the last first step gets done', async () => {
+    localStorage.setItem('firstRunSeen', '1')
+    const { unmount } = renderHome()
+    expect(await screen.findByTestId('first-run-done')).toHaveTextContent('Gata! Totul e pregătit')
+    unmount()
+
+    renderHome()
+    await screen.findByTestId('tile-grading')
+    await waitFor(() => expect(api.listQuizzes).toHaveBeenCalledTimes(2))
+    expect(screen.queryByTestId('first-run-done')).not.toBeInTheDocument()
   })
 
   it('lists the deadlines that need attention with how many students handed in', async () => {
@@ -582,7 +625,7 @@ describe('DashboardPage — teacher', () => {
     auth.value = { user: user({ role: 'ADMIN', fullName: 'Prof Admin', twoFactorSetupRequired: true }), loading: false }
     renderHome()
 
-    expect(screen.getByTestId('welcome')).toHaveTextContent('Bine ai venit, Prof Admin')
+    expect(screen.getByTestId('welcome')).toHaveTextContent(/Prof Admin$/)
     expect(screen.getByTestId('two-factor-required')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Mergi la Contul meu' })).toHaveAttribute('href', '/account')
     expect(screen.queryByText(/TWO_FACTOR/)).not.toBeInTheDocument()

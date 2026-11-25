@@ -105,8 +105,24 @@ abstract class E2eBase {
      */
     protected void logout() {
         open("/");
-        byTestId("logout").click();
+        clickLogout();
         wait.until(ExpectedConditions.urlContains("/login"));
+    }
+
+    /**
+     * Presses "Ieșire" wherever it is: on a computer-wide window it sits in the account menu at the bottom of the side
+     * menu (opened first), on a narrow one it is a button in the top bar. Both carry data-testid="logout".
+     */
+    protected void clickLogout() {
+        driver.findElements(By.cssSelector("[data-testid='account-menu']")).stream()
+                .filter(WebElement::isDisplayed)
+                .findFirst()
+                .ifPresent(WebElement::click);
+        wait.until(d -> d.findElements(By.cssSelector("[data-testid='logout']")).stream()
+                .filter(WebElement::isDisplayed)
+                .findFirst()
+                .orElse(null))
+                .click();
     }
 
     protected WebElement byTestId(String testId) {

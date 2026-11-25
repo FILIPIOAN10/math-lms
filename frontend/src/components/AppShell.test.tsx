@@ -104,7 +104,7 @@ describe('AppShell', () => {
     auth.value.user = user({ role: 'ADMIN', fullName: 'Prof Admin' })
     renderShell()
     const banner = screen.getByRole('banner')
-    expect(within(banner).getByText('Administrator')).toBeInTheDocument()
+    expect(within(banner).getAllByText('Administrator').length).toBeGreaterThan(0)
     expect(within(banner).queryByText('ADMIN')).not.toBeInTheDocument()
   })
 
@@ -113,7 +113,7 @@ describe('AppShell', () => {
     auth.value.user = user({ role: 'TEACHER', fullName: 'Prof Ana' })
     renderShell()
     const banner = screen.getByRole('banner')
-    expect(within(banner).getByText('Profesor')).toBeInTheDocument()
+    expect(within(banner).getAllByText('Profesor').length).toBeGreaterThan(0)
     expect(within(banner).getByRole('link', { name: /Corectură/ })).toBeInTheDocument()
     await waitFor(() => expect(api.listAttemptsForGrading).toHaveBeenCalled())
     expect(api.listPendingUsers).not.toHaveBeenCalled()
@@ -194,6 +194,17 @@ describe('AppShell', () => {
     auth.value.user = user({})
     renderShell('/quizzes')
     await userEvent.click(screen.getByRole('button', { name: 'Ieșire' }))
+    expect(auth.value.logout).toHaveBeenCalled()
+  })
+
+  it('on a computer, opens the account menu with Contul meu, the theme and Ieșire', async () => {
+    auth.value.user = user({ fullName: 'Ana Maria Pop' })
+    renderShell('/quizzes')
+    await userEvent.click(screen.getByTestId('account-menu'))
+    const menu = await screen.findByRole('menu')
+    expect(within(menu).getByRole('menuitem', { name: 'Contul meu' })).toBeInTheDocument()
+    expect(within(menu).getByRole('menuitem', { name: /Temă/ })).toBeInTheDocument()
+    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Ieșire' }))
     expect(auth.value.logout).toHaveBeenCalled()
   })
 
@@ -287,7 +298,7 @@ describe('AppShell', () => {
     it("shows the user's initials next to their name", () => {
       auth.value = { ...auth.value, user: user({ fullName: 'Ana Maria Pop' }) }
       renderShell()
-      expect(within(screen.getByRole('banner')).getByText('AM')).toBeInTheDocument()
+      expect(within(screen.getByRole('banner')).getAllByText('AM').length).toBeGreaterThan(0)
     })
 
     it('switches between light and dark in one press and remembers it', async () => {

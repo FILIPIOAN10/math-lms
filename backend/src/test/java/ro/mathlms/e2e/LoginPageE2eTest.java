@@ -67,7 +67,7 @@ class LoginPageE2eTest extends E2eBase {
         wait.until(ExpectedConditions.elementToBeClickable(
                 By.xpath("//nav[@aria-label='Navigare principală']//a[@href='/quizzes']"))).click();
         wait.until(ExpectedConditions.urlContains("/quizzes"));
-        byTestId("logout").click();
+        clickLogout();
         wait.until(ExpectedConditions.urlContains("/login"));
 
         driver.navigate().back();

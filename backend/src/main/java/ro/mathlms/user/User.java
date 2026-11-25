@@ -96,7 +96,7 @@ public class User {
 
     public User(String email, String fullName, Role role) {
         this.email = requireNonBlank(email, "email");
-        this.fullName = requireNonBlank(fullName, "fullName");
+        this.fullName = personName(fullName);
         this.role = Objects.requireNonNull(role, "role");
     }
 
@@ -108,7 +108,7 @@ public class User {
                                      String passwordHash, Role requestedRole) {
         User user = new User();
         user.email = requireNonBlank(email, "email");
-        user.fullName = requireNonBlank(fullName, "fullName");
+        user.fullName = personName(fullName);
         user.password = requireNonBlank(passwordHash, "password");
         user.requestedRole = Objects.requireNonNull(requestedRole, "requestedRole");
         // status defaults to PENDING_VERIFICATION, emailVerified to false, role stays null.
@@ -124,7 +124,7 @@ public class User {
         User user = new User();
         user.googleId = requireNonBlank(googleId, "googleId");
         user.email = requireNonBlank(email, "email");
-        user.fullName = requireNonBlank(fullName, "fullName");
+        user.fullName = personName(fullName);
         user.role = Objects.requireNonNull(role, "role");
         user.emailVerified = true;
         user.status = AccountStatus.ACTIVE;
@@ -142,7 +142,7 @@ public class User {
         User user = new User();
         user.googleId = requireNonBlank(googleId, "googleId");
         user.email = requireNonBlank(email, "email");
-        user.fullName = requireNonBlank(fullName, "fullName");
+        user.fullName = personName(fullName);
         user.requestedRole = Objects.requireNonNull(requestedRole, "requestedRole");
         user.emailVerified = true;
         user.status = AccountStatus.PENDING_APPROVAL;
@@ -264,6 +264,24 @@ public class User {
         this.extraTimePercent = 0; // an accommodation is about the person: it goes with them
         this.erased = true;
         this.erasedAt = Instant.now();
+    }
+
+    /**
+     * The name as the person typed it, trimmed, with the first letter of each word (and of each part of a hyphenated
+     * one) raised: "ioan filip" is stored as "Ioan Filip", so emails and lists show it properly. The rest of a word is
+     * left alone, so "McDonald" or an all-caps surname stays as written.
+     */
+    static String personName(String fullName) {
+        String trimmed = requireNonBlank(fullName, "fullName").trim();
+        StringBuilder out = new StringBuilder(trimmed.length());
+        boolean wordStart = true;
+        for (int i = 0; i < trimmed.length(); ) {
+            int cp = trimmed.codePointAt(i);
+            out.appendCodePoint(wordStart ? Character.toTitleCase(cp) : cp);
+            wordStart = Character.isWhitespace(cp) || cp == '-';
+            i += Character.charCount(cp);
+        }
+        return out.toString();
     }
 
     private static String requireNonBlank(String value, String field) {

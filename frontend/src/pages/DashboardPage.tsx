@@ -6,6 +6,7 @@ import { useAuth } from '@/context/AuthContext'
 import { InstallBanner } from '@/components/InstallApp'
 import { usePageTitle } from '@/lib/usePageTitle'
 import { cn } from '@/lib/utils'
+import { greeting } from '@/lib/home'
 
 const SUBTITLES = {
   STUDENT: 'Iată ce ai de făcut.',
@@ -24,12 +25,23 @@ export function DashboardPage() {
   }
 
   return (
-    <div className="p-4">
+    <div className="py-4">
       {/* A parent has one card per child: a narrow column reads better. A student's pages all share one width (4xl), so
-          the content does not jump sideways between tabs; staff use the width of a laptop. */}
-      <div className={cn('mx-auto max-w-3xl space-y-6', user.role === 'STUDENT' ? 'max-w-4xl' : user.role !== 'PARENT' && 'lg:max-w-5xl')}>
+          the content does not jump sideways between tabs; staff get a wide page with a side column (see TeacherHome). */}
+      <div
+        className={cn(
+          'mx-auto w-full space-y-6 px-4',
+          user.role === 'STUDENT' ? 'max-w-4xl' : user.role === 'PARENT' ? 'max-w-3xl' : 'max-w-6xl lg:px-8',
+        )}
+      >
         <div>
-          <h1 data-testid="welcome" className="text-2xl font-semibold">Bine ai venit, {user.fullName}</h1>
+          <p className="text-sm text-muted-foreground first-letter:uppercase">
+            {new Date().toLocaleDateString('ro-RO', { weekday: 'long', day: 'numeric', month: 'long' })}
+          </p>
+          {/* The whole name: Romanian names are often written surname first, so a "first name" would be a guess. */}
+          <h1 data-testid="welcome" className="text-2xl font-semibold tracking-tight lg:text-3xl">
+            {greeting()}, {user.fullName}
+          </h1>
           <p className="text-sm text-muted-foreground">{SUBTITLES[user.role]}</p>
         </div>
         <InstallBanner />

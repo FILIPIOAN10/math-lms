@@ -1,6 +1,7 @@
 import { Suspense, useEffect, useId, useRef, useState } from 'react'
-import { Ellipsis, LogOut, Moon, Search, Sun } from 'lucide-react'
-import { Link, Outlet, useLocation } from 'react-router-dom'
+import { ChevronsUpDown, Ellipsis, LogOut, Moon, Search, Sun, UserRound } from 'lucide-react'
+import { Menu } from '@base-ui/react/menu'
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { CommandPalette } from '@/components/CommandPalette'
 import { useAuth } from '@/context/AuthContext'
@@ -230,6 +231,66 @@ function ThemeToggle({ className }: { className?: string }) {
   )
 }
 
+const MENU_ITEM =
+  'flex cursor-default items-center gap-2 rounded-md px-2.5 py-1.5 outline-none select-none data-[highlighted]:bg-muted [&_svg]:size-4 [&_svg]:text-muted-foreground'
+
+/**
+ * The account corner of the side menu on a computer: the initials, name and role open a menu with "Contul meu", the
+ * theme and "Ieșire" - one tidy row pinned at the bottom instead of a link and two loose buttons.
+ */
+function AccountMenu({ fullName, role, onLogout }: { fullName: string; role: Role; onLogout: () => void }) {
+  const navigate = useNavigate()
+  const [dark, setDark] = useState(() => document.documentElement.classList.contains('dark'))
+  return (
+    <Menu.Root>
+      <Menu.Trigger
+        data-testid="account-menu"
+        aria-label={`Contul meu: ${fullName}`}
+        className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left leading-tight outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 data-[popup-open]:bg-muted"
+      >
+        <span aria-hidden="true" className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+          {initials(fullName)}
+        </span>
+        <span aria-hidden="true" className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-medium">{fullName}</span>
+          <span className="block text-xs text-muted-foreground">{roleLabel(role)}</span>
+        </span>
+        <ChevronsUpDown aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
+      </Menu.Trigger>
+      <Menu.Portal>
+        <Menu.Positioner side="top" align="start" sideOffset={6} className="z-50">
+          <Menu.Popup className="w-52 rounded-lg bg-popover p-1 text-sm text-popover-foreground shadow-lg ring-1 ring-foreground/10 outline-none">
+            <Menu.Item className={MENU_ITEM} onClick={() => navigate('/account')}>
+              <UserRound aria-hidden="true" />
+              Contul meu
+            </Menu.Item>
+            <Menu.Item
+              className={MENU_ITEM}
+              data-testid="theme-menu-item"
+              onClick={() => {
+                chooseTheme(dark ? 'light' : 'dark')
+                setDark(!dark)
+              }}
+            >
+              {dark ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}
+              Temă {dark ? 'luminoasă' : 'întunecată'}
+            </Menu.Item>
+            <Menu.Separator className="my-1 h-px bg-border" />
+            <Menu.Item className={MENU_ITEM} data-testid="logout" onClick={onLogout}>
+              <LogOut aria-hidden="true" />
+              Ieșire
+            </Menu.Item>
+          </Menu.Popup>
+        </Menu.Positioner>
+      </Menu.Portal>
+    </Menu.Root>
+  )
+}
+
+/** The current side-menu link: tinted, bold, and a bar on its left edge (the tint alone was easy to miss). */
+const SIDE_ACTIVE = 'bg-primary/10 text-primary font-semibold lg:shadow-[inset_3px_0_0_var(--color-primary)]'
+const SIDE_IDLE = 'text-muted-foreground hover:bg-muted hover:text-foreground'
+
 /** Plays the page's short fade-in when the user moves to another page (only when motion is welcome, see index.css). */
 function usePageEnter(pathname: string) {
   const ref = useRef<HTMLDivElement>(null)
@@ -254,7 +315,7 @@ function usePageEnter(pathname: string) {
  * (or a not-yet-approved account) signed in this renders only the page and lets the guard redirect.
  *
  * One header, three shapes: on a computer (`lg`) it is a side menu - the links in a column, the rarer pages under
- * "Mai mult", the account, theme and "Ieșire" at the bottom; on a tablet a top bar with the links in a row under the
+ * "Mai mult" (only the links scroll), and the account pinned at the bottom, its menu holding the theme and "Ieșire"; on a tablet a top bar with the links in a row under the
  * name; on a phone a top bar and the tab bar at the bottom (TabBar). Ctrl+K (or the search button) opens the search.
  */
 export function AppShell() {
@@ -291,9 +352,8 @@ export function AppShell() {
   return (
     <div className="min-h-screen bg-muted">
       <header className="sticky top-0 z-20 border-b bg-background lg:fixed lg:inset-y-0 lg:left-0 lg:w-60 lg:border-r lg:border-b-0">
-        <div aria-hidden="true" className="hero-surface h-1" />
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-2 gap-y-1 px-4 py-2 sm:gap-x-3 lg:h-[calc(100%-0.25rem)] lg:max-w-none lg:flex-col lg:flex-nowrap lg:items-stretch lg:gap-1 lg:overflow-y-auto lg:p-3">
-          <Link to="/" className="flex items-center gap-2 text-base font-semibold lg:px-2 lg:pt-1 lg:pb-3">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-2 gap-y-1 px-4 py-2 sm:gap-x-3 lg:h-full lg:min-h-0 lg:max-w-none lg:flex-col lg:flex-nowrap lg:items-stretch lg:gap-1 lg:px-4 lg:py-4">
+          <Link to="/" className="flex items-center gap-2 text-base font-semibold lg:px-3 lg:pt-1 lg:pb-3">
             <span aria-hidden="true" className="hero-surface flex size-7 items-center justify-center rounded-lg bg-primary text-xs font-bold text-white">
               x²
             </span>
@@ -311,6 +371,9 @@ export function AppShell() {
             <span aria-hidden="true" className="hidden flex-1 text-left lg:inline">Caută…</span>
             <kbd aria-hidden="true" className="hidden rounded border bg-background px-1.5 text-xs lg:inline">Ctrl K</kbd>
           </button>
+          {/* On a computer only this part scrolls, so the account below stays in view on a short window; under lg the
+              wrapper is `contents` and the links keep their place in the top bar. */}
+          <div className="contents lg:-mx-1 lg:flex lg:min-h-0 lg:flex-1 lg:flex-col lg:gap-1 lg:overflow-y-auto lg:px-1">
           {withNav && (
             <nav
               aria-label="Navigare principală"
@@ -324,7 +387,7 @@ export function AppShell() {
                     to={item.to}
                     data-testid={item.testId}
                     aria-current={active ? 'page' : undefined}
-                    className={cn(SIDE_LINK, active ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}
+                    className={cn(SIDE_LINK, active ? SIDE_ACTIVE : SIDE_IDLE)}
                   >
                     <item.icon aria-hidden="true" className="size-4" />
                     {item.label}
@@ -336,7 +399,7 @@ export function AppShell() {
           )}
           {more.length > 0 && (
             <nav aria-label="Mai mult" className="hidden lg:mt-4 lg:flex lg:flex-col lg:gap-1">
-              <p aria-hidden="true" className="px-3 pb-1 text-xs font-medium text-muted-foreground">Mai mult</p>
+              <p aria-hidden="true" className="px-3 pb-1 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">Mai mult</p>
               {more.map((item) => {
                 const active = isNavActive(item, pathname)
                 return (
@@ -344,7 +407,7 @@ export function AppShell() {
                     key={item.to}
                     to={item.to}
                     aria-current={active ? 'page' : undefined}
-                    className={cn(SIDE_LINK, active ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}
+                    className={cn(SIDE_LINK, active ? SIDE_ACTIVE : SIDE_IDLE)}
                   >
                     <item.icon aria-hidden="true" className="size-4" />
                     {item.label}
@@ -353,11 +416,16 @@ export function AppShell() {
               })}
             </nav>
           )}
-          <div className="flex items-center gap-2 lg:mt-auto lg:flex-col lg:items-stretch lg:gap-2 lg:border-t lg:pt-3">
+          </div>
+          <div className="flex items-center gap-2 lg:shrink-0 lg:flex-col lg:items-stretch lg:border-t lg:pt-3">
+            <div className="hidden lg:block">
+              <AccountMenu fullName={user.fullName} role={user.role} onLogout={logout} />
+            </div>
+            {/* Tablet and phone: the account link, the theme and "Ieșire" stay in the top bar as before. */}
             <Link
               to="/account"
               title="Contul meu"
-              className="flex items-center gap-2 rounded-lg px-2 py-1 leading-tight outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
+              className="flex items-center gap-2 rounded-lg px-2 py-1 leading-tight outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 lg:hidden"
             >
               <span aria-hidden="true" className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
                 {initials(user.fullName)}
@@ -370,11 +438,10 @@ export function AppShell() {
                 <span className="block text-xs text-muted-foreground">{roleLabel(user.role)}</span>
               </span>
             </Link>
-            <div className="flex items-center gap-1 lg:justify-between">
+            <div className="flex items-center gap-1 lg:hidden">
               {/* On a phone the theme is in Contul meu: the top bar keeps room for the search and "Ieșire". */}
               <ThemeToggle className="max-sm:hidden" />
               <Button variant="outline" size="sm" onClick={logout} data-testid="logout">
-                <LogOut aria-hidden="true" className="hidden lg:block" />
                 Ieșire
               </Button>
             </div>

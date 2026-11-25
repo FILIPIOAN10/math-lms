@@ -364,7 +364,7 @@ class ReviewServiceIntegrationTest {
         assertThat(status.lastReviewOn()).isEqualTo(D1.plusDays(1));
 
         List<StudentReviewStatusDto> rows = at(D1.plusDays(1)).forClass(cls.getId());
-        assertThat(rows).extracting(StudentReviewStatusDto::fullName).containsExactly("Elev r7", "Elev r7b");
+        assertThat(rows).extracting(StudentReviewStatusDto::fullName).containsExactly("Elev R7", "Elev R7b");
         assertThat(rows.get(0).doneToday()).isEqualTo(1);
         assertThat(rows.get(1).totalCards()).isZero();
     }

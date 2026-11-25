@@ -9,7 +9,7 @@ class LoginE2eTest extends E2eBase {
     void adminCanLogInAndSeesTheDashboard() {
         login(ADMIN, PASSWORD);
 
-        assertThat(byTestId("welcome").getText()).contains("Bine ai venit");
+        assertThat(byTestId("welcome").getText()).containsPattern("Bună (dimineața|ziua|seara)");
     }
 
     @Test

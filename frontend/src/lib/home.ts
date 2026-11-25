@@ -90,3 +90,9 @@ export function weakestChapter(rows: EnChapterMastery[]): EnChapterMastery | nul
     .filter((r) => r.questions > 0 && masteryLevel(r.percent) === 'low')
     .reduce<EnChapterMastery | null>((low, r) => (low === null || (r.percent ?? 0) < (low.percent ?? 0) ? r : low), null)
 }
+
+/** "Bună dimineața" before 12:00, "Bună ziua" until 18:00, "Bună seara" after. */
+export function greeting(now: Date = new Date()): string {
+  const hour = now.getHours()
+  return hour < 12 ? 'Bună dimineața' : hour < 18 ? 'Bună ziua' : 'Bună seara'
+}

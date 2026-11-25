@@ -117,12 +117,12 @@ class ClassGradebookIntegrationTest {
         assertThat(book.className()).isEqualTo("Clasa g1");
         assertThat(book.tests()).extracting(TestColumn::title).containsExactly("Fracții g1", "Ecuații g1");
         assertThat(book.tests()).extracting(TestColumn::quizId).doesNotContain(notTaken.getId(), elsewhere.getId());
-        assertThat(book.students()).extracting(StudentRow::fullName).containsExactly("Ana g1", "Bob g1");
+        assertThat(book.students()).extracting(StudentRow::fullName).containsExactly("Ana G1", "Bob G1");
         assertThat(book.students().get(0).grades()).containsExactly(new BigDecimal("8.20"), null);
         assertThat(book.students().get(1).grades()).containsExactly(null, new BigDecimal("10.00"));
 
         assertThat(ClassGradebookService.toCsv(book)).isEqualTo(
-                "﻿Elev;Fracții g1;Ecuații g1\r\nAna g1;8,20;\r\nBob g1;;10\r\n");
+                "﻿Elev;Fracții g1;Ecuații g1\r\nAna G1;8,20;\r\nBob G1;;10\r\n");
     }
 
     @Test
@@ -133,7 +133,7 @@ class ClassGradebookIntegrationTest {
         Gradebook book = service.forClass(cls.getId());
 
         assertThat(book.tests()).isEmpty();
-        assertThat(ClassGradebookService.toCsv(book)).isEqualTo("﻿Elev\r\nAna g2\r\n");
+        assertThat(ClassGradebookService.toCsv(book)).isEqualTo("﻿Elev\r\nAna G2\r\n");
     }
 
     @Test
@@ -158,7 +158,7 @@ class ClassGradebookIntegrationTest {
                 .andExpect(header().string("Content-Disposition", containsString("attachment")))
                 .andExpect(header().string("Cache-Control", "no-store"))
                 .andReturn().getResponse().getContentAsByteArray();
-        assertThat(new String(file, StandardCharsets.UTF_8)).isEqualTo("﻿Elev;Fracții g3\r\nAna g3;5,50\r\n");
+        assertThat(new String(file, StandardCharsets.UTF_8)).isEqualTo("﻿Elev;Fracții g3\r\nAna G3;5,50\r\n");
 
         // Another teacher's class looks exactly like a class that does not exist.
         mockMvc.perform(get(url).with(as(stranger.getEmail(), "TEACHER"))).andExpect(status().isNotFound());

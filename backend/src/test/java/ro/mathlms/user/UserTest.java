@@ -18,6 +18,23 @@ class UserTest {
     }
 
     @Test
+    void capitalisesEachWordOfTheNameAsTyped() {
+        assertThat(new User("a@s.ro", "  ioan filip ", Role.STUDENT).getFullName()).isEqualTo("Ioan Filip");
+        assertThat(User.registerLocal("a@s.ro", "ana-maria pop", "hash", Role.STUDENT).getFullName())
+                .isEqualTo("Ana-Maria Pop");
+        assertThat(User.registerGoogle("g1", "a@s.ro", "ștefan țurcanu", Role.STUDENT).getFullName())
+                .isEqualTo("Ștefan Țurcanu");
+        assertThat(User.registerGoogleInvited("g2", "a@s.ro", "radu marin", Role.STUDENT).getFullName())
+                .isEqualTo("Radu Marin");
+    }
+
+    @Test
+    void leavesTheRestOfEachWordAlone() {
+        // Only the first letter is raised: "McDonald" and an all-caps surname stay as the person wrote them.
+        assertThat(new User("a@s.ro", "ana McDonald POP", Role.STUDENT).getFullName()).isEqualTo("Ana McDonald POP");
+    }
+
+    @Test
     void rejectsBlankEmail() {
         assertThatThrownBy(() -> new User("  ", "Ana Pop", Role.STUDENT))
                 .isInstanceOf(IllegalArgumentException.class)

@@ -215,7 +215,7 @@ class MasteryServiceIntegrationTest {
 
         assertThat(grid.chapters()).extracting(MasteryDtos.ChapterRefDto::title)
                 .containsExactly("Ecuații", "Fracții", "Geometrie"); // natural order within the book
-        assertThat(grid.students()).extracting(MasteryDtos.StudentRowDto::fullName).containsExactly("Ana m4", "Bob m4");
+        assertThat(grid.students()).extracting(MasteryDtos.StudentRowDto::fullName).containsExactly("Ana M4", "Bob M4");
         MasteryDtos.StudentRowDto ana = grid.students().get(0);
         assertThat(ana.cells()).extracting(MasteryDtos.CellDto::percent).containsExactly(null, 100, null);
         assertThat(grid.students().get(1).cells()).allSatisfy(c -> assertThat(c.percent()).isNull());
