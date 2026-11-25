@@ -60,9 +60,9 @@ export function PhotoViewer({
   return (
     <DialogPrimitive.Root open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Backdrop className="fixed inset-0 z-40 bg-black/70" />
+        <DialogPrimitive.Backdrop className="dialog-backdrop fixed inset-0 z-40 bg-black/70" />
         <DialogPrimitive.Popup
-          className="fixed inset-2 z-50 flex flex-col rounded-xl bg-card text-card-foreground shadow-lg ring-1 ring-foreground/10 outline-none sm:inset-6"
+          className="dialog-popup fixed inset-2 z-50 flex flex-col rounded-xl bg-card text-card-foreground shadow-lg ring-1 ring-foreground/10 outline-none sm:inset-6"
         >
           <div className="flex flex-wrap items-center gap-2 border-b px-3 py-2">
             <DialogPrimitive.Title className="mr-auto text-sm font-medium">

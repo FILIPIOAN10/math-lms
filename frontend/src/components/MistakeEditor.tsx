@@ -92,7 +92,7 @@ export function MistakeEditor({ option, aiOn, tutorOn = false, onSaved }: {
   }
 
   const asked = requests > 0 && (
-    <p data-testid="option-requests" className="w-full text-xs font-medium text-amber-800 dark:text-amber-200">
+    <p data-testid="option-requests" className="w-full text-xs font-medium text-warning-foreground">
       {roCount(requests, 'elev a întrebat', 'elevi au întrebat')} „De ce am greșit?”
     </p>
   )

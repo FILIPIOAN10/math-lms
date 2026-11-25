@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { firstRunSteps, latestGrade, todoAssignments, upcomingDeadlines } from '@/lib/home'
-import type { AssignmentSummary, ProgressPointDto, StudentAssignment } from '@/lib/api'
+import { firstRunSteps, latestGrade, todoAssignments, upcomingDeadlines, weakestChapter, weekSummary } from '@/lib/home'
+import type { AssignmentSummary, EnChapterMastery, MyAttemptDto, ProgressPointDto, StudentAssignment } from '@/lib/api'
 
 const DAY = 86_400_000
 const NOW = Date.parse('2026-10-10T12:00:00Z')
@@ -66,5 +66,35 @@ describe('firstRunSteps', () => {
   it('ticks each step from the data, in any order', () => {
     const steps = firstRunSteps({ classes: 2, students: 0, quizzes: 1, assignments: 0 })
     expect(steps.map((s) => s.done)).toEqual([true, false, true, false])
+  })
+})
+
+describe('weekSummary', () => {
+  const now = Date.parse('2026-11-25T12:00:00Z')
+  const hw = (attemptId: number | null, state: StudentAssignment['state'], late = false) =>
+    ({ attemptId, state, late }) as StudentAssignment
+  const tried = (attemptId: number, submittedAt: string | null) => ({ attemptId, submittedAt }) as MyAttemptDto
+
+  it('counts homework handed in during the last seven days, and the late ones among it', () => {
+    const summary = weekSummary(
+      [hw(1, 'GRADED'), hw(2, 'SUBMITTED', true), hw(3, 'GRADED'), hw(4, 'IN_PROGRESS'), hw(null, 'NOT_STARTED')],
+      [tried(1, '2026-11-24T08:00:00Z'), tried(2, '2026-11-19T08:00:00Z'), tried(3, '2026-11-10T08:00:00Z'), tried(4, null)],
+      now,
+    )
+    expect(summary).toEqual({ handedIn: 2, late: 1 })
+  })
+})
+
+describe('weakestChapter', () => {
+  const row = (chapterId: number, percent: number | null, questions = 4) =>
+    ({ chapterId, percent, questions, title: `C${chapterId}` }) as EnChapterMastery
+
+  it('picks the lowest chapter under 50%', () => {
+    expect(weakestChapter([row(1, 45), row(2, 20), row(3, 90)])?.chapterId).toBe(2)
+  })
+
+  it('finds none when nothing is weak or nothing was met', () => {
+    expect(weakestChapter([row(1, 60), row(2, null, 0)])).toBeNull()
+    expect(weakestChapter([])).toBeNull()
   })
 })

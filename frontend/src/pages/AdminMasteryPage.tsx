@@ -258,7 +258,7 @@ export function AdminMasteryPage() {
                           <th scope="row" className="px-3 py-2 text-left font-medium whitespace-nowrap">
                             <Link to={`/admin/students/${r.studentId}`} className="hover:underline">{r.fullName}</Link>
                           </th>
-                          <td className={`px-3 py-2 tabular-nums ${r.remainingToday === 0 && r.doneToday > 0 ? 'text-emerald-700 dark:text-emerald-300' : ''}`}>
+                          <td className={`px-3 py-2 tabular-nums ${r.remainingToday === 0 && r.doneToday > 0 ? 'text-success-foreground' : ''}`}>
                             {due === 0 ? '—' : `${r.doneToday} / ${due}`}
                           </td>
                           <td className="px-3 py-2">{r.streak === 0 ? '—' : roCount(r.streak, 'zi', 'zile')}</td>

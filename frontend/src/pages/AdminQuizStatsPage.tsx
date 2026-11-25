@@ -69,7 +69,7 @@ function OptionCounts({ item, graded, aiOn, tutorOn, keyOpen, onMakeCorrect, onM
             <span className="min-w-0">
               {option.letter}) <MathContent inline>{option.text}</MathContent>
               {option.correct && (
-                <span className="ml-1 font-semibold text-emerald-700 dark:text-emerald-300">
+                <span className="ml-1 font-semibold text-success-foreground">
                   <span aria-hidden="true">✓</span>
                   <span className="sr-only"> (răspunsul marcat corect)</span>
                 </span>
@@ -124,7 +124,7 @@ function NumberCounts({ item, graded, keyOpen, onMakeCorrect }: {
               <span className="min-w-0">
                 {number.value}
                 {number.correct && (
-                  <span className="ml-1 font-semibold text-emerald-700 dark:text-emerald-300">
+                  <span className="ml-1 font-semibold text-success-foreground">
                     <span aria-hidden="true">✓</span>
                     <span className="sr-only"> (răspunsul marcat corect)</span>
                   </span>
@@ -232,13 +232,13 @@ export function AdminQuizStatsPage() {
 
         {error && <ErrorState message={error} />}
         {!stats && !error && <LoadingCards />}
-        {notice && <p role="status" data-testid="stats-notice" className="text-sm text-emerald-700 dark:text-emerald-300">{notice}</p>}
+        {notice && <p role="status" data-testid="stats-notice" className="text-sm text-success-foreground">{notice}</p>}
 
         {stats && (
           <>
             {suspects.length > 0 && (
               <p role="status" data-testid="stats-suspects"
-                 className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+                 className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm">
                 {suspects.length === 1 ? 'De verificat ' : 'De verificat întrebările '}
                 {suspects.map((s, i) => (
                   <Fragment key={s.item.itemId}>
@@ -334,7 +334,7 @@ export function AdminQuizStatsPage() {
                     </div>
                     <MathContent className="text-sm">{item.statement}</MathContent>
                     {item.suspect && (
-                      <p data-testid="stats-suspect" className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-2 text-sm">
+                      <p data-testid="stats-suspect" className="rounded-lg border border-warning/40 bg-warning/10 p-2 text-sm">
                         Verifică răspunsul marcat: {item.suspect.chosen} din {item.suspect.strong} elevi buni au ales{' '}
                         varianta {item.suspect.letter}). Dacă ei au dreptate, apasă „Asta e varianta corectă” la {item.suspect.letter}).
                       </p>

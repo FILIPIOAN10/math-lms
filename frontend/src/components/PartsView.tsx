@@ -35,7 +35,7 @@ export function PartsView({ parts, className }: { parts: PartLike[]; className?:
               <span
                 className={cn(
                   'shrink-0 text-sm font-medium tabular-nums',
-                  part.awardedPoints === null ? 'text-muted-foreground' : 'text-emerald-700 dark:text-emerald-300',
+                  part.awardedPoints === null ? 'text-muted-foreground' : 'text-success-foreground',
                 )}
               >
                 {part.awardedPoints === null ? '—' : part.awardedPoints} / {part.points} p

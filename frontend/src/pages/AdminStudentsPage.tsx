@@ -296,7 +296,7 @@ export function AdminStudentsPage() {
                               </div>
                             )}
                             {linkedNotes[s.id] && (
-                              <p role="status" className="mb-1 text-sm text-emerald-700 dark:text-emerald-300">{linkedNotes[s.id]}</p>
+                              <p role="status" className="mb-1 text-sm text-success-foreground">{linkedNotes[s.id]}</p>
                             )}
                             {s.parentId === null && !editing && (
                               inviteOnly ? (

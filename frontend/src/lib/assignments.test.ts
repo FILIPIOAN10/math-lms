@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { assignmentBadge, dueCountdown, isHandedIn, isoToLocalInput, localInputToIso, releaseOf } from './assignments'
+import { assignmentBadge, dueCountdown, dueSoonLabel, isHandedIn, isoToLocalInput, localInputToIso, releaseOf } from './assignments'
 
 const HOUR = 3_600_000
 const DAY = 24 * HOUR
@@ -108,5 +108,28 @@ describe('releaseOf', () => {
   it('refuses a moment already past, or not before the deadline', () => {
     expect(releaseOf(isoToLocalInput('2026-11-10T06:00:00Z'), due, now)).toEqual({ error: 'Data la care apare tema trebuie să fie în viitor.' })
     expect(releaseOf(isoToLocalInput(due), due, now)).toEqual({ error: 'Tema trebuie să apară înainte de termen.' })
+  })
+})
+
+describe('dueSoonLabel', () => {
+  const at = (y: number, mo: number, d: number, h: number, mi = 0) => new Date(y, mo - 1, d, h, mi).getTime()
+  const iso = (ms: number) => new Date(ms).toISOString()
+
+  it('says "azi" for later today and "mâine" for tomorrow, by the calendar', () => {
+    const now = at(2026, 11, 25, 22, 0)
+    expect(dueSoonLabel(iso(at(2026, 11, 25, 23, 59)), now)).toBe('azi')
+    expect(dueSoonLabel(iso(at(2026, 11, 26, 8, 0)), now)).toBe('mâine')
+    expect(dueSoonLabel(iso(at(2026, 11, 26, 23, 0)), now)).toBe('mâine')
+  })
+
+  it('says nothing for a deadline further off or already passed', () => {
+    const now = at(2026, 11, 25, 9, 0)
+    expect(dueSoonLabel(iso(at(2026, 11, 27, 0, 1)), now)).toBeNull()
+    expect(dueSoonLabel(iso(at(2026, 11, 25, 8, 59)), now)).toBeNull()
+    expect(dueSoonLabel('not a date', now)).toBeNull()
+  })
+
+  it('crosses a month end', () => {
+    expect(dueSoonLabel(iso(at(2026, 12, 1, 10)), at(2026, 11, 30, 10))).toBe('mâine')
   })
 })

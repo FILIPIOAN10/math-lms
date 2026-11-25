@@ -15,8 +15,8 @@ import { errorMessage } from '@/lib/errors'
 import { cn } from '@/lib/utils'
 
 const COLOUR_CLASS: Record<WrittenLessonClaim['colour'], string> = {
-  green: 'border-l-emerald-600 bg-emerald-500/5',
-  yellow: 'border-l-amber-500 bg-amber-500/10',
+  green: 'border-l-success bg-success/5',
+  yellow: 'border-l-warning bg-warning/10',
   red: 'border-l-red-600 bg-red-500/10',
 }
 

@@ -71,7 +71,7 @@ export function AiAutoProposalsSwitch({
           ? 'Fiecare lucrare predată primește singură propuneri AI (un apel plătit pe problemă).'
           : 'Oprit: ceri propunerea doar unde vrei, cu „Cere propunere AI”. Pornit, o primește fiecare lucrare predată.'}
       </p>
-      {message && <p role="status" className="text-xs text-emerald-700 dark:text-emerald-300">{message}</p>}
+      {message && <p role="status" className="text-xs text-success-foreground">{message}</p>}
       {error && <p className="text-xs text-destructive">{error}</p>}
     </div>
   )

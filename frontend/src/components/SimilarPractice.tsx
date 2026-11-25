@@ -159,9 +159,9 @@ function ExampleCard({ example, position, total, isLast, onNext }: {
                 <Button type="button" size="sm" variant="outline" onClick={() => setMatched(false)}>Nu, am greșit</Button>
               </div>
             )}
-            {matched === true && <p className="text-sm text-emerald-700 dark:text-emerald-400">Bravo! Ai rezolvat-o singur.</p>}
+            {matched === true && <p className="text-sm text-success-foreground">Bravo! Ai rezolvat-o singur.</p>}
             {matched === false && (
-              <p className="text-sm text-amber-800 dark:text-amber-200">
+              <p className="text-sm text-warning-foreground">
                 Urmărește pașii rezolvării de mai sus și caută unde ai luat-o pe alt drum. Lecția de mai jos explică regula.
               </p>
             )}

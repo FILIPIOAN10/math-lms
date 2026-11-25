@@ -474,6 +474,66 @@ describe('AdminGradingPage', () => {
     })
   })
 
+  describe('keyboard and progress', () => {
+    const queue = () => [row({ attemptId: 50, studentName: 'Ana' }), row({ attemptId: 51, studentName: 'Radu' })]
+    const paper = (id: number) => detail({ attemptId: id, studentName: id === 50 ? 'Ana' : 'Radu' })
+
+    beforeEach(() => {
+      api.listAttemptsForGrading.mockResolvedValue(queue())
+      api.getAttemptForGrading.mockImplementation((id: number) => Promise.resolve(paper(id)))
+    })
+
+    it('goes to the next and back to the previous paper with N and P, finalising nothing', async () => {
+      renderPage('/admin/grading?attempt=50')
+      expect(await screen.findByRole('heading', { name: 'Ana — Simulare EN' })).toBeInTheDocument()
+
+      await userEvent.keyboard('n')
+      expect(await screen.findByRole('heading', { name: 'Radu — Simulare EN' })).toBeInTheDocument()
+      await waitFor(() => expect(screen.getByTestId('address')).toHaveTextContent('/admin/grading?attempt=51'))
+      await userEvent.keyboard('n') // the last one: stays
+      expect(screen.getByRole('heading', { name: 'Radu — Simulare EN' })).toBeInTheDocument()
+
+      await userEvent.keyboard('P')
+      expect(await screen.findByRole('heading', { name: 'Ana — Simulare EN' })).toBeInTheDocument()
+      expect(api.finalizeGrading).not.toHaveBeenCalled()
+    })
+
+    it('leaves the letters to a comment being typed, and jumps to the paper comment with C', async () => {
+      renderPage('/admin/grading?attempt=50')
+      await screen.findByRole('heading', { name: 'Ana — Simulare EN' })
+
+      await userEvent.keyboard('c')
+      const box = screen.getByLabelText('Comentariu pentru toată lucrarea (opțional)')
+      expect(box).toHaveFocus()
+      await userEvent.keyboard('nap')
+      expect(box).toHaveValue('nap')
+      expect(screen.getByRole('heading', { name: 'Ana — Simulare EN' })).toBeInTheDocument()
+    })
+
+    it('lists the keys on "?"', async () => {
+      renderPage('/admin/grading?attempt=50')
+      await screen.findByRole('heading', { name: 'Ana — Simulare EN' })
+      await userEvent.keyboard('?')
+      const keys = await screen.findByTestId('grading-keys')
+      expect(keys).toHaveTextContent('Nlucrarea următoare din listă (nu finalizează nimic)')
+    })
+
+    it('counts the papers corrected since the page opened against those still waiting', async () => {
+      const graded = paper(50)
+      graded.items[0] = { ...graded.items[0], awardedPoints: 3 }
+      api.getAttemptForGrading.mockImplementation((id: number) => Promise.resolve(id === 50 ? graded : paper(id)))
+      api.finalizeGrading.mockResolvedValue(undefined)
+      renderPage('/admin/grading?attempt=50')
+      expect(await screen.findByTestId('grading-progress')).toHaveTextContent('0 din 2 corectate')
+
+      api.listAttemptsForGrading.mockResolvedValue([row({ attemptId: 51, studentName: 'Radu' })])
+      await userEvent.click(screen.getByTestId('grade-finalize-next'))
+      expect(await screen.findByRole('heading', { name: 'Radu — Simulare EN' })).toBeInTheDocument()
+      expect(screen.getByTestId('grading-progress')).toHaveTextContent('1 din 2 corectate')
+      expect(screen.getByRole('progressbar', { name: 'Lucrări corectate' })).toHaveAttribute('aria-valuetext', '1 din 2')
+    })
+  })
+
   it('offers to try again when the queue could not load', async () => {
     api.listAttemptsForGrading.mockRejectedValue(new TypeError('Failed to fetch'))
     renderPage()

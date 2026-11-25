@@ -10,7 +10,7 @@ export function ReviewStatusLine({ review, testId }: { review: ReviewStatus | nu
   return (
     <p data-testid={testId} className="text-sm">
       {review.remainingToday === 0 && review.doneToday > 0 ? (
-        <span className="font-medium text-emerald-700 dark:text-emerald-300">Recapitulare: făcută azi ✓</span>
+        <span className="font-medium text-success-foreground">Recapitulare: făcută azi ✓</span>
       ) : review.remainingToday > 0 ? (
         <span className="font-medium">Recapitulare: mai are {review.remainingToday} azi</span>
       ) : (

@@ -8,17 +8,19 @@ import { ReviewStatusLine } from '@/components/ReviewStatusLine'
 import {
   getChildAssignments,
   getChildAttempts,
+  getChildEnMastery,
   getChildProgress,
   getChildReview,
   listMyChildren,
   type ChildDto,
+  type EnChapterMastery,
   type ProgressPointDto,
   type ReviewStatus,
 } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
 import { formatDate, roCount } from '@/lib/format'
 import { GradeFigure } from '@/components/GradeFigure'
-import { latestGrade, todoAssignments } from '@/lib/home'
+import { latestGrade, todoAssignments, weakestChapter, weekSummary, type WeekSummary } from '@/lib/home'
 import { LoadingCards } from '@/components/LoadingCards'
 
 interface ChildOverview {
@@ -30,9 +32,36 @@ interface ChildOverview {
   homeworkOverdue: number
   /** The daily review (E4); null when it could not be loaded. */
   review: ReviewStatus | null
+  /** Homework handed in over the last seven days. */
+  week: WeekSummary
+  /** The EN chapter to revise first; null when none is weak (or the map could not be loaded). */
+  weakest: EnChapterMastery | null
 }
 
-/** The parent's start page: one card per child with the latest grade and what waits for the teacher. */
+/** The child's week in one plain sentence each: what was handed in, and what to revise first. */
+function WeekLine({ week, weakest }: { week: WeekSummary; weakest: EnChapterMastery | null }) {
+  return (
+    <div data-testid="child-week" className="space-y-1 rounded-lg bg-muted/60 px-3 py-2 text-sm">
+      <p className="text-xs font-medium text-muted-foreground">Săptămâna aceasta</p>
+      <p>
+        {week.handedIn === 0
+          ? 'Nicio temă predată în ultimele 7 zile.'
+          : `${roCount(week.handedIn, 'temă predată', 'teme predate')}${week.late > 0 ? `, ${week.late} cu întârziere` : ', toate la timp'}.`}
+      </p>
+      {weakest && (
+        <p>
+          De recapitulat întâi: <span className="font-medium">{weakest.title}</span>
+          <span className="text-muted-foreground"> ({weakest.percent}% corect)</span>
+        </p>
+      )}
+    </div>
+  )
+}
+
+/**
+ * The parent's start page: one card per child with what is due, the week in plain words (homework handed in, the
+ * chapter to revise first), the daily review, the latest grade and what waits for the teacher.
+ */
 export function ParentHome() {
   const [overviews, setOverviews] = useState<ChildOverview[] | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -48,7 +77,11 @@ export function ParentHome() {
               getChildProgress(child.id),
               getChildAssignments(child.id),
             ])
-            const review = await getChildReview(child.id).catch(() => null)
+            // The review and the chapter map are extras: the card still shows without them.
+            const [review, mastery] = await Promise.all([
+              getChildReview(child.id).catch(() => null),
+              getChildEnMastery(child.id).catch(() => []),
+            ])
             const todo = todoAssignments(homework)
             return {
               child,
@@ -57,6 +90,8 @@ export function ParentHome() {
               homeworkToDo: todo.length,
               homeworkOverdue: todo.filter((a) => a.overdue).length,
               review,
+              week: weekSummary(homework, attempts, Date.now()),
+              weakest: weakestChapter(mastery),
             }
           }),
         ),
@@ -81,7 +116,7 @@ export function ParentHome() {
 
   return (
     <div className="space-y-3">
-      {overviews.map(({ child, latest, awaiting, homeworkToDo, homeworkOverdue, review }) => (
+      {overviews.map(({ child, latest, awaiting, homeworkToDo, homeworkOverdue, review, week, weakest }) => (
         <Card key={child.id} data-testid="child-card">
           <CardContent className="space-y-3 py-4">
             <div className="flex items-center justify-between gap-3">
@@ -103,6 +138,7 @@ export function ParentHome() {
               )}
             </p>
             <ReviewStatusLine review={review} testId="child-review" />
+            <WeekLine week={week} weakest={weakest} />
             <div className="grid gap-3 sm:grid-cols-[2fr_1fr]">
               <div>
                 <p className="text-xs font-medium text-muted-foreground">Ultima notă</p>

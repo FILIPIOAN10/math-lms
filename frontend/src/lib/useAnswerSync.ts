@@ -8,12 +8,14 @@ export type SyncStatus = 'saving' | 'queued'
 const MAX_DELAY_MS = 30_000
 
 /**
- * Worth sending again later: no connection (fetch throws a TypeError), the server or the proxy is down or busy, or the
- * rate limiter asks to slow down. Anything else is a real answer from the server and retrying would not change it.
+ * Worth sending again later: no connection (fetch throws a TypeError), the server or the proxy is down or busy, the
+ * rate limiter asks to slow down, or the session ended (401 after the refresh failed: the same answer goes through
+ * once the student signs in again, and it stays on this device until then). Anything else is a real answer from the
+ * server and retrying would not change it.
  */
 export function isRetryable(e: unknown): boolean {
   if (e instanceof TypeError) return true
-  return e instanceof ApiError && (e.status === 0 || e.status === 429 || e.status >= 500)
+  return e instanceof ApiError && (e.status === 0 || e.status === 401 || e.status === 429 || e.status >= 500)
 }
 
 /**

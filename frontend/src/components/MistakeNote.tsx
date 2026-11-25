@@ -11,8 +11,8 @@ import { cn } from '@/lib/utils'
  */
 export function MistakeNote({ text, lesson = null }: { text: string; lesson?: TutorLessonLink | null }) {
   return (
-    <div data-testid="item-mistake" className="space-y-2 rounded-lg border-l-4 border-amber-500 bg-amber-500/10 p-3 text-sm">
-      <p className="text-xs font-medium text-amber-800 dark:text-amber-200">De ce e greșit</p>
+    <div data-testid="item-mistake" className="space-y-2 rounded-lg border-l-4 border-warning bg-warning/10 p-3 text-sm">
+      <p className="text-xs font-medium text-warning-foreground">De ce e greșit</p>
       <MathContent>{text}</MathContent>
       {lesson && (
         <Link

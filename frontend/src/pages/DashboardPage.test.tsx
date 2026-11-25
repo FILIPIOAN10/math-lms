@@ -34,6 +34,7 @@ const api = vi.hoisted(() => ({
   getChildAttempts: vi.fn(),
   getChildProgress: vi.fn(),
   getChildAssignments: vi.fn(),
+  getChildEnMastery: vi.fn(),
 }))
 vi.mock('@/lib/api', async (original) => ({ ...(await original<typeof import('@/lib/api')>()), ...api }))
 
@@ -233,21 +234,64 @@ describe('DashboardPage — student', () => {
     expect(screen.getByText('Tema la fracții').compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
-  it('S3: puts a grade first when there is nothing to do, with its result one click away', async () => {
+  it('S3: makes a new grade the big card when there is nothing to do, with its result one click away', async () => {
     api.getMyAttempts.mockResolvedValue([
       attempt({ attemptId: 30, quizTitle: 'Teză', score: 8, maxScore: 11, newResult: true }),
       attempt({ attemptId: 31, quizTitle: 'Veche', newResult: false }),
     ])
     renderHome()
 
-    await screen.findByTestId('home-new-result')
-    expect(screen.getByTestId('home-new-result').compareDocumentPosition(screen.getByText(/Nicio temă de făcut/))
-      & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    const rows = screen.getAllByTestId('home-new-result')
+    const rows = await screen.findAllByTestId('home-new-result')
     expect(rows).toHaveLength(1)
-    expect(rows[0]).toHaveTextContent('NouTeză')
+    expect(rows[0]).toHaveTextContent('Notă nouăTeză')
     expect(rows[0]).toHaveTextContent('8 / 11 p · nota 7,55')
     expect(within(rows[0]).getByRole('link', { name: 'Vezi rezultatul' })).toHaveAttribute('href', '/quizzes/attempts/30/result')
+    expect(screen.queryByText(/Nicio temă de făcut/)).not.toBeInTheDocument()
+  })
+
+  it("puts today's review before a new grade when nothing else waits, the grade right under it", async () => {
+    api.getReviewToday.mockResolvedValue({ limit: 10, doneToday: 0, remainingToday: 4, streak: 0, totalCards: 9, mastered: 0, questions: [] })
+    api.getMyAttempts.mockResolvedValue([attempt({ attemptId: 30, quizTitle: 'Teză', newResult: true })])
+    renderHome()
+
+    const review = await screen.findByTestId('home-review')
+    expect(review).toHaveTextContent('Recapitularea de azi4 întrebări de recapitulat azi')
+    expect(screen.getAllByTestId('home-review')).toHaveLength(1) // the big card, not also the side one
+    const grade = screen.getByTestId('home-new-result')
+    expect(review.compareDocumentPosition(grade) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('keeps homework as the big card even with a review waiting', async () => {
+    api.getReviewToday.mockResolvedValue({ limit: 10, doneToday: 0, remainingToday: 4, streak: 0, totalCards: 9, mastered: 0, questions: [] })
+    api.getMyAssignments.mockResolvedValue([homework(2, 'Ecuații', 'NOT_STARTED')])
+    renderHome()
+
+    const todo = await screen.findByRole('region', { name: 'De făcut' })
+    expect(within(todo).getByText('Urmează')).toBeInTheDocument()
+    expect(await screen.findByTestId('home-review')).toHaveTextContent('4 întrebări de recapitulat azi') // the side card
+    expect(screen.queryByText('Recapitularea de azi')).not.toBeInTheDocument()
+  })
+
+  it('says "Totul e la zi" when nothing waits at all, with the streak kept in sight', async () => {
+    api.getReviewToday.mockResolvedValue({ limit: 10, doneToday: 5, remainingToday: 0, streak: 3, totalCards: 9, mastered: 0, questions: [] })
+    renderHome()
+
+    const card = await screen.findByTestId('home-all-clear')
+    expect(card).toHaveTextContent('Totul e la ziNicio temă de făcut acum. 🎉')
+    expect(card).toHaveTextContent('Și recapitularea de azi e gata.')
+    expect(card).toHaveTextContent('seria 3 zile')
+    expect(within(card).getByRole('link', { name: 'Vezi toate testele' })).toHaveAttribute('href', '/quizzes')
+  })
+
+  it('waits for the review before choosing the big card, so "Totul e la zi" never flashes first', async () => {
+    let answer: (r: unknown) => void = () => undefined
+    api.getReviewToday.mockReturnValue(new Promise((resolve) => { answer = resolve }))
+    renderHome()
+
+    await screen.findByTestId('latest-grade')
+    expect(screen.queryByTestId('home-all-clear')).not.toBeInTheDocument()
+    answer({ limit: 10, doneToday: 0, remainingToday: 2, streak: 0, totalCards: 3, mastered: 0, questions: [] })
+    expect(await screen.findByText('2 întrebări de recapitulat azi')).toBeInTheDocument()
   })
 
   it('shows no "new grade" section once every result was opened', async () => {
@@ -399,6 +443,18 @@ describe('DashboardPage — teacher', () => {
     expect(rows[1]).toHaveTextContent('12 / 20 predate')
   })
 
+  it('marks a deadline due tomorrow and shows how much is handed in as a bar, amber while under half', async () => {
+    api.listAssignments.mockResolvedValue([summary(1, 'Logaritmi', 1, { done: 3 }), summary(2, 'Funcții', 5)])
+    renderHome()
+    const rows = await screen.findAllByTestId('deadline-row')
+    expect(within(rows[0]).getByTestId('deadline-soon')).toHaveTextContent('mâine')
+    const bar = within(rows[0]).getByRole('progressbar', { name: 'Predate la Logaritmi' })
+    expect(bar).toHaveAttribute('aria-valuetext', '3 din 20')
+    expect(bar.firstElementChild).toHaveClass('bg-warning')
+    expect(within(rows[1]).queryByTestId('deadline-soon')).not.toBeInTheDocument()
+    expect(within(rows[1]).getByRole('progressbar').firstElementChild).toHaveClass('bg-primary')
+  })
+
   it('says a class has no students instead of "0 / 0 predate"', async () => {
     api.listAssignments.mockResolvedValue([summary(1, 'Logaritmi', 1, { enrolled: 0, done: 0, notStarted: 0, inProgress: 0 })])
     renderHome()
@@ -492,6 +548,7 @@ describe('DashboardPage — parent', () => {
     auth.value = { user: user({ role: 'PARENT', fullName: 'Maria Parinte' }), loading: false }
     api.getChildAssignments.mockResolvedValue([])
     api.getChildReview.mockResolvedValue({ doneToday: 0, remainingToday: 0, streak: 0, totalCards: 0, mastered: 0, lastReviewOn: null })
+    api.getChildEnMastery.mockResolvedValue([])
   })
 
   it("says whether each child did today's review, with their streak", async () => {
@@ -556,6 +613,39 @@ describe('DashboardPage — parent', () => {
     expect(cards[0]).toHaveTextContent('1 test în corectare')
     expect(within(cards[0]).getByRole('link', { name: 'Vezi detalii' })).toHaveAttribute('href', '/parent/children/4')
     expect(cards[1]).toHaveTextContent('Nicio notă încă')
+  })
+
+  it("sums up each child's week in plain words: homework handed in, late ones, the chapter to revise first", async () => {
+    api.listMyChildren.mockResolvedValue([{ id: 4, fullName: 'Ana Student', email: 'ana@x.ro' }])
+    api.getChildProgress.mockResolvedValue([])
+    api.getChildAttempts.mockResolvedValue([
+      attempt({ attemptId: 11, submittedAt: inDays(-2) }),
+      attempt({ attemptId: 12, submittedAt: inDays(-1) }),
+    ])
+    api.getChildAssignments.mockResolvedValue([
+      { ...homework(1, 'Fracții', 'GRADED'), attemptId: 11 },
+      { ...homework(2, 'Ecuații', 'SUBMITTED'), attemptId: 12, late: true },
+    ])
+    api.getChildEnMastery.mockResolvedValue([
+      { chapterId: 1, code: 'A1', title: 'Numere reale', area: 'ALGEBRA', earned: 3, possible: 10, percent: 30, questions: 4, ready: true },
+    ])
+    renderHome()
+
+    const week = await screen.findByTestId('child-week')
+    expect(week).toHaveTextContent('2 teme predate, 1 cu întârziere.')
+    expect(week).toHaveTextContent('De recapitulat întâi: Numere reale (30% corect)')
+  })
+
+  it("says a quiet week plainly, and leaves the chapter out when the map cannot be loaded", async () => {
+    api.listMyChildren.mockResolvedValue([{ id: 4, fullName: 'Ana Student', email: 'ana@x.ro' }])
+    api.getChildProgress.mockResolvedValue([])
+    api.getChildAttempts.mockResolvedValue([])
+    api.getChildEnMastery.mockRejectedValue(new Error('down'))
+    renderHome()
+
+    const week = await screen.findByTestId('child-week')
+    expect(week).toHaveTextContent('Nicio temă predată în ultimele 7 zile.')
+    expect(week).not.toHaveTextContent('De recapitulat')
   })
 
   it('explains what to do when no child is linked yet', async () => {

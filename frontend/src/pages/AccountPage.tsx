@@ -29,7 +29,7 @@ import { roleLabel } from '@/lib/roles'
 import { chooseTheme, readThemeChoice, type ThemeChoice } from '@/lib/theme'
 import { LoadingCards } from '@/components/LoadingCards'
 
-const okText = 'text-sm text-emerald-700 dark:text-emerald-300'
+const okText = 'text-sm text-success-foreground'
 
 function Field({ label, type, ...props }: { label: string } & React.ComponentProps<typeof Input>) {
   const id = useId()
@@ -226,7 +226,7 @@ function SessionsSection({ sessions, reload, onLogoutAll }: {
                   <p className="font-medium">
                     {s.deviceInfo}
                     {s.current && (
-                      <span className="ml-2 rounded-md bg-emerald-500/15 px-1.5 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-300">
+                      <span className="ml-2 rounded-md bg-success/15 px-1.5 py-0.5 text-xs font-medium text-success-foreground">
                         Acest dispozitiv
                       </span>
                     )}

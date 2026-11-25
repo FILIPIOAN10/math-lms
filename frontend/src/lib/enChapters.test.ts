@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  baremLessons, nextEnChapter, previousEnChapter, returnLabel, returnPathOf, revisionLinks, revisionSentence, enPageForStudents,
+  baremLessons, missedChapters, nextEnChapter, previousEnChapter, returnLabel, returnPathOf, revisionLinks, revisionSentence, enPageForStudents,
   withReturn, withoutRepeatedTitle,
 } from '@/lib/enChapters'
 import type { EnChapterLink, EnChapterSummary, GradedPart, ItemResultDto } from '@/lib/api'
@@ -88,6 +88,19 @@ describe('baremLessons', () => {
     expect(baremLessons({ ...barem, partLessons: [{ label: 'a', enChapter: { ...G8, ready: false } }, { label: 'b', enChapter: null }] }))
       .toEqual([])
     expect(baremLessons(barem)).toEqual([])
+  })
+})
+
+describe('missedChapters', () => {
+  const chapter = (id: number, ready = true) => ({ id, code: `A${id}`, title: `C${id}`, ready, revisionTopic: null })
+  const item = (enChapter: ReturnType<typeof chapter>, correct: boolean) =>
+    ({ type: 'SINGLE_CHOICE', correct, points: 1, awardedPoints: correct ? 1 : 0, enChapter }) as ItemResultDto
+
+  it('names each chapter that lost points once, in paper order, leaving out those without a page', () => {
+    const list = missedChapters([
+      item(chapter(2), false), item(chapter(1), true), item(chapter(2), false), item(chapter(3, false), false), item(chapter(4), false),
+    ])
+    expect(list.map((c) => c.id)).toEqual([2, 4])
   })
 })
 

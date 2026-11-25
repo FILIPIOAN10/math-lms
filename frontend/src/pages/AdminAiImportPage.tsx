@@ -382,7 +382,7 @@ function ImportView({ id, classes, chapters, enChapters }: {
       )}
       {ai?.status === 'DONE' && ai.quizId === null && ai.reusedFrom != null && (
         <div data-testid="ai-reused"
-             className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-3 text-sm">
+             className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-success/40 bg-success/10 p-3 text-sm">
           <p>Ai mai trimis exact aceste pagini: am refolosit citirea de atunci, fără cost AI.</p>
           {ai.pagesAvailable && (
             <Button size="sm" variant="outline" onClick={() => void retry()} disabled={busy}>Citește din nou cu AI</Button>
@@ -539,7 +539,7 @@ function Review({ ai, classes, chapters, enChapters, onDiscard }: {
       ))}
 
       {problems.length > 0 && (
-        <ul className="list-disc space-y-1 pl-5 text-sm text-amber-700 dark:text-amber-400" data-testid="ai-problems">
+        <ul className="list-disc space-y-1 pl-5 text-sm text-warning-foreground" data-testid="ai-problems">
           {problems.map((p) => <li key={p}>{p}</li>)}
         </ul>
       )}
@@ -655,7 +655,7 @@ function DraftCard({ draft: d, place, enChapters, onChange, pageUrl, barem = nul
         {d.include && (
           <>
             {d.warnings.length > 0 && (
-              <ul className="space-y-1 text-sm text-amber-700 dark:text-amber-400">
+              <ul className="space-y-1 text-sm text-warning-foreground">
                 {d.warnings.map((w) => <li key={w}>⚠ {w}</li>)}
               </ul>
             )}

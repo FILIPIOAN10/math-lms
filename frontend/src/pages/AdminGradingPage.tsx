@@ -1,4 +1,7 @@
 import { Fragment, useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
+import { Dialog } from '@/components/ui/dialog'
+import { Progress } from '@/components/ui/progress'
+import { GRADING_KEYS, gradingKey, neighbourPaper } from '@/lib/gradingKeys'
 import { useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { ErrorState } from '@/components/ErrorState'
@@ -182,6 +185,7 @@ function OverallComment({
         <label htmlFor={id} className="text-sm font-medium">Comentariu pentru toată lucrarea (opțional)</label>
         <Textarea
           id={id}
+          data-grading-comment
           value={value}
           maxLength={MAX_COMMENT}
           onChange={(e) => setValue(e.target.value)}
@@ -191,7 +195,7 @@ function OverallComment({
         <CommentPreview text={value} />
         <p role="status" className="text-sm">
           {status === 'saving' && <span className="text-muted-foreground">Se salvează…</span>}
-          {status === 'saved' && <span className="text-emerald-700 dark:text-emerald-300">✓ Comentariu salvat</span>}
+          {status === 'saved' && <span className="text-success-foreground">✓ Comentariu salvat</span>}
           {status === 'error' && (
             <span className="text-destructive">
               Nesalvat: {errorMessage(error)}{' '}
@@ -237,6 +241,9 @@ export function AdminGradingPage({ aiPollMs = AI_POLL_MS }: { aiPollMs?: number 
   const { confirm, dialog: confirmDialog } = useConfirm()
   const [byItem, setByItem] = useState<{ quizTitle: string; attemptIds: number[] } | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  // Papers finalised since the page opened: with those still waiting, the "3 din 12 corectate" bar.
+  const [sessionDone, setSessionDone] = useState(0)
+  const [showKeys, setShowKeys] = useState(false)
   const bank = useCommentSnippets()
   // Every form on the open paper: how it stands, and how to send what it still holds (before finalising).
   const flushes = useRef(new Map<string, () => Promise<boolean>>())
@@ -387,6 +394,7 @@ export function AdminGradingPage({ aiPollMs = AI_POLL_MS }: { aiPollMs?: number 
     setError(null)
     try {
       await finalizeGrading(detail.attemptId)
+      setSessionDone((n) => n + 1)
       setUndoable({ attemptId: detail.attemptId, studentName: detail.studentName })
       window.dispatchEvent(new Event(NAV_COUNTS_CHANGED))
       const before = attempts.map((a) => a.attemptId)
@@ -416,6 +424,7 @@ export function AdminGradingPage({ aiPollMs = AI_POLL_MS }: { aiPollMs?: number 
     }
     try {
       await reopenGrading(attemptId)
+      setSessionDone((n) => Math.max(0, n - 1))
       setUndoable(null)
       window.dispatchEvent(new Event(NAV_COUNTS_CHANGED))
       await reloadList()
@@ -464,6 +473,40 @@ export function AdminGradingPage({ aiPollMs = AI_POLL_MS }: { aiPollMs?: number 
   const allOpenGraded = detail?.items.every((i) => i.type !== 'OPEN' || i.awardedPoints !== null) ?? false
   const othersWaiting = detail ? attempts.filter((a) => a.status === 'SUBMITTED' && a.attemptId !== detail.attemptId).length : 0
   const pointsSoFar = detail?.items.reduce((sum, i) => sum + (i.awardedPoints ?? 0), 0) ?? 0
+  const waitingCount = attempts.filter((a) => a.status === 'SUBMITTED').length
+
+  /** N / P: another paper of the list, after whatever is still being typed here has been saved. */
+  async function moveTo(attemptId: number) {
+    setError(null)
+    if (!(await flushAll())) {
+      setError('Unele punctaje sau comentarii nu s-au salvat. Verifică întrebările marcate, apoi mergi mai departe.')
+      return
+    }
+    await goToPaper(attemptId)
+  }
+  // The page's keys (lib/gradingKeys), read through a ref so the listener always sees this render's paper and list.
+  const onGradingKey = useRef<(e: KeyboardEvent) => void>(() => undefined)
+  onGradingKey.current = (e) => {
+    if (!detail || byItem) return
+    const key = gradingKey(e, document.querySelector('[role="dialog"]') !== null)
+    if (!key) return
+    e.preventDefault()
+    if (key === 'help') {
+      setShowKeys(true)
+    } else if (key === 'comment') {
+      const box = document.querySelector<HTMLTextAreaElement>('[data-grading-comment]')
+      box?.scrollIntoView?.({ block: 'center' })
+      box?.focus({ preventScroll: true })
+    } else {
+      const to = neighbourPaper(visibleAttempts.map((a) => a.attemptId), detail.attemptId, key === 'next' ? 1 : -1)
+      if (to !== null) void moveTo(to)
+    }
+  }
+  useEffect(() => {
+    const listen = (e: KeyboardEvent) => onGradingKey.current(e)
+    window.addEventListener('keydown', listen)
+    return () => window.removeEventListener('keydown', listen)
+  }, [])
   // The AI's proposals for the open paper (only when the server has them switched on), by question.
   const [aiOn, setAiOn] = useState(false)
   const [proposals, setProposals] = useState<Record<number, AiProposal>>({})
@@ -563,12 +606,12 @@ export function AdminGradingPage({ aiPollMs = AI_POLL_MS }: { aiPollMs?: number 
 
         {loadError && <ErrorState message={loadError} />}
         {error && <p className="text-sm text-destructive">{error}</p>}
-        {notice && !detail && !byItem && <p role="status" className="text-sm text-emerald-700 dark:text-emerald-300">{notice}</p>}
+        {notice && !detail && !byItem && <p role="status" className="text-sm text-success-foreground">{notice}</p>}
         {undoable && !byItem && (
           <div
             role="status"
             data-testid="grade-undo"
-            className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-800 dark:text-emerald-200"
+            className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-success/40 bg-success/10 px-3 py-2 text-sm text-success-foreground"
           >
             <span>✓ {undoable.studentName}: nota e finalizată, elevul o vede.</span>
             <Button size="sm" variant="outline" onClick={() => void reopen(undoable.attemptId)}>Anulează</Button>
@@ -589,6 +632,25 @@ export function AdminGradingPage({ aiPollMs = AI_POLL_MS }: { aiPollMs?: number 
         ) : detail ? (
           /* ----- One attempt ----- */
           <div className="space-y-4">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              {filter === 'SUBMITTED' && sessionDone + waitingCount > 0 && (
+                <div data-testid="grading-progress" className="min-w-48 flex-1 space-y-1">
+                  <p className="text-sm text-muted-foreground">
+                    <span className="font-medium text-foreground">{sessionDone} din {sessionDone + waitingCount}</span> corectate
+                  </p>
+                  <Progress
+                    value={sessionDone}
+                    max={sessionDone + waitingCount}
+                    label="Lucrări corectate"
+                    valueText={`${sessionDone} din ${sessionDone + waitingCount}`}
+                    tone={waitingCount === 0 ? 'success' : 'primary'}
+                  />
+                </div>
+              )}
+              <Button variant="ghost" size="sm" className="ml-auto" onClick={() => setShowKeys(true)} aria-keyshortcuts="?">
+                Scurtături <kbd className="rounded border px-1 font-mono text-xs">?</kbd>
+              </Button>
+            </div>
             <Card>
               <CardContent className="flex flex-wrap items-center justify-between gap-2 py-3">
                 <div>
@@ -608,12 +670,13 @@ export function AdminGradingPage({ aiPollMs = AI_POLL_MS }: { aiPollMs?: number 
                       </Button>
                     </p>
                   )}
-                  {granted && <p role="status" className="text-sm text-emerald-700 dark:text-emerald-300">{granted}</p>}
+                  {granted && <p role="status" className="text-sm text-success-foreground">{granted}</p>}
                   {detail.status === 'SUBMITTED' && (
                     <p className="text-xs text-muted-foreground">
                       Din tastatură: <kbd className="rounded border px-1 font-mono">0–9</kbd> dă punctajul și trece la
                       următorul, săgețile îl schimbă{aiOn && <>, <kbd className="rounded border px-1 font-mono">Enter</kbd> ia
-                      propunerea AI</>}.
+                      propunerea AI</>}, <kbd className="rounded border px-1 font-mono">N</kbd> /{' '}
+                      <kbd className="rounded border px-1 font-mono">P</kbd> lucrarea următoare / dinainte.
                     </p>
                   )}
                 </div>
@@ -657,7 +720,7 @@ export function AdminGradingPage({ aiPollMs = AI_POLL_MS }: { aiPollMs?: number 
 
                   {item.type !== 'OPEN' ? (
                     <div className="space-y-1 text-sm">
-                      <p className={item.correct ? 'text-emerald-700 dark:text-emerald-300' : 'text-destructive'}>
+                      <p className={item.correct ? 'text-success-foreground' : 'text-destructive'}>
                         {item.correct ? '✓ ' : '✗ '}{item.type === 'NUMERIC' ? 'Scris' : 'Ales'}:{' '}
                         {item.selectedOptionText === null ? (
                           <em>fără răspuns</em>
@@ -841,6 +904,21 @@ export function AdminGradingPage({ aiPollMs = AI_POLL_MS }: { aiPollMs?: number 
         )}
       </div>
       {confirmDialog}
+      <Dialog open={showKeys} onOpenChange={setShowKeys} title="Scurtături de tastatură">
+        <dl data-testid="grading-keys" className="space-y-2 text-sm">
+          {GRADING_KEYS.map(({ keys, what }) => (
+            <div key={what} className="flex items-baseline gap-3">
+              <dt className="flex w-16 shrink-0 gap-1">
+                {keys.map((k) => <kbd key={k} className="rounded border bg-muted px-1.5 font-mono text-xs">{k}</kbd>)}
+              </dt>
+              <dd className="text-muted-foreground">{what}</dd>
+            </div>
+          ))}
+        </dl>
+        <div className="mt-5 flex justify-end">
+          <Button variant="outline" onClick={() => setShowKeys(false)}>Închide</Button>
+        </div>
+      </Dialog>
     </div>
   )
 }

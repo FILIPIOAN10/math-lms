@@ -208,7 +208,7 @@ export function GradeByItem({
       </nav>
 
       {finalized !== null && (
-        <p role="status" className="text-sm text-emerald-700 dark:text-emerald-300">
+        <p role="status" className="text-sm text-success-foreground">
           ✓ {roCount(finalized, 'lucrare finalizată', 'lucrări finalizate')}.
         </p>
       )}

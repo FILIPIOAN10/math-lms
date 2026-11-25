@@ -30,7 +30,7 @@ export function WeakSpotsSection() {
       <Card>
         <CardContent className="space-y-3 py-4 text-sm">
           {spots.length === 0 ? (
-            <p className="text-emerald-700 dark:text-emerald-300">Nu ai niciun capitol sub 70%. Ține-o tot așa!</p>
+            <p className="text-success-foreground">Nu ai niciun capitol sub 70%. Ține-o tot așa!</p>
           ) : (
             spots.map((spot) => (
               <div key={spot.chapterId} data-testid="weak-spot" className="space-y-1.5 border-b pb-3 last:border-b-0 last:pb-0">

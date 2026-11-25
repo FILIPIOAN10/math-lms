@@ -259,6 +259,15 @@ export function revisionLinks(item: ItemResultDto): RevisionLink[] {
   return lost ? byChapter([{ chapter: item.enChapter, part: null }]) : []
 }
 
+/** Every EN chapter (with a page) where a graded test lost points, once each, in paper order: "Ai greșit la: …". */
+export function missedChapters(items: ItemResultDto[]): EnChapterLink[] {
+  const seen = new Map<number, EnChapterLink>()
+  for (const item of items) {
+    for (const { chapter } of revisionLinks(item)) if (!seen.has(chapter.id)) seen.set(chapter.id, chapter)
+  }
+  return [...seen.values()]
+}
+
 /**
  * The lessons beside an open problem's barem in a practice: each requirement's chapter, or the problem's own when it
  * has none. No verdict needed - the student compares their work with the barem and decides.

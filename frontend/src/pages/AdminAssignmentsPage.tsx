@@ -400,7 +400,7 @@ export function AdminAssignmentsPage() {
         <TestsTabs current="assignments" />
 
         {notice && (
-          <p role="status" className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-800 dark:text-emerald-200">
+          <p role="status" className="rounded-lg border border-success/40 bg-success/10 px-3 py-2 text-sm text-success-foreground">
             ✓ {notice}
           </p>
         )}
@@ -446,7 +446,7 @@ export function AdminAssignmentsPage() {
                   <p className="truncate font-medium">
                     {a.quizTitle} <span className="font-normal text-muted-foreground">· {a.schoolClassName}</span>
                     {a.availableFrom && (
-                      <span data-testid="assignment-scheduled" className="ml-2 rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-800 dark:text-amber-300">
+                      <span data-testid="assignment-scheduled" className="ml-2 rounded-full bg-warning/15 px-2 py-0.5 text-xs font-medium text-warning-foreground">
                         Programată · apare {formatDate(a.availableFrom)}
                       </span>
                     )}
@@ -507,7 +507,7 @@ export function AdminAssignmentsPage() {
                         <td>{s.excused ? <span className="font-medium text-sky-700 dark:text-sky-300">Scutit</span> : STATE_LABEL[s.state]}</td>
                         <td>
                           {s.submittedAt ? formatDate(s.submittedAt) : '—'}
-                          {s.late && <span className="ml-1 text-amber-700 dark:text-amber-300">(cu întârziere)</span>}
+                          {s.late && <span className="ml-1 text-warning-foreground">(cu întârziere)</span>}
                         </td>
                         <td>{s.score ?? '—'}</td>
                         <td className="text-right">

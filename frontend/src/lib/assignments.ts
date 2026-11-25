@@ -5,8 +5,8 @@ export type BadgeTone = 'info' | 'success' | 'warning' | 'danger'
 /** The colours of a status pill. */
 export const BADGE_TONES: Record<BadgeTone, string> = {
   info: 'bg-sky-500/15 text-sky-700 dark:text-sky-300',
-  success: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
-  warning: 'bg-amber-500/15 text-amber-700 dark:text-amber-300',
+  success: 'bg-success/15 text-success-foreground',
+  warning: 'bg-warning/15 text-warning-foreground',
   danger: 'bg-destructive/15 text-destructive',
 }
 
@@ -52,6 +52,23 @@ export function dueCountdown(dueIso: string, nowMs: number): string {
   if (late < HOUR) return 'depășit'
   if (late < DAY) return `depășit cu ${plural(Math.floor(late / HOUR), 'oră', 'ore')}`
   return `depășit cu ${plural(Math.floor(late / DAY), 'zi', 'zile')}`
+}
+
+/** Midnight starting the calendar day of `ms`, on this device's clock. */
+function startOfDay(ms: number): number {
+  const d = new Date(ms)
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+}
+
+/**
+ * "azi" / "mâine" for a deadline not passed yet that falls today or tomorrow (by the calendar, not 24 hours: a
+ * deadline at 08:00 tomorrow seen at 22:00 is "mâine"), else null. The badge that makes a close deadline stand out.
+ */
+export function dueSoonLabel(dueIso: string, nowMs: number): 'azi' | 'mâine' | null {
+  const due = Date.parse(dueIso)
+  if (Number.isNaN(due) || due < nowMs) return null
+  const days = Math.round((startOfDay(due) - startOfDay(nowMs)) / DAY)
+  return days === 0 ? 'azi' : days === 1 ? 'mâine' : null
 }
 
 /** `<input type="datetime-local">` value (local time, no zone) -> the ISO instant the API takes. */

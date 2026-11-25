@@ -66,16 +66,74 @@ function NewGrades({ results }: { results: MyAttemptDto[] }) {
   )
 }
 
+/** What the big card shows when no test or homework is waiting. */
+type NextStep = 'review' | 'grade' | 'clear'
+
+const HERO_BUTTON = cn(buttonVariants({ size: 'lg' }), 'bg-white px-5 text-primary hover:bg-white/90')
+
+function ReviewHero({ review }: { review: ReviewToday }) {
+  return (
+    <HeroCard
+      testId="home-review"
+      kicker="Recapitularea de azi"
+      title={`${roCount(review.remainingToday, 'întrebare', 'întrebări')} de recapitulat azi`}
+      meta={review.streak > 0
+        ? <StreakPill>seria {roCount(review.streak, 'zi', 'zile')}</StreakPill>
+        : <span>Câteva minute, ca să nu uiți ce ai învățat.</span>}
+      action={<Link to="/review" className={HERO_BUTTON}>Începe recapitularea</Link>}
+    />
+  )
+}
+
+/** New grades as the big card: one opens its result, several lead to the list. */
+function NewGradesHero({ results }: { results: MyAttemptDto[] }) {
+  const only = results.length === 1 ? results[0] : null
+  return (
+    <HeroCard
+      testId="home-new-result"
+      kicker={only ? 'Notă nouă' : 'Note noi'}
+      title={only ? only.quizTitle : roCount(results.length, 'notă nouă', 'note noi')}
+      meta={<span className="min-w-0 truncate">
+        {only ? only.score !== null && scoreLine(only.score, only.maxScore) : results.map((a) => a.quizTitle).join(' · ')}
+      </span>}
+      action={
+        <Link to={only ? `/quizzes/attempts/${only.attemptId}/result` : '/quizzes'} className={HERO_BUTTON}>
+          {only ? 'Vezi rezultatul' : 'Vezi notele'}
+        </Link>
+      }
+    />
+  )
+}
+
+/** Nothing waits: say so plainly, keep the streak in sight, and leave one way to keep going. */
+function AllClearHero({ review }: { review: ReviewToday | null }) {
+  const reviewDone = review !== null && review.totalCards > 0 && review.remainingToday === 0
+  return (
+    <HeroCard
+      testId="home-all-clear"
+      kicker="Totul e la zi"
+      title="Nicio temă de făcut acum. 🎉"
+      meta={<>
+        {reviewDone && <span>Și recapitularea de azi e gata.</span>}
+        {review && review.streak > 0 && <StreakPill>seria {roCount(review.streak, 'zi', 'zile')}</StreakPill>}
+      </>}
+      action={<Link to="/quizzes" className={HERO_BUTTON}>Vezi toate testele</Link>}
+    />
+  )
+}
+
 /**
  * The student's start page answers "what do I do now?": a timed test they left while its clock runs comes first (it
  * hands itself in when the time is up), then homework still to hand in (soonest first), tests started and not handed
- * in, then any new grades (above them only when there is nothing to do), how the last graded test went and how many
- * wait for the teacher.
+ * in. With none of those the big card is today's review, else a new grade, else "Totul e la zi". Then any new grades,
+ * how the last graded test went and how many wait for the teacher.
  */
 export function StudentHome() {
   const [data, setData] = useState<StudentData | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [review, setReview] = useState<ReviewToday | null>(null)
+  // Until the review has answered, the big card waits: "Totul e la zi" must not flash before "6 întrebări azi".
+  const [reviewSettled, setReviewSettled] = useState(false)
   const now = useNow(CLOCK_TICK_MS)
 
   useEffect(() => {
@@ -87,6 +145,7 @@ export function StudentHome() {
     getReviewToday()
       .then((r) => !cancelled && setReview(r))
       .catch(() => undefined) // the home still works without the review card
+      .finally(() => !cancelled && setReviewSettled(true))
     return () => {
       cancelled = true
     }
@@ -118,7 +177,11 @@ export function StudentHome() {
 
   const newResults = data.attempts.filter((a) => a.newResult)
   const nothingToDo = todo.length === 0 && started.length === 0
-  const grades = newResults.length > 0 ? <NewGrades results={newResults} /> : null
+  // With no test or homework waiting, the big card is the next best thing to do: today's review, then a new grade,
+  // and when even those are done, the good news itself.
+  const hero: NextStep | null = !nothingToDo || !reviewSettled ? null
+    : review && review.remainingToday > 0 ? 'review'
+      : newResults.length > 0 ? 'grade' : 'clear'
 
   return (
     <HomeColumns
@@ -156,10 +219,12 @@ export function StudentHome() {
           </Card>
         )
       })}
-      {nothingToDo && grades}
+      {hero === 'review' && review && <ReviewHero review={review} />}
+      {hero === 'grade' && <NewGradesHero results={newResults} />}
+      {hero === 'clear' && <AllClearHero review={review} />}
       {todo.length > 0 ? (
         <AssignmentsSection assignments={todo} title="De făcut" hero={runningElsewhere.length === 0} clocks={clocks} />
-      ) : (
+      ) : !nothingToDo && (
         <HomeSection title="De făcut">
           <HomeEmpty
             symbol="Σ"
@@ -197,12 +262,12 @@ export function StudentHome() {
           })}
         </HomeSection>
       )}
-      {!nothingToDo && grades}
+      {newResults.length > 0 && hero !== 'grade' && <NewGrades results={newResults} />}
         </>
       }
       side={
         <>
-      {review && review.totalCards > 0 && (
+      {review && review.totalCards > 0 && hero !== 'review' && (
         <HomeSection title="Recapitulare">
           <Card data-testid="home-review">
             <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4 text-sm">
@@ -213,7 +278,7 @@ export function StudentHome() {
                 </p>
               ) : (
                 <p className="flex flex-wrap items-center gap-2">
-                  <span className="font-medium text-emerald-700 dark:text-emerald-300">Gata pe azi ✓</span>
+                  <span className="font-medium text-success-foreground">Gata pe azi ✓</span>
                   {review.streak > 0 && <StreakPill>seria {roCount(review.streak, 'zi', 'zile')}</StreakPill>}
                 </p>
               )}

@@ -255,8 +255,8 @@ export function StudentQuizListPage() {
             className={cn(
               'rounded-lg border p-3 text-sm',
               savedTimed
-                ? 'border-amber-500/50 bg-amber-500/10 text-amber-950 dark:text-amber-100'
-                : 'border-emerald-500/40 bg-emerald-500/10 text-emerald-900 dark:text-emerald-100',
+                ? 'border-warning/50 bg-warning/10 text-foreground'
+                : 'border-success/40 bg-success/10 text-success-foreground',
             )}
           >
             Am salvat ce ai lucrat la „{savedQuizTitle}”.{' '}

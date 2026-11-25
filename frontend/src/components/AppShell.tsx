@@ -1,11 +1,24 @@
 import { Suspense, useEffect, useId, useRef, useState } from 'react'
-import { Ellipsis } from 'lucide-react'
+import { Ellipsis, LogOut, Moon, Search, Sun } from 'lucide-react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
+import { CommandPalette } from '@/components/CommandPalette'
 import { useAuth } from '@/context/AuthContext'
 import { getMyAttempts, listAttemptsForGrading, listPendingUsers, type Role } from '@/lib/api'
 import { roCount } from '@/lib/format'
-import { hasNavigation, isNavActive, NAV_COUNTS_CHANGED, navItems, roleLabel, tabBarItems, type NavCount, type NavItem } from '@/lib/roles'
+import {
+  hasNavigation,
+  isNavActive,
+  NAV_COUNTS_CHANGED,
+  navItems,
+  roleLabel,
+  secondaryNavItems,
+  tabBarItems,
+  type NavCount,
+  type NavItem,
+} from '@/lib/roles'
+import { chooseTheme } from '@/lib/theme'
+import { initials, isNewPage } from '@/lib/shell'
 import { cn } from '@/lib/utils'
 import { LoadingCards } from '@/components/LoadingCards'
 import { PageRetryContext } from '@/lib/pageRetry'
@@ -193,93 +206,194 @@ function TabBar({ role, counts, pathname }: { role: Role; counts: Counts; pathna
   )
 }
 
+const SIDE_LINK =
+  'inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-3 text-sm font-medium whitespace-nowrap transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50 lg:h-10 lg:gap-3'
+
+/** Light or dark in one press; "follow the system" stays in Contul meu. */
+function ThemeToggle({ className }: { className?: string }) {
+  const [dark, setDark] = useState(() => document.documentElement.classList.contains('dark'))
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      className={className}
+      aria-label="Temă întunecată"
+      aria-pressed={dark}
+      title={dark ? 'Treci la tema luminoasă' : 'Treci la tema întunecată'}
+      onClick={() => {
+        chooseTheme(dark ? 'light' : 'dark')
+        setDark(!dark)
+      }}
+    >
+      {dark ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}
+    </Button>
+  )
+}
+
+/** Plays the page's short fade-in when the user moves to another page (only when motion is welcome, see index.css). */
+function usePageEnter(pathname: string) {
+  const ref = useRef<HTMLDivElement>(null)
+  const last = useRef(pathname)
+  useEffect(() => {
+    const el = ref.current
+    if (!el || !isNewPage(last.current, pathname)) {
+      last.current = pathname
+      return
+    }
+    last.current = pathname
+    el.classList.remove('page-in')
+    void el.offsetWidth // restart the animation
+    el.classList.add('page-in')
+  }, [pathname])
+  return ref
+}
+
 /**
  * The frame around every signed-in page: the app name, the role's main links (the current one marked) and the
  * account with the logout button. Who may see a page is still decided by the route guard inside, so with nobody
  * (or a not-yet-approved account) signed in this renders only the page and lets the guard redirect.
  *
- * On a phone the links move to a tab bar at the bottom (TabBar); below `xl` they take their own row under the name -
- * a student's six links plus the name and the logout button do not fit one row on a 1024 px laptop.
+ * One header, three shapes: on a computer (`lg`) it is a side menu - the links in a column, the rarer pages under
+ * "Mai mult", the account, theme and "Ieșire" at the bottom; on a tablet a top bar with the links in a row under the
+ * name; on a phone a top bar and the tab bar at the bottom (TabBar). Ctrl+K (or the search button) opens the search.
  */
 export function AppShell() {
   const { user, logout } = useAuth()
   const { pathname } = useLocation()
   // "Reîncearcă" on a page that could not load: a new key remounts it, and it fetches what it shows again.
   const [retries, setRetries] = useState(0)
+  const [searching, setSearching] = useState(false)
+  const pageRef = usePageEnter(pathname)
   const signedIn = user !== null && user.status === 'ACTIVE' && user.role !== null
   // F8: before two-step sign-in is set up every staff count would be a 403, so none are asked for.
   const counts = useNavCounts(signedIn && !user.twoFactorSetupRequired ? user.role : null, pathname)
+
+  useEffect(() => {
+    if (!signedIn) return
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        setSearching(true)
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [signedIn])
 
   if (!signedIn || !user.role) {
     return <Outlet />
   }
   const withNav = hasNavigation(user.role)
+  const more = secondaryNavItems(user.role)
+  // On a rarer page its own link is the current one, not the main link that groups it (Clase for Capitole EN).
+  const moreActive = more.some((item) => isNavActive(item, pathname))
 
   return (
     <div className="min-h-screen bg-muted">
-      <header className="sticky top-0 z-20 border-b bg-background">
+      <header className="sticky top-0 z-20 border-b bg-background lg:fixed lg:inset-y-0 lg:left-0 lg:w-60 lg:border-r lg:border-b-0">
         <div aria-hidden="true" className="hero-surface h-1" />
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2">
-          <Link to="/" className="flex items-center gap-2 text-base font-semibold">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-2 gap-y-1 px-4 py-2 sm:gap-x-3 lg:h-[calc(100%-0.25rem)] lg:max-w-none lg:flex-col lg:flex-nowrap lg:items-stretch lg:gap-1 lg:overflow-y-auto lg:p-3">
+          <Link to="/" className="flex items-center gap-2 text-base font-semibold lg:px-2 lg:pt-1 lg:pb-3">
             <span aria-hidden="true" className="hero-surface flex size-7 items-center justify-center rounded-lg bg-primary text-xs font-bold text-white">
               x²
             </span>
             Math LMS
           </Link>
+          <button
+            type="button"
+            onClick={() => setSearching(true)}
+            aria-label="Caută"
+            aria-keyshortcuts="Control+K"
+            data-testid="open-search"
+            className="ml-auto flex size-11 items-center justify-center rounded-lg text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 md:size-9 lg:order-none lg:mb-2 lg:ml-0 lg:h-9 lg:w-full lg:justify-start lg:gap-2 lg:bg-muted lg:px-3 lg:text-sm"
+          >
+            <Search aria-hidden="true" className="size-4 shrink-0" />
+            <span aria-hidden="true" className="hidden flex-1 text-left lg:inline">Caută…</span>
+            <kbd aria-hidden="true" className="hidden rounded border bg-background px-1.5 text-xs lg:inline">Ctrl K</kbd>
+          </button>
           {withNav && (
             <nav
               aria-label="Navigare principală"
-              className="order-last -mx-1 hidden w-full gap-1 overflow-x-auto [scrollbar-width:none] md:flex xl:order-none xl:mx-0 xl:w-auto"
+              className="order-last -mx-1 hidden w-full gap-1 overflow-x-auto [scrollbar-width:none] md:flex lg:order-none lg:mx-0 lg:flex-col lg:overflow-visible"
             >
               {navItems(user.role).map((item) => {
-                const active = isNavActive(item, pathname)
+                const active = !moreActive && isNavActive(item, pathname)
                 return (
                   <Link
                     key={item.to}
                     to={item.to}
                     data-testid={item.testId}
                     aria-current={active ? 'page' : undefined}
-                    className={cn(
-                      'inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-3 text-sm font-medium whitespace-nowrap transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
-                      active ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-                    )}
+                    className={cn(SIDE_LINK, active ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}
                   >
                     <item.icon aria-hidden="true" className="size-4" />
                     {item.label}
-                    {item.count && <CountBadge kind={item.count} n={counts[item.count]} />}
+                    {item.count && <CountBadge kind={item.count} n={counts[item.count]} className="lg:ml-auto" />}
                   </Link>
                 )
               })}
             </nav>
           )}
-          <div className="ml-auto flex items-center gap-3">
+          {more.length > 0 && (
+            <nav aria-label="Mai mult" className="hidden lg:mt-4 lg:flex lg:flex-col lg:gap-1">
+              <p aria-hidden="true" className="px-3 pb-1 text-xs font-medium text-muted-foreground">Mai mult</p>
+              {more.map((item) => {
+                const active = isNavActive(item, pathname)
+                return (
+                  <Link
+                    key={item.to}
+                    to={item.to}
+                    aria-current={active ? 'page' : undefined}
+                    className={cn(SIDE_LINK, active ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}
+                  >
+                    <item.icon aria-hidden="true" className="size-4" />
+                    {item.label}
+                  </Link>
+                )
+              })}
+            </nav>
+          )}
+          <div className="flex items-center gap-2 lg:mt-auto lg:flex-col lg:items-stretch lg:gap-2 lg:border-t lg:pt-3">
             <Link
               to="/account"
               title="Contul meu"
-              className="rounded-lg px-2 py-1 text-right leading-tight outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
+              className="flex items-center gap-2 rounded-lg px-2 py-1 leading-tight outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
             >
-              <span className="text-sm font-medium sm:hidden">Contul meu</span>
-              <span className="hidden sm:block">
+              <span aria-hidden="true" className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                {initials(user.fullName)}
+              </span>
+              {/* On a phone the round initials stand for the account: the words would push the row onto two lines. */}
+              <span className="sr-only sm:hidden">Contul meu</span>
+              <span className="hidden min-w-0 text-right sm:block lg:text-left">
                 <span className="sr-only">Contul meu: </span>
-                <span className="block text-sm font-medium">{user.fullName}</span>
+                <span className="block truncate text-sm font-medium">{user.fullName}</span>
                 <span className="block text-xs text-muted-foreground">{roleLabel(user.role)}</span>
               </span>
             </Link>
-            <Button variant="outline" size="sm" onClick={logout} data-testid="logout">
-              Ieșire
-            </Button>
+            <div className="flex items-center gap-1 lg:justify-between">
+              {/* On a phone the theme is in Contul meu: the top bar keeps room for the search and "Ieșire". */}
+              <ThemeToggle className="max-sm:hidden" />
+              <Button variant="outline" size="sm" onClick={logout} data-testid="logout">
+                <LogOut aria-hidden="true" className="hidden lg:block" />
+                Ieșire
+              </Button>
+            </div>
           </div>
         </div>
       </header>
-      {/* On a phone the bottom padding keeps the end of every page clear of the tab bar. */}
-      <main className={cn(withNav && 'pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pb-0')}>
+      {/* On a phone the bottom padding keeps the end of every page clear of the tab bar; on a computer the left one
+          keeps it clear of the side menu. */}
+      <main className={cn('lg:pl-60', withNav && 'pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pb-0')}>
         {/* The header stays put while the next page's code downloads. */}
         <Suspense fallback={<div className="mx-auto max-w-3xl p-4"><LoadingCards /></div>}>
           <PageRetryContext.Provider value={() => setRetries((n) => n + 1)}>
-            <Outlet key={retries} />
+            <div ref={pageRef}>
+              <Outlet key={retries} />
+            </div>
           </PageRetryContext.Provider>
         </Suspense>
       </main>
+      <CommandPalette role={user.role} open={searching} onClose={() => setSearching(false)} />
       {withNav && <TabBar role={user.role} counts={counts} pathname={pathname} />}
       {/* The student's AI box ("Nu înțeleg…"): renders nothing while the server has it switched off. */}
       {user.role === 'STUDENT' && !pathname.endsWith('/take') && <StudentTutorBox />}

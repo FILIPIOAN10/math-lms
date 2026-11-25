@@ -243,7 +243,7 @@ export function BaremDialog({ quizId, items, onClose, onApplied, pollMs = POLL_M
                       </div>
                     ))}
                     {p.warnings.map((w) => (
-                      <p key={w} className="text-xs font-medium text-amber-700 dark:text-amber-300">⚠ {w}</p>
+                      <p key={w} className="text-xs font-medium text-warning-foreground">⚠ {w}</p>
                     ))}
                   </div>
                 </li>

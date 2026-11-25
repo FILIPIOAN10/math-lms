@@ -19,7 +19,7 @@ export function GradingMistake({ item, aiOn, tutorOn, onSaved }: {
       data-testid={`grading-mistake-${item.itemId}`}
       className={
         requests > 0 && !item.mistake
-          ? 'space-y-1.5 rounded-lg border border-amber-500/50 bg-amber-500/10 px-3 py-2'
+          ? 'space-y-1.5 rounded-lg border border-warning/50 bg-warning/10 px-3 py-2'
           : 'space-y-1.5 rounded-lg border px-3 py-2'
       }
     >

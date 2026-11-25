@@ -3,6 +3,8 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
+import { Dialog } from '@/components/ui/dialog'
+import { rememberReturnTo } from '@/lib/returnTo'
 import { OptionLetter } from '@/components/OptionLetter'
 import { MathContent } from '@/components/MathContent'
 import { MistakeNote } from '@/components/MistakeNote'
@@ -16,7 +18,7 @@ import { PartsView } from '@/components/PartsView'
 import { parseOnly } from '@/lib/mistakes'
 import { numberItems, parseSection } from '@/lib/sections'
 import { clearFlags, loadFlags, saveFlags, toggled } from '@/lib/flags'
-import { Flag } from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight, CloudOff, Flag, GalleryHorizontal, LoaderCircle } from 'lucide-react'
 import {
   ApiError,
   getMyAssignments,
@@ -44,6 +46,8 @@ import { todoAssignments } from '@/lib/home'
 import { shrinkImage } from '@/lib/image'
 import { storedPending } from '@/lib/answerQueue'
 import { useAnswerSync } from '@/lib/useAnswerSync'
+import { readOnePerScreen, saveOnePerScreen, startsInSideScroller, swipeDirection } from '@/lib/onePerScreen'
+import { toast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
 import { usePageTitle } from '@/lib/usePageTitle'
 import { optionRadioClass, optionRowClass, readingTextClass } from '@/lib/formClasses'
@@ -52,16 +56,18 @@ const MAX_UPLOAD_BYTES = 8 * 1024 * 1024 // matches spring.servlet.multipart.max
 
 type TimerTone = 'normal' | 'warning' | 'danger'
 
-/** Calm, then amber in the last five minutes, then red in the last one. */
+/** Calm, then amber in the last ten minutes (as on the home page's clock), then red in the last one. */
 function timerTone(left: number): TimerTone {
   if (left <= 60) return 'danger'
-  if (left <= 5 * 60) return 'warning'
+  if (left <= 10 * 60) return 'warning'
   return 'normal'
 }
 
 const TIMER_CLASSES: Record<TimerTone, string> = {
   normal: 'bg-background',
-  warning: 'bg-amber-100 text-amber-900 dark:bg-amber-500/20 dark:text-amber-100',
+  // Opaque: the bar sits over the questions as they scroll under it. Mixed in OKLab: in OKLCH the hue would travel
+  // from amber toward white's 0° and the bar would turn pink.
+  warning: 'bg-[color-mix(in_oklab,var(--warning)_25%,var(--background))] text-foreground',
   danger: 'bg-destructive text-white dark:text-neutral-950',
 }
 
@@ -71,7 +77,7 @@ const TIMER_CLASSES: Record<TimerTone, string> = {
  */
 const TIMER_ANNOUNCEMENTS: Record<TimerTone, string> = {
   normal: '',
-  warning: 'Mai ai mai puțin de 5 minute.',
+  warning: 'Mai ai mai puțin de 10 minute.',
   danger: 'Mai ai mai puțin de un minut.',
 }
 
@@ -207,6 +213,22 @@ export function TakeQuizPage() {
   const [leaving, setLeaving] = useState(false)
   usePageTitle(attempt?.quiz.title ?? preview?.title ?? (practice ? 'Exersare' : 'Test'))
   const jumpTarget = useRef<HTMLElement | null>(null) // where "Mergi la întrebarea N" sends focus once the dialog closes
+  // The session ended mid-test (the server answered 401 even after a refresh): the answers wait on this device, a
+  // dialog asks the student to sign in again and brings them back here. A ref too, for the hand-in already under way.
+  const [sessionLost, setSessionLost] = useState(false)
+  const sessionLostRef = useRef(false)
+  /** Whether `e` says the session ended; the dialog opens the first time (the queue's retries do not reopen it) or on `show`. */
+  function noteSessionLost(e: unknown, show = false): boolean {
+    if (!(e instanceof ApiError && e.status === 401)) return false
+    if (!sessionLostRef.current || show) setSessionLost(true)
+    sessionLostRef.current = true
+    return true
+  }
+  function signInAgain() {
+    rememberReturnTo(window.location.pathname + window.location.search)
+    // A fresh load: the app forgets the old session and shows the sign-in, which then comes back to this test.
+    window.location.assign('/login')
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -281,6 +303,11 @@ export function TakeQuizPage() {
   // apart from "answered", so a student always knows where they are; null until the first scroll means the first one.
   // The last card(s) of a test can never scroll up into that band, so at the very bottom of the page the last one wins.
   const [currentItem, setCurrentItem] = useState<number | null>(null)
+  // "O întrebare pe ecran" (lib/onePerScreen): only the current question is drawn, Înainte / Înapoi and a swipe move.
+  const [onePerScreen, setOnePerScreen] = useState(readOnePerScreen)
+  // The question whose heading takes the focus once it is drawn (after a move in one-per-screen, or a switch of mode).
+  const focusAfterRender = useRef<number | null>(null)
+  const swipeStart = useRef<{ x: number; y: number } | null>(null)
   // "Revin la ea": the questions marked to come back to, kept per attempt on this device (lib/flags).
   const [flagged, setFlagged] = useState<Set<number>>(new Set())
   // The student's own photo pages, large on the same page (a new tab would leave the test behind).
@@ -297,7 +324,8 @@ export function TakeQuizPage() {
   }
   const navButtons = useRef(new Map<number, HTMLButtonElement>())
   useEffect(() => {
-    if (!attempt) return
+    // One question on screen: the current one is whichever was moved to, nothing to watch.
+    if (!attempt || onePerScreen) return
     const lastCard = () => {
       const page = document.documentElement
       const atBottom = page.scrollHeight > window.innerHeight && window.innerHeight + window.scrollY >= page.scrollHeight - 4
@@ -320,7 +348,26 @@ export function TakeQuizPage() {
       window.removeEventListener('scroll', onScroll)
       observer?.disconnect()
     }
-  }, [attempt])
+  }, [attempt, onePerScreen])
+  useEffect(() => {
+    const target = focusAfterRender.current
+    if (target === null) return
+    focusAfterRender.current = null
+    const heading = document.getElementById(headingId(target))
+    heading?.scrollIntoView?.({ block: 'start' })
+    heading?.focus({ preventScroll: true })
+  }, [currentItem, onePerScreen])
+  // The clock's warnings also as a toast, once per step (10 minutes, 1 minute): seen even while reading a long problem.
+  // Screen readers already hear the timer's own live region, so the toast stays silent for them.
+  const clockTone = timeLeft !== null && !timeUp ? timerTone(timeLeft) : null
+  const lastClockTone = useRef<TimerTone | null>(null)
+  useEffect(() => {
+    if (clockTone === null) return
+    if (clockTone !== 'normal' && clockTone !== lastClockTone.current) {
+      toast({ message: TIMER_ANNOUNCEMENTS[clockTone], tone: clockTone === 'danger' ? 'danger' : 'warning', key: 'quiz-clock', announce: false })
+    }
+    lastClockTone.current = clockTone
+  }, [clockTone])
   // A long test scrolls the bar sideways: keep the current question's button in it.
   useEffect(() => {
     if (currentItem !== null) navButtons.current.get(currentItem)?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' })
@@ -329,9 +376,15 @@ export function TakeQuizPage() {
   // Feature 2: grilă answers go through a queue kept in this browser, so a lost connection loses nothing.
   const sync = useAnswerSync({
     attemptId: attempt?.attemptId ?? null,
-    send: (answer, clientId) =>
-      saveQuizAnswer(attempt!.attemptId, answer.itemId, answer.partValues ?? answer.value ?? answer.optionId!,
-        { clientId, clientSeq: answer.seq }),
+    send: async (answer, clientId) => {
+      try {
+        return await saveQuizAnswer(attempt!.attemptId, answer.itemId, answer.partValues ?? answer.value ?? answer.optionId!,
+          { clientId, clientSeq: answer.seq })
+      } catch (e) {
+        noteSessionLost(e)
+        throw e
+      }
+    },
     onSaved: (answer, result) => {
       if (answer.partValues) return // typed results bring no verdict: a practice keeps the barem its photo brought
       if (answer.optionId !== null) confirmed.current[answer.itemId] = answer.optionId
@@ -374,6 +427,11 @@ export function TakeQuizPage() {
 
   /** Scrolls an item into view and moves focus to its heading, so keyboard and screen-reader users land there too. */
   function goToItem(itemId: number) {
+    if (onePerScreen) {
+      focusAfterRender.current = itemId
+      setCurrentItem(itemId)
+      return
+    }
     const heading = document.getElementById(headingId(itemId))
     if (!heading) return
     setCurrentItem(itemId)
@@ -533,7 +591,9 @@ export function TakeQuizPage() {
       setPhotos((s) => ({ ...s, [itemId]: result.photoIds }))
       setFeedback((s) => ({ ...s, [itemId]: result.feedback ?? undefined }))
     } catch (e) {
-      setItemError(itemId, errorMessage(e))
+      setItemError(itemId, noteSessionLost(e, true)
+        ? 'Sesiunea a expirat: conectează-te din nou, apoi trimite poza încă o dată.'
+        : errorMessage(e))
       if (isTimeUpConflict(e)) void submitBecauseTimeIsUp()
     } finally {
       setItemBusy(itemId, false)
@@ -597,7 +657,9 @@ export function TakeQuizPage() {
     setError(null)
     commitTypedNumbers()
     if (!(await sync.flush(10_000))) {
-      setUnsent(Math.max(1, sync.pendingCount))
+      // Not the connection but the session: its own dialog already asks to sign in again.
+      if (sessionLostRef.current) setSessionLost(true)
+      else setUnsent(Math.max(1, sync.pendingCount))
       setSubmitting(false)
       return
     }
@@ -614,7 +676,7 @@ export function TakeQuizPage() {
       clearFlags(attempt.attemptId)
       navigate(`/quizzes/attempts/${attempt.attemptId}/result`, { replace: true })
     } catch (e) {
-      setError(errorMessage(e))
+      if (!noteSessionLost(e, true)) setError(errorMessage(e))
       setSubmitting(false)
     }
   }
@@ -740,6 +802,22 @@ export function TakeQuizPage() {
   const askAboutUnanswered = !practice && !timeUp && unanswered.length > 0
   const tone = timeLeft !== null ? timerTone(timeLeft) : 'normal'
   const uploading = Object.values(saving).some(Boolean)
+  const sending = uploading || items.some((item) => sync.statusOf(item.id) === 'saving')
+  // One question on screen: the one moved to, the first one to start with.
+  const shownIndex = Math.max(0, numbered.findIndex((n) => n.item.id === currentItem))
+  const shown = onePerScreen
+    ? numbered.slice(shownIndex, shownIndex + 1).map((n) => ({ ...n, heading: n.item.section ? parseSection(n.item.section) : null }))
+    : numbered
+  function switchOnePerScreen() {
+    const next = !onePerScreen
+    saveOnePerScreen(next)
+    focusAfterRender.current = currentItem ?? numbered[0]?.item.id ?? null
+    setOnePerScreen(next)
+  }
+  function step(by: 1 | -1) {
+    const target = numbered[shownIndex + by]
+    if (target) goToItem(target.item.id)
+  }
 
   const dialogTitle = practice
     ? 'Termini exersarea?'
@@ -778,7 +856,9 @@ export function TakeQuizPage() {
             data-tone={tone}
             className={`fixed inset-x-0 top-0 z-10 border-b p-2 text-center text-sm font-semibold transition-colors ${TIMER_CLASSES[tone]}`}
           >
-            {timeUp ? 'Timpul a expirat — se trimite lucrarea...' : `⏱ Timp rămas: ${formatClock(timeLeft)}`}
+            {timeUp ? 'Timpul a expirat — se trimite lucrarea...' : (
+              <span className={tone === 'danger' ? 'soft-pulse' : undefined}>⏱ Timp rămas: {formatClock(timeLeft)}</span>
+            )}
           </div>
           <div aria-live="polite" className="sr-only" data-testid="quiz-timer-announcement">
             {timeUp ? '' : TIMER_ANNOUNCEMENTS[tone]}
@@ -799,6 +879,19 @@ export function TakeQuizPage() {
           {attempt.quiz.description && (
             <p className="text-sm text-muted-foreground">{attempt.quiz.description}</p>
           )}
+          {numbered.length > 1 && (
+            <Button
+              variant="outline"
+              size="sm"
+              aria-pressed={onePerScreen}
+              onClick={switchOnePerScreen}
+              data-testid="one-per-screen"
+              className={cn('mt-2', onePerScreen && 'border-primary bg-primary/10 text-primary')}
+            >
+              <GalleryHorizontal aria-hidden="true" />
+              O întrebare pe ecran
+            </Button>
+          )}
           {filtered && (
             <p data-testid="practice-only" className="mt-1 text-sm">
               Exersezi doar ce ai greșit: {roCount(items.length, 'întrebare', 'întrebări')} ·{' '}
@@ -814,7 +907,7 @@ export function TakeQuizPage() {
             role="status"
             data-testid="connection-banner"
             className={cn(
-              'sticky z-10 rounded-lg border border-amber-500/50 bg-amber-100 p-3 text-sm font-medium text-amber-950 dark:bg-amber-500/20 dark:text-amber-100',
+              'sticky z-10 rounded-lg border border-warning/50 bg-amber-100 p-3 text-sm font-medium text-amber-950 dark:bg-warning/20 dark:text-amber-100',
               timeLeft !== null || practice ? 'top-12' : 'top-2',
             )}
           >
@@ -824,7 +917,22 @@ export function TakeQuizPage() {
           </div>
         )}
 
-        {numbered.map(({ item, label, local, heading }) => (
+        <div
+          className="space-y-4"
+          onTouchStart={onePerScreen ? (e) => {
+            const touch = e.touches[0]
+            swipeStart.current = touch && !startsInSideScroller(e.target, e.currentTarget) ? { x: touch.clientX, y: touch.clientY } : null
+          } : undefined}
+          onTouchEnd={onePerScreen ? (e) => {
+            const start = swipeStart.current
+            const touch = e.changedTouches[0]
+            swipeStart.current = null
+            if (!start || !touch) return
+            const direction = swipeDirection(touch.clientX - start.x, touch.clientY - start.y)
+            if (direction) step(direction === 'next' ? 1 : -1)
+          } : undefined}
+        >
+        {shown.map(({ item, label, local, heading }) => (
           <Fragment key={item.id}>
           {heading && <SectionHeadingView heading={heading} />}
           <Card className="scroll-mt-14" data-item-id={item.id}>
@@ -841,7 +949,7 @@ export function TakeQuizPage() {
                   aria-label={`Revin la întrebarea ${label}`}
                   data-testid={`flag-${item.id}`}
                   onClick={() => toggleFlag(item.id)}
-                  className={cn('h-9 shrink-0 gap-1.5', flagged.has(item.id) && 'border-amber-500 bg-amber-500/15 text-amber-800 dark:text-amber-200')}
+                  className={cn('h-9 shrink-0 gap-1.5', flagged.has(item.id) && 'border-warning bg-warning/15 text-warning-foreground')}
                 >
                   <Flag aria-hidden="true" className="size-3.5" fill={flagged.has(item.id) ? 'currentColor' : 'none'} />
                   {flagged.has(item.id) ? 'Marcată' : 'Revin la ea'}
@@ -887,7 +995,7 @@ export function TakeQuizPage() {
                       key={option.id}
                       className={`${optionRowClass} cursor-pointer ${
                         isRight
-                          ? 'border-emerald-500 bg-emerald-500/10'
+                          ? 'border-success bg-success/10'
                           : isWrongPick
                             ? 'border-destructive bg-destructive/10'
                             : selected[item.id] === option.id
@@ -907,7 +1015,7 @@ export function TakeQuizPage() {
                       <MathContent inline large>{option.text}</MathContent>
                       {/* A sign as well as a colour: the verdict must not depend on telling green from red. */}
                       {isRight && (
-                        <span className="ml-auto font-semibold text-emerald-700 dark:text-emerald-300">
+                        <span className="ml-auto font-semibold text-success-foreground">
                           <span aria-hidden="true">✓</span>
                           <span className="sr-only"> (răspunsul corect)</span>
                         </span>
@@ -925,7 +1033,7 @@ export function TakeQuizPage() {
                     <div data-testid="item-feedback" className="space-y-2 rounded-lg bg-muted p-3 text-sm">
                       <p
                         className={`font-medium ${
-                          feedback[item.id]?.correct ? 'text-emerald-700 dark:text-emerald-300' : 'text-destructive'
+                          feedback[item.id]?.correct ? 'text-success-foreground' : 'text-destructive'
                         }`}
                       >
                         {feedback[item.id]?.correct
@@ -973,7 +1081,7 @@ export function TakeQuizPage() {
                   </NumberAnswer>
                   {feedback[item.id] && (
                     <div data-testid="item-feedback" className="space-y-2 rounded-lg bg-muted p-3 text-sm">
-                      <p className={`font-medium ${feedback[item.id]?.correct ? 'text-emerald-700 dark:text-emerald-300' : 'text-destructive'}`}>
+                      <p className={`font-medium ${feedback[item.id]?.correct ? 'text-success-foreground' : 'text-destructive'}`}>
                         {feedback[item.id]?.correct ? '✓ Corect!' : `✗ Greșit — răspunsul corect e ${feedback[item.id]?.correctNumber}.`}
                       </p>
                       {feedback[item.id]?.solution && (
@@ -1052,7 +1160,7 @@ export function TakeQuizPage() {
                     </p>
                   )}
                   {pagesOf(item.id).length > 0 && (
-                    <p role="status" className="text-emerald-700 dark:text-emerald-300">
+                    <p role="status" className="text-success-foreground">
                       ✓ Poză încărcată · {roCount(pagesOf(item.id).length, 'pagină trimisă', 'pagini trimise')}.
                     </p>
                   )}
@@ -1074,9 +1182,9 @@ export function TakeQuizPage() {
                     <div
                       key={i}
                       data-testid="hint"
-                      className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm"
+                      className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm"
                     >
-                      <p className="text-xs font-medium text-amber-800 dark:text-amber-200">
+                      <p className="text-xs font-medium text-warning-foreground">
                         Indiciul {i + 1} din {item.hintCount}
                       </p>
                       <MathContent>{text}</MathContent>
@@ -1108,6 +1216,23 @@ export function TakeQuizPage() {
           </Card>
           </Fragment>
         ))}
+        </div>
+
+        {onePerScreen && (
+          <div data-testid="one-per-screen-steps" className="flex items-center justify-between gap-2">
+            <Button variant="outline" onClick={() => step(-1)} disabled={shownIndex === 0} className="h-11">
+              <ChevronLeft aria-hidden="true" />
+              Înapoi
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              {shownIndex + 1} din {numbered.length}
+            </span>
+            <Button onClick={() => step(1)} disabled={shownIndex >= numbered.length - 1} className="h-11">
+              Înainte
+              <ChevronRight aria-hidden="true" />
+            </Button>
+          </div>
+        )}
 
         {error && <p className="text-sm text-destructive">{error}</p>}
       </div>
@@ -1141,22 +1266,25 @@ export function TakeQuizPage() {
                 >
                   {label}
                   {marked && (
-                    <Flag aria-hidden="true" data-testid="nav-flag" className="absolute -top-1.5 -left-1 size-3.5 text-amber-500" fill="currentColor" />
+                    <Flag aria-hidden="true" data-testid="nav-flag" className="absolute -top-1.5 -left-1 size-3.5 text-warning" fill="currentColor" />
                   )}
                   {unsentYet && (
-                    <span aria-hidden="true" className="absolute -top-1 -right-1 size-2.5 rounded-full bg-amber-500 ring-2 ring-background" />
+                    <span aria-hidden="true" className="absolute -top-1 -right-1 size-2.5 rounded-full bg-warning ring-2 ring-background" />
                   )}
                 </button>
               )
             })}
           </nav>
           <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+            <div className="flex items-center gap-2">
             <p data-testid="quiz-answered" className="text-sm text-muted-foreground">
               {answeredCount} / {items.length}
               {/* On a phone the words would push the two buttons onto a row of their own: a screen reader still has them. */}
               <span className="max-sm:sr-only"> {practice ? 'întrebări rezolvate' : 'răspunsuri'}</span>
               {sync.pendingCount > 0 && <span className="max-sm:sr-only"> · {sync.pendingCount} netrimise încă</span>}
             </p>
+            <SaveStatus online={sync.online} waiting={sync.waiting} sending={sending} answered={answeredCount} />
+            </div>
             <div className="ml-auto flex gap-2">
               {/* The only way out of the test: the app header is hidden here, and an installed app may have no Back. */}
               <Button
@@ -1214,6 +1342,37 @@ export function TakeQuizPage() {
         }
       >
         {dialogBody}
+        {!practice && !timeUp && (unanswered.length > 0 || flaggedLeft.length > 0) && (
+          <div data-testid="hand-in-review" className="mt-3 space-y-2">
+            {[
+              { title: 'Fără răspuns', list: unanswered.map((u) => ({ id: u.item.id, label: u.number })), marked: false },
+              { title: 'Marcate „Revin la ea”', list: flaggedLeft.map((n) => ({ id: n.item.id, label: n.label })), marked: true },
+            ].filter((group) => group.list.length > 0).map((group) => (
+              <div key={group.title} role="group" aria-label={group.title} className="flex flex-wrap items-center gap-1.5">
+                <span className="mr-1 text-xs font-medium text-foreground">{group.title}:</span>
+                {group.list.map(({ id, label }) => (
+                  <button
+                    key={id}
+                    type="button"
+                    aria-label={`Întrebarea ${label}`}
+                    onClick={() => {
+                      jumpTarget.current = document.getElementById(headingId(id))
+                      setConfirming(false)
+                      goToItem(id)
+                    }}
+                    className={cn(
+                      'inline-flex h-9 min-w-9 items-center justify-center gap-1 rounded-lg border px-2 text-sm font-medium text-foreground outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 max-sm:h-11 max-sm:min-w-11',
+                      group.marked && 'border-warning bg-warning/15',
+                    )}
+                  >
+                    {group.marked && <Flag aria-hidden="true" className="size-3 text-warning" fill="currentColor" />}
+                    {label}
+                  </button>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
       </ConfirmDialog>
 
       <ConfirmDialog
@@ -1257,6 +1416,17 @@ export function TakeQuizPage() {
         punct galben se predau fără răspuns.
       </ConfirmDialog>
 
+      <Dialog open={sessionLost} onOpenChange={(open) => !open && setSessionLost(false)} title="Sesiunea a expirat">
+        <p data-testid="session-lost" className="text-sm text-muted-foreground">
+          Răspunsurile tale sunt păstrate pe acest dispozitiv și se trimit singure după ce te conectezi din nou; revii
+          apoi la acest test.{timeLeft !== null && ' Cronometrul nu se oprește între timp.'}
+        </p>
+        <div className="mt-5 flex flex-wrap justify-end gap-2">
+          <Button variant="outline" onClick={() => setSessionLost(false)}>Mai târziu</Button>
+          <Button onClick={signInAgain}>Conectează-te din nou</Button>
+        </div>
+      </Dialog>
+
       {attempt && (
         <PhotoViewer
           urls={viewingOwn ? pagesOf(viewingOwn.itemId).map((photoId) => ownPhotoUrl(attempt.attemptId, viewingOwn.itemId, photoId)) : []}
@@ -1271,12 +1441,33 @@ export function TakeQuizPage() {
   )
 }
 
+/**
+ * The whole paper's state in one word next to the count, so the student never wonders whether their work is kept:
+ * "Offline" (sent once the connection is back), "Se salvează…" while something is on its way, "Salvat" otherwise.
+ * Only seen: the connection banner and each question's own line already tell a screen reader.
+ */
+function SaveStatus({ online, waiting, sending, answered }: { online: boolean; waiting: boolean; sending: boolean; answered: number }) {
+  const [Icon, text, className] = !online || waiting
+    ? [CloudOff, online ? 'Se reîncearcă' : 'Offline', 'text-warning-foreground']
+    : sending
+      ? [LoaderCircle, 'Se salvează…', 'text-muted-foreground']
+      : answered > 0 ? [Check, 'Salvat', 'text-success-foreground'] : [null, '', '']
+  if (!Icon) return null
+  return (
+    <p data-testid="save-status" aria-hidden="true" title={text} className={cn('flex items-center gap-1 text-xs font-medium', className)}>
+      <Icon className={cn('size-3.5', Icon === LoaderCircle && 'animate-spin motion-reduce:animate-none')} />
+      {/* On a phone the icon alone: with the words the two buttons no longer fit beside the count. */}
+      <span className="max-sm:hidden">{text}</span>
+    </p>
+  )
+}
+
 /** Where a grilă answer is: on its way, or waiting for the connection. Nothing when the server has it. */
 function SyncLine({ status }: { status: 'saving' | 'queued' | undefined }) {
   if (status === 'saving') return <p className="text-xs text-muted-foreground">Se salvează…</p>
   if (status === 'queued') {
     return (
-      <p className="text-xs font-medium text-amber-700 dark:text-amber-400" data-testid="item-queued">
+      <p className="text-xs font-medium text-warning-foreground" data-testid="item-queued">
         ⏳ Încă netrimis — se trimite singur când revine internetul.
       </p>
     )

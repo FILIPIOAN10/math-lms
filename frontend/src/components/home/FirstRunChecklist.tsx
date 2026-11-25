@@ -34,7 +34,7 @@ export function FirstRunChecklist({ steps }: { steps: FirstRunStep[] }) {
                       className={cn(
                         'mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold',
                         step.done
-                          ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                          ? 'bg-success/15 text-success-foreground'
                           : isNext ? 'bg-foreground text-background' : 'bg-muted text-muted-foreground',
                       )}
                     >

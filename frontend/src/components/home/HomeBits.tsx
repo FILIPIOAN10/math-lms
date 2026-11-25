@@ -51,7 +51,7 @@ export function StatTile({
       <Card className="hover-lift h-full">
         <CardContent className="flex items-start justify-between gap-2 py-4">
           {done ? (
-            <p className="text-lg font-semibold text-emerald-700 dark:text-emerald-300">{doneLabel} ✓</p>
+            <p className="text-lg font-semibold text-success-foreground">{doneLabel} ✓</p>
           ) : (
             <div>
               <p className={cn('text-3xl font-semibold', pressing ? 'text-destructive' : 'text-foreground')}>{value}</p>
@@ -60,7 +60,7 @@ export function StatTile({
           )}
           <Icon
             aria-hidden="true"
-            className={cn('size-5 shrink-0', done ? 'text-emerald-600 dark:text-emerald-400' : pressing ? 'text-destructive' : 'text-primary')}
+            className={cn('size-5 shrink-0', done ? 'text-success-foreground' : pressing ? 'text-destructive' : 'text-primary')}
           />
         </CardContent>
       </Card>

@@ -1,4 +1,5 @@
-import { type AssignmentSummary, type ProgressPointDto, type StudentAssignment } from '@/lib/api'
+import { type AssignmentSummary, type EnChapterMastery, type MyAttemptDto, type ProgressPointDto, type StudentAssignment } from '@/lib/api'
+import { masteryLevel } from '@/lib/mastery'
 
 const DAY = 86_400_000
 
@@ -64,4 +65,28 @@ export function firstRunSteps(counts: { classes: number; students: number; quizz
       to: '/admin/quizzes', done: counts.assignments > 0,
     },
   ]
+}
+
+/** A child's last seven days for the parent: homework handed in, and how much of it after the deadline. */
+export interface WeekSummary {
+  handedIn: number
+  late: number
+}
+
+/** Homework handed in during the seven days before `nowMs`, its date taken from the attempt that handed it in. */
+export function weekSummary(homework: StudentAssignment[], attempts: MyAttemptDto[], nowMs: number): WeekSummary {
+  const submittedAt = new Map(attempts.map((a) => [a.attemptId, a.submittedAt]))
+  const thisWeek = homework.filter((h) => {
+    if (h.state !== 'SUBMITTED' && h.state !== 'GRADED') return false
+    const at = h.attemptId !== null ? submittedAt.get(h.attemptId) : null
+    return at != null && nowMs - Date.parse(at) <= 7 * DAY
+  })
+  return { handedIn: thisWeek.length, late: thisWeek.filter((h) => h.late).length }
+}
+
+/** The EN chapter to revise first: the lowest of those under 50%, or null when none is weak (or none met yet). */
+export function weakestChapter(rows: EnChapterMastery[]): EnChapterMastery | null {
+  return rows
+    .filter((r) => r.questions > 0 && masteryLevel(r.percent) === 'low')
+    .reduce<EnChapterMastery | null>((low, r) => (low === null || (r.percent ?? 0) < (low.percent ?? 0) ? r : low), null)
 }

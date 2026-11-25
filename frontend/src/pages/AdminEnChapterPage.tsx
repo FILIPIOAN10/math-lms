@@ -233,7 +233,7 @@ export function AdminEnChapterPage() {
                         {section.bookPage !== null && (
                           <span className="text-xs text-muted-foreground">pag. {section.bookPage}</span>
                         )}
-                        <span className={cn('text-xs', section.notes ? 'text-emerald-700 dark:text-emerald-400' : 'text-muted-foreground')}>
+                        <span className={cn('text-xs', section.notes ? 'text-success-foreground' : 'text-muted-foreground')}>
                           {section.notes ? 'are text' : 'fără text'}
                         </span>
                         <Link

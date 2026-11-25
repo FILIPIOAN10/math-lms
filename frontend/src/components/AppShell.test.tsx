@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AppShell } from '@/components/AppShell'
+import { initials, isNewPage } from '@/lib/shell'
 import { ErrorState } from '@/components/ErrorState'
 import type { User } from '@/lib/api'
 import { NAV_COUNTS_CHANGED } from '@/lib/roles'
@@ -16,6 +17,9 @@ const api = vi.hoisted(() => ({
   listAttemptsForGrading: vi.fn(),
   getMyAttempts: vi.fn(),
   getStudentTutor: vi.fn(() => Promise.resolve({ enabled: false, dailyLimit: 0, remainingToday: 0, openTest: null })),
+  listQuizzes: vi.fn(() => Promise.resolve([])),
+  listActiveUsers: vi.fn(() => Promise.resolve([])),
+  listEnChapters: vi.fn(() => Promise.resolve([])),
 }))
 vi.mock('@/lib/api', async (original) => ({ ...(await original<typeof import('@/lib/api')>()), ...api }))
 
@@ -34,6 +38,7 @@ function renderShell(path = '/') {
           <Route path="/admin/assignments" element={<p>pagina teme</p>} />
           <Route path="/admin/students/:id" element={<p>pagina elev</p>} />
           <Route path="/capitole" element={<p>pagina capitole</p>} />
+          <Route path="/admin/en-chapters" element={<p>pagina capitole admin</p>} />
           <Route path="/content" element={<p>pagina conținut</p>} />
           <Route path="/reincarca" element={<FailsOnce />} />
         </Route>
@@ -261,5 +266,71 @@ describe('AppShell', () => {
       renderShell()
       expect(await within(tabBar()).findByRole('link', { name: 'Teste, 2 note noi' })).toBeInTheDocument()
     })
+  })
+
+  describe('side menu (computer)', () => {
+    it("puts an admin's rarer pages under \"Mai mult\", and marks their own link, not the one that groups them", () => {
+      auth.value = { ...auth.value, user: user({ role: 'ADMIN', fullName: 'Ion Profesor' }) }
+      renderShell('/admin/en-chapters')
+      const more = screen.getByRole('navigation', { name: 'Mai mult' })
+      expect(within(more).getAllByRole('link').map((l) => l.textContent)).toEqual(['Capitole EN', 'Import din poze', 'Jurnal'])
+      expect(within(more).getByRole('link', { name: 'Capitole EN' })).toHaveAttribute('aria-current', 'page')
+      expect(within(nav()).getByRole('link', { name: 'Clase' })).not.toHaveAttribute('aria-current')
+    })
+
+    it('has no "Mai mult" for a student: all their pages are main links', () => {
+      auth.value = { ...auth.value, user: user({}) }
+      renderShell()
+      expect(screen.queryByRole('navigation', { name: 'Mai mult' })).not.toBeInTheDocument()
+    })
+
+    it("shows the user's initials next to their name", () => {
+      auth.value = { ...auth.value, user: user({ fullName: 'Ana Maria Pop' }) }
+      renderShell()
+      expect(within(screen.getByRole('banner')).getByText('AM')).toBeInTheDocument()
+      expect(initials('  ștefan  ')).toBe('Ș')
+      expect(initials('')).toBe('?')
+    })
+
+    it('switches between light and dark in one press and remembers it', async () => {
+      document.documentElement.classList.remove('dark')
+      auth.value = { ...auth.value, user: user({}) }
+      renderShell()
+      const toggle = screen.getByRole('button', { name: 'Temă întunecată' })
+      expect(toggle).toHaveAttribute('aria-pressed', 'false')
+      await userEvent.click(toggle)
+      expect(document.documentElement).toHaveClass('dark')
+      expect(localStorage.getItem('mathlms-theme')).toBe('dark')
+      expect(toggle).toHaveAttribute('aria-pressed', 'true')
+      await userEvent.click(toggle)
+      expect(document.documentElement).not.toHaveClass('dark')
+      localStorage.removeItem('mathlms-theme')
+    })
+  })
+
+  describe('search (Ctrl+K)', () => {
+    it('opens from the keyboard anywhere in the app', async () => {
+      auth.value = { ...auth.value, user: user({ role: 'TEACHER', fullName: 'Ion Profesor' }) }
+      renderShell()
+      await userEvent.keyboard('{Control>}k{/Control}')
+      expect(await screen.findByRole('combobox', { name: 'Caută o pagină, un test, un elev' })).toBeInTheDocument()
+    })
+
+    it('opens from the search button, and takes the user to the page picked', async () => {
+      auth.value = { ...auth.value, user: user({}) }
+      renderShell()
+      await userEvent.click(screen.getByRole('button', { name: 'Caută' }))
+      await userEvent.type(await screen.findByRole('combobox'), 'teste{Enter}')
+      expect(await screen.findByText('pagina teste')).toBeInTheDocument()
+      expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
+    })
+  })
+
+  it('fades a page in only when the user goes to another page, not when one opens a dialog of its own', () => {
+    expect(isNewPage('/', '/quizzes')).toBe(true)
+    expect(isNewPage('/admin/quizzes', '/admin/quizzes/5')).toBe(false)
+    expect(isNewPage('/admin/quizzes/5', '/admin/quizzes')).toBe(false)
+    expect(isNewPage('/admin/quizzes', '/admin/quizzesX')).toBe(true)
+    expect(isNewPage('/review', '/review')).toBe(false)
   })
 })

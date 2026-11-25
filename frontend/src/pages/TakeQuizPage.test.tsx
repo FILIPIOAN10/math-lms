@@ -3,6 +3,8 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TakeQuizPage } from '@/pages/TakeQuizPage'
+import { clearToasts, readToasts } from '@/lib/toast'
+import { ONE_PER_SCREEN_KEY } from '@/lib/onePerScreen'
 import {
   ApiError,
   type AnswerFeedback,
@@ -422,7 +424,7 @@ describe('TakeQuizPage', () => {
       expect(screen.getByTestId('item-mistake')).toHaveTextContent('Ai adunat numitorii.')
       expect(api.saveQuizAnswer).toHaveBeenCalledWith(50, 100, 1001, { clientId: expect.any(String), clientSeq: 1 })
       // the right option is outlined green, the wrong pick red
-      expect(screen.getByText('Varianta A').closest('label')).toHaveClass('border-emerald-500')
+      expect(screen.getByText('Varianta A').closest('label')).toHaveClass('border-success')
       expect(screen.getByText('Varianta B').closest('label')).toHaveClass('border-destructive')
       // and the verdict names the right option by its letter, as the barem does
       expect(screen.getByTestId('item-feedback')).toHaveTextContent('răspunsul corect e a)')
@@ -1233,16 +1235,109 @@ describe('TakeQuizPage', () => {
       expect(screen.getByTestId('quiz-timer-announcement')).toBeEmptyDOMElement()
     })
 
-    it('turns amber and tells screen readers in the last five minutes', async () => {
-      const timer = await startTimed(4 * 60)
+    it('turns amber in the last ten minutes, tells screen readers, and shows a toast once', async () => {
+      clearToasts()
+      const timer = await startTimed(8 * 60)
       expect(timer).toHaveAttribute('data-tone', 'warning')
-      expect(screen.getByTestId('quiz-timer-announcement')).toHaveTextContent('mai puțin de 5 minute')
+      expect(screen.getByTestId('quiz-timer-announcement')).toHaveTextContent('mai puțin de 10 minute')
+      const toasts = readToasts()
+      expect(toasts.map((t) => [t.message, t.tone, t.announce])).toEqual([['Mai ai mai puțin de 10 minute.', 'warning', false]])
+      clearToasts()
+    })
+
+    it('shows no toast while there is plenty of time', async () => {
+      clearToasts()
+      await startTimed(20 * 60)
+      expect(readToasts()).toHaveLength(0)
     })
 
     it('turns red in the last minute', async () => {
       const timer = await startTimed(45)
       expect(timer).toHaveAttribute('data-tone', 'danger')
       expect(screen.getByTestId('quiz-timer-announcement')).toHaveTextContent('mai puțin de un minut')
+    })
+  })
+
+  describe('saved state, hand-in review, one question per screen', () => {
+    beforeEach(() => {
+      localStorage.clear()
+      Element.prototype.scrollIntoView = vi.fn()
+      api.saveQuizAnswer.mockResolvedValue(null)
+    })
+
+    it('says "Salvat" next to the count once the server has the answer', async () => {
+      api.startQuizAttempt.mockResolvedValue(startedThree())
+      renderPage('')
+      await userEvent.click(await screen.findByRole('button', { name: 'Începe testul' }))
+      await screen.findByText('Primul subiect')
+      expect(screen.queryByTestId('save-status')).not.toBeInTheDocument()
+      await userEvent.click(screen.getByLabelText('a) A1'))
+      await waitFor(() => expect(screen.getByTestId('save-status')).toHaveTextContent('Salvat'))
+    })
+
+    it('lists every unanswered and every marked question in the hand-in dialog, each one a jump back', async () => {
+      api.startQuizAttempt.mockResolvedValue(startedThree())
+      renderPage('')
+      await userEvent.click(await screen.findByRole('button', { name: 'Începe testul' }))
+      await screen.findByText('Primul subiect')
+      await userEvent.click(screen.getByLabelText('a) A1'))
+      await userEvent.click(screen.getByRole('button', { name: 'Revin la întrebarea 1' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Trimite lucrarea' }))
+
+      const dialog = await screen.findByRole('dialog')
+      const empty = within(dialog).getByRole('group', { name: 'Fără răspuns' })
+      expect(within(empty).getAllByRole('button').map((b) => b.textContent)).toEqual(['2', '3'])
+      const marked = within(dialog).getByRole('group', { name: 'Marcate „Revin la ea”' })
+      expect(within(marked).getAllByRole('button').map((b) => b.textContent)).toEqual(['1'])
+
+      await userEvent.click(within(empty).getByRole('button', { name: 'Întrebarea 3' }))
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+      expect(api.submitQuizAttempt).not.toHaveBeenCalled()
+    })
+
+    it('keeps an answer the server refused for an ended session, and asks the student to sign in again', async () => {
+      api.startQuizAttempt.mockResolvedValue(startedThree())
+      api.saveQuizAnswer.mockRejectedValue(new ApiError(401, ''))
+      renderPage('')
+      await userEvent.click(await screen.findByRole('button', { name: 'Începe testul' }))
+      await screen.findByText('Primul subiect')
+      await userEvent.click(screen.getByLabelText('a) A1'))
+
+      const dialog = await screen.findByRole('dialog', { name: 'Sesiunea a expirat' })
+      expect(within(dialog).getByTestId('session-lost')).toHaveTextContent('Răspunsurile tale sunt păstrate pe acest dispozitiv')
+      expect(within(dialog).getByRole('button', { name: 'Conectează-te din nou' })).toBeInTheDocument()
+      expect(screen.getByLabelText('a) A1')).toBeChecked() // not taken back: it waits on this device
+    })
+
+    it('shows one question at a time when asked, moves with Înainte / Înapoi and the bar, and remembers the choice', async () => {
+      api.startQuizAttempt.mockResolvedValue(startedThree())
+      renderPage('')
+      await userEvent.click(await screen.findByRole('button', { name: 'Începe testul' }))
+      await screen.findByText('Primul subiect')
+      expect(screen.getByText('Al doilea subiect')).toBeInTheDocument() // the long page: all of them
+
+      const toggle = screen.getByRole('button', { name: 'O întrebare pe ecran' })
+      await userEvent.click(toggle)
+      expect(toggle).toHaveAttribute('aria-pressed', 'true')
+      expect(localStorage.getItem(ONE_PER_SCREEN_KEY)).toBe('1')
+      expect(screen.getByText('Primul subiect')).toBeInTheDocument()
+      expect(screen.queryByText('Al doilea subiect')).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Înapoi/ })).toBeDisabled()
+
+      await userEvent.click(screen.getByRole('button', { name: /Înainte/ }))
+      expect(screen.getByText('Al doilea subiect')).toBeInTheDocument()
+      expect(screen.queryByText('Primul subiect')).not.toBeInTheDocument()
+      expect(screen.getByTestId('one-per-screen-steps')).toHaveTextContent('2 din 3')
+      expect(document.activeElement).toHaveTextContent('Întrebarea 2')
+
+      const bar = screen.getByRole('navigation', { name: 'Întrebări' })
+      await userEvent.click(within(bar).getByRole('button', { name: /^Întrebarea 3,/ }))
+      expect(screen.getByText('Al treilea subiect')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Înainte/ })).toBeDisabled()
+
+      await userEvent.click(toggle)
+      expect(screen.getByText('Primul subiect')).toBeInTheDocument() // back to the long page
+      expect(localStorage.getItem(ONE_PER_SCREEN_KEY)).toBeNull()
     })
   })
 

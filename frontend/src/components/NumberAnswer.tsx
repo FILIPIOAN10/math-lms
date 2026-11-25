@@ -45,7 +45,7 @@ export function NumberAnswer({ id, label, value, disabled, onChange, onCommit, c
       </div>
       <p id={hintId} className="text-xs text-muted-foreground">{hint ?? 'Scrie doar numărul: 12, 0,5, 1/2 sau 0,(3).'}</p>
       {value.trim() !== '' && !isNumber(value) && (
-        <p role="status" className="text-sm text-amber-700 dark:text-amber-300">
+        <p role="status" className="text-sm text-warning-foreground">
           {warning ?? 'Nu pare un număr. Așa nu primește puncte, chiar dacă rezultatul e corect.'}
         </p>
       )}

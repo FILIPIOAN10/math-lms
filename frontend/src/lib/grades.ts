@@ -20,23 +20,23 @@ export function gradeBand(grade: number): GradeBand {
  * number is always there.
  */
 export const GRADE_TEXT: Record<GradeBand, string> = {
-  low: 'text-red-700 dark:text-red-400',
-  mid: 'text-amber-700 dark:text-amber-400',
-  high: 'text-emerald-700 dark:text-emerald-400',
+  low: 'text-destructive',
+  mid: 'text-warning-foreground',
+  high: 'text-success-foreground',
 }
 
 /** The same bands for a filled shape (a bar), where 3:1 is enough. */
 export const GRADE_FILL: Record<GradeBand, string> = {
-  low: 'bg-red-500',
-  mid: 'bg-amber-500',
-  high: 'bg-emerald-500',
+  low: 'bg-destructive',
+  mid: 'bg-warning',
+  high: 'bg-success',
 }
 
 /** ...and for the ring around a grade. */
 export const GRADE_STROKE: Record<GradeBand, string> = {
-  low: 'stroke-red-500',
-  mid: 'stroke-amber-500',
-  high: 'stroke-emerald-500',
+  low: 'stroke-destructive',
+  mid: 'stroke-warning',
+  high: 'stroke-success',
 }
 
 /** "10" for a whole grade, otherwise two decimals with a Romanian comma: "5,50", "7,55". */

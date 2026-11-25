@@ -371,7 +371,7 @@ export function EnChapterPage() {
               {teacher && !lesson.published && ' Elevii n-o văd încă: citește-o și arat-o când e bună.'}
             </p>
             {teacher && (lessonMissing > 0 || lesson.needsReview > 0) && (
-              <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
+              <p className="text-sm font-medium text-warning-foreground">
                 {`${lesson.pages.length} din ${lesson.photoCount} pagini scrise`}
                 {lesson.needsReview > 0 ? `, ${lesson.needsReview} de revizuit.` : '.'}
               </p>
@@ -403,7 +403,7 @@ export function EnChapterPage() {
                       data-testid={`lesson-page-${written.photoId}`}
                       data-linked={written.photoId === linkedPage || undefined}
                       className={cn('scroll-mt-20 space-y-2 border-t pt-4',
-                        written.photoId === linkedPage && 'rounded-lg bg-amber-500/10 px-3 ring-2 ring-amber-500/60')}
+                        written.photoId === linkedPage && 'rounded-lg bg-warning/10 px-3 ring-2 ring-warning/60')}
                     >
                       <div className="flex flex-wrap items-baseline justify-between gap-2">
                         <span className="text-xs text-muted-foreground">
@@ -414,7 +414,7 @@ export function EnChapterPage() {
                         )}
                       </div>
                       {teacher && written.needsReview && (
-                        <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-500/60 bg-amber-500/10 px-3 py-2 text-sm">
+                        <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-warning/60 bg-warning/10 px-3 py-2 text-sm">
                           <span>{`De revizuit: ${written.reviewNote ?? 'compară pagina cu cartea'}`}</span>
                           <Button size="sm" variant="outline" onClick={() => pageReviewed(written.photoId)}>Am verificat pagina</Button>
                         </div>

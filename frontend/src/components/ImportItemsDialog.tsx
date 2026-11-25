@@ -95,7 +95,7 @@ export function ImportItemsDialog({
                         ? `cerințe ${(item.parts ?? []).map((part, j) => `${String.fromCharCode(97 + j)}) ${part.points}p`).join(', ')}`
                         : 'cu poză'})
                   </span>
-                  {item.imageRequired && <span className="ml-1 text-amber-700 dark:text-amber-300">· necesită imagine</span>}
+                  {item.imageRequired && <span className="ml-1 text-warning-foreground">· necesită imagine</span>}
                 </li>
               ))}
             </ul>

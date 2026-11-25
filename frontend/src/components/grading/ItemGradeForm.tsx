@@ -282,12 +282,12 @@ function SaveLine({ status, error, awarded, max, onRetry }: {
   return (
     <span role="status" className="text-sm" data-testid="grade-status">
       {status === 'saving' && <span className="text-muted-foreground">Se salvează…</span>}
-      {status === 'saved' && <span className="text-emerald-700 dark:text-emerald-300">Salvat ✓</span>}
+      {status === 'saved' && <span className="text-success-foreground">Salvat ✓</span>}
       {status === 'idle' && awarded !== null && (
-        <span className="text-emerald-700 dark:text-emerald-300">✓ notat cu {awarded} p</span>
+        <span className="text-success-foreground">✓ notat cu {awarded} p</span>
       )}
       {status === 'incomplete' && (
-        <span className="text-amber-700 dark:text-amber-400">Alege punctajul (0–{max}) ca să se salveze.</span>
+        <span className="text-warning-foreground">Alege punctajul (0–{max}) ca să se salveze.</span>
       )}
       {status === 'error' && (
         <span className="text-destructive">

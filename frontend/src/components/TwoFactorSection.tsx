@@ -16,7 +16,7 @@ import {
 import { errorMessage } from '@/lib/errors'
 import { LoadingCards } from '@/components/LoadingCards'
 
-const okText = 'text-sm text-emerald-700 dark:text-emerald-300'
+const okText = 'text-sm text-success-foreground'
 
 /** A 6-digit code field (also takes a recovery code where that is allowed). */
 function CodeField({ label, value, onChange, disabled }: {

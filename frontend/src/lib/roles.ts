@@ -1,4 +1,4 @@
-import { BookOpen, ClipboardList, House, Library, PenLine, RotateCcw, School, TrendingUp, Users, type LucideIcon } from 'lucide-react'
+import { BookOpen, ClipboardList, History, House, Library, PenLine, RotateCcw, ScanText, School, TrendingUp, Users, type LucideIcon } from 'lucide-react'
 import { type Role } from '@/lib/api'
 
 const LABELS: Record<Role, string> = { ADMIN: 'Administrator', TEACHER: 'Profesor', STUDENT: 'Elev', PARENT: 'Părinte' }
@@ -60,6 +60,29 @@ const NAV: Record<Role, NavItem[]> = {
     { to: '/admin/grading', label: 'Corectură', icon: PenLine, count: 'grading' },
     { to: '/admin/students', label: 'Elevi', icon: Users },
   ],
+}
+
+/**
+ * The pages a role opens rarely, under "Mai mult" in the computer's side menu (and in the search, Ctrl+K): kept out
+ * of the main links so those stay five. A student's and a parent's pages all fit the main links.
+ */
+const MORE: Record<Role, NavItem[]> = {
+  STUDENT: [],
+  PARENT: [],
+  ADMIN: [
+    { to: '/admin/en-chapters', label: 'Capitole EN', icon: BookOpen },
+    { to: '/admin/quizzes/ai-import', label: 'Import din poze', icon: ScanText },
+    { to: '/admin/journal', label: 'Jurnal', icon: History },
+  ],
+  // The chapter pages as the students see them (editing them is an admin's job), and the AI import for own tests.
+  TEACHER: [
+    { to: '/capitole', label: 'Capitole EN', icon: BookOpen },
+    { to: '/admin/quizzes/ai-import', label: 'Import din poze', icon: ScanText },
+  ],
+}
+
+export function secondaryNavItems(role: Role): NavItem[] {
+  return MORE[role]
 }
 
 /** Whether `item` is the link of the page at `pathname` (its own address, a sub-page, or one it groups). */

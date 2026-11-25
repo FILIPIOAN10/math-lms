@@ -105,7 +105,7 @@ export function AdminEnChapterSlotsPage() {
         />
         {loadError && <ErrorState message={loadError} />}
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-        {notice && <p role="status" className="text-sm text-emerald-700 dark:text-emerald-300">{notice}</p>}
+        {notice && <p role="status" className="text-sm text-success-foreground">{notice}</p>}
         {!saved && !loadError && <LoadingCards />}
 
         {saved && SUBJECTS.map((subject) => (

@@ -87,6 +87,7 @@ describe('isRetryable', () => {
     expect(isRetryable(new TypeError('Failed to fetch'))).toBe(true)
     expect(isRetryable(new ApiError(502, ''))).toBe(true)
     expect(isRetryable(new ApiError(429, ''))).toBe(true)
+    expect(isRetryable(new ApiError(401, ''))).toBe(true) // the session ended: kept until the student signs in again
     expect(isRetryable(new ApiError(400, ''))).toBe(false)
     expect(isRetryable(new ApiError(409, ''))).toBe(false)
     expect(isRetryable(new Error('other'))).toBe(false)

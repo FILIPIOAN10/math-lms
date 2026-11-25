@@ -8,6 +8,7 @@ import { LoginRoute } from '@/components/LoginRoute'
 import { ReturnAfterSignIn } from '@/components/ReturnAfterSignIn'
 import { RoleRoute } from '@/components/RoleRoute'
 import { ScrollToTop } from '@/components/ScrollToTop'
+import { Toaster } from '@/components/Toaster'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 
@@ -306,6 +307,8 @@ function App() {
           </Route>
         </Routes>
         </Suspense>
+        {/* One place for the short notices of every page, the test screen included (toast() in lib/toast). */}
+        <Toaster />
       </AuthProvider>
     </BrowserRouter>
   )

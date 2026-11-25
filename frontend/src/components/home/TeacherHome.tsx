@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { BookOpen, ClipboardList, History, PenLine, TriangleAlert, UserCheck } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { buttonVariants } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Progress } from '@/components/ui/progress'
 import { ErrorState } from '@/components/ErrorState'
 import { Card, CardContent } from '@/components/ui/card'
 import { FirstRunChecklist } from '@/components/home/FirstRunChecklist'
@@ -18,7 +20,7 @@ import {
   type AdminAttemptSummary,
   type AssignmentSummary,
 } from '@/lib/api'
-import { dueCountdown } from '@/lib/assignments'
+import { dueCountdown, dueSoonLabel } from '@/lib/assignments'
 import { errorMessage } from '@/lib/errors'
 import { formatDate, roCount } from '@/lib/format'
 import { firstRunSteps, upcomingDeadlines, type FirstRunStep } from '@/lib/home'
@@ -140,9 +142,9 @@ export function TeacherHome({ canApprove = true }: { canApprove?: boolean }) {
                     to={`/admin/quizzes/${k.quizId}/stats`}
                     className="block rounded-xl outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
                   >
-                    <Card data-testid="key-to-check" className="hover-lift border-amber-500/40 bg-amber-500/10">
+                    <Card data-testid="key-to-check" className="hover-lift border-warning/40 bg-warning/10">
                       <CardContent className="flex items-start gap-3 py-3">
-                        <TriangleAlert aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-amber-600 dark:text-amber-400" />
+                        <TriangleAlert aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-warning-foreground" />
                         <div className="min-w-0 space-y-0.5">
                           <p className="truncate font-medium">{k.title}</p>
                           <p className="text-sm">
@@ -178,22 +180,22 @@ export function TeacherHome({ canApprove = true }: { canApprove?: boolean }) {
                   Nicio temă cu termen apropiat.
                 </HomeEmpty>
               ) : (
-                deadlines.map((a) => (
+                deadlines.map((a) => {
+                  const soon = a.overdue ? null : dueSoonLabel(a.dueAt, loadedAt)
+                  return (
                   <Link
                     key={a.id}
                     to={`/admin/assignments?open=${a.id}`}
                     className="block rounded-xl outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
                   >
                     <Card data-testid="deadline-row" className="hover-lift">
-                      <CardContent className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-3">
+                      <CardContent className="space-y-2 py-3">
+                        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
                         <div className="min-w-0 space-y-1">
                           <p data-testid="deadline-title" className="truncate font-medium">{a.quizTitle}</p>
                           <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                            {a.overdue && (
-                              <span className="rounded-md bg-destructive/15 px-2 py-0.5 text-xs font-medium text-destructive">
-                                Termen depășit
-                              </span>
-                            )}
+                            {a.overdue && <Badge variant="destructive">Termen depășit</Badge>}
+                            {soon && <Badge variant="warning" data-testid="deadline-soon">{soon}</Badge>}
                             <span>{a.schoolClassName}</span>
                             <span>
                               {formatDate(a.dueAt)} ({dueCountdown(a.dueAt, loadedAt)})
@@ -212,10 +214,22 @@ export function TeacherHome({ canApprove = true }: { canApprove?: boolean }) {
                             {a.done} / {a.enrolled} predate
                           </p>
                         )}
+                        </div>
+                        {a.enrolled > 0 && (
+                          <Progress
+                            value={a.done}
+                            max={a.enrolled}
+                            label={`Predate la ${a.quizTitle}`}
+                            valueText={`${a.done} din ${a.enrolled}`}
+                            // Under half handed in with the deadline today, tomorrow or passed: worth a nudge.
+                            tone={a.done === a.enrolled ? 'success' : (soon || a.overdue) && a.done * 2 < a.enrolled ? 'warning' : 'primary'}
+                          />
+                        )}
                       </CardContent>
                     </Card>
                   </Link>
-                ))
+                  )
+                })
               )}
             </HomeSection>
           </>
@@ -256,14 +270,17 @@ export function TeacherHome({ canApprove = true }: { canApprove?: boolean }) {
                   </HomeSection>
                 )}
 
-                {/* Both pages are the admins': a TEACHER would only bounce back here. */}
+                {/* Both pages are the admins': a TEACHER would only bounce back here. On a computer they are in the side
+                    menu under "Mai mult" already. */}
                 {canApprove && (
+                  <div className="lg:hidden">
                   <HomeSection title="Scurtături">
                     <div className="grid gap-3 sm:grid-cols-2">
                       <HomeShortcut to="/admin/en-chapters" icon={BookOpen} title="Capitole EN" text="Materia și modelele rezolvate" />
                       <HomeShortcut to="/admin/journal" icon={History} title="Jurnal" text="Cine a schimbat ce și când" />
                     </div>
                   </HomeSection>
+                  </div>
                 )}
             </>
           ) : undefined

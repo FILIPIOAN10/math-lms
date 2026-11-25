@@ -38,7 +38,7 @@ export function ResultCheckLine({ check, typed, expected, audience, className }:
     <p className={className} data-testid="result-check" data-check={check}>
       {teacher ? 'Rezultat scris de elev: ' : 'Rezultatul tău: '}
       <span className="font-medium tabular-nums">{typed}</span>{' '}
-      <span className={right ? 'font-medium text-emerald-700 dark:text-emerald-300' : 'font-medium text-destructive'}>
+      <span className={right ? 'font-medium text-success-foreground' : 'font-medium text-destructive'}>
         {right ? '✓ corect' : '✗ greșit'}
       </span>
       {!right && expected && <span className="text-muted-foreground"> · în barem: <span className="tabular-nums">{expected}</span></span>}

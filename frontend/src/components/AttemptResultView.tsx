@@ -1,5 +1,5 @@
 import { Fragment, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { AttemptModeBadge } from '@/components/AttemptModeBadge'
@@ -22,7 +22,7 @@ import { MistakeNote } from '@/components/MistakeNote'
 import { WhyWrongButton } from '@/components/WhyWrongButton'
 import { SimilarPractice } from '@/components/SimilarPractice'
 import { RevisionNote } from '@/components/RevisionNote'
-import { revisionLinks } from '@/lib/enChapters'
+import { missedChapters, revisionLinks, withReturn } from '@/lib/enChapters'
 
 /** The teacher's words, set apart from the app's own text so they read as a note from a person. */
 /** The teacher's words, with their maths set like the statements' (a comment often names the formula to revise). */
@@ -52,13 +52,30 @@ function goToQuestion(itemId: number) {
 }
 
 function PracticeMistakes({ result }: { result: AttemptResultViewDto }) {
+  const here = useLocation()
   const mistakes = mistakesOf(result.items)
   if (mistakes.labels.length === 0) return null
   const many = mistakes.labels.length > 1
+  const chapters = missedChapters(result.items)
   return (
     <Card data-testid="practice-mistakes">
       <CardContent className="space-y-2 py-4 text-sm">
         <p className="font-medium">Exersează ce ai greșit</p>
+        {chapters.length > 0 && (
+          <div data-testid="missed-chapters" className="flex flex-wrap items-center gap-1.5">
+            <span>Ai greșit la:</span>
+            {chapters.map((chapter) => (
+              <Link
+                key={chapter.id}
+                // The lesson keeps the way back to this result, for its "Înapoi la test".
+                to={withReturn(`/capitole/${chapter.id}`, here.pathname + here.search)}
+                className="inline-flex min-h-8 items-center rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary outline-none hover:bg-primary/15 focus-visible:ring-3 focus-visible:ring-ring/50 max-sm:min-h-11"
+              >
+                {chapter.title}
+              </Link>
+            ))}
+          </div>
+        )}
         <p>
           {many ? 'Întrebările ' : 'Întrebarea '}
           {mistakes.labels.map((label, i) => (
@@ -174,7 +191,7 @@ function ItemResult({
 
         {item.type !== 'OPEN' ? (
           <div className="space-y-1 text-sm max-sm:text-base">
-            <p className={item.correct ? 'text-emerald-700 dark:text-emerald-300' : 'text-destructive'}>
+            <p className={item.correct ? 'text-success-foreground' : 'text-destructive'}>
               {item.correct ? '✓ ' : '✗ '}
               {own ? 'Răspunsul tău:' : 'Răspunsul elevului:'}{' '}
               {item.selectedOptionText === null ? (

@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react'
+import { Progress } from '@/components/ui/progress'
 import { MathContent } from '@/components/MathContent'
 import { MistakeNote } from '@/components/MistakeNote'
 import { OptionLetter } from '@/components/OptionLetter'
@@ -89,9 +90,14 @@ export function PracticeQuestionCard({
   return (
     <Card data-testid={`${name}-card`}>
       <CardContent className={cn('space-y-4 py-5', readingTextClass)}>
-        <p className="text-xs font-medium text-muted-foreground">
-          Întrebarea {position + 1} din {total}
-        </p>
+        <div className="space-y-1.5">
+          <p className="text-xs font-medium text-muted-foreground">
+            Întrebarea {position + 1} din {total}
+          </p>
+          {total > 1 && (
+            <Progress value={position} max={total} label="Cât ai parcurs" valueText={`${position} din ${total} gata`} />
+          )}
+        </div>
         {(!hideSource || revealed) && <p className="text-xs text-muted-foreground">{question.quizTitle}</p>}
         <MathContent>{question.statement}</MathContent>
         <QuestionImage itemId={question.itemId} image={question.image} />
@@ -106,7 +112,7 @@ export function PracticeQuestionCard({
               <label
                 key={option.id}
                 className={`${optionRowClass} ${locked ? '' : 'cursor-pointer'} ${
-                  isRight ? 'border-emerald-500 bg-emerald-500/10'
+                  isRight ? 'border-success bg-success/10'
                     : isWrongPick || (retrying && firstWrong) ? 'border-destructive bg-destructive/10'
                       : shownPick === option.id ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted'
                 }`}
@@ -122,7 +128,7 @@ export function PracticeQuestionCard({
                 <OptionLetter index={optionIndex} />
                 <MathContent inline large>{option.text}</MathContent>
                 {isRight && (
-                  <span className="ml-auto font-semibold text-emerald-700 dark:text-emerald-300">
+                  <span className="ml-auto font-semibold text-success-foreground">
                     <span aria-hidden="true">✓</span>
                     <span className="sr-only"> (răspunsul corect)</span>
                   </span>
@@ -165,7 +171,7 @@ export function PracticeQuestionCard({
 
         {revealed && result && (
           <div data-testid={`${name}-feedback`} role="status" className="space-y-2 rounded-lg bg-muted p-3 text-sm">
-            <p className={`font-medium ${result.correct || secondRight ? 'text-emerald-700 dark:text-emerald-300' : 'text-destructive'}`}>
+            <p className={`font-medium ${result.correct || secondRight ? 'text-success-foreground' : 'text-destructive'}`}>
               {result.correct ? '✓ Corect!'
                 : secondRight ? '✓ Corect, din a doua încercare! Data viitoare o știi din prima.'
                   : '✗ Greșit — răspunsul corect e marcat cu ✓.'}

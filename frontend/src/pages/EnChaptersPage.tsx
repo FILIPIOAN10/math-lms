@@ -55,7 +55,7 @@ export function EnChaptersPage() {
         {error && <ErrorState message={error} />}
         {!chapters && !error && <LoadingCards />}
         {toRevise.length > 0 && (
-          <p data-testid="en-to-revise" className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+          <p data-testid="en-to-revise" className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm">
             <span className="font-medium">De recapitulat acum:</span>{' '}
             {toRevise.map((c, i) => (
               <Fragment key={c.id}>

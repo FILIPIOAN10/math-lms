@@ -21,8 +21,8 @@ import { PageHeader } from '@/components/PageHeader'
 import { LoadingCards } from '@/components/LoadingCards'
 
 const DIFFICULTY_STYLE: Record<Difficulty, { label: string; className: string }> = {
-  EASY: { label: 'Ușor', className: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' },
-  MEDIUM: { label: 'Mediu', className: 'bg-amber-500/15 text-amber-700 dark:text-amber-300' },
+  EASY: { label: 'Ușor', className: 'bg-success/15 text-success-foreground' },
+  MEDIUM: { label: 'Mediu', className: 'bg-warning/15 text-warning-foreground' },
   HARD: { label: 'Dificil', className: 'bg-rose-500/15 text-rose-700 dark:text-rose-300' },
 }
 

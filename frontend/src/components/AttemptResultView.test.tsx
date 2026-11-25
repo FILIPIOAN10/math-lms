@@ -359,6 +359,11 @@ describe('AttemptResultView', () => {
     expect(lesson.getAttribute('href')).toMatch(/^\/capitole\/17\?test=/)
     expect(lesson).not.toHaveAttribute('target')
     expect(screen.queryByRole('link', { name: /A1/ })).not.toBeInTheDocument()
+
+    // ...and names those chapters at the top, next to "Exersează ce ai greșit"
+    const missed = screen.getByTestId('missed-chapters')
+    expect(missed).toHaveTextContent('Ai greșit la:Cercul')
+    expect(within(missed).getByRole('link', { name: 'Cercul' }).getAttribute('href')).toMatch(/^\/capitole\/17\?test=/)
   })
 
   it('tells the student what the final result they typed for each requirement was worth (V72)', () => {

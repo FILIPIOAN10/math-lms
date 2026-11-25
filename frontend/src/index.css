@@ -19,6 +19,11 @@
     --color-warm: var(--warm);
     --color-warm-soft: var(--warm-soft);
     --color-warm-foreground: var(--warm-foreground);
+    --color-success: var(--success);
+    --color-success-foreground: var(--success-foreground);
+    --color-warning: var(--warning);
+    --color-warning-foreground: var(--warning-foreground);
+    --shadow-card: var(--card-shadow);
     --color-chart-5: var(--chart-5);
     --color-chart-4: var(--chart-4);
     --color-chart-3: var(--chart-3);
@@ -77,12 +82,22 @@
     --warm: oklch(0.78 0.165 70);
     --warm-soft: oklch(0.965 0.045 85);
     --warm-foreground: oklch(0.42 0.1 55);
+    /* The status colours, one place for each: `success` / `warning` tint a background, draw a border or an icon
+       (bg-success/10, border-warning/40); their `-foreground` is text in that colour, dark enough to read on the page
+       and on the tint (AA). Red is `destructive`. Never the warm amber above: that one is good news, not a warning. */
+    --success: oklch(0.696 0.17 162.48);
+    --success-foreground: oklch(0.508 0.118 165.612);
+    --warning: oklch(0.769 0.188 70.08);
+    --warning-foreground: oklch(0.555 0.163 48.998);
     --chart-1: oklch(0.55 0.24 277);
     --chart-2: oklch(0.62 0.2 305);
     --chart-3: oklch(0.78 0.165 70);
     --chart-4: oklch(0.68 0.15 160);
     --chart-5: oklch(0.66 0.2 12);
-    --radius: 0.625rem;
+    /* Softer corners than shadcn's 0.625: cards 1.05rem, buttons 0.75rem. */
+    --radius: 0.75rem;
+    /* A card lifts off the misty page by a soft, wide shadow under its hairline ring. */
+    --card-shadow: 0 1px 2px oklch(0.3 0.05 277 / 6%), 0 4px 12px -4px oklch(0.3 0.05 277 / 8%);
     --sidebar: oklch(0.985 0 0);
     --sidebar-foreground: oklch(0.145 0 0);
     --sidebar-primary: oklch(0.511 0.262 276.966);
@@ -115,6 +130,12 @@
     --warm: oklch(0.8 0.15 75);
     --warm-soft: oklch(0.32 0.05 65);
     --warm-foreground: oklch(0.9 0.09 85);
+    --success: oklch(0.696 0.17 162.48);
+    --success-foreground: oklch(0.845 0.143 164.978);
+    --warning: oklch(0.769 0.188 70.08);
+    --warning-foreground: oklch(0.879 0.169 91.605);
+    /* On the dark page a shadow is not seen; the ring alone outlines the card. */
+    --card-shadow: 0 0 0 transparent;
     --chart-1: oklch(0.7 0.18 277);
     --chart-2: oklch(0.72 0.17 305);
     --chart-3: oklch(0.82 0.15 75);
@@ -197,7 +218,61 @@
   }
 }
 
+/* Moving to another page: the new one fades in and rises 4px. Short - it says "new page", it must not slow anyone. */
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+
+/* A clock in its last minute breathes: noticed from the corner of the eye, never flashing. */
+@keyframes soft-pulse {
+  50% {
+    opacity: 0.72;
+  }
+}
+
 @media (prefers-reduced-motion: no-preference) {
+  .page-in {
+    animation: page-in 180ms ease-out;
+  }
+
+  .toast-in {
+    animation: toast-in 200ms ease-out;
+  }
+
+  .soft-pulse {
+    animation: soft-pulse 1.6s ease-in-out infinite;
+  }
+
+  /* Base UI marks a dialog's first and last frame (data-starting-style / data-ending-style): it fades and grows in. */
+  .dialog-popup {
+    transition: opacity 150ms ease, scale 150ms ease;
+  }
+
+  .dialog-popup[data-starting-style],
+  .dialog-popup[data-ending-style] {
+    opacity: 0;
+    scale: 0.97;
+  }
+
+  .dialog-backdrop {
+    transition: opacity 150ms ease;
+  }
+
+  .dialog-backdrop[data-starting-style],
+  .dialog-backdrop[data-ending-style] {
+    opacity: 0;
+  }
+
   .grade-ring-fill {
     animation: grade-ring 700ms ease-out;
   }

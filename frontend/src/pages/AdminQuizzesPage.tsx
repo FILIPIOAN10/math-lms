@@ -697,7 +697,7 @@ export function ItemDialog({
                       />
                     </div>
                     {part.finalAnswer.trim() !== '' && !isNumber(part.finalAnswer) && (
-                      <p role="status" className="text-sm text-amber-700 dark:text-amber-300">
+                      <p role="status" className="text-sm text-warning-foreground">
                         Scrie doar numărul: 12, 0,5, 1/2 sau 0,(3). Dacă rezultatul nu e un număr, lasă gol.
                       </p>
                     )}
@@ -769,7 +769,7 @@ export function ItemDialog({
                 <p className="rounded-lg border border-dashed px-3 py-4 text-center text-sm text-muted-foreground">
                   Doar dacă enunțul are un desen, un grafic sau un tabel (ex. un triunghi, o dreaptă cu puncte). Fă o captură
                   (Win+Shift+S) și apasă Ctrl+V oriunde aici, sau alege un fișier.
-                  {initial?.imageRequired && <span className="block font-medium text-amber-700 dark:text-amber-300">Întrebarea așteaptă o figură.</span>}
+                  {initial?.imageRequired && <span className="block font-medium text-warning-foreground">Întrebarea așteaptă o figură.</span>}
                 </p>
               )}
               <div className="flex flex-wrap gap-2">
@@ -899,7 +899,7 @@ export function ItemDialog({
         </details>
 
         {saved > 0 && (
-          <p role="status" className="text-sm text-emerald-700 dark:text-emerald-300">
+          <p role="status" className="text-sm text-success-foreground">
             ✓ {roCount(saved, 'întrebare salvată', 'întrebări salvate')}. Continuă cu următorul sau închide.
           </p>
         )}
@@ -928,8 +928,8 @@ function PublishedNotice({ notice, onClose }: { notice: Notice; onClose: () => v
   return (
     <div role="status" className={`flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm ${
       notice.warn
-        ? 'border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-200'
-        : 'border-emerald-500/40 bg-emerald-500/10 text-emerald-800 dark:text-emerald-200'}`}>
+        ? 'border-warning/40 bg-warning/10 text-warning-foreground'
+        : 'border-success/40 bg-success/10 text-success-foreground'}`}>
       <span>{notice.warn ? '⚠' : '✓'} {notice.text}</span>
       <span className="flex items-center gap-3">
         {notice.homework && <Link to="/admin/assignments" className="font-medium underline-offset-4 hover:underline">Vezi tema</Link>}
@@ -942,8 +942,8 @@ function PublishedNotice({ notice, onClose }: { notice: Notice; onClose: () => v
 const statusBadge = (status: QuizSummary['status']) =>
   `rounded-md px-1.5 py-0.5 text-xs font-medium whitespace-nowrap ${
     status === 'PUBLISHED'
-      ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
-      : 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
+      ? 'bg-success/15 text-success-foreground'
+      : 'bg-warning/15 text-warning-foreground'
   }`
 
 /**
@@ -1257,7 +1257,7 @@ export function AdminQuizzesPage() {
               {quiz.items.length > 1 && <ShuffleSwitches key={quiz.id} quizId={quiz.id} />}
               {quiz.taken && (
                 <div data-testid="quiz-taken"
-                     className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+                     className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm">
                   <p className="min-w-0 flex-1 basis-56">
                     Elevii au dat deja acest test, așa că nu mai poți adăuga sau șterge întrebări și nici schimba punctajele.
                     Poți corecta doar textele, cu „Editează”.
@@ -1267,7 +1267,7 @@ export function AdminQuizzesPage() {
               )}
               {unanswered.length > 0 && (
                 <div data-testid="unanswered-grile"
-                     className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+                     className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm">
                   <p>
                     {unanswered.length === 1 ? '1 grilă nu are' : `${unanswered.length} grile nu au`} încă răspunsul corect:{' '}
                     {unanswered.join(', ')}. Testul nu se poate publica până atunci.
@@ -1332,13 +1332,13 @@ export function AdminQuizzesPage() {
                         <MathContent className="text-sm">{item.statement}</MathContent>
                         <QuestionImage itemId={item.id} image={item.image} />
                         {item.type === 'OPEN' && (item.parts ?? []).length === 0 && hasVariantsInStatement(item.statement) && (
-                          <p data-testid="variants-in-statement" className="text-sm font-medium text-amber-700 dark:text-amber-300">
+                          <p data-testid="variants-in-statement" className="text-sm font-medium text-warning-foreground">
                             ⚠ Variantele a), b)… sunt scrise în enunț, așa că elevul nu le poate bifa (primește doar „Fă o poză”).
                             Șterge întrebarea și adaug-o ca grilă, sau import-o din nou cu * la varianta corectă (ex. „*b)”).
                           </p>
                         )}
                         {item.imageRequired && !item.image && (
-                          <p data-testid="image-missing" className="text-sm font-medium text-amber-700 dark:text-amber-300">
+                          <p data-testid="image-missing" className="text-sm font-medium text-warning-foreground">
                             ⚠ Lipsește imaginea — apasă „Editează” și lipește figura (Ctrl+V).
                           </p>
                         )}
@@ -1346,12 +1346,12 @@ export function AdminQuizzesPage() {
                           parts={(item.parts ?? []).map((p) => ({ label: p.label, statement: p.statement, points: p.points, barem: p.solution }))}
                         />
                         {item.type === 'NUMERIC' && (
-                          <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">✓ Răspuns corect: {item.numericAnswer}</p>
+                          <p className="text-sm font-medium text-success-foreground">✓ Răspuns corect: {item.numericAnswer}</p>
                         )}
                         {item.type === 'SINGLE_CHOICE' && (
                           <ul className="space-y-1 text-sm">
                             {item.options.map((o, i) => (
-                              <li key={o.id} className={o.correct ? 'font-medium text-emerald-700 dark:text-emerald-300' : ''}>
+                              <li key={o.id} className={o.correct ? 'font-medium text-success-foreground' : ''}>
                                 {o.correct ? '✓ ' : ''}
                                 {optionLetter(i)}){' '}
                                 <MathContent inline>{o.text}</MathContent>
@@ -1360,7 +1360,7 @@ export function AdminQuizzesPage() {
                           </ul>
                         )}
                         {item.type === 'SINGLE_CHOICE' && !item.options.some((o) => o.correct) && (
-                          <p data-testid="no-correct-answer" className="text-sm font-medium text-amber-700 dark:text-amber-300">
+                          <p data-testid="no-correct-answer" className="text-sm font-medium text-warning-foreground">
                             ⚠ Fără răspuns corect: îl pune baremul sau îl bifezi în „Editează”.
                           </p>
                         )}
@@ -1437,7 +1437,7 @@ export function AdminQuizzesPage() {
                           <Link
                             to={`/admin/quizzes/${q.id}/stats`}
                             data-testid="quiz-to-check"
-                            className="rounded-md bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-800 hover:underline dark:text-amber-200"
+                            className="rounded-md bg-warning/15 px-2 py-0.5 text-xs font-medium text-warning-foreground hover:underline"
                           >
                             {roCount(summaries[q.id].toCheck, 'răspuns', 'răspunsuri')} de verificat
                           </Link>

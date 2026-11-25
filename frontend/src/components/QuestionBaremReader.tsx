@@ -132,7 +132,7 @@ export function QuestionBaremReader({ question, photos, onPhotos, onRead, pollMs
         <div className="space-y-1 text-sm" role="status">
           <p className="text-green-700 dark:text-green-400">Am pus baremul la cerințe. Verifică-l înainte să creezi testul.</p>
           {done.length > 0 && (
-            <ul className="space-y-1 text-amber-700 dark:text-amber-400">
+            <ul className="space-y-1 text-warning-foreground">
               {done.map((w) => <li key={w}>⚠ {w}</li>)}
             </ul>
           )}
