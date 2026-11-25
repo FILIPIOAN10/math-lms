@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { CommandPalette } from '@/components/CommandPalette'
 import { useAuth } from '@/context/AuthContext'
 import { getMyAttempts, listAttemptsForGrading, listPendingUsers, type Role } from '@/lib/api'
-import { roCount } from '@/lib/format'
+import { initials, roCount } from '@/lib/format'
 import {
   hasNavigation,
   isNavActive,
@@ -18,7 +18,7 @@ import {
   type NavItem,
 } from '@/lib/roles'
 import { chooseTheme } from '@/lib/theme'
-import { initials, isNewPage } from '@/lib/shell'
+import { isNewPage } from '@/lib/shell'
 import { cn } from '@/lib/utils'
 import { LoadingCards } from '@/components/LoadingCards'
 import { PageRetryContext } from '@/lib/pageRetry'

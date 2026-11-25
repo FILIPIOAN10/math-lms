@@ -1001,4 +1001,114 @@ class AssignmentServiceTest {
         assertThatThrownBy(() -> service.reschedule(1L, release))
                 .isInstanceOf(InvalidAssignmentException.class).hasMessageContaining("după data");
     }
+
+    // --- "Trimite reminder": the teacher reminds now ---
+
+    @Test
+    void aManualReminderGoesToEveryoneWhoHasNotHandedInAndSaysHowManyGotIt() {
+        User ana = student(1L, "Ana Pop");                   // handed in
+        User bob = withParent(student(2L, "Bob Ionescu"), 9L); // not started, parent linked
+        User cris = student(3L, "Cris Rus");                 // in progress
+        User dan = student(4L, "Dan Mihai");                 // excused
+        Assignment assignment = withId(new Assignment(quiz, ninth, clock.now.plus(Duration.ofDays(3)), clock.now), 1L);
+        when(assignmentRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(assignment));
+        when(enrollmentRepository.findBySchoolClassIdFetchStudent(5L))
+                .thenReturn(List.of(ana, bob, cris, dan).stream().map(s -> new Enrollment(s, ninth)).toList());
+        when(overrideRepository.findByAssignmentId(1L)).thenReturn(List.of(override(assignment, dan, null, true)));
+        when(attemptRepository.findForAssignment(eq(10L), any(), eq(assignment.getCreatedAt()))).thenReturn(List.of(
+                attemptOf(ana, 100L, true, clock.now.minusSeconds(60)), attemptOf(cris, 101L, false, null)));
+
+        ManualReminderDto sent = service.remindNow(1L);
+
+        assertThat(sent).isEqualTo(new ManualReminderDto(2, 1, clock.now));
+        ArgumentCaptor<Object> payloads = ArgumentCaptor.forClass(Object.class);
+        verify(publisher, times(3)).publish(eq(OutboxEventTypes.ASSIGNMENT_REMINDER_EMAIL), payloads.capture());
+        assertThat(payloads.getAllValues()).containsExactly(
+                new AssignmentReminderPayload(1L, 2L),
+                new AssignmentReminderPayload(1L, 2L, AssignmentReminderPayload.Recipient.PARENT),
+                new AssignmentReminderPayload(1L, 3L));
+        assertThat(assignment.getManualReminderAt()).isEqualTo(clock.now);
+        verify(assignmentRepository).save(assignment);
+        // In the journal without names: how many, not who.
+        verify(auditLog).record(new AuditEvent(AuditAction.HOMEWORK_REMINDER_SENT, 1L, "Simulare EN · Clasa a 9-a",
+                "2 elevi, 1 părinte", null, null));
+    }
+
+    @Test
+    void aSecondManualReminderWaitsTwelveHours() {
+        Assignment assignment = dueSoonWithRoster(student(1L, "Ana Pop"));
+        assignment.markManualReminderSent(clock.now.minus(Duration.ofHours(11)));
+
+        assertThatThrownBy(() -> service.remindNow(1L))
+                .isInstanceOf(AssignmentConflictException.class)
+                .hasMessageContaining("Ai trimis deja un reminder");
+        verify(publisher, never()).publish(any(), any());
+
+        clock.now = clock.now.plus(Duration.ofHours(1)); // 12 h after the last one
+        when(attemptRepository.findForAssignment(eq(10L), any(), eq(assignment.getCreatedAt()))).thenReturn(List.of());
+        assertThat(service.remindNow(1L).students()).isEqualTo(1);
+    }
+
+    @Test
+    void aManualReminderInsideTheLastDaySparesTheStudentsTheAutomaticOne() {
+        Assignment soon = dueSoonWithRoster(student(1L, "Ana Pop")); // due in 20 h, the lead time is 24 h
+
+        service.remindNow(1L);
+
+        assertThat(soon.getReminderSentAt()).isEqualTo(clock.now);
+    }
+
+    @Test
+    void aManualReminderDaysBeforeLeavesTheAutomaticOneForTheLastDay() {
+        Assignment early = withId(new Assignment(quiz, ninth, clock.now.plus(Duration.ofDays(4)), clock.now), 1L);
+        when(assignmentRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(early));
+        when(enrollmentRepository.findBySchoolClassIdFetchStudent(5L)).thenReturn(List.of(new Enrollment(student(1L, "Ana Pop"), ninth)));
+
+        service.remindNow(1L);
+
+        assertThat(early.getReminderSentAt()).isNull();
+        assertThat(early.getManualReminderAt()).isEqualTo(clock.now);
+    }
+
+    @Test
+    void noManualReminderAfterTheDeadlineBeforeTheReleaseOrForAnUnpublishedQuiz() {
+        Assignment passed = withId(new Assignment(quiz, ninth, clock.now.plusSeconds(10), clock.now.minusSeconds(100)), 1L);
+        when(assignmentRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(passed));
+        clock.now = clock.now.plusSeconds(20);
+        assertThatThrownBy(() -> service.remindNow(1L)).isInstanceOf(AssignmentConflictException.class)
+                .hasMessageContaining("Termenul a trecut");
+
+        Assignment scheduled = withId(new Assignment(quiz, ninth, clock.now.plus(Duration.ofDays(3)), clock.now), 2L);
+        scheduled.scheduleRelease(clock.now.plus(Duration.ofDays(1)));
+        when(assignmentRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(scheduled));
+        assertThatThrownBy(() -> service.remindNow(2L)).isInstanceOf(AssignmentConflictException.class)
+                .hasMessageContaining("nu a apărut încă");
+
+        Quiz pulled = withId(new Quiz("Retras", null), 11L);
+        Assignment unpublished = withId(new Assignment(pulled, ninth, clock.now.plus(Duration.ofDays(3)), clock.now), 3L);
+        when(assignmentRepository.findByIdForUpdate(3L)).thenReturn(Optional.of(unpublished));
+        assertThatThrownBy(() -> service.remindNow(3L)).isInstanceOf(AssignmentConflictException.class)
+                .hasMessageContaining("nu e publicat");
+
+        verify(publisher, never()).publish(any(), any());
+        verify(auditLog, never()).record(any());
+    }
+
+    @Test
+    void noManualReminderWhenNobodyIsLeftToRemind() {
+        User ana = student(1L, "Ana Pop");
+        Assignment assignment = dueSoonWithRoster(ana);
+        when(attemptRepository.findForAssignment(eq(10L), any(), eq(assignment.getCreatedAt())))
+                .thenReturn(List.of(attemptOf(ana, 100L, true, clock.now.minusSeconds(60))));
+
+        assertThatThrownBy(() -> service.remindNow(1L)).isInstanceOf(AssignmentConflictException.class)
+                .hasMessageContaining("Nu e nimeni de anunțat");
+        assertThat(assignment.getManualReminderAt()).isNull();
+    }
+
+    @Test
+    void anUnknownHomeworkCannotBeReminded() {
+        when(assignmentRepository.findByIdForUpdate(1L)).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> service.remindNow(1L)).isInstanceOf(AssignmentNotFoundException.class);
+    }
 }

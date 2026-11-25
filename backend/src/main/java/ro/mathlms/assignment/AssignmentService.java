@@ -59,6 +59,9 @@ public class AssignmentService {
     private final int reminderLeadHours;
     private final boolean remindParents;
 
+    /** How long a "Trimite reminder" waits after the last one for the same homework. */
+    public static final Duration MANUAL_REMINDER_PAUSE = Duration.ofHours(12);
+
     public AssignmentService(AssignmentRepository assignmentRepository, AssignmentOverrideRepository overrideRepository,
                              QuizRepository quizRepository,
                              SchoolClassRepository schoolClassRepository, EnrollmentRepository enrollmentRepository,
@@ -504,14 +507,72 @@ public class AssignmentService {
         overrideRepository.save(override);
     }
 
-    /** One "due soon" email for the student, and one for their linked parent unless parents are not reminded. */
-    private void publishReminder(Assignment assignment, User student) {
+    /**
+     * "Trimite reminder": the teacher reminds now, by email, every student given the homework who has not handed it in
+     * (and their linked parent, like the automatic reminder) - not the excused ones nor those working to a date of their
+     * own. Only while the students can do something about it: the quiz published, the homework released, the deadline
+     * ahead. A second one waits {@link #MANUAL_REMINDER_PAUSE}. Inside the automatic reminder's window it also counts as
+     * that one, so nobody gets the same email twice in a day. Journalled with the counts, never the names.
+     */
+    @Transactional
+    public ManualReminderDto remindNow(Long id) {
+        Assignment assignment = assignmentRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> new AssignmentNotFoundException("Nu există tema " + id));
+        Instant now = Instant.now(clock);
+        if (assignment.getQuiz().getStatus() != QuizStatus.PUBLISHED) {
+            throw new AssignmentConflictException("Testul nu e publicat: elevii nu îl pot face acum.");
+        }
+        if (!assignment.isOpen(now)) {
+            throw new AssignmentConflictException("Tema nu a apărut încă elevilor: reminderul se poate trimite după ce apare.");
+        }
+        if (!assignment.getDueAt().isAfter(now)) {
+            throw new AssignmentConflictException("Termenul a trecut. Mută termenul dacă vrei să le mai dai timp.");
+        }
+        Instant last = assignment.getManualReminderAt();
+        if (last != null && last.plus(MANUAL_REMINDER_PAUSE).isAfter(now)) {
+            throw new AssignmentConflictException("Ai trimis deja un reminder la " + AuditText.dateTime(last)
+                    + ". Următorul se poate trimite după " + AuditText.dateTime(last.plus(MANUAL_REMINDER_PAUSE)) + ".");
+        }
+        List<User> students = rosterOf(assignment);
+        Map<Long, AssignmentOverride> overrides = overridesOf(assignment);
+        Map<Long, AssignmentProgress> progress = progressOf(assignment, students, overrides);
+        List<User> pending = students.stream()
+                .filter(s -> !overrides.containsKey(s.getId()) && !progress.get(s.getId()).isDone())
+                .toList();
+        if (pending.isEmpty()) {
+            throw new AssignmentConflictException("Nu e nimeni de anunțat: toți elevii au predat tema sau au o excepție.");
+        }
+        int parents = 0;
+        for (User student : pending) {
+            if (publishReminder(assignment, student)) {
+                parents++;
+            }
+        }
+        assignment.markManualReminderSent(now);
+        if (assignment.getReminderSentAt() == null
+                && !assignment.getDueAt().isAfter(now.plus(Duration.ofHours(reminderLeadHours)))) {
+            assignment.markReminderSent(now);
+        }
+        assignmentRepository.save(assignment);
+        auditLog.record(AuditEvent.of(AuditAction.HOMEWORK_REMINDER_SENT, id, label(assignment))
+                .details(pending.size() + (pending.size() == 1 ? " elev" : " elevi")
+                        + (parents == 0 ? "" : ", " + parents + (parents == 1 ? " părinte" : " părinți"))));
+        return new ManualReminderDto(pending.size(), parents, now);
+    }
+
+    /**
+     * One "due soon" email for the student, and one for their linked parent unless parents are not reminded. Says
+     * whether the parent's copy went too.
+     */
+    private boolean publishReminder(Assignment assignment, User student) {
         publisher.publish(OutboxEventTypes.ASSIGNMENT_REMINDER_EMAIL,
                 new AssignmentReminderPayload(assignment.getId(), student.getId()));
         if (remindParents && student.getParent() != null && !student.getParent().isErased()) {
             publisher.publish(OutboxEventTypes.ASSIGNMENT_REMINDER_EMAIL, new AssignmentReminderPayload(
                     assignment.getId(), student.getId(), AssignmentReminderPayload.Recipient.PARENT));
+            return true;
         }
+        return false;
     }
 
     // ---------------------------------------------------------------- helpers
@@ -629,6 +690,7 @@ public class AssignmentService {
         return new AssignmentSummaryDto(assignment.getId(), assignment.getQuiz().getId(), assignment.getQuiz().getTitle(),
                 assignment.getSchoolClass().getId(), assignment.getSchoolClass().getName(), assignment.getDueAt(),
                 assignment.isOverdue(now), students.size(), done, late, inProgress, notStarted, excused,
-                assignment.getStudentIds().size(), assignment.isOpen(now) ? null : assignment.getAvailableFrom());
+                assignment.getStudentIds().size(), assignment.isOpen(now) ? null : assignment.getAvailableFrom(),
+                assignment.getManualReminderAt());
     }
 }

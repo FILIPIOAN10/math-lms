@@ -63,7 +63,8 @@ public final class AssignmentDtos {
             int notStarted,
             int excused,     // left out of every count above: the homework does not count for them
             int forStudents, // catch-up homework: how many students it was given to; 0 = the whole class
-            Instant availableFrom // scheduled and still hidden from its students until then; null = visible
+            Instant availableFrom, // scheduled and still hidden from its students until then; null = visible
+            Instant manualReminderAt // the teacher's last "Trimite reminder"; null = never (the next waits 12 h)
     ) {
     }
 

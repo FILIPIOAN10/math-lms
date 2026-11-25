@@ -1,6 +1,8 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { clearToasts, readToasts } from '@/lib/toast'
 import { MemoryRouter } from 'react-router-dom'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { ApiError } from '@/lib/api'
 import type {
@@ -35,6 +37,7 @@ const api = vi.hoisted(() => ({
   getChildProgress: vi.fn(),
   getChildAssignments: vi.fn(),
   getChildEnMastery: vi.fn(),
+  sendAssignmentReminder: vi.fn(),
 }))
 vi.mock('@/lib/api', async (original) => ({ ...(await original<typeof import('@/lib/api')>()), ...api }))
 
@@ -453,6 +456,60 @@ describe('DashboardPage — teacher', () => {
     expect(bar.firstElementChild).toHaveClass('bg-warning')
     expect(within(rows[1]).queryByTestId('deadline-soon')).not.toBeInTheDocument()
     expect(within(rows[1]).getByRole('progressbar').firstElementChild).toHaveClass('bg-primary')
+  })
+
+  describe('"Trimite reminder"', () => {
+    afterEach(() => clearToasts())
+
+    it('emails the students who have not handed in, after a yes, and says how many got it', async () => {
+      api.listAssignments.mockResolvedValue([summary(1, 'Logaritmi', 1, { done: 3 })])
+      api.sendAssignmentReminder.mockResolvedValue({ students: 17, parents: 2, sentAt: new Date().toISOString() })
+      renderHome()
+
+      const row = await screen.findByTestId('deadline-row')
+      await userEvent.click(within(row).getByRole('button', { name: 'Trimite reminder' }))
+      const ask = await screen.findByRole('dialog', { name: 'Trimiți un reminder pentru „Logaritmi”?' })
+      expect(ask).toHaveTextContent('17 elevi din Clasa a 9-a nu au predat încă.')
+      expect(api.sendAssignmentReminder).not.toHaveBeenCalled()
+
+      await userEvent.click(within(ask).getByRole('button', { name: 'Trimite' }))
+      await waitFor(() => expect(api.sendAssignmentReminder).toHaveBeenCalledWith(1))
+      expect(await within(row).findByTestId('reminder-sent')).toHaveTextContent('Reminder trimis')
+      expect(within(row).queryByRole('button', { name: 'Trimite reminder' })).not.toBeInTheDocument()
+      expect(readToasts().map((t) => [t.tone, t.message])).toEqual([['success', 'Reminder trimis: 17 elevi și 2 părinți.']])
+    })
+
+    it('sends nothing when the teacher says no', async () => {
+      api.listAssignments.mockResolvedValue([summary(1, 'Logaritmi', 1, { done: 3 })])
+      renderHome()
+      await userEvent.click(await screen.findByRole('button', { name: 'Trimite reminder' }))
+      await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Anulează' }))
+      expect(api.sendAssignmentReminder).not.toHaveBeenCalled()
+    })
+
+    it('is offered only near the deadline, and not again within 12 hours', async () => {
+      api.listAssignments.mockResolvedValue([
+        summary(1, 'Trimis deja', 1, { done: 3, manualReminderAt: new Date(Date.now() - 3_600_000).toISOString() }),
+        summary(2, 'Mai e timp', 5, { done: 3 }),
+        summary(3, 'Toți au predat', 1, { done: 20 }),
+      ])
+      renderHome()
+      const rows = await screen.findAllByTestId('deadline-row')
+      expect(within(rows[0]).getByTestId('reminder-sent')).toBeInTheDocument()
+      expect(within(rows[0]).queryByTestId('send-reminder')).not.toBeInTheDocument()
+      expect(screen.queryAllByTestId('send-reminder')).toHaveLength(0)
+    })
+
+    it("tells the teacher why the server refused it", async () => {
+      api.listAssignments.mockResolvedValue([summary(1, 'Logaritmi', 1, { done: 3 })])
+      api.sendAssignmentReminder.mockRejectedValue(new ApiError(409, 'Nu e nimeni de anunțat: toți elevii au predat tema sau au o excepție.'))
+      renderHome()
+      await userEvent.click(await screen.findByRole('button', { name: 'Trimite reminder' }))
+      await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Trimite' }))
+      await waitFor(() => expect(readToasts()).toHaveLength(1))
+      expect(readToasts()[0]).toMatchObject({ tone: 'danger', message: expect.stringContaining('Nu e nimeni de anunțat') })
+      expect(screen.getByRole('button', { name: 'Trimite reminder' })).toBeEnabled()
+    })
   })
 
   it('says a class has no students instead of "0 / 0 predate"', async () => {

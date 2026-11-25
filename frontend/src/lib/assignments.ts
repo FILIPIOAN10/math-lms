@@ -1,4 +1,4 @@
-import { type StudentAssignment } from '@/lib/api'
+import { type AssignmentSummary, type StudentAssignment } from '@/lib/api'
 
 export type BadgeTone = 'info' | 'success' | 'warning' | 'danger'
 
@@ -69,6 +69,26 @@ export function dueSoonLabel(dueIso: string, nowMs: number): 'azi' | 'mâine' | 
   if (Number.isNaN(due) || due < nowMs) return null
   const days = Math.round((startOfDay(due) - startOfDay(nowMs)) / DAY)
   return days === 0 ? 'azi' : days === 1 ? 'mâine' : null
+}
+
+/** How long "Trimite reminder" waits after the last one (the server's AssignmentService.MANUAL_REMINDER_PAUSE). */
+export const MANUAL_REMINDER_PAUSE_MS = 12 * HOUR
+
+export type ReminderState = { kind: 'hidden' } | { kind: 'ready' } | { kind: 'sent'; at: string }
+
+/**
+ * "Trimite reminder" on a homework: hidden when the students can no longer act on it or nobody is left (deadline
+ * passed, not released yet, everyone handed in); "sent" while the last one is under 12 hours old; else ready.
+ */
+export function reminderState(
+  a: Pick<AssignmentSummary, 'overdue' | 'availableFrom' | 'enrolled' | 'done' | 'manualReminderAt'>,
+  nowMs: number,
+): ReminderState {
+  if (a.overdue || a.availableFrom || a.enrolled - a.done <= 0) return { kind: 'hidden' }
+  if (a.manualReminderAt && nowMs - Date.parse(a.manualReminderAt) < MANUAL_REMINDER_PAUSE_MS) {
+    return { kind: 'sent', at: a.manualReminderAt }
+  }
+  return { kind: 'ready' }
 }
 
 /** `<input type="datetime-local">` value (local time, no zone) -> the ISO instant the API takes. */

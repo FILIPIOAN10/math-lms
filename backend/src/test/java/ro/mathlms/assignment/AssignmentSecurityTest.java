@@ -40,6 +40,7 @@ class AssignmentSecurityTest {
     @WithMockUser(roles = "STUDENT")
     void aStudentCannotManageAssignments() throws Exception {
         mockMvc.perform(get("/api/admin/assignments")).andExpect(status().isForbidden());
+        mockMvc.perform(post("/api/admin/assignments/1/remind").with(csrf())).andExpect(status().isForbidden());
         mockMvc.perform(post("/api/admin/assignments").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"quizId\":1,\"schoolClassId\":1,\"dueAt\":\"2030-01-01T10:00:00Z\"}"))

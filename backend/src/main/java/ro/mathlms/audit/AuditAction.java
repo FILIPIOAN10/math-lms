@@ -71,6 +71,8 @@ public enum AuditAction {
     HOMEWORK_OVERRIDE_SET(AuditCategory.HOMEWORK),
     /** One student back on the class deadline. */
     HOMEWORK_OVERRIDE_REMOVED(AuditCategory.HOMEWORK),
+    /** "Trimite reminder": the students who had not handed in were emailed now (how many, never who). */
+    HOMEWORK_REMINDER_SENT(AuditCategory.HOMEWORK),
 
     ACCOUNT_APPROVED(AuditCategory.PEOPLE),
     ACCOUNT_REJECTED(AuditCategory.PEOPLE),

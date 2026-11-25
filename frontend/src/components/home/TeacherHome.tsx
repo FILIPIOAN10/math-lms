@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { BookOpen, ClipboardList, History, PenLine, TriangleAlert, UserCheck } from 'lucide-react'
+import { Bell, BookOpen, ClipboardList, History, PenLine, TriangleAlert, UserCheck } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { buttonVariants } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
+import { useConfirm } from '@/components/useConfirm'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { ErrorState } from '@/components/ErrorState'
@@ -17,10 +18,12 @@ import {
   listPendingUsers,
   listQuizSummaries,
   listQuizzes,
+  sendAssignmentReminder,
   type AdminAttemptSummary,
   type AssignmentSummary,
 } from '@/lib/api'
-import { dueCountdown, dueSoonLabel } from '@/lib/assignments'
+import { dueCountdown, dueSoonLabel, reminderState } from '@/lib/assignments'
+import { toast } from '@/lib/toast'
 import { errorMessage } from '@/lib/errors'
 import { formatDate, roCount } from '@/lib/format'
 import { firstRunSteps, upcomingDeadlines, type FirstRunStep } from '@/lib/home'
@@ -60,6 +63,40 @@ export function TeacherHome({ canApprove = true }: { canApprove?: boolean }) {
   /** Assignment id -> who has not handed in yet, only for deadlines with a few students left. */
   const [missing, setMissing] = useState<Record<number, string[]>>({})
   const [keysToCheck, setKeysToCheck] = useState<KeyToCheck[]>([])
+  // "Trimite reminder": the homework whose reminder is on its way (its button waits), and the yes/no before emailing.
+  const [reminding, setReminding] = useState<number | null>(null)
+  const { confirm, dialog: confirmDialog } = useConfirm()
+
+  /** Emails now the students who have not handed in, after a yes: it cannot be taken back, so it is asked first. */
+  async function remind(a: AssignmentSummary) {
+    const pending = a.enrolled - a.done
+    const yes = await confirm({
+      title: `Trimiți un reminder pentru „${a.quizTitle}”?`,
+      body: `${roCount(pending, 'elev', 'elevi')} din ${a.schoolClassName} ${pending === 1 ? 'nu a' : 'nu au'} predat încă. `
+        // Whether parents get a copy is the server's setting: the toast after says who was emailed.
+        + 'Primesc acum un email cu termenul și linkul spre test. '
+        + 'Următorul reminder se poate trimite după 12 ore.',
+      confirmLabel: 'Trimite',
+    })
+    if (!yes) return
+    setReminding(a.id)
+    try {
+      const sent = await sendAssignmentReminder(a.id)
+      setData((d) => d && {
+        ...d,
+        assignments: d.assignments.map((x) => (x.id === a.id ? { ...x, manualReminderAt: sent.sentAt } : x)),
+      })
+      toast({
+        tone: 'success',
+        message: `Reminder trimis: ${roCount(sent.students, 'elev', 'elevi')}`
+          + `${sent.parents > 0 ? ` și ${roCount(sent.parents, 'părinte', 'părinți')}` : ''}.`,
+      })
+    } catch (e) {
+      toast({ tone: 'danger', message: errorMessage(e) })
+    } finally {
+      setReminding(null)
+    }
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -116,6 +153,7 @@ export function TeacherHome({ canApprove = true }: { canApprove?: boolean }) {
 
   return (
     <div className="space-y-6">
+      {confirmDialog}
       {firstRun && <FirstRunChecklist steps={firstRun} />}
       <div className={data.pending === null ? 'grid grid-cols-2 gap-3' : 'grid grid-cols-3 gap-3'}>
         <StatTile
@@ -182,17 +220,27 @@ export function TeacherHome({ canApprove = true }: { canApprove?: boolean }) {
               ) : (
                 deadlines.map((a) => {
                   const soon = a.overdue ? null : dueSoonLabel(a.dueAt, loadedAt)
+                  // Offered on the deadlines of today and tomorrow, where a nudge still helps.
+                  const reminder = soon ? reminderState(a, loadedAt) : ({ kind: 'hidden' } as const)
                   return (
-                  <Link
-                    key={a.id}
-                    to={`/admin/assignments?open=${a.id}`}
-                    className="block rounded-xl outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-                  >
-                    <Card data-testid="deadline-row" className="hover-lift">
+                    // The title's link stretches over the whole card (after:inset-0): the card still opens the hand-in
+                    // list, and "Trimite reminder" stays a button of its own, above that link.
+                    <Card
+                      key={a.id}
+                      data-testid="deadline-row"
+                      className="hover-lift relative has-[a:focus-visible]:ring-3 has-[a:focus-visible]:ring-ring/50"
+                    >
                       <CardContent className="space-y-2 py-3">
                         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
                         <div className="min-w-0 space-y-1">
-                          <p data-testid="deadline-title" className="truncate font-medium">{a.quizTitle}</p>
+                          <p data-testid="deadline-title" className="truncate font-medium">
+                            <Link
+                              to={`/admin/assignments?open=${a.id}`}
+                              className="outline-none after:absolute after:inset-0 after:rounded-xl"
+                            >
+                              {a.quizTitle}
+                            </Link>
+                          </p>
                           <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                             {a.overdue && <Badge variant="destructive">Termen depășit</Badge>}
                             {soon && <Badge variant="warning" data-testid="deadline-soon">{soon}</Badge>}
@@ -225,9 +273,29 @@ export function TeacherHome({ canApprove = true }: { canApprove?: boolean }) {
                             tone={a.done === a.enrolled ? 'success' : (soon || a.overdue) && a.done * 2 < a.enrolled ? 'warning' : 'primary'}
                           />
                         )}
+                        {reminder.kind === 'ready' && (
+                          <div className="relative z-10 flex justify-end">
+                            <Button
+                              size="sm"
+                              // Under half handed in: the nudge is the thing to do here, so it is the main button.
+                              variant={a.done * 2 < a.enrolled ? 'default' : 'outline'}
+                              disabled={reminding === a.id}
+                              onClick={() => void remind(a)}
+                              data-testid="send-reminder"
+                            >
+                              <Bell aria-hidden="true" />
+                              {reminding === a.id ? 'Se trimite...' : 'Trimite reminder'}
+                            </Button>
+                          </div>
+                        )}
+                        {reminder.kind === 'sent' && (
+                          <p data-testid="reminder-sent" className="relative z-10 text-right text-xs text-muted-foreground">
+                            <Bell aria-hidden="true" className="mr-1 inline size-3" />
+                            Reminder trimis {formatDate(reminder.at)}
+                          </p>
+                        )}
                       </CardContent>
                     </Card>
-                  </Link>
                   )
                 })
               )}

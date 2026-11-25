@@ -59,6 +59,10 @@ public class Assignment {
     @Column(name = "reminder_sent_at")
     private Instant reminderSentAt;
 
+    /** When the teacher last pressed "Trimite reminder" (V80); null = never. The next one waits 12 hours. */
+    @Column(name = "manual_reminder_at")
+    private Instant manualReminderAt;
+
     /**
      * Catch-up homework: the only students of the class it is for. Empty = the whole class. Batch-loaded, so a list of
      * homework does not load each one's students with a query of its own.
@@ -137,6 +141,10 @@ public class Assignment {
 
     public void markReminderSent(Instant when) {
         this.reminderSentAt = Objects.requireNonNull(when, "when");
+    }
+
+    public void markManualReminderSent(Instant when) {
+        this.manualReminderAt = Objects.requireNonNull(when, "when");
     }
 
     /** Gives the homework to these students of its class only (none = back to the whole class). */

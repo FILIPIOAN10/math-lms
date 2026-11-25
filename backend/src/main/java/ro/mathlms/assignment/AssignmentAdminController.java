@@ -125,6 +125,13 @@ public class AssignmentAdminController {
         return service.status(id);
     }
 
+    /** "Trimite reminder": emails the students who have not handed in yet (409 when it cannot, with the reason). */
+    @PostMapping("/api/admin/assignments/{id}/remind")
+    public ManualReminderDto remind(@PathVariable Long id) {
+        scope.requireAssignment(id);
+        return service.remindNow(id);
+    }
+
     @GetMapping("/api/admin/assignments/{id}/status")
     public List<StudentStatusDto> status(@PathVariable Long id) {
         scope.requireAssignment(id);

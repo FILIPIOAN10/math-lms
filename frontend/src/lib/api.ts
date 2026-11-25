@@ -2113,6 +2113,8 @@ export interface AssignmentSummary {
   forStudents: number
   /** Scheduled: hidden from its students until then. Null = they can see it. */
   availableFrom: string | null
+  /** The teacher's last "Trimite reminder"; null = never. Absent from an older server. */
+  manualReminderAt?: string | null
 }
 
 /** One student's row in the teacher's per-assignment status. */
@@ -2222,6 +2224,19 @@ export async function setAssignmentOverride(
   return response.json()
 }
 
+/** What "Trimite reminder" sent: students emailed, linked parents who got their copy, and when. */
+export interface ManualReminder {
+  students: number
+  parents: number
+  sentAt: string
+}
+
+/** Emails now the students who have not handed in (409 with the reason when it cannot, e.g. one sent < 12 h ago). */
+export async function sendAssignmentReminder(id: number): Promise<ManualReminder> {
+  const response = await postJson(`/admin/assignments/${id}/remind`, {})
+  return response.json()
+}
+
 export async function getAssignmentStatus(id: number): Promise<AssignmentStudentStatus[]> {
   const response = await apiFetch(`/admin/assignments/${id}/status`)
   return response.json()
@@ -2248,6 +2263,7 @@ export type AuditAction =
   | 'QUESTION_ADDED' | 'QUESTION_UPDATED' | 'QUESTION_DELETED' | 'QUESTION_IMAGE_SET' | 'QUESTION_IMAGE_REMOVED' | 'QUIZ_FROM_PHOTOS'
   | 'ANSWER_GRADED' | 'PAPER_COMMENTED' | 'PAPER_GRADED' | 'PAPER_REOPENED' | 'ATTEMPT_GRANTED' | 'ANSWER_KEY_CORRECTED'
   | 'HOMEWORK_ASSIGNED' | 'HOMEWORK_RESCHEDULED' | 'HOMEWORK_DELETED' | 'HOMEWORK_OVERRIDE_SET' | 'HOMEWORK_OVERRIDE_REMOVED'
+  | 'HOMEWORK_REMINDER_SENT'
   | 'ACCOUNT_APPROVED' | 'ACCOUNT_REJECTED' | 'PARENT_LINKED' | 'EXTRA_TIME_CHANGED' | 'STUDENT_ENROLLED' | 'STUDENT_UNENROLLED'
   | 'INVITE_LINK_CREATED' | 'INVITE_LINK_REVOKED' | 'JOINED_BY_INVITE'
 

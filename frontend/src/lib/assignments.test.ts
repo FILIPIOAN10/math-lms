@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { assignmentBadge, dueCountdown, dueSoonLabel, isHandedIn, isoToLocalInput, localInputToIso, releaseOf } from './assignments'
+import { assignmentBadge, dueCountdown, dueSoonLabel, reminderState, isHandedIn, isoToLocalInput, localInputToIso, releaseOf } from './assignments'
 
 const HOUR = 3_600_000
 const DAY = 24 * HOUR
@@ -131,5 +131,27 @@ describe('dueSoonLabel', () => {
 
   it('crosses a month end', () => {
     expect(dueSoonLabel(iso(at(2026, 12, 1, 10)), at(2026, 11, 30, 10))).toBe('mâine')
+  })
+})
+
+describe('reminderState', () => {
+  const now = Date.parse('2026-11-25T12:00:00Z')
+  const hw = (over: Partial<Parameters<typeof reminderState>[0]> = {}) =>
+    ({ overdue: false, availableFrom: null, enrolled: 20, done: 12, manualReminderAt: null, ...over })
+
+  it('offers it while students can still hand in and some have not', () => {
+    expect(reminderState(hw(), now)).toEqual({ kind: 'ready' })
+  })
+
+  it('hides it after the deadline, before the release, and once everybody handed in', () => {
+    expect(reminderState(hw({ overdue: true }), now).kind).toBe('hidden')
+    expect(reminderState(hw({ availableFrom: '2026-11-26T08:00:00Z' }), now).kind).toBe('hidden')
+    expect(reminderState(hw({ done: 20 }), now).kind).toBe('hidden')
+  })
+
+  it('says when one was sent in the last 12 hours, and offers it again after', () => {
+    expect(reminderState(hw({ manualReminderAt: '2026-11-25T01:00:00Z' }), now))
+      .toEqual({ kind: 'sent', at: '2026-11-25T01:00:00Z' })
+    expect(reminderState(hw({ manualReminderAt: '2026-11-24T23:59:00Z' }), now)).toEqual({ kind: 'ready' })
   })
 })

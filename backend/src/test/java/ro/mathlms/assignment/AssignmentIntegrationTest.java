@@ -35,6 +35,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -150,6 +151,32 @@ class AssignmentIntegrationTest {
 
         // a second tick finds nothing left to remind about
         reminderJob.tick();
+        assertThat(reminderEvents(assignment.getId())).hasSize(1);
+    }
+
+    /** "Trimite reminder": days before the deadline, now, to whoever has not handed in; the next one waits 12 h. */
+    @Test
+    void theTeacherRemindsNowTheStudentsWhoHaveNotHandedIn() {
+        Assignment assignment = assignmentService.create(quiz.getId(), schoolClass.getId(), Instant.now().plus(Duration.ofDays(4)));
+        StartedAttemptDto bobTest = attemptService.startAttempt(quiz.getId(), bob.getEmail());
+        attemptService.submit(bobTest.attemptId(), bob.getEmail());
+
+        ManualReminderDto sent = assignmentService.remindNow(assignment.getId());
+
+        assertThat(sent.students()).isEqualTo(1);
+        assertThat(reminderEvents(assignment.getId())).hasSize(1);
+        while (processor.processBatch() > 0) {
+            // drain the outbox
+        }
+        verify(emailService, times(1)).sendAssignmentReminder(eq(ana.getEmail()), eq("Ana Pop"), anyString(), any(), eq(quiz.getId()));
+        verify(emailService, never()).sendAssignmentReminder(eq(bob.getEmail()), anyString(), anyString(), any(), anyLong());
+        assertThat(assignmentService.summaryOf(assignment.getId()).manualReminderAt())
+                .isCloseTo(sent.sentAt(), org.assertj.core.api.Assertions.within(1, ChronoUnit.MILLIS)); // Postgres keeps microseconds
+        assertThat(assignmentRepository.findById(assignment.getId()).orElseThrow().getReminderSentAt())
+                .as("four days ahead: the automatic reminder still comes on the last day").isNull();
+
+        assertThatThrownBy(() -> assignmentService.remindNow(assignment.getId()))
+                .isInstanceOf(AssignmentConflictException.class);
         assertThat(reminderEvents(assignment.getId())).hasSize(1);
     }
 

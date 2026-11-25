@@ -31,7 +31,7 @@ class AssignmentControllersTest {
     private final Instant due = Instant.parse("2026-10-12T15:00:00Z");
 
     private AssignmentSummaryDto summary() {
-        return new AssignmentSummaryDto(1L, 10L, "Simulare EN", 5L, "Clasa a 9-a", due, false, 4, 1, 0, 1, 2, 0, 0, null);
+        return new AssignmentSummaryDto(1L, 10L, "Simulare EN", 5L, "Clasa a 9-a", due, false, 4, 1, 0, 1, 2, 0, 0, null, null);
     }
 
     @Test
@@ -62,6 +62,14 @@ class AssignmentControllersTest {
 
         admin.status(1L);
         verify(service).status(1L);
+    }
+
+    @Test
+    void remindingNowDelegatesAndAnswersWithWhatWasSent() {
+        ManualReminderDto sent = new ManualReminderDto(3, 1, Instant.parse("2026-10-05T10:00:00Z"));
+        when(service.remindNow(1L)).thenReturn(sent);
+
+        assertThat(admin.remind(1L)).isEqualTo(sent);
     }
 
     @Test

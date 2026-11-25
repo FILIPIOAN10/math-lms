@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AppShell } from '@/components/AppShell'
-import { initials, isNewPage } from '@/lib/shell'
+import { isNewPage } from '@/lib/shell'
 import { ErrorState } from '@/components/ErrorState'
 import type { User } from '@/lib/api'
 import { NAV_COUNTS_CHANGED } from '@/lib/roles'
@@ -288,8 +288,6 @@ describe('AppShell', () => {
       auth.value = { ...auth.value, user: user({ fullName: 'Ana Maria Pop' }) }
       renderShell()
       expect(within(screen.getByRole('banner')).getByText('AM')).toBeInTheDocument()
-      expect(initials('  ștefan  ')).toBe('Ș')
-      expect(initials('')).toBe('?')
     })
 
     it('switches between light and dark in one press and remembers it', async () => {
