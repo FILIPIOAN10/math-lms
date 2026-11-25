@@ -84,7 +84,9 @@ public enum AuditAction {
     INVITE_LINK_CREATED(AuditCategory.PEOPLE),
     INVITE_LINK_REVOKED(AuditCategory.PEOPLE),
     /** A newcomer joined a class (or became a student's parent) through an invite link: no teacher step, so it is logged. */
-    JOINED_BY_INVITE(AuditCategory.PEOPLE);
+    JOINED_BY_INVITE(AuditCategory.PEOPLE),
+    /** An admin removed a student's account: anonymised like a GDPR erasure, the grades kept without a name. */
+    STUDENT_REMOVED(AuditCategory.PEOPLE);
 
     private final AuditCategory category;
 

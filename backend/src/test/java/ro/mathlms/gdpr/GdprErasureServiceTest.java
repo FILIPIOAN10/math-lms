@@ -8,7 +8,11 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import ro.mathlms.TestcontainersConfiguration;
+import org.springframework.data.domain.Limit;
+import ro.mathlms.audit.AuditAction;
+import ro.mathlms.audit.AuditEntryRepository;
 import ro.mathlms.auth.EmailService;
+import ro.mathlms.auth.UserNotFoundException;
 import ro.mathlms.auth.TokenPurpose;
 import ro.mathlms.auth.VerificationTokenService;
 import ro.mathlms.content.Enrollment;
@@ -53,6 +57,7 @@ class GdprErasureServiceTest {
     @Autowired private VerificationTokenService tokenService;
     @Autowired private InviteLinkService inviteLinkService;
     @Autowired private InviteLinkRepository inviteLinkRepository;
+    @Autowired private AuditEntryRepository auditRepository;
     @MockitoBean private EmailService emailService;
 
     private record Seed(Long userId, Long attemptId, Long responseId) {}
@@ -191,5 +196,42 @@ class GdprErasureServiceTest {
         service.requestErasure("prof-cu-clasa@scoala.ro", "parola123");
         verify(emailService).sendErasureConfirmationEmail(org.mockito.ArgumentMatchers.eq("prof-cu-clasa@scoala.ro"),
                 org.mockito.ArgumentMatchers.anyString());
+    }
+
+    @Test
+    void anAdminRemovesAStudentAtOnceTheSameWayAsTheirOwnErasureAndTheJournalSaysSo() {
+        Seed seed = seedStudentWithData("scos@scoala.ro");
+
+        service.removeStudent(seed.userId());
+
+        User erased = userRepository.findById(seed.userId()).orElseThrow();
+        assertThat(erased.isErased()).isTrue();
+        assertThat(userRepository.findByEmail("scos@scoala.ro")).isEmpty();
+        assertThat(enrollmentRepository.findByStudentId(seed.userId())).isEmpty();
+        assertThat(photoRepository.findImageKeysByStudentId(seed.userId())).isEmpty();
+        // The grade stays (class averages and statistics do not change), only without a name.
+        assertThat(attemptRepository.findById(seed.attemptId())).isPresent();
+        assertThat(auditRepository.findPage(Long.MAX_VALUE, java.util.List.of(AuditAction.STUDENT_REMOVED), false,
+                seed.userId(), java.time.Instant.EPOCH, java.time.Instant.parse("3000-01-01T00:00:00Z"), Limit.of(5)))
+                .hasSize(1);
+        // Nobody was emailed: the admin's click is the decision.
+        org.mockito.Mockito.verify(emailService, org.mockito.Mockito.never())
+                .sendErasureConfirmationEmail(org.mockito.ArgumentMatchers.eq("scos@scoala.ro"), org.mockito.ArgumentMatchers.anyString());
+    }
+
+    @Test
+    void removeStudentRefusesAnyoneWhoIsNotAStudent() {
+        User parent = active("parinte-nu-se-scoate@scoala.ro", Role.PARENT);
+
+        assertThatThrownBy(() -> service.removeStudent(parent.getId())).isInstanceOf(UserNotFoundException.class);
+        assertThat(userRepository.findById(parent.getId()).orElseThrow().isErased()).isFalse();
+    }
+
+    @Test
+    void removingAnAlreadyRemovedStudentIsANotFound() {
+        User student = active("scos-de-doua-ori@scoala.ro", Role.STUDENT);
+        service.removeStudent(student.getId());
+
+        assertThatThrownBy(() -> service.removeStudent(student.getId())).isInstanceOf(UserNotFoundException.class);
     }
 }

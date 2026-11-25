@@ -12,6 +12,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import ro.mathlms.TestcontainersConfiguration;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -102,5 +103,31 @@ class AdminUserRbacTest {
     void adminCanListByRole() throws Exception {
         mockMvc.perform(get("/api/admin/users").param("role", "PARENT"))
                 .andExpect(status().isOk());
+    }
+
+    // --- removing a student: admins only (a teacher may not delete accounts, even of their own students) ---
+
+    @Test
+    @WithAnonymousUser
+    void anonymousCannotRemoveAStudent() throws Exception {
+        mockMvc.perform(delete("/api/admin/users/1").with(csrf())).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @WithMockUser(roles = "TEACHER")
+    void aTeacherCannotRemoveAStudent() throws Exception {
+        mockMvc.perform(delete("/api/admin/users/1").with(csrf())).andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "STUDENT")
+    void aStudentCannotRemoveAStudent() throws Exception {
+        mockMvc.perform(delete("/api/admin/users/1").with(csrf())).andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void removingAnAccountThatDoesNotExistIsANotFound() throws Exception {
+        mockMvc.perform(delete("/api/admin/users/999999").with(csrf())).andExpect(status().isNotFound());
     }
 }

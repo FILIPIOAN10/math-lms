@@ -70,6 +70,7 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   INVITE_LINK_CREATED: 'Link de invitație creat',
   INVITE_LINK_REVOKED: 'Link de invitație oprit',
   JOINED_BY_INVITE: 'Intrat prin link',
+  STUDENT_REMOVED: 'Elev șters',
 }
 
 export function auditActionLabel(action: AuditAction): string {
@@ -83,7 +84,9 @@ export function auditSubject(entry: AuditEntry): string | null {
 
 /** Rows whose person is the student whose page exists (an approved account may be a parent's or a teacher's). */
 export function linksToStudent(entry: AuditEntry): boolean {
+  // A removed student has no page any more.
   return entry.studentId !== null && entry.action !== 'ACCOUNT_APPROVED' && entry.action !== 'ACCOUNT_REJECTED'
+    && entry.action !== 'STUDENT_REMOVED'
 }
 
 /** Who did it: a name, or what is left when the account is gone. */

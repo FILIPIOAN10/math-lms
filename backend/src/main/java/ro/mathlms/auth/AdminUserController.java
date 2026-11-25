@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotNull;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import ro.mathlms.gdpr.GdprErasureService;
 import ro.mathlms.teaching.TeacherScope;
 import ro.mathlms.user.Role;
 import ro.mathlms.user.User;
@@ -33,9 +35,23 @@ public class AdminUserController {
 
     private final TeacherScope scope;
 
-    public AdminUserController(AdminUserService adminUserService, TeacherScope scope) {
+    private final GdprErasureService erasureService;
+
+    public AdminUserController(AdminUserService adminUserService, TeacherScope scope, GdprErasureService erasureService) {
         this.adminUserService = adminUserService;
         this.scope = scope;
+        this.erasureService = erasureService;
+    }
+
+    /**
+     * "Șterge elevul": removes a student's account (anonymised like a GDPR erasure, grades kept without a name).
+     * Admins only - the class-level {@code @PreAuthorize}; a teacher may not delete accounts. 404 for anything that is
+     * not a (still existing) student.
+     */
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> removeStudent(@PathVariable Long id) {
+        erasureService.removeStudent(id);
+        return ResponseEntity.noContent().build();
     }
 
     /**

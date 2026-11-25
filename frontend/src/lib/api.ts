@@ -337,6 +337,14 @@ export async function listActiveUsers(role: Role): Promise<AdminUserSummary[]> {
   return response.json()
 }
 
+/**
+ * "Șterge elevul" (admins only): the account is anonymised like a GDPR erasure - classes, photos and parent link go,
+ * the grades stay without a name. 404 when it is not a student (or is already gone).
+ */
+export async function removeStudent(studentId: number): Promise<void> {
+  await del(`/admin/users/${studentId}`)
+}
+
 export async function linkParent(studentId: number, parentId: number): Promise<User> {
   const response = await postJson(`/admin/users/${studentId}/link-parent`, { parentId })
   return response.json()
@@ -2265,7 +2273,7 @@ export type AuditAction =
   | 'HOMEWORK_ASSIGNED' | 'HOMEWORK_RESCHEDULED' | 'HOMEWORK_DELETED' | 'HOMEWORK_OVERRIDE_SET' | 'HOMEWORK_OVERRIDE_REMOVED'
   | 'HOMEWORK_REMINDER_SENT'
   | 'ACCOUNT_APPROVED' | 'ACCOUNT_REJECTED' | 'PARENT_LINKED' | 'EXTRA_TIME_CHANGED' | 'STUDENT_ENROLLED' | 'STUDENT_UNENROLLED'
-  | 'INVITE_LINK_CREATED' | 'INVITE_LINK_REVOKED' | 'JOINED_BY_INVITE'
+  | 'INVITE_LINK_CREATED' | 'INVITE_LINK_REVOKED' | 'JOINED_BY_INVITE' | 'STUDENT_REMOVED'
 
 /**
  * One row of the journal. Names are today's (an erased account shows its pseudonym); `actorName` is null when the

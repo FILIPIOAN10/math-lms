@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -16,6 +16,7 @@ const api = vi.hoisted(() => ({
   listPendingUsers: vi.fn(),
   approveUser: vi.fn(),
   rejectUser: vi.fn(),
+  removeStudent: vi.fn(),
 }))
 vi.mock('@/lib/api', async (original) => ({ ...(await original<typeof import('@/lib/api')>()), ...api }))
 
@@ -56,6 +57,34 @@ describe('AdminStudentsPage', () => {
     expect(screen.queryByTestId('pending-accounts')).not.toBeInTheDocument()
     expect(api.listPendingUsers).not.toHaveBeenCalled()
     expect(api.listActiveUsers).not.toHaveBeenCalledWith('PARENT')
+    expect(screen.queryByRole('button', { name: /Mai multe acțiuni/ })).not.toBeInTheDocument()
+  })
+
+  it('lets an admin remove a student after a clear yes, and drops the row', async () => {
+    api.removeStudent.mockResolvedValue(undefined)
+    renderPage()
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Mai multe acțiuni pentru Ana Pop' }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Șterge elevul' }))
+    const ask = await screen.findByRole('dialog')
+    expect(ask).toHaveTextContent('Ștergi elevul Ana Pop?')
+    expect(ask).toHaveTextContent('Notele rămân fără nume')
+    await userEvent.click(within(ask).getByRole('button', { name: 'Șterge elevul' }))
+
+    expect(api.removeStudent).toHaveBeenCalledWith(1)
+    await waitFor(() => expect(screen.queryByRole('link', { name: 'Ana Pop' })).not.toBeInTheDocument())
+    expect(screen.getByRole('link', { name: 'Radu Nou' })).toBeInTheDocument()
+  })
+
+  it('removes nobody when the admin says no', async () => {
+    renderPage()
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Mai multe acțiuni pentru Ana Pop' }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Șterge elevul' }))
+    await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Anulează' }))
+
+    expect(api.removeStudent).not.toHaveBeenCalled()
+    expect(screen.getByRole('link', { name: 'Ana Pop' })).toBeInTheDocument()
   })
 
   it('shows each student with their class and latest grade, a dash before the first one', async () => {

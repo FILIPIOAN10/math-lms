@@ -10,17 +10,21 @@ import { InviteLinkCard } from '@/components/InviteLinkCard'
 import { AdminInviteCard } from '@/components/AdminInviteCard'
 import { PageHeader } from '@/components/PageHeader'
 import { PendingAccountsCard } from '@/components/PendingAccountsCard'
+import { RowMenu } from '@/components/RowMenu'
+import { useConfirm } from '@/components/useConfirm'
 import { useAuth } from '@/context/AuthContext'
 import {
   createParentInvite,
   linkParent,
   listActiveUsers,
   listStudentRows,
+  removeStudent,
   type AdminUserSummary,
   type InviteLink,
   type StudentListRow,
 } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
+import { toast } from '@/lib/toast'
 import { selectClass } from '@/lib/formClasses'
 import { formatDate, initials } from '@/lib/format'
 import { FILTER_FROM, matchesQuery } from '@/lib/search'
@@ -63,6 +67,7 @@ export function AdminStudentsPage() {
   const [linkedNotes, setLinkedNotes] = useState<Record<number, string>>({})
   // The parent link minted for a student row in this visit, shown under the row until the page is left.
   const [parentLinks, setParentLinks] = useState<Record<number, InviteLink>>({})
+  const { confirm, dialog: confirmDialog } = useConfirm()
 
   function loadPeople() {
     listStudentRows()
@@ -159,8 +164,33 @@ export function AdminStudentsPage() {
     }
   }
 
+  /** "Șterge elevul", after a yes: it cannot be undone, so the dialog says what goes and what stays. */
+  async function handleRemove(student: AdminUserSummary) {
+    const yes = await confirm({
+      title: `Ștergi elevul ${student.fullName}?`,
+      body: 'Contul se închide definitiv: elevul nu se mai poate conecta, iese din clase, iar pozele lui și legătura cu '
+        + 'părintele se șterg. Notele rămân fără nume, ca mediile și statisticile clasei să nu se schimbe. '
+        + 'Nu se poate anula.',
+      confirmLabel: 'Șterge elevul',
+      destructive: true,
+    })
+    if (!yes) return
+    setActionError(null)
+    setBusy(student.id, true)
+    try {
+      await removeStudent(student.id)
+      setStudents((prev) => prev.filter((s) => s.id !== student.id))
+      toast({ tone: 'success', message: `${student.fullName} a fost șters.` })
+    } catch (e) {
+      setActionError(errorMessage(e))
+    } finally {
+      setBusy(student.id, false)
+    }
+  }
+
   return (
     <div className="p-4">
+      {confirmDialog}
       <div className="mx-auto max-w-4xl space-y-4">
         <PageHeader
           title="Elevi și părinți"
@@ -231,6 +261,7 @@ export function AdminStudentsPage() {
                       <th className="py-2 pr-4 font-medium">Clasa</th>
                       <th className="py-2 pr-4 font-medium">Ultima notă</th>
                       <th className="py-2 font-medium">Părinte</th>
+                      {isAdmin && <th className="w-10 py-2"><span className="sr-only">Acțiuni</span></th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -380,6 +411,14 @@ export function AdminStudentsPage() {
                               </div>
                             )}
                           </td>
+                          {isAdmin && (
+                            <td className="py-3 pl-2 text-right" data-testid={`student-menu-${s.id}`}>
+                              <RowMenu
+                                label={`Mai multe acțiuni pentru ${s.fullName}`}
+                                items={[{ label: 'Șterge elevul', destructive: true, testId: `remove-student-${s.id}`, onClick: () => void handleRemove(s) }]}
+                              />
+                            </td>
+                          )}
                         </tr>
                       )
                     })}

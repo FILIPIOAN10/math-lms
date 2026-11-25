@@ -8,6 +8,9 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import ro.mathlms.audit.AuditAction;
+import ro.mathlms.audit.AuditEvent;
+import ro.mathlms.audit.AuditLog;
 import ro.mathlms.auth.EmailService;
 import ro.mathlms.auth.RefreshTokenService;
 import ro.mathlms.auth.TokenPurpose;
@@ -69,6 +72,7 @@ public class GdprErasureService {
     private final GdprExportRepository exportRepository;
     private final TotpRecoveryCodeRepository recoveryCodeRepository;
     private final StudentTutorService studentTutor;
+    private final AuditLog auditLog;
 
     public GdprErasureService(UserRepository userRepository, PasswordEncoder passwordEncoder,
                               VerificationTokenService tokenService, EmailService emailService,
@@ -79,7 +83,7 @@ public class GdprErasureService {
                               InviteLinkRepository inviteLinkRepository, Clock clock,
                               SchoolClassRepository schoolClassRepository, QuizRepository quizRepository,
                               GdprExportRepository exportRepository, TotpRecoveryCodeRepository recoveryCodeRepository,
-                              StudentTutorService studentTutor) {
+                              StudentTutorService studentTutor, AuditLog auditLog) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.tokenService = tokenService;
@@ -98,6 +102,7 @@ public class GdprErasureService {
         this.exportRepository = exportRepository;
         this.recoveryCodeRepository = recoveryCodeRepository;
         this.studentTutor = studentTutor;
+        this.auditLog = auditLog;
     }
 
     /**
@@ -132,6 +137,27 @@ public class GdprErasureService {
             return;
         }
         checkStaffMayLeave(user); // again: a class may have been handed to them since the request
+        erase(user, email);
+    }
+
+    /**
+     * An admin removes a student's account from "Elevi și părinți" ("Șterge elevul"): the same anonymisation as the
+     * student's own erasure, at once (the admin's confirmed click is the decision, nobody is emailed). Grades stay,
+     * without a name, so class averages and statistics do not move. Only a student, and only once: anything else is a
+     * 404, so the endpoint never says which ids are staff accounts.
+     */
+    @Transactional
+    public void removeStudent(Long studentId) {
+        User student = userRepository.findById(studentId)
+                .filter(u -> u.getRole() == Role.STUDENT && !u.isErased())
+                .orElseThrow(() -> new UserNotFoundException("No student with id " + studentId));
+        erase(student, student.getEmail());
+        // The row names nobody: the student is linked by id and now shows as "Utilizator șters".
+        auditLog.record(AuditEvent.of(AuditAction.STUDENT_REMOVED, studentId, "Elev șters").about(student));
+    }
+
+    /** Deletes the person's own data and anonymises the account in place; the caller has checked who may go. */
+    private void erase(User user, String email) {
         Long userId = user.getId();
 
         // Detach the uploaded photos from the retained responses now; the files go only once that is committed, so a
