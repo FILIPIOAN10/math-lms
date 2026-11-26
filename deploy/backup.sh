@@ -28,8 +28,13 @@ setting() { [ -f "$ENV_FILE" ] && grep -E "^$1=" "$ENV_FILE" | tail -1 | cut -d=
 
 RECIPIENT="${BACKUP_AGE_RECIPIENT:-$(setting BACKUP_AGE_RECIPIENT)}"
 BUCKET="${BACKUP_S3_BUCKET:-$(setting BACKUP_S3_BUCKET)}"
+REGION="${BACKUP_S3_REGION:-$(setting BACKUP_S3_REGION)}"
+[ -n "$REGION" ] || REGION="$(setting S3_REGION)"
+[ -n "$REGION" ] || REGION="${AWS_REGION:-${AWS_DEFAULT_REGION:-}}"
 [ -n "$RECIPIENT" ] || fail "BACKUP_AGE_RECIPIENT is not set: refusing to write an unencrypted backup of minors' data"
 [ -n "$BUCKET" ] || fail "BACKUP_S3_BUCKET is not set: a backup kept only on this disk dies with the disk"
+[ -n "$REGION" ] || fail "S3 region is not set (BACKUP_S3_REGION or S3_REGION)"
+export AWS_DEFAULT_REGION="$REGION"
 command -v age >/dev/null || fail "the 'age' command is missing (apt-get install age)"
 command -v aws >/dev/null || fail "the 'aws' command is missing (apt-get install awscli)"
 
@@ -62,9 +67,9 @@ echo "[$(date -Is)] verified and encrypted: $(du -h "$DB_FILE" | cut -f1) databa
 
 # Off the server; server-side encryption on top of age. The bucket's lifecycle rule decides how long S3 keeps them.
 for file in "$DB_FILE" "$UPLOADS_FILE"; do
-  aws s3 cp "$file" "s3://$BUCKET/backups/$(basename "$file")" --sse AES256 --only-show-errors
+  aws s3 cp "$file" "s3://$BUCKET/backups/$(basename "$file")" --region "$REGION" --sse AES256 --only-show-errors
   local_size="$(wc -c < "$file" | tr -d ' ')"
-  remote_size="$(aws s3api head-object --bucket "$BUCKET" --key "backups/$(basename "$file")" --query ContentLength --output text)"
+  remote_size="$(aws s3api head-object --bucket "$BUCKET" --key "backups/$(basename "$file")" --region "$REGION" --query ContentLength --output text)"
   [ "$local_size" = "$remote_size" ] || fail "upload of $(basename "$file") is incomplete ($remote_size of $local_size bytes)"
 done
 echo "[$(date -Is)] copied to s3://$BUCKET/backups/"
