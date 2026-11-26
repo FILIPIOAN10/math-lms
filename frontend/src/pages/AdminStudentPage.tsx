@@ -10,6 +10,7 @@ import { AttemptStatusBadge } from '@/components/AttemptStatusBadge'
 import { HomeSection } from '@/components/home/HomeBits'
 import { MasteryList } from '@/components/MasteryList'
 import { EnMasteryList } from '@/components/EnMasteryList'
+import { EnPredictionCard } from '@/components/EnPredictionCard'
 import { PageHeader } from '@/components/PageHeader'
 import { ProgressChart } from '@/components/ProgressChart'
 import { ReviewStatusLine } from '@/components/ReviewStatusLine'
@@ -155,6 +156,8 @@ export function AdminStudentPage() {
                 </Card>
               </HomeSection>
             )}
+
+            <EnPredictionCard studentId={Number(studentId)} />
 
             {enMastery && enMastery.some((r) => r.questions > 0) && (
               <HomeSection title="Pe capitolele EN">

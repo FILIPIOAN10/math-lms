@@ -29,6 +29,7 @@ import { clockNote, runningClock } from '@/lib/countdown'
 import { useNow } from '@/lib/useNow'
 import { cn } from '@/lib/utils'
 import { WeakSpotsSection } from '@/components/WeakSpotsSection'
+import { EnPredictionCard } from '@/components/EnPredictionCard'
 
 interface StudentData {
   assignments: StudentAssignment[]
@@ -267,6 +268,7 @@ export function StudentHome() {
       }
       side={
         <>
+      <EnPredictionCard />
       {review && review.totalCards > 0 && hero !== 'review' && (
         <HomeSection title="Recapitulare">
           <Card data-testid="home-review">
