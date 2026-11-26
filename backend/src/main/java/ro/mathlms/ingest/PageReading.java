@@ -30,6 +30,10 @@ final class PageReading {
             "3)") and without the printed points ("5p"). Do NOT solve anything, do NOT add hints, and NEVER say which \
             option is correct.
             - Write all mathematics in LaTeX between single dollar signs, e.g. $\\frac{2}{3}$, $x^2 - 4 = 0$, $\\sqrt{5}$.
+            - A table printed in the exercise (rows and columns of words or numbers) is part of the statement: write it as \
+            a Markdown table on its own lines, the first row as the header, e.g. "| Sport | volei | baschet |\\n|---|---|---|\
+            \\n| Număr de elevi | 10 | 7 |" (math inside a cell between $). NEVER use \\begin{tabular} or \\begin{array} \
+            for a table.
             - type = "SINGLE_CHOICE" when the exercise lists answer choices (a, b, c, d / A, B, C, D); put the choices in \
             "options" in order, WITHOUT their letters. Otherwise type = "OPEN" and "options" is [].
             - An exercise with sub-points a), b), c) that are separate tasks (not answer choices) stays ONE open item: \
@@ -44,7 +48,8 @@ final class PageReading {
             null when none are printed.
             - An exercise may continue on the next page (e.g. sub-point b) at the top of the following photo): it is still \
             ONE item, on the page where it starts.
-            - "hasFigure": true when the exercise needs a drawing, graph or table that is shown only as a picture.
+            - "hasFigure": true when the exercise needs a drawing or graph (or a table that cannot be typed as text, e.g. \
+            one with drawings in its cells). A table of words or numbers is typed in the statement, not a figure.
             - "figurePage" and "figureBox": when "hasFigure" is true, the N of the "Pagina N" image that shows that \
             drawing and its tight bounding box on that image, "figureBox" = [ymin, xmin, ymax, xmax] normalized to \
             0-1000. Box the drawing (or the table) only - not the statement text, not the answer choices, not the \

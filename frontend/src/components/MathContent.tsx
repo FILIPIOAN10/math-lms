@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef } from 'react'
 import renderMathInElement from 'katex/contrib/auto-render'
+import { splitTables } from '@/lib/textTables'
 
 /**
  * Renders plain text that may contain LaTeX math (KaTeX). Math is written with $…$ /
@@ -17,6 +18,53 @@ import renderMathInElement from 'katex/contrib/auto-render'
  * a blank flash on screen, and tests looking for the text right after a render found nothing under load.
  */
 export function MathContent({ children, className, inline = false, large = false }: {
+  children: string
+  className?: string
+  inline?: boolean
+  large?: boolean
+}) {
+  const blocks = splitTables(children)
+  if (blocks.length === 1 && blocks[0].kind === 'text') {
+    return <MathText className={className} inline={inline} large={large}>{children}</MathText>
+  }
+  // A statement with a table (an imported LaTeX tabular or a Markdown one): the text around it as before, the
+  // table as a real table, formulas in its cells typeset too.
+  const Wrapper = inline ? 'span' : 'div'
+  return (
+    <Wrapper className={className}>
+      {blocks.map((block, i) =>
+        block.kind === 'text' ? (
+          <MathText key={i} large={large}>{block.text}</MathText>
+        ) : (
+          <span key={i} className="my-2 block overflow-x-auto">
+            <table data-testid="statement-table" className="border-collapse text-sm">
+              <tbody>
+                {block.rows.map((row, r) => (
+                  <tr key={r}>
+                    {row.map((cell, c) => {
+                      const Cell = block.header && r === 0 ? 'th' : 'td'
+                      return (
+                        <Cell
+                          key={c}
+                          className={`border border-border px-2.5 py-1 text-center ${Cell === 'th' || (!block.header && c === 0) ? 'bg-muted/60 font-medium' : ''}`}
+                        >
+                          <MathText inline>{cell}</MathText>
+                        </Cell>
+                      )
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </span>
+        ),
+      )}
+    </Wrapper>
+  )
+}
+
+/** Text with formulas, no tables: set as a text node, then KaTeX replaces the math spans. */
+function MathText({ children, className, inline = false, large = false }: {
   children: string
   className?: string
   inline?: boolean

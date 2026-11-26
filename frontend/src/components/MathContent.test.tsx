@@ -41,3 +41,40 @@ describe('MathContent', () => {
     expect(container.textContent).toBe('<b>nu e HTML</b>')
   })
 })
+
+describe('MathContent tables', () => {
+  it('draws an imported LaTeX tabular as a real table, with the text around it and math in the cells', () => {
+    const statement = String.raw`Tabelul:
+\begin{tabular}{|l|c|}
+\hline
+Sport & $x^2$ \\
+\hline
+Elevi & 7 \\
+\end{tabular}
+Cât face?`
+    const { container } = render(<MathContent>{statement}</MathContent>)
+    const table = container.querySelector('[data-testid="statement-table"]')!
+    expect(table).not.toBeNull()
+    expect(container.textContent).not.toContain('tabular')
+    expect(container.textContent).not.toContain('hline')
+    const cells = [...table.querySelectorAll('td')].map((td) => td.textContent)
+    expect(cells[0]).toBe('Sport')
+    expect(cells[2]).toBe('Elevi')
+    expect(cells[3]).toBe('7')
+    expect(table.querySelectorAll('.katex').length).toBe(1) // $x^2$ typeset inside its cell
+    expect(container.textContent).toContain('Tabelul:')
+    expect(container.textContent).toContain('Cât face?')
+  })
+
+  it('draws a Markdown table with its first row as the header', () => {
+    const { container } = render(<MathContent>{'| x | 1 |\n|---|---|\n| f(x) | 3 |'}</MathContent>)
+    expect([...container.querySelectorAll('th')].map((th) => th.textContent)).toEqual(['x', '1'])
+    expect([...container.querySelectorAll('td')].map((td) => td.textContent)).toEqual(['f(x)', '3'])
+  })
+
+  it('still never turns cell text into markup', () => {
+    const { container } = render(<MathContent>{String.raw`\begin{tabular}{c} <b>nu</b> \end{tabular}`}</MathContent>)
+    expect(container.querySelector('b')).toBeNull()
+    expect(container.querySelector('td')!.textContent).toBe('<b>nu</b>')
+  })
+})
