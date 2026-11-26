@@ -2682,6 +2682,34 @@ export async function getClassEnMastery(classId: number): Promise<EnClassMastery
   return response.json()
 }
 
+// --- „Ce notă iei la EN?" ---
+
+/** The estimated EN grade; available false = too few answers yet (then the grades are null). */
+export interface EnPrediction {
+  available: boolean
+  answers: number
+  answersNeeded: number
+  grade: number | null
+  low: number | null
+  high: number | null
+  topGains: { chapterId: number; code: string; title: string; gradeGain: number }[]
+}
+
+export async function getMyEnPrediction(): Promise<EnPrediction> {
+  const response = await apiFetch('/quiz/en-prediction')
+  return response.json()
+}
+
+export async function getChildEnPrediction(childId: number): Promise<EnPrediction> {
+  const response = await apiFetch('/parent/children/' + childId + '/en-prediction')
+  return response.json()
+}
+
+export async function getStudentEnPrediction(studentId: number): Promise<EnPrediction> {
+  const response = await apiFetch('/admin/students/' + studentId + '/en-prediction')
+  return response.json()
+}
+
 // --- The automatic links: which EN chapter each place on the paper points at by default ---
 
 /** "I.1" (SUBIECTUL I, question 1) or "III.5.b" (problem 5, requirement b) → a chapter. */

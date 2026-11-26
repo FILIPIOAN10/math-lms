@@ -25,11 +25,14 @@ import java.util.List;
 public class EnMasteryController {
 
     private final EnMasteryService service;
+    private final EnPredictionService predictionService;
     private final UserRepository userRepository;
     private final TeacherScope scope;
 
-    public EnMasteryController(EnMasteryService service, UserRepository userRepository, TeacherScope scope) {
+    public EnMasteryController(EnMasteryService service, EnPredictionService predictionService,
+                               UserRepository userRepository, TeacherScope scope) {
         this.service = service;
+        this.predictionService = predictionService;
         this.userRepository = userRepository;
         this.scope = scope;
     }
@@ -78,5 +81,35 @@ public class EnMasteryController {
     public EnClassMasteryDto forClass(@PathVariable Long classId) {
         scope.requireClass(classId);
         return service.forClass(classId);
+    }
+
+    /** „Ce notă iei la EN?": the student's own estimate. */
+    @GetMapping("/api/quiz/en-prediction")
+    @PreAuthorize("hasRole('STUDENT')")
+    public EnPrediction myPrediction(Authentication auth) {
+        User student = userRepository.findByEmail(auth.getName())
+                .filter(u -> u.getRole() == Role.STUDENT)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        return predictionService.predict(student);
+    }
+
+    @GetMapping("/api/parent/children/{studentId}/en-prediction")
+    @PreAuthorize("hasRole('PARENT')")
+    public EnPrediction childPrediction(@PathVariable Long studentId, Authentication auth) {
+        User parent = userRepository.findByEmail(auth.getName())
+                .orElseThrow(() -> new ParentAccessException("Contul de părinte nu există."));
+        User child = userRepository.findByIdAndParentId(studentId, parent.getId())
+                .orElseThrow(() -> new ParentAccessException("Acesta nu e copilul tău."));
+        return predictionService.predict(child);
+    }
+
+    @GetMapping("/api/admin/students/{studentId}/en-prediction")
+    @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
+    public EnPrediction studentPrediction(@PathVariable Long studentId) {
+        scope.requireStudent(studentId);
+        User student = userRepository.findById(studentId)
+                .filter(u -> u.getRole() == Role.STUDENT)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        return predictionService.predict(student);
     }
 }

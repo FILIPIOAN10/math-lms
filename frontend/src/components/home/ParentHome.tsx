@@ -22,6 +22,7 @@ import { formatDate, roCount } from '@/lib/format'
 import { GradeFigure } from '@/components/GradeFigure'
 import { latestGrade, todoAssignments, weakestChapter, weekSummary, type WeekSummary } from '@/lib/home'
 import { LoadingCards } from '@/components/LoadingCards'
+import { EnPredictionCard } from '@/components/EnPredictionCard'
 
 interface ChildOverview {
   child: ChildDto
@@ -139,6 +140,7 @@ export function ParentHome() {
             </p>
             <ReviewStatusLine review={review} testId="child-review" />
             <WeekLine week={week} weakest={weakest} />
+            <EnPredictionCard childId={child.id} />
             <div className="grid gap-3 sm:grid-cols-[2fr_1fr]">
               <div>
                 <p className="text-xs font-medium text-muted-foreground">Ultima notă</p>
