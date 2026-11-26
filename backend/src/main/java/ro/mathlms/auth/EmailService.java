@@ -2,7 +2,10 @@ package ro.mathlms.auth;
 
 import jakarta.mail.internet.InternetAddress;
 import java.io.UnsupportedEncodingException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.mail.MailException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
@@ -18,6 +21,8 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class EmailService {
+
+    private static final Logger log = LoggerFactory.getLogger(EmailService.class);
 
     private final JavaMailSender mailSender;
     private final String frontendBaseUrl;
@@ -73,6 +78,31 @@ public class EmailService {
                         + "Setează o parolă nouă accesând:\n"
                         + link + "\n\n"
                         + "Linkul expiră într-o oră. Dacă nu tu ai cerut resetarea, ignoră acest mesaj.");
+    }
+
+    /** Best-effort notice; security state changes must not appear to fail if the mail relay is unavailable. */
+    public void sendPasswordChangedNotice(String email) {
+        sendSecurityNotice(email, "password-changed",
+                "Parola contului tău Math LMS a fost schimbată. Dacă nu ai făcut tu această schimbare, contactează imediat administratorul școlii.");
+    }
+
+    public void sendTwoFactorDisabledNotice(String email) {
+        sendSecurityNotice(email, "two-factor-disabled",
+                "Autentificarea în doi pași a fost dezactivată pentru contul tău Math LMS. Dacă nu ai făcut tu această schimbare, contactează imediat administratorul școlii.");
+    }
+
+    public void sendRecoveryCodesRegeneratedNotice(String email) {
+        sendSecurityNotice(email, "recovery-codes-regenerated",
+                "Codurile de recuperare pentru contul tău Math LMS au fost regenerate. Codurile vechi nu mai funcționează. Dacă nu ai făcut tu această schimbare, contactează imediat administratorul școlii.");
+    }
+
+    private void sendSecurityNotice(String email, String event, String body) {
+        try {
+            send(email, "Alertă de securitate Math LMS", body + "\n\nAutentifică-te aici: " + frontendBaseUrl + "/login");
+        } catch (MailException e) {
+            // Do not log the recipient, token, message body, or transport exception (which may contain PII).
+            log.warn("Could not deliver security notification: {}", event);
+        }
     }
 
     public void sendErasureConfirmationEmail(String email, String token) {

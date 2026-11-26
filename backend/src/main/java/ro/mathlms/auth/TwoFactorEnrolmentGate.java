@@ -2,7 +2,7 @@ package ro.mathlms.auth;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -17,12 +17,13 @@ import ro.mathlms.user.UserRepository;
 import java.io.IOException;
 
 /**
- * F8: an ADMIN who has not set up two-step sign-in yet gets 403 on every staff endpoint ({@code /api/admin/**}) until
- * they do — on "Contul meu", which stays open. Runs after Spring Security (an MVC interceptor), so it sees the role.
- * Off with {@code app.auth.two-factor.required-for-admin=false} (the test suite, local dev).
+ * Staff who have not set up required two-step sign-in get 403 on protected API routes until they do. Their account and
+ * MFA setup routes stay open so they can enrol. Runs after Spring Security (an MVC interceptor), so it sees the role.
+ * Registered when either staff role has MFA marked as required.
  */
 @Configuration
-@ConditionalOnProperty(name = "app.auth.two-factor.required-for-admin", havingValue = "true", matchIfMissing = true)
+@ConditionalOnExpression("'${app.auth.two-factor.required-for-admin:true}' == 'true' or "
+        + "'${app.auth.two-factor.required-for-teacher:${app.auth.two-factor.required-for-admin:true}}' == 'true'")
 public class TwoFactorEnrolmentGate implements WebMvcConfigurer, HandlerInterceptor {
 
     /** Body of the 403, so the page can send the admin to set it up (not a generic "forbidden"). */
@@ -38,15 +39,15 @@ public class TwoFactorEnrolmentGate implements WebMvcConfigurer, HandlerIntercep
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
-        registry.addInterceptor(this).addPathPatterns("/api/admin/**");
+        registry.addInterceptor(this).addPathPatterns("/api/**")
+                .excludePathPatterns("/api/auth/**", "/api/me/**", "/api/public/**");
     }
 
     @Override
     public boolean preHandle(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response,
                              @NonNull Object handler) throws IOException {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        boolean admin = auth != null && auth.getAuthorities().stream().anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()));
-        if (!admin || userRepository.findByEmail(auth.getName()).filter(twoFactor::mustEnrol).isEmpty()) {
+        if (auth == null || userRepository.findByEmail(auth.getName()).filter(twoFactor::mustEnrol).isEmpty()) {
             return true;
         }
         response.setStatus(HttpStatus.FORBIDDEN.value());

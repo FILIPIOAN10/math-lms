@@ -13,8 +13,8 @@ import java.util.Collections;
  * round trips, two requests could both see count==1 and each set a TTL, and the window would never really
  * close. The script returns {@code count * 100000 + ttl} so one number carries both.
  *
- * <p>Fail OPEN: any Redis trouble allows the request (and logs a warning). A rate limiter must never take the
- * whole API down; brute-force protection is lost only while Redis is unreachable.
+ * <p>Redis failures are reported to {@link RateLimitFilter}, which applies each route's explicit fail-open/fail-closed
+ * policy. Authentication and session routes fail closed; ordinary routes remain available.
  */
 @Service
 public class RedisRateLimitService {
@@ -43,12 +43,12 @@ public class RedisRateLimitService {
         try {
             packed = redisTemplate.execute(SCRIPT, Collections.singletonList(key), String.valueOf(windowSeconds));
         } catch (RuntimeException e) {
-            log.warn("Rate limiting unavailable for {} ({}); failing open", key, e.toString());
-            return new RateLimitResult(true, 0, rule.limit(), windowSeconds);
+            log.warn("Rate-limit store unavailable for rule {} ({})", rule.name(), e.getClass().getSimpleName());
+            throw new RateLimitUnavailableException("Rate-limit store unavailable", e);
         }
         if (packed == null) {
-            log.warn("Rate limiting got no answer from Redis for {}; failing open", key);
-            return new RateLimitResult(true, 0, rule.limit(), windowSeconds);
+            log.warn("Rate-limit store returned no result for rule {}", rule.name());
+            throw new RateLimitUnavailableException("Rate-limit store returned no result", null);
         }
         long current = packed / PACK;
         long retryAfter = packed % PACK;

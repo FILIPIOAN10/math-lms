@@ -1,6 +1,7 @@
 package ro.mathlms.auth;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ro.mathlms.user.User;
@@ -13,12 +14,21 @@ public class AccountService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final RefreshTokenService refreshTokenService;
+    private final EmailService emailService;
 
+    @Autowired
     public AccountService(UserRepository userRepository, PasswordEncoder passwordEncoder,
-                          RefreshTokenService refreshTokenService) {
+                          RefreshTokenService refreshTokenService, EmailService emailService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.refreshTokenService = refreshTokenService;
+        this.emailService = emailService;
+    }
+
+    /** Test compatibility constructor. */
+    public AccountService(UserRepository userRepository, PasswordEncoder passwordEncoder,
+                          RefreshTokenService refreshTokenService) {
+        this(userRepository, passwordEncoder, refreshTokenService, null);
     }
 
     @Transactional(readOnly = true)
@@ -30,8 +40,8 @@ public class AccountService {
 
     /**
      * Changes the password after checking the current one. Every OTHER device is signed out (a password is usually
-     * changed because it may have leaked); the device making the change stays signed in. Their short-lived access
-     * cookies still work until they expire (at most an hour) - only the refresh sessions are revoked.
+     * changed because it may have leaked); the device making the change stays signed in. Other access cookies expire
+     * within 15 minutes; their refresh sessions are revoked.
      * A Google-only account has no current password to prove, so it sets one through the emailed reset link instead.
      */
     @Transactional
@@ -53,6 +63,9 @@ public class AccountService {
         refreshTokenService.listSessions(email, currentRefreshToken).stream()
                 .filter(session -> !session.current())
                 .forEach(session -> refreshTokenService.revokeSession(email, session.sessionId()));
+        if (emailService != null) {
+            emailService.sendPasswordChangedNotice(email);
+        }
     }
 
     private User requireUser(String email) {

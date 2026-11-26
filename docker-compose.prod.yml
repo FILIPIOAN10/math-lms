@@ -63,7 +63,7 @@ services:
       ADMIN_EMAILS: ${ADMIN_EMAILS}
       ALLOWED_EMAILS: ${ALLOWED_EMAILS:-}
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env.prod}
-      JWT_EXPIRATION_MINUTES: ${JWT_EXPIRATION_MINUTES:-60}
+      JWT_EXPIRATION_MINUTES: ${JWT_EXPIRATION_MINUTES:-15}
       COOKIE_SECURE: ${COOKIE_SECURE:-true}
       FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:?set FRONTEND_BASE_URL (the public https URL) in .env.prod}
       SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
@@ -80,6 +80,7 @@ services:
       RATE_LIMIT_ENABLED: ${RATE_LIMIT_ENABLED:-true}
       # F8: admins must use an authenticator app. Only the throwaway E2E stack turns it off.
       TWO_FACTOR_REQUIRED_FOR_ADMIN: ${TWO_FACTOR_REQUIRED_FOR_ADMIN:-true}
+      TWO_FACTOR_REQUIRED_FOR_TEACHER: ${TWO_FACTOR_REQUIRED_FOR_TEACHER:-true}
       RATE_LIMIT_TRUST_XFF: "true"          # nginx (the only way in) sets X-Forwarded-For
       # Trust nginx's X-Forwarded-Proto/Host (Tomcat only believes private-network proxies). Without it the app thinks it
       # runs on plain http and sends Google redirect_uri=http://..., which Google rejects for a public domain.
@@ -108,7 +109,7 @@ services:
       # "Sugerează indicii (AI)" (tutor/): OFF unless TUTOR_ENABLED=true and the `tutor` profile runs (docs/DEPLOY.md §10).
       TUTOR_ENABLED: ${TUTOR_ENABLED:-false}
       TUTOR_BASE_URL: http://tutor:8001
-      TUTOR_SERVICE_TOKEN: ${TUTOR_SERVICE_TOKEN:-}
+      TUTOR_SERVICE_TOKEN: ${TUTOR_SERVICE_TOKEN:?set TUTOR_SERVICE_TOKEN in .env.prod}
       # The student's "Nu înțeleg…" box: a second switch, a pupil's own text reaches the model provider.
       TUTOR_STUDENT_ENABLED: ${TUTOR_STUDENT_ENABLED:-false}
       TUTOR_STUDENT_DAILY_LIMIT: ${TUTOR_STUDENT_DAILY_LIMIT:-20}
@@ -137,7 +138,7 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-mathlms}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-mathlms}
-      SERVICE_TOKEN: ${TUTOR_SERVICE_TOKEN:-}
+      SERVICE_TOKEN: ${TUTOR_SERVICE_TOKEN:?set TUTOR_SERVICE_TOKEN in .env.prod}
       LLM_PROVIDER: ${TUTOR_LLM_PROVIDER:-gemini}
       GEMINI_PROJECT: ${GEMINI_PROJECT:-}
       GEMINI_LOCATION: ${GEMINI_LOCATION:-global}
@@ -193,7 +194,7 @@ services:
     restart: unless-stopped
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}   # set GRAFANA_PASSWORD in .env.prod (bound to 127.0.0.1 only)
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:?set GRAFANA_PASSWORD in .env.prod}   # bound to 127.0.0.1 only
       GF_USERS_ALLOW_SIGN_UP: "false"
     volumes:
       - grafana-data:/var/lib/grafana

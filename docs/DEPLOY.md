@@ -106,9 +106,10 @@ AGE_IDENTITY=~/math-lms-backup.txt ./deploy/restore.sh backups/db-AAAALLZZ-HHMMS
 ```
 
 ### Autentificarea în doi pași (F8)
-`TWO_FACTOR_REQUIRED_FOR_ADMIN` e `true` implicit: la primul login după release, fiecare administrator își activează aplicația de
-autentificare din „Contul meu” (paginile de profesor se deschid după aceea) și își păstrează cele 10 coduri de recuperare. Secretele
-sunt criptate cu o cheie derivată din `JWT_SECRET`: dacă schimbi `JWT_SECRET`, toți își activează din nou aplicația. Admin blocat
+`TWO_FACTOR_REQUIRED_FOR_ADMIN` și `TWO_FACTOR_REQUIRED_FOR_TEACHER` sunt `true` implicit: la primul login după release, fiecare
+administrator și profesor își activează aplicația de autentificare din „Contul meu” (paginile de staff se deschid după aceea) și
+își păstrează cele 10 coduri de recuperare. Rolurile pentru care MFA este obligatoriu nu îl pot dezactiva. Secretele sunt criptate
+cu o cheie derivată din `JWT_SECRET`: dacă schimbi `JWT_SECRET`, toți își activează din nou aplicația. Admin blocat
 (telefon pierdut, fără coduri): pe server, `UPDATE users SET totp_secret = NULL, totp_last_step = NULL, totp_enabled_at = NULL WHERE email = '…';`
 apoi își activează din nou.
 

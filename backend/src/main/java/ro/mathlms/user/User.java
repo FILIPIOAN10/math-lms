@@ -50,6 +50,10 @@ public class User {
     @Column(nullable = false, length = 30)
     private AccountStatus status = AccountStatus.PENDING_VERIFICATION;
 
+    /** Bumped whenever all access and refresh sessions must become invalid immediately. */
+    @Column(name = "token_version", nullable = false)
+    private int tokenVersion = 0;
+
     /** Real role, assigned only when an admin approves the account. */
     @Enumerated(EnumType.STRING)
     @Column(length = 20)
@@ -212,6 +216,11 @@ public class User {
     /** Sets the BCrypt password hash for local login. */
     public void setPassword(String passwordHash) {
         this.password = requireNonBlank(passwordHash, "password");
+    }
+
+    /** Invalidates every access JWT issued before this call. */
+    public void invalidateAccessTokens() {
+        this.tokenVersion++;
     }
 
     /**

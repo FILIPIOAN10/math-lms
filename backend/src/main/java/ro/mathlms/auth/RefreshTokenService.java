@@ -1,6 +1,9 @@
 package ro.mathlms.auth;
 
 import jakarta.servlet.http.HttpServletRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.ResponseCookie;
@@ -8,6 +11,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.util.WebUtils;
+import ro.mathlms.user.User;
+import ro.mathlms.user.UserRepository;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -35,6 +40,8 @@ import java.util.UUID;
 @Service
 public class RefreshTokenService {
 
+    private static final Logger log = LoggerFactory.getLogger(RefreshTokenService.class);
+
     public static final String REFRESH_COOKIE_NAME = "MATHLMS_REFRESH";
     private static final String REFRESH_COOKIE_PATH = "/api/auth";
     private static final String TOKEN_PREFIX = "refresh:token:";
@@ -42,15 +49,25 @@ public class RefreshTokenService {
     private static final String USER_SESSIONS_PREFIX = "refresh:user:";
 
     private final StringRedisTemplate redis;
+    private final UserRepository userRepository;
     private final boolean cookieSecure;
     private final Duration ttl;
 
-    public RefreshTokenService(StringRedisTemplate redis,
+    @Autowired
+    public RefreshTokenService(StringRedisTemplate redis, UserRepository userRepository,
                                @Value("${app.auth.cookie-secure:true}") boolean cookieSecure,
                                @Value("${app.auth.refresh-expiration-days:7}") long refreshExpirationDays) {
         this.redis = redis;
+        this.userRepository = userRepository;
         this.cookieSecure = cookieSecure;
         this.ttl = Duration.ofDays(refreshExpirationDays);
+    }
+
+    /** Test compatibility constructor; production injects the repository for version checks. */
+    public RefreshTokenService(StringRedisTemplate redis,
+                               @Value("${app.auth.cookie-secure:true}") boolean cookieSecure,
+                               @Value("${app.auth.refresh-expiration-days:7}") long refreshExpirationDays) {
+        this(redis, null, cookieSecure, refreshExpirationDays);
     }
 
     /** The email + freshly issued token produced by a rotation. */
@@ -58,6 +75,9 @@ public class RefreshTokenService {
 
     /** Opens a new session for the user and returns its refresh token (for the cookie). */
     public String createSession(String email) {
+        User user = userRepository == null ? null : userRepository.findByEmail(email)
+                .orElseThrow(() -> new InvalidRefreshTokenException("No account for this session"));
+        int tokenVersion = user == null ? 0 : user.getTokenVersion();
         String sessionId = UUID.randomUUID().toString();
         String token = UUID.randomUUID().toString();
         long now = System.currentTimeMillis();
@@ -67,6 +87,7 @@ public class RefreshTokenService {
 
         Map<String, String> session = new HashMap<>();
         session.put("email", email);
+        session.put("tokenVersion", String.valueOf(tokenVersion));
         session.put("token", token);
         session.put("device", info.device());
         session.put("ip", info.ip());
@@ -93,6 +114,18 @@ public class RefreshTokenService {
         String email = (String) redis.opsForHash().get(sessionKey, "email");
         if (email == null) {
             throw new InvalidRefreshTokenException("Invalid or expired refresh token");
+        }
+        if (userRepository != null) {
+            Object storedVersion = redis.opsForHash().get(sessionKey, "tokenVersion");
+            long sessionVersion = storedVersion == null ? 0 : Long.parseLong(String.valueOf(storedVersion));
+            User user = userRepository.findByEmail(email)
+                    .filter(candidate -> !candidate.isErased())
+                    .filter(candidate -> candidate.getTokenVersion() == sessionVersion)
+                    .orElse(null);
+            if (user == null) {
+                revokeSession(email, sessionId);
+                throw new InvalidRefreshTokenException("Invalid or expired refresh token");
+            }
         }
         String newToken = UUID.randomUUID().toString();
         redis.delete(TOKEN_PREFIX + oldToken);
@@ -162,20 +195,32 @@ public class RefreshTokenService {
         }
     }
 
-    /** Revokes every session of a user (logout everywhere; also used by GDPR erasure). */
+    /** Invalidates every session (logout everywhere; also used by reset and GDPR erasure). */
     public void revokeAll(String email) {
-        String userKey = USER_SESSIONS_PREFIX + email;
-        Set<String> ids = redis.opsForSet().members(userKey);
-        if (ids != null) {
-            for (String sessionId : ids) {
-                Object token = redis.opsForHash().get(SESSION_PREFIX + sessionId, "token");
-                if (token != null) {
-                    redis.delete(TOKEN_PREFIX + token);
-                }
-                redis.delete(SESSION_PREFIX + sessionId);
-            }
+        // The database version invalidates old access JWTs and refresh sessions even if Redis cleanup is interrupted.
+        if (userRepository != null) {
+            userRepository.findByEmail(email).ifPresent(user -> {
+                user.invalidateAccessTokens();
+                userRepository.save(user);
+            });
         }
-        redis.delete(userKey);
+        try {
+            String userKey = USER_SESSIONS_PREFIX + email;
+            Set<String> ids = redis.opsForSet().members(userKey);
+            if (ids != null) {
+                for (String sessionId : ids) {
+                    Object token = redis.opsForHash().get(SESSION_PREFIX + sessionId, "token");
+                    if (token != null) {
+                        redis.delete(TOKEN_PREFIX + token);
+                    }
+                    redis.delete(SESSION_PREFIX + sessionId);
+                }
+            }
+            redis.delete(userKey);
+        } catch (RuntimeException e) {
+            // The DB version already invalidated the credentials; Redis keys expire naturally if cleanup is unavailable.
+            log.warn("Refresh-session cleanup failed after version revocation ({})", e.getClass().getSimpleName());
+        }
     }
 
     // --- cookies ---

@@ -7,12 +7,15 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.jspecify.annotations.NonNull;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import ro.mathlms.user.User;
+import ro.mathlms.user.UserRepository;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -22,9 +25,17 @@ import java.util.List;
 public class JwtCookieAuthFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
+    private final UserRepository userRepository;
 
-    public JwtCookieAuthFilter(JwtService jwtService) {
+    @Autowired
+    public JwtCookieAuthFilter(JwtService jwtService, UserRepository userRepository) {
         this.jwtService = jwtService;
+        this.userRepository = userRepository;
+    }
+
+    /** Test/local compatibility constructor; production always injects the repository for revocation checks. */
+    public JwtCookieAuthFilter(JwtService jwtService) {
+        this(jwtService, null);
     }
 
     @Override
@@ -36,8 +47,24 @@ public class JwtCookieAuthFilter extends OncePerRequestFilter {
         if (token != null && SecurityContextHolder.getContext().getAuthentication() == null) {
             try {
                 String email = jwtService.extractEmail(token);
-                String role = jwtService.extractRole(token);
-                String status = jwtService.extractStatus(token);
+                String role;
+                String status;
+                if (userRepository != null) {
+                    Integer tokenVersion = jwtService.extractTokenVersion(token);
+                    User current = userRepository.findByEmail(email)
+                            .filter(user -> !user.isErased())
+                            .filter(user -> tokenVersion != null && user.getTokenVersion() == tokenVersion)
+                            .orElse(null);
+                    if (current == null) {
+                        filterChain.doFilter(request, response);
+                        return;
+                    }
+                    role = current.getRole() == null ? null : current.getRole().name();
+                    status = current.getStatus().name();
+                } else {
+                    role = jwtService.extractRole(token);
+                    status = jwtService.extractStatus(token);
+                }
 
                 List<SimpleGrantedAuthority> authorities = new ArrayList<>();
                 // A not-yet-approved account has no role yet — only a status.

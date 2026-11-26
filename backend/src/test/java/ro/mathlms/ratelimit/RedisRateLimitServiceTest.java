@@ -12,13 +12,14 @@ import java.time.Duration;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-/** The atomic window against a REAL Redis, plus the fail-open behaviour when Redis misbehaves. */
+/** The atomic window against a REAL Redis, plus reporting Redis outages for the route policy to handle. */
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
 class RedisRateLimitServiceTest {
@@ -63,14 +64,12 @@ class RedisRateLimitServiceTest {
     }
 
     @Test
-    void aRedisOutageFailsOpenInsteadOfBreakingTheApi() {
+    void aRedisOutageIsReportedSoTheRoutePolicyCanFailOpenOrClosed() {
         StringRedisTemplate broken = mock(StringRedisTemplate.class);
         when(broken.execute(any(org.springframework.data.redis.core.script.RedisScript.class), anyList(), anyString()))
                 .thenThrow(new RedisConnectionFailureException("redis is down"));
 
-        RateLimitResult result = new RedisRateLimitService(broken).checkLimit("k", rule(5));
-
-        assertThat(result.allowed()).isTrue();
-        assertThat(result.remainingRequests()).isEqualTo(5);
+        assertThatThrownBy(() -> new RedisRateLimitService(broken).checkLimit("k", rule(5)))
+                .isInstanceOf(RateLimitUnavailableException.class);
     }
 }

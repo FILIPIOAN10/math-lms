@@ -251,7 +251,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app = FastAPI(title="math-lms tutor", docs_url=None, redoc_url=None, openapi_url=None)
 
     def check_token(x_tutor_token: Annotated[str | None, Header()] = None) -> None:
-        if settings.service_token is None:
+        if settings.service_token is None or not settings.service_token.get_secret_value().strip():
             raise HTTPException(503, "Serviciul tutor nu are setat SERVICE_TOKEN.")
         expected = settings.service_token.get_secret_value().encode()
         if x_tutor_token is None or not hmac.compare_digest(x_tutor_token.encode(), expected):

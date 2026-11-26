@@ -51,7 +51,21 @@ public class RateLimitFilter extends OncePerRequestFilter {
             return;
         }
         RateLimitRule rule = matched.get();
-        RateLimitResult result = service.checkLimit(redisKey(request, rule), rule);
+        RateLimitResult result;
+        try {
+            result = service.checkLimit(redisKey(request, rule), rule);
+        } catch (RateLimitUnavailableException e) {
+            if (!rule.failClosed()) {
+                chain.doFilter(request, response);
+                return;
+            }
+            meterRegistry.counter("rate_limit_unavailable", "rule", rule.name()).increment();
+            response.setStatus(HttpStatus.SERVICE_UNAVAILABLE.value());
+            response.setHeader("Retry-After", "30");
+            response.setContentType("text/plain;charset=UTF-8");
+            response.getOutputStream().write("Autentificarea este temporar indisponibilă. Încearcă din nou.".getBytes(StandardCharsets.UTF_8));
+            return;
+        }
 
         response.setHeader("X-RateLimit-Limit", String.valueOf(rule.limit()));
         response.setHeader("X-RateLimit-Remaining", String.valueOf(result.remainingRequests()));

@@ -1,6 +1,7 @@
 package ro.mathlms.auth;
 
 import io.jsonwebtoken.JwtException;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import ro.mathlms.user.User;
@@ -21,15 +22,25 @@ public class PasswordResetService {
     private final PasswordEncoder passwordEncoder;
     private final VerificationTokenService verificationTokenService;
     private final EmailService emailService;
+    private final RefreshTokenService refreshTokenService;
 
+    @Autowired
     public PasswordResetService(UserRepository userRepository,
                                 PasswordEncoder passwordEncoder,
                                 VerificationTokenService verificationTokenService,
-                                EmailService emailService) {
+                                EmailService emailService,
+                                RefreshTokenService refreshTokenService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.verificationTokenService = verificationTokenService;
         this.emailService = emailService;
+        this.refreshTokenService = refreshTokenService;
+    }
+
+    /** Test compatibility constructor. */
+    public PasswordResetService(UserRepository userRepository, PasswordEncoder passwordEncoder,
+                                VerificationTokenService verificationTokenService, EmailService emailService) {
+        this(userRepository, passwordEncoder, verificationTokenService, emailService, null);
     }
 
     /** Emails a reset link if the account exists; silently no-ops otherwise. */
@@ -51,5 +62,9 @@ public class PasswordResetService {
 
         user.setPassword(passwordEncoder.encode(newRawPassword));
         userRepository.save(user);
+        if (refreshTokenService != null) {
+            refreshTokenService.revokeAll(user.getEmail());
+        }
+        emailService.sendPasswordChangedNotice(user.getEmail());
     }
 }

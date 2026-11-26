@@ -31,6 +31,7 @@ public class JwtService {
                 .subject(user.getEmail())
                 .claim("status", user.getStatus().name())
                 .claim("name", user.getFullName())
+                .claim("token_version", user.getTokenVersion())
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(expiry));
 
@@ -52,6 +53,10 @@ public class JwtService {
 
     public String extractStatus(String token) {
         return parse(token).get("status", String.class);
+    }
+
+    public Integer extractTokenVersion(String token) {
+        return parse(token).get("token_version", Integer.class);
     }
 
     private Claims parse(String token) {

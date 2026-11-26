@@ -39,3 +39,6 @@ monitoring/secrets/*
 .env.prod
 .env.prod.*
 !.env.prod.example
+
+# Plain PostgreSQL dumps can contain student accounts, grades and photos.
+*.dump

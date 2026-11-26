@@ -1,6 +1,7 @@
 package ro.mathlms.auth;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,8 +22,8 @@ import java.util.Locale;
 import java.util.OptionalLong;
 
 /**
- * F8: two-step sign-in with an authenticator app, for staff — required for an ADMIN (they hand out every other role),
- * optional for a TEACHER. Enrolling is two calls: {@link #setup} makes a secret (kept in Redis for 10 minutes, never in
+ * F8: two-step sign-in with an authenticator app, for staff — required for administrators and teachers in production.
+ * Enrolling is two calls: {@link #setup} makes a secret (kept in Redis for 10 minutes, never in
  * the database until proven), {@link #enable} turns it on once the app's first code matches and hands out ten
  * single-use recovery codes (shown once; only their hashes are kept). A code is accepted once: its step is recorded.
  */
@@ -50,21 +51,36 @@ public class TwoFactorService {
     private final StringRedisTemplate redis;
     private final Clock clock;
     private final boolean requiredForAdmin;
+    private final boolean requiredForTeacher;
+    private final EmailService emailService;
 
+    @Autowired
     public TwoFactorService(UserRepository userRepository, TotpRecoveryCodeRepository recoveryCodes,
                             TotpSecretCipher cipher, StringRedisTemplate redis, Clock clock,
-                            @Value("${app.auth.two-factor.required-for-admin:true}") boolean requiredForAdmin) {
+                            @Value("${app.auth.two-factor.required-for-admin:true}") boolean requiredForAdmin,
+                            @Value("${app.auth.two-factor.required-for-teacher:${app.auth.two-factor.required-for-admin:true}}") boolean requiredForTeacher,
+                            EmailService emailService) {
         this.userRepository = userRepository;
         this.recoveryCodes = recoveryCodes;
         this.cipher = cipher;
         this.redis = redis;
         this.clock = clock;
         this.requiredForAdmin = requiredForAdmin;
+        this.requiredForTeacher = requiredForTeacher;
+        this.emailService = emailService;
     }
 
-    /** Whether this account must have two-step sign-in (an ADMIN, unless switched off for tests/dev). */
+    /** Test compatibility constructor; teacher MFA stays opt-in unless the test sets it explicitly. */
+    public TwoFactorService(UserRepository userRepository, TotpRecoveryCodeRepository recoveryCodes,
+                            TotpSecretCipher cipher, StringRedisTemplate redis, Clock clock,
+                            boolean requiredForAdmin) {
+        this(userRepository, recoveryCodes, cipher, redis, clock, requiredForAdmin, false, null);
+    }
+
+    /** Whether this account must have two-step sign-in (administrators and teachers in production). */
     public boolean requiredFor(User user) {
-        return requiredForAdmin && user.getRole() == Role.ADMIN;
+        return (requiredForAdmin && user.getRole() == Role.ADMIN)
+                || (requiredForTeacher && user.getRole() == Role.TEACHER);
     }
 
     /** An ADMIN without it yet: the staff pages stay closed until they enrol. */
@@ -111,20 +127,27 @@ public class TwoFactorService {
     public List<String> regenerateRecoveryCodes(String email, String code) {
         User user = staff(email);
         requireCurrentCode(user, code);
-        return newRecoveryCodes(user);
+        List<String> codes = newRecoveryCodes(user);
+        if (emailService != null) {
+            emailService.sendRecoveryCodesRegeneratedNotice(user.getEmail());
+        }
+        return codes;
     }
 
-    /** A TEACHER may turn it off (with a current code); for an ADMIN it is required. */
+    /** Optional staff MFA can be disabled with a current code; required roles cannot turn it off. */
     @Transactional
     public void disable(String email, String code) {
         User user = staff(email);
         if (requiredFor(user)) {
-            throw new TwoFactorException("Pentru administratori autentificarea în doi pași e obligatorie.");
+            throw new TwoFactorException("Pentru acest rol, autentificarea în doi pași este obligatorie.");
         }
         requireCurrentCode(user, code);
         user.disableTwoFactor();
         userRepository.save(user);
         recoveryCodes.deleteByUserId(user.getId());
+        if (emailService != null) {
+            emailService.sendTwoFactorDisabledNotice(user.getEmail());
+        }
     }
 
     /** The second step of a sign-in: an app code (once per step) or an unused recovery code (once). */
