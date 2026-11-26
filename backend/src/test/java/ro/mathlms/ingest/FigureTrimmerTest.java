@@ -203,6 +203,27 @@ class FigureTrimmerTest {
     }
 
     @Test
+    void dropsASteepFrameLineAcrossTheTopEvenThoughItReachesFarIntoTheBox() {
+        // The teacher's pie on the server: the page's frame runs across the top at a slant, from the left edge down to
+        // the right edge, well past the strip along the edge - it is still a frame line, not the drawing.
+        BufferedImage page = page();
+        Graphics2D g = pen(page);
+        pieChart(g, 420, 380);
+        g.setStroke(new BasicStroke(2));
+        g.setStroke(new BasicStroke(5)); // a heavy line, a big share of all the ink in the box
+        g.drawLine(230, 215, 820, 232); // starts inside the box, runs out on the right
+        g.drawString("diagrama de mai jos.", 300, 170); // the question's text above it, cut by the box's top
+        g.dispose();
+        List<Integer> box = List.of(150, 150, 560, 800);
+
+        List<Integer> tight = FigureTrimmer.tighten(page, box);
+
+        assertThat(tight.get(3)).isLessThan(700); // the line's right end is not kept
+        assertThat(tight.get(1)).isGreaterThan(190); // nor its left end
+        assertCentred(page, List.of(tight.get(0) + 1, tight.get(1), tight.get(2), tight.get(3)));
+    }
+
+    @Test
     void neverReachesIntoTheTextNextToTheDrawingToEvenTheMargins() {
         // Text right above the chart's frame: the top margin can only be tiny, so every margin is that tiny.
         BufferedImage page = page();

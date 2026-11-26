@@ -130,11 +130,17 @@ final class FigureTrimmer {
         }
         int totalInk = marks.stream().mapToInt(m -> m.cells).sum();
         int band = (int) Math.ceil(EDGE_BAND * Math.min(gw, gh));
+        Mark biggest = marks.stream().max((a, b) -> Integer.compare(a.cells, b.cells)).orElseThrow();
         List<Mark> inside = new ArrayList<>();
         for (Mark mark : marks) {
             if (mark.touchesEdge(gw, gh)) {
                 // A frame line or cut text lies along the edge and goes; a mark that also reaches well inside is the
-                // drawing itself running out of the box (the AI cut it, or a graph's line runs off): it stays.
+                // drawing itself running out of the box (the AI cut it, or a graph's line runs off): it stays. A lone
+                // straight line running out of the box is the page's frame, however far in it reaches - unless it is
+                // the drawing itself (a segment A-B-C running off).
+                if (mark != biggest && mark.straightLine()) {
+                    continue;
+                }
                 long reachingIn = Math.round(mark.cells * (1 - mark.share(p -> hugging(p, band, gw, gh))));
                 if (reachingIn * 7 >= totalInk) {
                     inside.add(mark);
@@ -449,6 +455,30 @@ final class FigureTrimmer {
          * further than 30 % of its size ("Mihai 40%" at the end of a leader line). Words off at a corner are the
          * question's text.
          */
+        /**
+         * A thin straight line (a frame line, a rule): long, and every cell within a few cells of one of the two
+         * diagonals of its rectangle - which, for a straight line, is the line itself.
+         */
+        boolean straightLine() {
+            double length = Math.hypot(maxX - minX + 1, maxY - minY + 1);
+            if (length < 40 || cells > 8 * length) {
+                return false;
+            }
+            return Math.min(meanDistance(minX, minY, maxX, maxY), meanDistance(minX, maxY, maxX, minY)) <= 3;
+        }
+
+        private double meanDistance(int ax, int ay, int bx, int by) {
+            double length = Math.hypot(bx - ax, by - ay);
+            if (length == 0) {
+                return Double.MAX_VALUE;
+            }
+            double sum = 0;
+            for (int[] p : points) {
+                sum += Math.abs((bx - ax) * (ay - p[1]) - (ax - p[0]) * (by - ay)) / length;
+            }
+            return sum / cells;
+        }
+
         /**
          * The next letter or word on the same line as this one: both small (letter-sized), mostly level with each
          * other, and no more than about a letter's height apart.
