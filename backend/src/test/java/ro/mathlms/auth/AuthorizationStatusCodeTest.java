@@ -14,6 +14,9 @@ import org.springframework.http.ResponseEntity;
 import ro.mathlms.TestcontainersConfiguration;
 import ro.mathlms.user.Role;
 import ro.mathlms.user.User;
+import ro.mathlms.user.UserRepository;
+
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -38,6 +41,9 @@ class AuthorizationStatusCodeTest {
     @Autowired
     private JwtService jwtService;
 
+    @Autowired
+    private UserRepository userRepository;
+
     private HttpEntity<Void> as(User user) {
         HttpHeaders headers = new HttpHeaders();
         headers.add(HttpHeaders.COOKIE,
@@ -55,7 +61,7 @@ class AuthorizationStatusCodeTest {
 
     @Test
     void authenticatedNonAdminHittingAnAdminRouteIsForbidden() {
-        User student = User.registerGoogle("g-student", "elev@example.com", "Elev", Role.STUDENT);
+        User student = savedUser(Role.STUDENT);
 
         ResponseEntity<String> response = rest.exchange(
                 "/api/admin/users/pending", HttpMethod.GET, as(student), String.class);
@@ -65,7 +71,7 @@ class AuthorizationStatusCodeTest {
 
     @Test
     void adminWriteWithoutACsrfTokenIsForbidden() {
-        User admin = User.registerGoogle("g-admin", "prof@example.com", "Prof", Role.ADMIN);
+        User admin = savedUser(Role.ADMIN);
 
         ResponseEntity<String> response = rest.exchange(
                 "/api/admin/classes/999", HttpMethod.DELETE, as(admin), String.class);
@@ -88,5 +94,10 @@ class AuthorizationStatusCodeTest {
                 "/api/admin/classes/999", HttpMethod.DELETE, new HttpEntity<>(headers), String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    private User savedUser(Role role) {
+        String id = UUID.randomUUID().toString();
+        return userRepository.save(User.registerGoogle("g-" + id, "test-" + id + "@example.com", "Test", role));
     }
 }

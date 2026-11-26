@@ -16,6 +16,8 @@ import ro.mathlms.user.Role;
 import ro.mathlms.user.User;
 import ro.mathlms.user.UserRepository;
 
+import java.util.UUID;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
@@ -66,7 +68,9 @@ class CsrfTokenLifecycleTest {
 
     @Test
     void writeEchoingTheCsrfCookiePassesTheCsrfCheck() {
-        User admin = User.registerGoogle("g-admin", "prof@example.com", "Prof", Role.ADMIN);
+        String id = UUID.randomUUID().toString();
+        User admin = userRepository.save(
+                User.registerGoogle("g-" + id, "admin-" + id + "@example.com", "Admin", Role.ADMIN));
         HttpHeaders headers = withSessionAndCsrfCookie(admin);
         headers.add("X-XSRF-TOKEN", CSRF_TOKEN);
 
