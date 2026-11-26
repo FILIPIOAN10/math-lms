@@ -85,25 +85,139 @@ class FigureTrimmerTest {
     }
 
     @Test
-    void keepsTheBoxWhenTheAiCutTheDrawingItself() {
+    void keepsTheSidesWhereTheAiCutTheDrawingItselfAndTightensTheOthers() {
         BufferedImage page = page();
         Graphics2D g = pen(page);
         pieChart(g, 420, 380);
         g.dispose();
-        List<Integer> box = List.of(300, 300, 560, 700); // the top of the circle is outside: the circle runs into the edge
+        // The top of the circle is outside: the drawing runs into the top edge.
+        List<Integer> box = List.of(300, 300, 560, 700);
 
-        assertThat(FigureTrimmer.tighten(page, box)).isEqualTo(box);
+        List<Integer> tight = FigureTrimmer.tighten(page, box);
+
+        assertThat(tight.get(0)).isEqualTo(300); // the cut side stays where the AI put it
+        assertThat(tight.get(1)).isBetween(300, 330); // the left still tightens onto the circle
+        // The empty paper below and on the right goes, with every label kept whole.
+        int[] ink = inkIn(page, box);
+        assertThat(tight.get(2)).isBetween(ink[3], ink[3] + 25);
+        assertThat(tight.get(3)).isBetween(ink[2], ink[2] + 25);
+        assertThat(tight.get(3)).isLessThan(650);
     }
 
     @Test
-    void keepsABoxThatIsAlreadyTight() {
+    void barelyMovesABoxThatIsAlreadyTight() {
         BufferedImage page = page();
         Graphics2D g = pen(page);
         pieChart(g, 420, 380);
         g.dispose();
         List<Integer> box = List.of(262, 222, 500, 620);
 
-        assertThat(FigureTrimmer.tighten(page, box)).isEqualTo(box);
+        List<Integer> tight = FigureTrimmer.tighten(page, box);
+
+        for (int i = 0; i < 4; i++) {
+            assertThat(tight.get(i)).isCloseTo(box.get(i), org.assertj.core.data.Offset.offset(15));
+        }
+    }
+
+    /** The ink inside {@code box} (dark pixels, the shadow excluded): {left, top, right, bottom}, right/bottom exclusive. */
+    private static int[] inkIn(BufferedImage page, List<Integer> box) {
+        int minX = 1000, minY = 1000, maxX = -1, maxY = -1;
+        for (int y = box.get(0); y < box.get(2); y++) {
+            for (int x = box.get(1); x < box.get(3); x++) {
+                int p = page.getRGB(x, y);
+                int lum = (299 * ((p >> 16) & 0xff) + 587 * ((p >> 8) & 0xff) + 114 * (p & 0xff)) / 1000;
+                if (lum < 100) {
+                    minX = Math.min(minX, x);
+                    minY = Math.min(minY, y);
+                    maxX = Math.max(maxX, x);
+                    maxY = Math.max(maxY, y);
+                }
+            }
+        }
+        return new int[] {minX, minY, maxX + 1, maxY + 1};
+    }
+
+    /** The drawing inside the trimmed box has the same margin on all four sides, give or take a few pixels. */
+    private static void assertCentred(BufferedImage page, List<Integer> box) {
+        int[] ink = inkIn(page, box);
+        assertEvenMargins(box, ink[0], ink[1], ink[2], ink[3]);
+    }
+
+    /** The same margin on all four sides, give or take a pixel or two. */
+    private static void assertEvenMargins(List<Integer> box, int left, int top, int right, int bottom) {
+        int l = left - box.get(1);
+        int t = top - box.get(0);
+        int r = box.get(3) - right;
+        int b = box.get(2) - bottom;
+        assertThat(List.of(l, t, r, b)).allSatisfy(m -> assertThat(m).isBetween(Math.min(Math.min(l, t), Math.min(r, b)),
+                Math.min(Math.min(l, t), Math.min(r, b)) + 3));
+        assertThat(Math.min(Math.min(l, t), Math.min(r, b))).isGreaterThanOrEqualTo(0);
+    }
+
+    @Test
+    void centresADrawingTheAiBoxedOffCentreEvenIfThatMeansGoingPastTheBoxOverBlankPaper() {
+        // The trapezoid of the screenshot: the AI's box hugs it on the left and top and leaves paper on the right and below.
+        BufferedImage page = page();
+        Graphics2D g = pen(page);
+        g.setStroke(new BasicStroke(2));
+        int[] xs = {300, 520, 600, 300};
+        int[] ys = {300, 300, 560, 560};
+        g.drawPolygon(xs, ys, 4);
+        g.drawLine(300, 300, 600, 560);
+        g.dispose();
+        List<Integer> box = List.of(296, 297, 700, 760);
+
+        List<Integer> tight = FigureTrimmer.tighten(page, box);
+
+        assertEvenMargins(tight, 299, 299, 601, 561);
+        assertThat(tight.get(1)).isLessThan(297); // the left margin grew past the AI's box, over blank paper
+    }
+
+    @Test
+    void cutsAwayTheShadowAlongThePageEdge() {
+        // The line A-B-C-D-E with a dark gradient down the right (the page curving into the spine).
+        BufferedImage page = page();
+        Graphics2D shade = page.createGraphics();
+        for (int x = 720; x < 800; x++) {
+            int lum = 238 - (x - 720) * 2;
+            shade.setColor(new Color(lum, lum, lum));
+            shade.drawLine(x, 0, x, 1000);
+        }
+        shade.dispose();
+        Graphics2D g = pen(page);
+        g.setStroke(new BasicStroke(3));
+        g.drawLine(200, 420, 680, 440);
+        for (String letter : new String[] {"A", "B", "C", "D", "E"}) {
+            int x = 200 + "ABCDE".indexOf(letter) * 120;
+            g.drawString(letter, x - 6, 405);
+            g.fillOval(x - 5, 415 + "ABCDE".indexOf(letter) * 4, 10, 10);
+        }
+        g.dispose();
+        List<Integer> box = List.of(360, 180, 480, 800);
+
+        List<Integer> tight = FigureTrimmer.tighten(page, box);
+
+        assertThat(tight.get(3)).isLessThan(720); // no shadow
+        assertThat(tight.get(3)).isGreaterThan(680); // the line is whole
+        assertCentred(page, tight);
+    }
+
+    @Test
+    void neverReachesIntoTheTextNextToTheDrawingToEvenTheMargins() {
+        // Text right above the chart's frame: the top margin can only be tiny, so every margin is that tiny.
+        BufferedImage page = page();
+        Graphics2D g = pen(page);
+        g.setStroke(new BasicStroke(2));
+        g.drawRect(250, 300, 400, 250);
+        g.drawOval(380, 340, 150, 150);
+        g.drawString("diagrama de mai jos.", 300, 292); // baseline 8 px above the frame
+        g.dispose();
+        List<Integer> box = List.of(285, 230, 600, 680);
+
+        List<Integer> tight = FigureTrimmer.tighten(page, box);
+
+        assertThat(tight.get(0)).isGreaterThanOrEqualTo(293); // below the text
+        assertEvenMargins(tight, 249, 299, 651, 551);
     }
 
     @Test
