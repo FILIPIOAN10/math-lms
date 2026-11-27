@@ -163,6 +163,7 @@ public interface QuizAttemptRepository extends JpaRepository<QuizAttempt, Long> 
             select distinct on (a.student_id)
                    a.student_id as studentId, a.score as score, m.total as maxScore
               from quiz_attempts a
+              join users u on u.id = a.student_id and u.erased = false
               join (select quiz_id, sum(points) as total from quiz_items group by quiz_id) m on m.quiz_id = a.quiz_id
              where a.status = 'GRADED' and a.mode = 'TEST' and a.score is not null and m.total > 0
              order by a.student_id, a.submitted_at desc nulls last, a.id desc

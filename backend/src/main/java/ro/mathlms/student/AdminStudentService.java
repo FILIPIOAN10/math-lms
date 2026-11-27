@@ -52,7 +52,7 @@ public class AdminStudentService {
         this.reviewService = reviewService;
     }
 
-    /** One row per student who has a class or a graded test; a student with neither simply has no row. */
+    /** One row per non-erased student who has a class or a graded test; a student with neither simply has no row. */
     @Transactional(readOnly = true)
     public List<StudentListRowDto> listRows() {
         Map<Long, List<String>> classes = new HashMap<>();
@@ -108,7 +108,7 @@ public class AdminStudentService {
 
     private User requireStudent(Long studentId) {
         return userRepository.findById(studentId)
-                .filter(u -> u.getRole() == Role.STUDENT)
+                .filter(u -> u.getRole() == Role.STUDENT && !u.isErased())
                 .orElseThrow(() -> new StudentNotFoundException(studentId));
     }
 }

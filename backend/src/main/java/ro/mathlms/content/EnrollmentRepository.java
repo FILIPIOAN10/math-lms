@@ -54,7 +54,7 @@ public interface EnrollmentRepository extends JpaRepository<Enrollment, Long> {
 
     /** Every student's class names, for the list of students (a row per enrollment, classes in name order). */
     @Query("select e.student.id as studentId, e.schoolClass.name as className from Enrollment e"
-            + " order by e.schoolClass.name")
+            + " where e.student.erased = false order by e.schoolClass.name")
     List<StudentClassRow> findAllStudentClasses();
 
     interface StudentClassRow {

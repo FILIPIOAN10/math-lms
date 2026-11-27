@@ -28,12 +28,12 @@ public interface UserRepository extends JpaRepository<User,Long> {
     Optional<User> findByIdAndParentId(Long id, Long parentId);
 
     /**
-     * Accounts of a given status and role, with the parent eagerly fetched so the DTO
+     * Non-erased accounts of a given status and role, with the parent eagerly fetched so the DTO
      * mapping can read it after the transaction closes (open-in-view is off). Ordered
      * by name for a stable admin list.
      */
     @Query("select u from User u left join fetch u.parent"
-            + " where u.status = :status and u.role = :role order by u.fullName")
+            + " where u.status = :status and u.role = :role and u.erased = false order by u.fullName")
     List<User> findByStatusAndRoleFetchParent(@Param("status") AccountStatus status,
                                               @Param("role") Role role);
 
