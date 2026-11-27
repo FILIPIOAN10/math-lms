@@ -106,7 +106,7 @@ describe('ItemDialog picture under the statement', () => {
     await userEvent.upload(screen.getByLabelText('Fișierul imaginii'),
       new File(['x'], 'nota.txt', { type: 'text/plain' }), { applyAccept: false })
 
-    expect(screen.getByText('Alege o imagine (PNG, JPG, WEBP sau GIF).')).toBeInTheDocument()
+    expect(screen.getByText('Alege o imagine (PNG, JPG sau WEBP).')).toBeInTheDocument()
   })
 })
 

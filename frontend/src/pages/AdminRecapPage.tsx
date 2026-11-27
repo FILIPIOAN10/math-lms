@@ -20,6 +20,7 @@ import {
   type EnChapterSummary, type RecapEdit, type RecapExercise, type RecapReview, type SchoolClass,
 } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
+import { shrinkImage } from '@/lib/image'
 import { roCount } from '@/lib/format'
 import { selectClass } from '@/lib/formClasses'
 import { recapMatches, recapStatusLabel, REVIEW_LABELS, type RecapListFilter } from '@/lib/recap'
@@ -297,7 +298,8 @@ function ExerciseCard({ exercise, imageVersion, selected, onSelect, onChanged, o
                  aria-label={`Imagine pentru ${exercise.key}`}
                  onChange={(e) => {
                    const chosen = e.target.files?.[0]
-                   if (chosen) void run(() => attachRecapImage(exercise.id, chosen), true)
+                   // The server takes only a real PNG or JPEG: a WebP is converted here first, like question pictures.
+                   if (chosen) void run(async () => attachRecapImage(exercise.id, await shrinkImage(chosen, 1600)), true)
                    e.target.value = ''
                  }} />
           <Button size="sm" variant="outline" disabled={busy} onClick={() => file.current?.click()}>

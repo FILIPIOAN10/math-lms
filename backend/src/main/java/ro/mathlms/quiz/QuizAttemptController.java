@@ -3,9 +3,6 @@ package ro.mathlms.quiz;
 import jakarta.validation.Valid;
 import org.springframework.core.io.Resource;
 import org.springframework.http.CacheControl;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import org.springframework.http.MediaTypeFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -30,6 +27,7 @@ import ro.mathlms.quiz.StudentQuizDtos.OfferedQuizDto;
 import ro.mathlms.quiz.StudentQuizDtos.ProgressPointDto;
 import ro.mathlms.quiz.StudentQuizDtos.QuizPreviewDto;
 import ro.mathlms.quiz.StudentQuizDtos.StartedAttemptDto;
+import ro.mathlms.storage.StoredImage;
 
 import java.util.List;
 import java.util.Optional;
@@ -119,10 +117,8 @@ public class QuizAttemptController {
     public ResponseEntity<Resource> ownPhoto(@PathVariable Long attemptId, @PathVariable Long itemId,
                                              @PathVariable Long photoId, Authentication auth) {
         Resource file = service.getOwnPhoto(attemptId, itemId, photoId, auth.getName());
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + file.getFilename() + "\"")
+        return StoredImage.ok(file)
                 .cacheControl(CacheControl.noStore())
-                .contentType(MediaTypeFactory.getMediaType(file).orElse(MediaType.APPLICATION_OCTET_STREAM))
                 .body(file);
     }
 

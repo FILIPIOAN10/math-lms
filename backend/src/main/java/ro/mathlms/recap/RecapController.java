@@ -4,8 +4,6 @@ import jakarta.validation.Valid;
 import org.springframework.core.io.Resource;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
-import org.springframework.http.MediaTypeFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -25,6 +23,7 @@ import ro.mathlms.recap.RecapDtos.ImportResult;
 import ro.mathlms.recap.RecapDtos.RecapExerciseDto;
 import ro.mathlms.recap.RecapDtos.ReviewRequest;
 import ro.mathlms.recap.RecapDtos.UpdateRequest;
+import ro.mathlms.storage.StoredImage;
 
 import java.util.List;
 
@@ -92,8 +91,7 @@ public class RecapController {
     @GetMapping("/api/admin/recap/exercises/{id}/image")
     public ResponseEntity<Resource> image(@PathVariable Long id) {
         Resource image = service.image(id);
-        MediaType type = MediaTypeFactory.getMediaType(image).orElse(MediaType.IMAGE_JPEG);
-        return ResponseEntity.ok().contentType(type).cacheControl(CacheControl.noCache().cachePrivate()).body(image);
+        return StoredImage.ok(image).cacheControl(CacheControl.noCache().cachePrivate()).body(image);
     }
 
     @PostMapping("/api/admin/recap/quizzes")

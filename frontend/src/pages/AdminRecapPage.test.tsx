@@ -16,8 +16,12 @@ const api = vi.hoisted(() => ({
   createRecapQuiz: vi.fn(),
   importRecap: vi.fn(),
   waiveRecapFigure: vi.fn(),
+  attachRecapImage: vi.fn(),
 }))
 vi.mock('@/lib/api', async (original) => ({ ...(await original<typeof import('@/lib/api')>()), ...api }))
+
+const image = vi.hoisted(() => ({ shrinkImage: vi.fn() }))
+vi.mock('@/lib/image', () => image)
 
 const exercise = (id: number, key: string, extra: Partial<RecapExercise> = {}): RecapExercise => ({
   id, key, tema: 3, number: id, statement: `Enunțul ${key}`, solution: 'Pașii', answer: '20 lei', result: '20',
@@ -118,5 +122,18 @@ describe('AdminRecapPage', () => {
 
     expect(await screen.findByTestId('recap-T3-1')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Încarcă culegerea (.zip)' })).not.toBeInTheDocument()
+  })
+
+  it('converts a picked picture to PNG/JPEG before it goes to the server, which takes only those', async () => {
+    const webp = new File(['webp'], 'desen.webp', { type: 'image/webp' })
+    const png = new File(['png'], 'desen.png', { type: 'image/png' })
+    image.shrinkImage.mockResolvedValue(png)
+    api.attachRecapImage.mockResolvedValue(exercise(1, 'T3-1', { hasImage: true }))
+    renderPage()
+
+    await userEvent.upload(await screen.findByLabelText('Imagine pentru T3-1'), webp)
+
+    expect(image.shrinkImage).toHaveBeenCalledWith(webp, 1600)
+    expect(api.attachRecapImage).toHaveBeenCalledWith(1, png)
   })
 })

@@ -30,6 +30,7 @@ import ro.mathlms.recap.RecapDtos.PartEdit;
 import ro.mathlms.recap.RecapDtos.RecapExerciseDto;
 import ro.mathlms.recap.RecapDtos.UpdateRequest;
 import ro.mathlms.storage.FileService;
+import ro.mathlms.storage.ImageUploadSanitizer;
 import ro.mathlms.teaching.TeacherScope;
 
 import java.io.IOException;
@@ -183,16 +184,11 @@ public class RecapService {
     @Transactional
     public RecapExerciseDto attachImage(Long id, MultipartFile file) {
         RecapExercise exercise = find(id);
-        if (file == null || file.isEmpty() || file.getContentType() == null
-                || !Set.of("image/png", "image/jpeg", "image/webp").contains(file.getContentType())) {
-            throw new InvalidRecapException("Imaginea trebuie să fie PNG, JPG sau WEBP.");
-        }
-        if (file.getSize() > RecapImportService.MAX_IMAGE_BYTES) {
-            throw new InvalidRecapException("Imaginea e prea mare (maxim 4 MB).");
-        }
+        // Only the bytes decide (not the type or the name sent): stored re-encoded as PNG or JPEG (audit 2026-11-27 M1).
+        MultipartFile clean = ImageUploadSanitizer.sanitize(file, RecapImportService.MAX_IMAGE_BYTES);
         String stored;
         try {
-            stored = fileService.uploadImage(imagesDir, file);
+            stored = fileService.uploadImage(imagesDir, clean);
         } catch (IOException e) {
             throw new UncheckedIOException("Nu am putut salva imaginea", e);
         }

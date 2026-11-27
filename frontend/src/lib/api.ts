@@ -1447,7 +1447,7 @@ export function questionImageUrl(itemId: number, version: string): string {
   return `/api/quiz/items/${itemId}/image?v=${encodeURIComponent(version)}`
 }
 
-/** Puts a picture under the question's statement (PNG/JPG/WEBP/GIF), replacing any earlier one. */
+/** Puts a picture under the question's statement (PNG/JPG/WEBP; stored as a clean PNG or JPEG), replacing any earlier one. */
 export async function uploadQuestionImage(itemId: number, file: File): Promise<void> {
   const formData = new FormData()
   formData.append('file', file)

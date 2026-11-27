@@ -168,6 +168,33 @@ class RecapIntegrationTest {
         });
     }
 
+    /**
+     * Audit 2026-11-27 M1: the picture a teacher adds must really be one - a web page that claims to be a PNG is
+     * refused - and a real one is stored under the format it is, whatever its name.
+     */
+    @Test
+    void aTeachersPictureMustReallyBeOneAndIsStoredAsWhatItIs() throws Exception {
+        upload(asAdmin()).andExpect(status().isOk());
+        long id = byKey(3).getId();
+
+        mockMvc.perform(multipart("/api/admin/recap/exercises/" + id + "/image")
+                        .file(new MockMultipartFile("file", "desen.html", "image/png",
+                                "<script>alert(1)</script>".getBytes(StandardCharsets.UTF_8)))
+                        .with(asAdmin()).with(csrf()))
+                .andExpect(status().isBadRequest());
+        assertThat(byKey(3).getImageKey()).isNull();
+
+        mockMvc.perform(multipart("/api/admin/recap/exercises/" + id + "/image")
+                        .file(new MockMultipartFile("file", "desen.html", "image/png", png()))
+                        .with(asAdmin()).with(csrf()))
+                .andExpect(status().isOk());
+        assertThat(byKey(3).getImageKey()).endsWith(".png");
+        mockMvc.perform(get("/api/admin/recap/exercises/" + id + "/image").with(asAdmin()))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content()
+                        .contentType(org.springframework.http.MediaType.IMAGE_PNG));
+    }
+
     private ResultActions approve(long id) throws Exception {
         return mockMvc.perform(post("/api/admin/recap/exercises/" + id + "/review").with(asAdmin()).with(csrf())
                 .contentType("application/json").content("{\"review\":\"APPROVED\"}"));

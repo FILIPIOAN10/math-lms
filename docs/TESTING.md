@@ -663,7 +663,7 @@ de oprire/expirare își termină intrarea. Linkurile vechi „pe rol” (§4a) 
 ### 21. Imagine sub enunț (figuri EN, V25)
 **De ce:** la EN, Subiectul II are grile cu figuri (forme geometrice); grila rămâne cu variante text, figura stă în enunț.
 - **Profesor:** în editor → **Editează** (sau **Adaugă întrebare**) → secțiunea **Imagine sub enunț (opțional)**: fă o captură a figurii
-  din PDF (**Win+Shift+S**), apoi **Ctrl+V oriunde în dialog** — sau **Alege imaginea** (PNG/JPG/WEBP/GIF) → previzualizare →
+  din PDF (**Win+Shift+S**), apoi **Ctrl+V oriunde în dialog** — sau **Alege imaginea** (PNG/JPG/WEBP) → previzualizare →
   **Salvează**. **Înlocuiește imaginea** / **Scoate imaginea**. Pozele mari se micșorează în browser (≤1600 px); serverul primește max. 4 MB
 - **Import:** un rând `[imagine]` (sau `[figură]`) în subiect îl marchează; previzualizarea arată „· necesită imagine”, iar în editor
   subiectul are „⚠ Lipsește imaginea — apasă „Editează” și lipește figura (Ctrl+V).” până pui poza

@@ -8,11 +8,11 @@ import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 import ro.mathlms.storage.FileService;
+import ro.mathlms.storage.ImageUploadSanitizer;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Optional;
-import java.util.Set;
 
 /**
  * The files behind the chapter pages (theory photos, example figures), kept in step with the database: a file stored
@@ -24,8 +24,7 @@ class EnChapterImages {
     private static final Logger log = LoggerFactory.getLogger(EnChapterImages.class);
 
     /** The browser shrinks photos before upload; this bounds what a direct call may store. */
-    static final long MAX_BYTES = 4L * 1024 * 1024;
-    private static final Set<String> TYPES = Set.of("image/png", "image/jpeg", "image/webp", "image/gif");
+    static final long MAX_BYTES = ImageUploadSanitizer.PAGE_IMAGE_MAX_BYTES;
 
     private final FileService fileService;
     private final String dir;
@@ -40,15 +39,11 @@ class EnChapterImages {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("Alege o imagine.");
         }
-        if (file.getContentType() == null || !TYPES.contains(file.getContentType())) {
-            throw new IllegalArgumentException("Imaginea trebuie să fie PNG, JPG, WEBP sau GIF.");
-        }
-        if (file.getSize() > MAX_BYTES) {
-            throw new IllegalArgumentException("Imaginea e prea mare (maxim 4 MB).");
-        }
+        // Only the bytes decide (not the type or the name sent): stored re-encoded as PNG or JPEG (audit 2026-11-27 M1).
+        MultipartFile clean = ImageUploadSanitizer.sanitize(file, MAX_BYTES);
         String stored;
         try {
-            stored = fileService.uploadImage(dir, file);
+            stored = fileService.uploadImage(dir, clean);
         } catch (IOException e) {
             throw new UncheckedIOException("Nu am putut salva imaginea", e);
         }

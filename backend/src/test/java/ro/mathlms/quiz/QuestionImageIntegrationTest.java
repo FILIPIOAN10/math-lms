@@ -4,6 +4,7 @@ import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
@@ -31,6 +32,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -55,6 +57,7 @@ class QuestionImageIntegrationTest {
     @Autowired private SchoolClassRepository schoolClassRepository;
     @Autowired private EnrollmentRepository enrollmentRepository;
     @Autowired private UserRepository userRepository;
+    @Value("${app.storage.question-images-dir}") private String imagesDir;
 
     private Quiz quiz;
     private QuizItem item;
@@ -118,7 +121,7 @@ class QuestionImageIntegrationTest {
         mockMvc.perform(get("/api/quiz/items/" + item.getId() + "/image").with(as(ana)))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.IMAGE_PNG))
-                .andExpect(content().bytes(PNG));
+                .andExpect(result -> assertThat(isPng(result.getResponse().getContentAsByteArray())).isTrue());
         mockMvc.perform(get("/api/quiz/items/" + item.getId() + "/image").with(as(strain)))
                 .andExpect(status().isNotFound());
     }
@@ -147,6 +150,54 @@ class QuestionImageIntegrationTest {
     void onlyPicturesAreAccepted() throws Exception {
         upload(new MockMultipartFile("file", "nota.txt", "text/plain", "x".getBytes()), 400);
         assertThat(imageOf(quiz.getId())).isNull();
+    }
+
+    /**
+     * Audit 2026-11-27 M1: the type the browser sends and the file's name are the uploader's to choose. A web page or a
+     * script that claims to be a PNG is refused; only the bytes decide.
+     */
+    @Test
+    void aFileThatOnlyClaimsToBeAPictureIsRefused() throws Exception {
+        upload(new MockMultipartFile("file", "pagina.html", "image/png",
+                "<script src=\"/api/quiz/items/1/image\"></script>".getBytes()), 400);
+        upload(new MockMultipartFile("file", "cod.js", "image/png", "fetch('/api/admin/users')".getBytes()), 400);
+        assertThat(imageOf(quiz.getId())).isNull();
+    }
+
+    /** A real picture with a misleading name is kept - cleaned, and stored under the format it really is. */
+    @Test
+    void aRealPictureIsStoredAsWhatItIsWhateverItsName() throws Exception {
+        upload(new MockMultipartFile("file", "figura.html", "image/png", PNG), 204);
+        assertThat(imageOf(quiz.getId())).endsWith(".png");
+
+        mockMvc.perform(get("/api/quiz/items/" + item.getId() + "/image").with(ADMIN))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.IMAGE_PNG))
+                .andExpect(result -> assertThat(isPng(result.getResponse().getContentAsByteArray())).isTrue());
+    }
+
+    /** A file stored before the fix under a page's name is never served as a page: a download, not HTML. */
+    @Test
+    void anOldStoredFileThatIsNotAPictureIsNeverServedAsAPage() throws Exception {
+        String name = java.util.UUID.randomUUID() + ".html";
+        java.nio.file.Path dir = java.nio.file.Path.of(imagesDir);
+        java.nio.file.Files.createDirectories(dir);
+        java.nio.file.Files.writeString(dir.resolve(name), "<script>alert(1)</script>");
+        try {
+            item.attachImage(name);
+            itemRepository.save(item);
+
+            mockMvc.perform(get("/api/quiz/items/" + item.getId() + "/image").with(ADMIN))
+                    .andExpect(status().isOk())
+                    .andExpect(content().contentType(MediaType.APPLICATION_OCTET_STREAM))
+                    .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.startsWith("attachment")));
+        } finally {
+            java.nio.file.Files.deleteIfExists(dir.resolve(name)); // nothing of the kind left in the dev folder
+        }
+    }
+
+    private static boolean isPng(byte[] bytes) {
+        return bytes.length > 8 && (bytes[0] & 0xff) == 0x89 && bytes[1] == 'P' && bytes[2] == 'N' && bytes[3] == 'G';
     }
 
     @Test
@@ -178,7 +229,8 @@ class QuestionImageIntegrationTest {
                 .andReturn().getResponse().getContentAsString();
         Long copyItemId = ((Number) JsonPath.read(copyItem, "$.items[0].id")).longValue();
         mockMvc.perform(get("/api/quiz/items/" + copyItemId + "/image").with(ADMIN))
-                .andExpect(status().isOk()).andExpect(content().bytes(PNG));
+                .andExpect(status().isOk())
+                .andExpect(result -> assertThat(isPng(result.getResponse().getContentAsByteArray())).isTrue());
     }
 
     @Test

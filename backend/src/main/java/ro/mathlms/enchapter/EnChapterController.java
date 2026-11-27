@@ -4,8 +4,6 @@ import jakarta.validation.Valid;
 import org.springframework.core.io.Resource;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
-import org.springframework.http.MediaTypeFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -26,6 +24,7 @@ import ro.mathlms.enchapter.EnChapterDtos.EnChapterSummaryDto;
 import ro.mathlms.enchapter.EnChapterDtos.ExampleDto;
 import ro.mathlms.enchapter.EnChapterDtos.ExampleRequest;
 import ro.mathlms.enchapter.EnChapterDtos.PhotoDto;
+import ro.mathlms.storage.StoredImage;
 
 import java.time.Duration;
 import java.util.List;
@@ -76,8 +75,7 @@ public class EnChapterController {
     }
 
     private static ResponseEntity<Resource> image(Resource file) {
-        return ResponseEntity.ok()
-                .contentType(MediaTypeFactory.getMediaType(file).orElse(MediaType.APPLICATION_OCTET_STREAM))
+        return StoredImage.ok(file)
                 .cacheControl(CacheControl.maxAge(Duration.ofDays(1)).cachePrivate())
                 .body(file);
     }

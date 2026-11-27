@@ -4,8 +4,6 @@ import jakarta.validation.Valid;
 import org.springframework.core.io.Resource;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
-import org.springframework.http.MediaTypeFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -22,6 +20,7 @@ import ro.mathlms.ingest.AiImportDtos.AiImportSettingsDto;
 import ro.mathlms.ingest.AiImportDtos.CreateQuizFromImportRequest;
 import ro.mathlms.ingest.AiImportDtos.CreatedQuizDto;
 import ro.mathlms.teaching.TeacherScope;
+import ro.mathlms.storage.StoredImage;
 
 import java.util.List;
 
@@ -73,8 +72,7 @@ public class AiImportController {
     @GetMapping("/api/admin/ai-imports/{id}/pages/{number}")
     public ResponseEntity<Resource> page(@PathVariable Long id, @PathVariable int number, Authentication auth) {
         Resource file = service.page(auth.getName(), id, number);
-        return ResponseEntity.ok()
-                .contentType(MediaTypeFactory.getMediaType(file).orElse(MediaType.IMAGE_JPEG))
+        return StoredImage.ok(file)
                 .cacheControl(CacheControl.noStore())
                 .body(file);
     }

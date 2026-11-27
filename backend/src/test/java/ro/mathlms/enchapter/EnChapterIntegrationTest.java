@@ -251,6 +251,11 @@ class EnChapterIntegrationTest {
                         .file(new MockMultipartFile("file", "notite.txt", "text/plain", "x".getBytes()))
                         .with(csrf()).with(teacher))
                 .andExpect(status().isBadRequest());
+        // Audit 2026-11-27 M1: a web page that claims to be a PNG is refused too - the bytes decide, not the type sent.
+        mockMvc.perform(multipart("/api/admin/en-chapters/" + id + "/photos")
+                        .file(new MockMultipartFile("file", "pagina.html", "image/png", "<script>alert(1)</script>".getBytes()))
+                        .with(csrf()).with(teacher))
+                .andExpect(status().isBadRequest());
 
         // While the page has content it cannot be deleted by mistake.
         mockMvc.perform(delete("/api/admin/en-chapters/" + id).with(csrf()).with(teacher))
@@ -288,6 +293,10 @@ class EnChapterIntegrationTest {
                         .content("{\"statement\":\"$30 - 18 : 3$\",\"solution\":\"Întâi împărțirea: $18 : 3 = 6$, apoi $30 - 6 = 24$.\"}"))
                 .andExpect(status().isOk());
 
+        mockMvc.perform(multipart("/api/admin/en-chapters/" + id + "/examples/" + example + "/image")
+                        .file(new MockMultipartFile("file", "cod.js", "image/png", "fetch('/api/admin/users')".getBytes()))
+                        .with(r -> { r.setMethod("PUT"); return r; }).with(csrf()).with(teacher))
+                .andExpect(status().isBadRequest());
         mockMvc.perform(multipart("/api/admin/en-chapters/" + id + "/examples/" + example + "/image").file(png())
                         .with(r -> { r.setMethod("PUT"); return r; }).with(csrf()).with(teacher))
                 .andExpect(status().isNoContent());

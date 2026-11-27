@@ -2,9 +2,6 @@ package ro.mathlms.quiz;
 
 import jakarta.validation.Valid;
 import org.springframework.core.io.Resource;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import org.springframework.http.MediaTypeFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -18,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 import ro.mathlms.quiz.AdminAttemptDtos.AdminAttemptDetailDto;
 import ro.mathlms.quiz.AdminAttemptDtos.AdminAttemptSummaryDto;
 import ro.mathlms.teaching.TeacherScope;
+import ro.mathlms.storage.StoredImage;
 
 import java.util.List;
 
@@ -65,12 +63,7 @@ public class AdminQuizAttemptController {
                                              @PathVariable Long photoId) {
         scope.requireAttempt(attemptId);
         Resource file = service.getOpenPhotoResource(attemptId, itemId, photoId);
-        MediaType mediaType = MediaTypeFactory.getMediaType(file)
-                .orElse(MediaType.APPLICATION_OCTET_STREAM);
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + file.getFilename() + "\"")
-                .contentType(mediaType)
-                .body(file);
+        return StoredImage.ok(file).body(file);
     }
 
     @PutMapping("/{attemptId}/responses/{itemId}/grade")

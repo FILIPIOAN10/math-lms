@@ -415,7 +415,7 @@ export function ItemDialog({
   function pickImage(file: File | undefined) {
     if (!file) return
     if (!file.type.startsWith('image/')) {
-      setError('Alege o imagine (PNG, JPG, WEBP sau GIF).')
+      setError('Alege o imagine (PNG, JPG sau WEBP).')
       return
     }
     setError(null)
@@ -786,7 +786,7 @@ export function ItemDialog({
               <input
                 ref={imagePicker}
                 type="file"
-                accept="image/png,image/jpeg,image/webp,image/gif"
+                accept="image/png,image/jpeg,image/webp"
                 className="hidden"
                 aria-label="Fișierul imaginii"
                 onChange={(e) => {

@@ -77,9 +77,10 @@ public class FileServiceImpl implements FileService {
 
     /** ".jpg" for "photo.jpg"; "" when there is no filename or no dot. */
     /**
-     * ".jpg" from the browser-sent file name - which the uploader controls, so anything but a short alphanumeric
-     * extension (".b/../../x", ".ph p") is dropped: the stored name is then just the UUID. The content type was
-     * already checked by the caller; the extension only helps a human browsing the folder.
+     * ".jpg" from the file name - which the uploader controls, so only a picture's extension is kept (".b/../../x",
+     * ".ph p", ".html", ".js" are dropped and the stored name is then just the UUID). The name decides the type the
+     * file is served with ({@link StoredImage}), so a page or a script must never be stored under its own extension
+     * (audit 2026-11-27 M1).
      */
     static String extensionOf(String originalFilename) {
         if (originalFilename == null) {
@@ -87,10 +88,10 @@ public class FileServiceImpl implements FileService {
         }
         int dot = originalFilename.lastIndexOf('.');
         String extension = dot < 0 ? "" : originalFilename.substring(dot + 1);
-        return SAFE_EXTENSION.matcher(extension).matches() ? "." + extension : "";
+        return PICTURE_EXTENSIONS.contains(extension.toLowerCase(java.util.Locale.ROOT)) ? "." + extension : "";
     }
 
-    private static final java.util.regex.Pattern SAFE_EXTENSION = java.util.regex.Pattern.compile("[A-Za-z0-9]{1,5}");
+    private static final java.util.Set<String> PICTURE_EXTENSIONS = java.util.Set.of("png", "jpg", "jpeg", "gif", "webp");
     @Override
     public Resource loadImage(String path, String imageName) throws IOException {
         Path base = Paths.get(path).toAbsolutePath().normalize();

@@ -2,8 +2,6 @@ package ro.mathlms.quiz;
 
 import org.springframework.core.io.Resource;
 import org.springframework.http.CacheControl;
-import org.springframework.http.MediaType;
-import org.springframework.http.MediaTypeFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -17,6 +15,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.time.Duration;
 import ro.mathlms.teaching.TeacherScope;
+import ro.mathlms.storage.StoredImage;
 
 /** The picture under a question's statement: the teacher sets it; every allowed viewer reads it. */
 @RestController
@@ -53,8 +52,7 @@ public class QuestionImageController {
     @GetMapping("/api/quiz/items/{itemId}/image")
     public ResponseEntity<Resource> image(@PathVariable Long itemId, Authentication auth) {
         Resource file = service.load(itemId, auth.getName());
-        return ResponseEntity.ok()
-                .contentType(MediaTypeFactory.getMediaType(file).orElse(MediaType.APPLICATION_OCTET_STREAM))
+        return StoredImage.ok(file)
                 .cacheControl(CacheControl.maxAge(Duration.ofDays(1)).cachePrivate())
                 .body(file);
     }

@@ -75,6 +75,18 @@ class FileServiceImplTest {
         assertThat(FileServiceImpl.extensionOf(null)).isEmpty();
     }
 
+    /** Audit 2026-11-27 M1: a stored "x.html" or "x.js" would later be served as a page or a script. */
+    @Test
+    void keepsOnlyAPictureExtension() {
+        assertThat(FileServiceImpl.extensionOf("pagina.html")).isEmpty();
+        assertThat(FileServiceImpl.extensionOf("cod.js")).isEmpty();
+        assertThat(FileServiceImpl.extensionOf("desen.svg")).isEmpty();
+        assertThat(FileServiceImpl.extensionOf("date.xml")).isEmpty();
+        assertThat(FileServiceImpl.extensionOf("figura.png")).isEqualTo(".png");
+        assertThat(FileServiceImpl.extensionOf("poza.jpg")).isEqualTo(".jpg");
+        assertThat(FileServiceImpl.extensionOf("veche.gif")).isEqualTo(".gif");
+    }
+
     @Test
     void loadRejectsPathTraversal(@TempDir Path dir) {
         // A crafted name must not escape the storage directory.

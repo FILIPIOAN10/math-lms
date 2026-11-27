@@ -14,13 +14,13 @@ import ro.mathlms.audit.AuditLog;
 import ro.mathlms.audit.AuditText;
 import ro.mathlms.content.EnrollmentRepository;
 import ro.mathlms.storage.FileService;
+import ro.mathlms.storage.ImageUploadSanitizer;
 import ro.mathlms.user.User;
 import ro.mathlms.user.UserRepository;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
-import java.util.Set;
 
 /**
  * The picture under a question's statement (EN Subiectul II figures). The teacher attaches, replaces or removes it; it
@@ -33,8 +33,7 @@ public class QuestionImageService {
     private static final Logger log = LoggerFactory.getLogger(QuestionImageService.class);
 
     /** The browser shrinks pictures before upload; this bounds what a direct call may store. */
-    static final long MAX_BYTES = 4L * 1024 * 1024;
-    private static final Set<String> TYPES = Set.of("image/png", "image/jpeg", "image/webp", "image/gif");
+    static final long MAX_BYTES = ImageUploadSanitizer.PAGE_IMAGE_MAX_BYTES;
 
     private final QuizItemRepository itemRepository;
     private final QuizAttemptRepository attemptRepository;
@@ -76,16 +75,13 @@ public class QuestionImageService {
         if (file == null || file.isEmpty()) {
             throw new InvalidQuizException("Alege o imagine.");
         }
-        if (file.getContentType() == null || !TYPES.contains(file.getContentType())) {
-            throw new InvalidQuizException("Imaginea trebuie să fie PNG, JPG, WEBP sau GIF.");
-        }
-        if (file.getSize() > MAX_BYTES) {
-            throw new InvalidQuizException("Imaginea e prea mare (maxim 4 MB).");
-        }
+        // The type and the name sent are the uploader's to choose: only the bytes decide, and what is stored is the
+        // picture re-encoded as a PNG or JPEG without its metadata (audit 2026-11-27 M1).
+        MultipartFile clean = ImageUploadSanitizer.sanitize(file, MAX_BYTES);
         QuizItem item = requireItem(itemId);
         String stored;
         try {
-            stored = fileService.uploadImage(dir, file);
+            stored = fileService.uploadImage(dir, clean);
         } catch (IOException e) {
             throw new UncheckedIOException("Nu am putut salva imaginea", e);
         }
