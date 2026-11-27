@@ -10,8 +10,9 @@ import java.util.function.Function;
 /**
  * The order one attempt shows its questions and options in (V65, Moodle "Shuffle questions"). Seeded by the attempt
  * id, so it is the same every time the student reopens the paper, different from their neighbour's, and needs nothing
- * stored. Questions move only within their section ("SUBIECTUL I" stays first and keeps its questions); grading, the
- * result and the statistics keep the teacher's order - answers are matched by id, never by place.
+ * stored. Questions move only within their section ("SUBIECTUL I" stays first and keeps its questions); grading and
+ * statistics keep the teacher's order, while the student's result follows this attempt's order. Answers are matched
+ * by id, never by place.
  */
 public final class AttemptOrder {
 

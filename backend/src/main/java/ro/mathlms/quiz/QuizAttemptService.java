@@ -654,7 +654,8 @@ public class QuizAttemptService {
      * teacher's comments. The answer key - right option, numeric answer, barem of the question and of its requirements,
      * the note on a wrong option - only once the student cannot hand the test in again ({@link AnswerKeys}); a practice
      * shows it always (each of its answers gave it away). OPEN items show their teacher-awarded points (null while still
-     * pending). Only the owner may view it: anyone else's attempt is the same 404 as one that does not exist (a guessed
+     * pending). Questions and option letters follow this attempt's displayed order. Only the owner may view it: anyone
+     * else's attempt is the same 404 as one that does not exist (a guessed
      * id must not confirm that the attempt is there).
      */
     @Transactional(readOnly = true)
@@ -670,6 +671,7 @@ public class QuizAttemptService {
                         List.of(attempt.getQuiz().getId())));
 
         List<QuizItem> items = itemRepository.findByQuizIdOrderByPosition(attempt.getQuiz().getId());
+        List<QuizItem> resultItems = AttemptOrder.items(attempt, items);
         Map<Long, ItemResponse> byItem = responseRepository.findByAttemptId(attemptId).stream()
                 .collect(Collectors.toMap(r -> r.getItem().getId(), Function.identity()));
 
@@ -683,7 +685,7 @@ public class QuizAttemptService {
                         .filter(o -> !o.isCorrect()).map(QuizOption::getId).toList());
         int maxScore = 0;
         List<ItemResultDto> itemResults = new ArrayList<>();
-        for (QuizItem item : items) {
+        for (QuizItem item : resultItems) {
             maxScore += item.getPoints();
             ItemResponse response = byItem.get(item.getId());
             String selectedText = null;
@@ -692,7 +694,8 @@ public class QuizAttemptService {
             String correctLetter = null;
             boolean photoUploaded = false;
             if (item.getType() == QuizItemType.SINGLE_CHOICE) {
-                List<QuizOption> options = optionRepository.findByItemIdOrderByPosition(item.getId());
+                List<QuizOption> options = AttemptOrder.options(attempt, item.getId(),
+                        optionRepository.findByItemIdOrderByPosition(item.getId()));
                 QuizOption correctOption = options.stream().filter(QuizOption::isCorrect).findFirst().orElse(null);
                 if (correctOption != null) {
                     correctText = correctOption.getText();

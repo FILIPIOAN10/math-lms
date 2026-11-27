@@ -847,6 +847,50 @@ class QuizAttemptServiceTest {
     }
 
     @Test
+    void getResultUsesTheAttemptQuestionAndOptionOrder() {
+        quiz.shuffle(true, true);
+        List<QuizItem> items = java.util.stream.IntStream.rangeClosed(1, 8)
+                .mapToObj(position -> withId(new QuizItem(quiz, position,
+                        position == 1 ? QuizItemType.SINGLE_CHOICE : QuizItemType.OPEN,
+                        "Întrebarea " + position, 1, null), position))
+                .toList();
+        QuizItem grid = items.get(0);
+        List<QuizOption> teacherOptions = List.of(
+                withId(new QuizOption(grid, 1, "opțiunea 1", true), 1001L),
+                withId(new QuizOption(grid, 2, "opțiunea 2", false), 1002L),
+                withId(new QuizOption(grid, 3, "opțiunea 3", false), 1003L),
+                withId(new QuizOption(grid, 4, "opțiunea 4", false), 1004L));
+        QuizOption selected = teacherOptions.get(1);
+        QuizAttempt attempt = attempt(60L, student);
+        attempt.submit();
+        attempt.markGraded(0);
+        ItemResponse response = new ItemResponse(attempt, grid);
+        response.answerSingleChoice(selected);
+        response.gradeAuto(false, 0);
+
+        when(attemptRepository.findById(60L)).thenReturn(Optional.of(attempt));
+        when(itemRepository.findByQuizIdOrderByPosition(10L)).thenReturn(items);
+        when(responseRepository.findByAttemptId(60L)).thenReturn(List.of(response));
+        when(optionRepository.findByItemIdOrderByPosition(1L)).thenReturn(teacherOptions);
+
+        AttemptResultViewDto view = service.getResult(60L, EMAIL);
+
+        List<QuizItem> attemptItems = AttemptOrder.items(attempt, items);
+        assertThat(attemptItems).isNotEqualTo(items);
+        assertThat(view.items()).extracting(ItemResultDto::itemId)
+                .containsExactlyElementsOf(attemptItems.stream().map(QuizItem::getId).toList());
+
+        List<QuizOption> attemptOptions = AttemptOrder.options(attempt, grid.getId(), teacherOptions);
+        assertThat(attemptOptions).isNotEqualTo(teacherOptions);
+        ItemResultDto gridResult = view.items().stream().filter(item -> item.itemId().equals(grid.getId()))
+                .findFirst().orElseThrow();
+        assertThat(gridResult.selectedOptionLetter())
+                .isEqualTo(String.valueOf((char) ('a' + attemptOptions.indexOf(selected))));
+        assertThat(gridResult.correctOptionLetter())
+                .isEqualTo(String.valueOf((char) ('a' + attemptOptions.indexOf(teacherOptions.get(0)))));
+    }
+
+    @Test
     void getResultRejectsInProgressAttempt() {
         QuizAttempt attempt = attempt(50L, student); // still IN_PROGRESS
         when(attemptRepository.findById(50L)).thenReturn(Optional.of(attempt));

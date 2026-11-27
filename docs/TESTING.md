@@ -1142,7 +1142,7 @@ ei)** și **Amestecă variantele de la grile**. Se aplică doar încercărilor �
 | 2 | Un elev iese și reintră în test | Aceeași ordine ca la început |
 | 3 | Test EN cu SUBIECTUL I/II/III | Întrebările se amestecă doar în subiectul lor; subiectele rămân în ordine |
 | 4 | Profesorul debifează în timp ce un elev lucrează | Lucrarea deschisă își păstrează ordinea; următoarea încercare vine în ordinea profesorului |
-| 5 | Corectura / rezultatul / statisticile | În ordinea profesorului; notele nu depind de ordine |
+| 5 | Corectura / statistici / rezultatul elevului | Corectura și statisticile rămân în ordinea profesorului; rezultatul elevului urmează ordinea propriei încercări, inclusiv literele variantelor; notele nu depind de ordine |
 | 6 | **Copiază și editează** pe test | Copia păstrează bifele |
 
 ### 51. A doua încercare și indicii la exersare — ca elev (Recapitulare și Exersează capitolul)
