@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # Multi-stage: Maven builds the fat jar, a slim JRE runs it as a non-root user (Phase 6.4).
 
-FROM maven:3.9-eclipse-temurin-21 AS build
+FROM maven:3.9-eclipse-temurin-26 AS build
 WORKDIR /build
 # Dependencies first: this layer is reused until pom.xml changes.
 COPY pom.xml .
