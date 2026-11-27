@@ -10,7 +10,7 @@ COPY src ./src
 # Tests run in CI (they need Docker for Testcontainers), not inside the image build.
 RUN --mount=type=cache,target=/root/.m2 mvn -B -q -DskipTests package && mv target/backend-*.jar /build/app.jar
 
-FROM eclipse-temurin:21-jre-alpine
+FROM eclipse-temurin:25-jre-alpine
 # OS security fixes published since the base image was built.
 # Changes on every release build (build-push.yml), so this layer is never served stale from the build cache.
 ARG APK_CACHE_BUST=local
