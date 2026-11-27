@@ -82,6 +82,7 @@ public class RecapImportService {
         Set<String> known = repository.findAllKeys();
         int added = 0;
         int skipped = 0;
+        int figuresAdded = 0;
         for (JsonNode row : exercises) {
             String key = text(row, "key");
             if (key == null || key.length() > 40) {
@@ -89,13 +90,33 @@ public class RecapImportService {
             }
             if (!known.add(key)) {
                 skipped++;
+                if (addFigure(key, text(row, "figure"), entries)) {
+                    figuresAdded++;
+                }
                 continue;
             }
             repository.save(build(key, row, entries));
             added++;
         }
-        log.info("Recap import: {} added, {} already there", added, skipped);
-        return new ImportResult(added, skipped, added + skipped);
+        log.info("Recap import: {} added, {} already there, {} drawings added to them", added, skipped, figuresAdded);
+        return new ImportResult(added, skipped, added + skipped, figuresAdded);
+    }
+
+    /**
+     * An exercise already loaded gets the zip's drawing only when it has none yet (found since, e.g. by the figure number
+     * its text cites): its text, review and a picture a teacher chose are never touched.
+     */
+    private boolean addFigure(String key, String figure, Map<String, byte[]> entries) {
+        if (figure == null || !entries.containsKey(figure)) {
+            return false;
+        }
+        RecapExercise exercise = repository.findBySourceKey(key).orElse(null);
+        if (exercise == null || exercise.getImageKey() != null) {
+            return false;
+        }
+        exercise.showImage(store(figure, entries.get(figure)));
+        repository.save(exercise);
+        return true;
     }
 
     private RecapExercise build(String key, JsonNode row, Map<String, byte[]> entries) {
@@ -127,7 +148,10 @@ public class RecapImportService {
         if (figure != null && entries.containsKey(figure)) {
             exercise.showImage(store(figure, entries.get(figure)));
         }
-        exercise.markFigureMissing(row.path("figureMissing").asBoolean(false) || (figure != null && !entries.containsKey(figure)));
+        // the zip's own flag, a drawing named but not in the zip, or a text that cites a drawing it was not given
+        exercise.markFigureMissing(row.path("figureMissing").asBoolean(false)
+                || (figure != null && !entries.containsKey(figure))
+                || RecapFigures.mentionsFigure(exercise.fullText()));
         return exercise;
     }
 

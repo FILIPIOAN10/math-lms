@@ -117,7 +117,7 @@ public class RecapService {
     @Transactional(readOnly = true)
     public List<ChapterCountDto> approvedByChapter() {
         Map<EnChapter, Long> counts = repository.findAllByOrderByTemaAscNumberAscIdAsc().stream()
-                .filter(e -> e.getReview() == RecapReview.APPROVED && e.getEnChapter() != null)
+                .filter(e -> e.getReview() == RecapReview.APPROVED && !e.isFigureMissing() && e.getEnChapter() != null)
                 .collect(Collectors.groupingBy(RecapExercise::getEnChapter, LinkedHashMap::new, Collectors.counting()));
         return counts.entrySet().stream()
                 .sorted(Comparator.comparing((Map.Entry<EnChapter, Long> c) -> c.getKey().getPosition()))
@@ -226,10 +226,12 @@ public class RecapService {
                 .orElseThrow(() -> new InvalidRecapException("Capitolul ales nu există."));
         Set<Long> classQuizzes = repository.findQuizIdsOfClass(request.schoolClassId());
         List<RecapExercise> pool = repository.findByEnChapterIdAndReviewOrderByTemaAscNumberAscIdAsc(
-                chapter.getId(), RecapReview.APPROVED);
+                        chapter.getId(), RecapReview.APPROVED).stream()
+                .filter(e -> !e.isFigureMissing()) // a drawing still missing: not for a student yet
+                .toList();
         if (pool.isEmpty()) {
-            throw new RecapConflictException("Niciun exercițiu aprobat din culegere la „" + chapter.getTitle()
-                    + "”. Aprobă câteva în pagina Culegere.");
+            throw new RecapConflictException("Niciun exercițiu aprobat (cu desenul lui, dacă are) din culegere la „"
+                    + chapter.getTitle() + "”. Aprobă câteva în pagina Culegere.");
         }
         List<RecapExercise> chosen = pool.stream()
                 .sorted(Comparator.comparing((RecapExercise e) -> e.getQuizIds().stream().anyMatch(classQuizzes::contains)))
@@ -302,6 +304,10 @@ public class RecapService {
             if (exercise.getReview() != RecapReview.APPROVED) {
                 throw new RecapConflictException("Exercițiul " + exercise.getSourceKey()
                         + " nu este aprobat: doar exercițiile aprobate intră într-un test.");
+            }
+            if (exercise.isFigureMissing()) {
+                throw new RecapConflictException("Exercițiului " + exercise.getSourceKey() + " îi lipsește desenul din "
+                        + "carte: adaugă imaginea sau confirmă că merge fără ea, apoi fă testul.");
             }
             out.add(exercise);
         }

@@ -188,7 +188,10 @@ function ImportButton({ onDone }: { onDone: (text: string) => void }) {
     setError(null)
     try {
       const result = await importRecap(file)
-      onDone(`Am adăugat ${roCount(result.added, 'exercițiu', 'exerciții')}; ${result.skipped} existau deja și au rămas neatinse.`)
+      const figures = result.figuresAdded > 0
+        ? ` La cele existente am adăugat ${roCount(result.figuresAdded, 'figură lipsă', 'figuri lipsă')}; textul și aprobările au rămas neatinse.`
+        : ` ${result.skipped} existau deja și au rămas neatinse.`
+      onDone(`Am adăugat ${roCount(result.added, 'exercițiu nou', 'exerciții noi')}.${figures}`)
     } catch (e) {
       setError(errorMessage(e))
     } finally {
@@ -241,7 +244,9 @@ function ExerciseCard({ exercise, imageVersion, selected, onSelect, onChanged, o
       <CardContent className="space-y-3 py-4">
         <div className="flex flex-wrap items-center gap-2">
           {exercise.review === 'APPROVED' && (
-            <input type="checkbox" className="size-4" checked={selected} onChange={(e) => onSelect(e.target.checked)}
+            <input type="checkbox" className="size-4" checked={selected} disabled={exercise.figureMissing}
+                   onChange={(e) => onSelect(e.target.checked)}
+                   title={exercise.figureMissing ? 'Lipsește desenul: nu poate intra în test până nu are figură.' : undefined}
                    aria-label={`Alege ${exercise.key} pentru test`} />
           )}
           <span className="font-mono text-sm font-semibold">{exercise.key}</span>
@@ -261,7 +266,8 @@ function ExerciseCard({ exercise, imageVersion, selected, onSelect, onChanged, o
         )}
         {exercise.figureMissing && (
           <p className="rounded-md bg-warning/15 p-2 text-sm text-warning-foreground">
-            În carte exercițiul are un desen care nu a fost găsit. Adaugă imaginea sau confirmă că merge fără ea.
+            În carte exercițiul are un desen care nu a fost găsit. Adaugă imaginea sau confirmă că merge fără ea
+            {exercise.review === 'APPROVED' ? ' — până atunci nu intră în niciun test.' : '.'}
           </p>
         )}
         {exercise.parts.length > 0 ? (

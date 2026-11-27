@@ -159,9 +159,13 @@ def main() -> None:
         whole_answer, whole_result, whole_agree = checked(None) if not parts else (None, None, False)
         solution_steps = common if parts and per_part else first.get("steps", [])
         figure = None
-        if ex["has_figure"]:
+        wants_figure = boxes_script.needs_figure(ex)
+        if wants_figure:
             found = []
-            for page in ex["pages"]:
+            by_key = figure_boxes.get("keys", {}).get(ex["id"])
+            if by_key:  # found by the figure number the text cites (teme_figure_boxes.py --keys)
+                found = crop(by_key["page"], by_key["boxes"], pages, rendered)
+            for page in ex["pages"] if not found else []:
                 found += crop(page, figure_boxes.get(str(page), {}).get(str(ex["number"]), []), pages, rendered)
             if not found:  # printed at the top of the next page (see teme_figure_boxes.on_next_page)
                 after = max(ex["pages"]) + 1
@@ -176,7 +180,7 @@ def main() -> None:
             "solution": "\n".join(solution_steps) or None, "answer": whole_answer, "result": whole_result,
             "verified": whole_agree if not parts else all(p["verified"] for p in rows),
             "aiStatus": solved["status"], "parts": rows, "figure": figure,
-            "figureMissing": ex["has_figure"] and figure is None,
+            "figureMissing": wants_figure and figure is None,
         })
     with zipfile.ZipFile(OUT, "w", zipfile.ZIP_DEFLATED) as zf:
         zf.writestr("culegere.json", json.dumps({"source": "Teme recapitulative", "exercises": out_rows},

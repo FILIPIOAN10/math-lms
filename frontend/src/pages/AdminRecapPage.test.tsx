@@ -47,6 +47,7 @@ describe('AdminRecapPage', () => {
       exercise(2, 'T3-2', { aiStatus: 'PROOF', verified: false, answer: null, result: null }),
       exercise(3, 'T3-3', { review: 'APPROVED' }),
       exercise(4, 'T9-4', { figureMissing: true, enChapterCode: 'G3' }),
+      exercise(5, 'T8-1', { figureMissing: true, review: 'APPROVED' }),
     ])
   })
 
@@ -55,7 +56,7 @@ describe('AdminRecapPage', () => {
 
     expect(await screen.findByTestId('recap-T3-1')).toBeInTheDocument()
     expect(screen.queryByTestId('recap-T3-3')).not.toBeInTheDocument() // approved: not in "De verificat"
-    expect(screen.getByTestId('recap-counts')).toHaveTextContent('1 exercițiu aprobat, 3 de verificat.')
+    expect(screen.getByTestId('recap-counts')).toHaveTextContent('2 exerciții aprobate, 3 de verificat.')
     expect(within(screen.getByTestId('recap-T3-1')).getByText('Verificat de AI')).toBeInTheDocument()
     expect(within(screen.getByTestId('recap-T3-2')).getByText('Demonstrație: verifică tu')).toBeInTheDocument()
     expect(within(screen.getByTestId('recap-T3-2')).getByText(/Fără răspuns propus/)).toBeInTheDocument()
@@ -72,7 +73,7 @@ describe('AdminRecapPage', () => {
 
     expect(api.reviewRecapExercise).toHaveBeenCalledWith(1, 'APPROVED')
     expect(screen.queryByTestId('recap-T3-1')).not.toBeInTheDocument()
-    expect(screen.getByTestId('recap-counts')).toHaveTextContent('2 exerciții aprobate, 2 de verificat.')
+    expect(screen.getByTestId('recap-counts')).toHaveTextContent('3 exerciții aprobate, 2 de verificat.')
   })
 
   it('makes a draft test of the approved exercises chosen and opens it', async () => {
@@ -88,6 +89,27 @@ describe('AdminRecapPage', () => {
 
     expect(api.createRecapQuiz).toHaveBeenCalledWith({ title: 'Recapitulare', exerciseIds: [3], schoolClassId: 4 })
     expect(await screen.findByText('Pagina testului')).toBeInTheDocument()
+  })
+
+  it('keeps an approved exercise whose drawing is missing out of a new test', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.selectOptions(await screen.findByLabelText('Stare'), 'APPROVED')
+
+    expect(screen.getByLabelText('Alege T8-1 pentru test')).toBeDisabled()
+    expect(within(screen.getByTestId('recap-T8-1')).getByText(/nu intră în niciun test/)).toBeInTheDocument()
+    expect(screen.getByLabelText('Alege T3-3 pentru test')).toBeEnabled()
+  })
+
+  it('says how many drawings a reload added to the exercises already there', async () => {
+    const user = userEvent.setup()
+    api.importRecap.mockResolvedValue({ added: 0, skipped: 387, total: 387, figuresAdded: 46 })
+    renderPage()
+
+    await user.upload(await screen.findByLabelText('Arhiva culegerii'), new File(['zip'], 'teme-culegere.zip', { type: 'application/zip' }))
+
+    expect(await screen.findByText(/Am adăugat 0 exerciții noi\. La cele existente am adăugat 46 de figuri lipsă/)).toBeInTheDocument()
   })
 
   it('lets a teacher review but not load the book', async () => {

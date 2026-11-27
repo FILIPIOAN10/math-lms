@@ -70,7 +70,8 @@ public final class RecapDtos {
                                  @NotNull Instant dueAt, @Size(max = 200) String title) {
     }
 
-    public record ImportResult(int added, int skipped, int total) {
+    /** {@code figuresAdded}: drawings given to exercises that were already there and had none. */
+    public record ImportResult(int added, int skipped, int total, int figuresAdded) {
     }
 
     public record CreatedQuizDto(Long quizId) {

@@ -74,6 +74,7 @@ class RecapIntegrationTest {
     @Autowired private AssignmentRepository assignmentRepository;
     @Autowired private EnChapterRepository enChapterRepository;
     @Autowired private TransactionTemplate tx;
+    @Autowired private org.springframework.jdbc.core.JdbcTemplate jdbc;
 
     private String stamp;
     private User admin;
@@ -254,6 +255,98 @@ class RecapIntegrationTest {
         JsonNode one = json(mockMvc.perform(get("/api/admin/recap/exercises/" + cube).with(asAdmin()))
                 .andExpect(status().isOk()));
         assertThat(one.get("usedIn").asInt()).isEqualTo(1);
+    }
+
+    /** One exercise of "metoda mersului invers" (A13) that cites a drawing, with or without the drawing in the zip. */
+    private byte[] figureZip(boolean withDrawing) throws Exception {
+        Map<String, Object> exercise = row("key", key(4), "tema", 7, "number", 4,
+                "statement", "Rezolvați prin metoda mersului invers problema din figura 4.",
+                "answer", "12", "result", "12", "verified", true, "aiStatus", "AGREE", "parts", List.of(),
+                "figureMissing", !withDrawing);
+        if (withDrawing) {
+            exercise.put("figure", "figures/" + key(4) + ".png");
+        }
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (ZipOutputStream zip = new ZipOutputStream(bytes)) {
+            zip.putNextEntry(new ZipEntry("culegere.json"));
+            zip.write(objectMapper.writeValueAsString(Map.of("exercises", List.of(exercise))).getBytes(StandardCharsets.UTF_8));
+            zip.closeEntry();
+            if (withDrawing) {
+                zip.putNextEntry(new ZipEntry("figures/" + key(4) + ".png"));
+                zip.write(png());
+                zip.closeEntry();
+            }
+        }
+        return bytes.toByteArray();
+    }
+
+    private JsonNode load(byte[] zip) throws Exception {
+        return json(mockMvc.perform(multipart("/api/admin/recap/import")
+                        .file(new MockMultipartFile("file", "teme-culegere.zip", "application/zip", zip))
+                        .with(asAdmin()).with(csrf()))
+                .andExpect(status().isOk()));
+    }
+
+    @Test
+    void anApprovedExerciseWithoutItsDrawingStaysOutOfTestsUntilAReloadBringsTheDrawing() throws Exception {
+        load(figureZip(false));
+        long id = byKey(4).getId();
+        // approved before anyone noticed the missing drawing (the server's state that V83 flags)
+        tx.executeWithoutResult(s -> {
+            RecapExercise e = repository.findById(id).orElseThrow();
+            e.review(RecapReview.APPROVED, admin.getId(), Instant.now());
+            e.markFigureMissing(true);
+        });
+        EnChapter a13 = enChapterRepository.findByCode("A13").orElseThrow();
+        String due = Instant.now().plus(3, ChronoUnit.DAYS).toString();
+
+        mockMvc.perform(post("/api/admin/recap/quizzes").with(asAdmin()).with(csrf()).contentType("application/json")
+                        .content(objectMapper.writeValueAsString(Map.of("title", "Fără desen", "exerciseIds", List.of(id)))))
+                .andExpect(status().isConflict());
+        mockMvc.perform(post("/api/admin/recap/catch-up").with(asAdmin()).with(csrf()).contentType("application/json")
+                        .content(objectMapper.writeValueAsString(Map.of("schoolClassId", schoolClass.getId(),
+                                "enChapterId", a13.getId(), "studentIds", List.of(ana.getId()), "count", 1, "dueAt", due))))
+                .andExpect(status().isConflict());
+
+        // the same key comes again, now with its drawing: only the drawing is added, the approval stays
+        JsonNode reload = load(figureZip(true));
+        assertThat(reload.get("added").asInt()).isZero();
+        assertThat(reload.get("figuresAdded").asInt()).isEqualTo(1);
+        RecapExercise fixed = byKey(4);
+        assertThat(fixed.getImageKey()).isNotNull();
+        assertThat(fixed.isFigureMissing()).isFalse();
+        assertThat(fixed.getReview()).isEqualTo(RecapReview.APPROVED);
+        mockMvc.perform(post("/api/admin/recap/quizzes").with(asAdmin()).with(csrf()).contentType("application/json")
+                        .content(objectMapper.writeValueAsString(Map.of("title", "Cu desen", "exerciseIds", List.of(id)))))
+                .andExpect(status().isCreated());
+
+        // a drawing already there is never replaced by a reload
+        assertThat(load(figureZip(true)).get("figuresAdded").asInt()).isZero();
+        assertThat(byKey(4).getImageKey()).isEqualTo(fixed.getImageKey());
+    }
+
+    @Test
+    void migrationV83FlagsExercisesWhoseTextCitesADrawingTheyDoNotHave() throws Exception {
+        load(figureZip(false));
+        long cites = byKey(4).getId();
+        upload(asAdmin()).andExpect(status().isOk());
+        long plain = byKey(1).getId();
+        long withNote = byKey(2).getId(); // has its drawing: never flagged
+        tx.executeWithoutResult(s -> {
+            repository.findById(cites).orElseThrow().waiveFigure(); // as if the import had missed it (group C)
+            RecapExercise note = repository.findById(plain).orElseThrow();
+            note.write(note.getStatement() + "\n<!-- warning: No figures found. -->", note.getSolution(),
+                    note.getAnswer(), note.getResult(), List.copyOf(note.getParts()));
+        });
+
+        String sql = new String(getClass().getResourceAsStream("/db/migration/V83__recap_missing_figures.sql")
+                .readAllBytes(), StandardCharsets.UTF_8);
+        jdbc.execute(sql);
+
+        assertThat(byKey(4).isFigureMissing()).isTrue();
+        assertThat(byKey(1).isFigureMissing()).isFalse();
+        assertThat(byKey(1).getStatement()).doesNotContain("<!--").isEqualTo("Un preț de 200 lei crește cu 10%.");
+        assertThat(repository.findById(withNote).orElseThrow().isFigureMissing()).isFalse();
     }
 
     @Test

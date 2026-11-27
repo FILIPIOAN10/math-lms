@@ -2969,8 +2969,8 @@ export async function attachRecapImage(id: number, file: File): Promise<RecapExe
   return response.json()
 }
 
-/** Admin only: the zip made by tutor/scripts/teme_bundle.py; only exercises not seen before are added. */
-export async function importRecap(file: File): Promise<{ added: number; skipped: number; total: number }> {
+/** Admin only: the zip made by tutor/scripts/teme_bundle.py; only new exercises are added, and drawings only where none. */
+export async function importRecap(file: File): Promise<{ added: number; skipped: number; total: number; figuresAdded: number }> {
   const formData = new FormData()
   formData.append('file', file)
   const response = await apiFetch('/admin/recap/import', { method: 'POST', body: formData })

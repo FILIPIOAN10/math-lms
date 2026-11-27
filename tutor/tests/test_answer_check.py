@@ -2,7 +2,8 @@
 
 import pytest
 
-from tutor.answer_check import clean_statement, compare, repair_latex, repair_page_latex, same
+from tutor.answer_check import (clean_statement, compare, figure_numbers, mentions_figure, repair_latex,
+                                 repair_page_latex, same)
 
 
 def run(*answers, kind="NUMERIC", needs_figure=False) -> dict:
@@ -99,3 +100,35 @@ def test_figure_markers_are_taken_out_of_a_statement():
     statement = "Considerăm funcția $f(x)=2x-1$.\n[figura 2]\na) Calculați $f(1)$.  [figura 3] b) Aflați $x$."
 
     assert clean_statement(statement) == "Considerăm funcția $f(x)=2x-1$.\na) Calculați $f(1)$. b) Aflați $x$."
+
+
+@pytest.mark.parametrize("statement", [
+    "În figura 1, punctele $A$, $B$ și $C$ sunt coliniare.",
+    "Graficul funcțiilor este prezentat în figura alăturată.",
+    "Figura 2 reprezintă o hartă.",
+    "Fie dreptunghiul $ABCD$ din figura 17, cu $AD=5$.",
+    "Triunghiul $ABC$ (fig. 3) are $AB=6$.",
+    "[figura 1]\na) Calculați aria.",
+    "Aria sectorului din figurii alăturate.",
+])
+def test_a_statement_that_points_at_a_drawing_mentions_a_figure(statement):
+    assert mentions_figure(statement)
+
+
+@pytest.mark.parametrize("statement", [
+    "Calculați $\frac{48}{6}$.\n<!-- warning: No figures found. -->",
+    "Un număr figurează pe listă de două ori.",
+    "Desenați un pătrat cu latura de 3 cm.",
+])
+def test_a_transcription_note_or_another_word_is_not_a_figure(statement):
+    assert not mentions_figure(statement)
+
+
+def test_the_figure_numbers_a_statement_points_at_are_read_in_order():
+    assert figure_numbers("În figura 17 este reprezentat un paralelogram (figura 18).") == [17, 18]
+    assert figure_numbers("În figura 10, $ABCDA'B'C'D'$ este o prismă.") == [10]
+    assert figure_numbers("[figura 1] Figura alăturată") == []  # page markers and "alăturată" carry no book number
+
+
+def test_clean_statement_drops_the_transcription_notes():
+    assert clean_statement("Calculați $1+1$.\n<!-- warning: No figures found. -->") == "Calculați $1+1$."

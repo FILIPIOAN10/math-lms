@@ -53,10 +53,33 @@ def repair_page_latex(text: str) -> str:
     return text.replace("\\belong", "\\in")
 
 
+_NOTE = re.compile(r"<!--.*?-->", re.DOTALL)
+# "figura 3", "Figura alăturată", "figurii", "(fig. 3)", "[figura 1]" - but not "figurează" (another word).
+_FIGURE_WORD = re.compile(r"\bfigur(a|ă|ii|ile|i)\b|\bfig\.\s*\d", re.IGNORECASE)
+_FIGURE_NUMBER = re.compile(r"(?<!\[)\b(?:figura|figurii|fig\.)\s*(\d+)", re.IGNORECASE)
+
+
+def mentions_figure(text: str) -> bool:
+    """Whether a statement points at a printed drawing ("În figura 1", "figura alăturată", "(fig. 3)"). The notes the
+    transcription leaves in HTML comments ("No figures found") do not count."""
+    return bool(_FIGURE_WORD.search(_NOTE.sub(" ", text or "")))
+
+
+def figure_numbers(text: str) -> list[int]:
+    """The book's figure numbers a statement cites, in order ("figura 17" -> 17). A page marker "[figura 1]" is the
+    transcription's own count on the page, not the book's number, so it is left out."""
+    out: list[int] = []
+    for match in _FIGURE_NUMBER.finditer(_NOTE.sub(" ", text or "")):
+        if int(match.group(1)) not in out:
+            out.append(int(match.group(1)))
+    return out
+
+
 def clean_statement(text: str) -> str:
-    """A statement without the "[figura N]" markers the page transcription leaves where a drawing was."""
+    """A statement without the "[figura N]" markers the page transcription leaves where a drawing was, and without its
+    notes in HTML comments."""
     out: list[str] = []
-    for line in text.strip().splitlines():
+    for line in _NOTE.sub("", text).strip().splitlines():
         if _FIGURE_PLACEHOLDER.search(line) and not _FIGURE_PLACEHOLDER.sub("", line).strip():
             continue  # a line that was only a marker
         line = _FIGURE_PLACEHOLDER.sub(" ", line).rstrip()
