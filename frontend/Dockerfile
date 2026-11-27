@@ -9,7 +9,7 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-FROM nginx/nginx-unprivileged:1.30-alpine
+FROM nginx/nginx-unprivileged:1.31-alpine
 # Pull in the OS security fixes published since the base image was built (Trivy gates the release on these).
 # Changes on every release build (build-push.yml), so this layer is never served stale from the build cache.
 ARG APK_CACHE_BUST=local
