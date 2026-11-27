@@ -48,7 +48,7 @@ jobs:
       # `docker login ghcr.io` once with a read:packages token).
       - name: Deploy over SSH (health-gated, rolls back on failure)
         if: steps.check.outputs.configured == 'true'
-        uses: appleboy/ssh-action@v1.2.0
+        uses: appleboy/ssh-action@7eaf76671a0d7eec5d98ee897acda4f968735a17 # v1.2.0
         env:
           BACKEND_IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-backend:${{ env.RELEASE_VERSION }}
           FRONTEND_IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-frontend:${{ env.RELEASE_VERSION }}

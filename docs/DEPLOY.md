@@ -7,7 +7,7 @@ serverului, prima pornire, release-urile automate, rollback-ul, backup-ul și mo
 Internet ─ HTTPS ─► [proxy TLS: Caddy / Traefik / load balancer cloud]
                           │  X-Forwarded-Proto, X-Forwarded-For
                           ▼
-                   nginx (frontend)  :80  ← singurul port publicat
+                   nginx neprivilegiat (frontend)  :8080 în container ← singurul port publicat
                     ├─ /            → SPA (fișiere statice)
                     ├─ /api, /oauth2, /login/oauth2 → backend:8080
                     └─ /actuator    → 404 (nu se expune niciodată)
@@ -60,6 +60,18 @@ se loghează cu Google și primește automat rolul ADMIN. Verifică: `curl -i ht
 Secrete GitHub (Settings → Secrets → Actions, mediul `production`): `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY`
 (opțional `DEPLOY_PATH`, implicit `/opt/math-lms`). Fără ele, imaginile se publică dar nu se face deploy (avertisment, nu eroare).
 Pe server, o singură dată: `docker login ghcr.io` cu un token `read:packages` (dacă pachetele sunt private).
+
+**Scanare săptămânală a imaginilor instalate:** workflow-ul `Weekly production image scan` scanează backend, frontend și tutor
+în fiecare luni. În `Settings → Secrets and variables → Actions → Variables`, setează `PRODUCTION_IMAGE_VERSION` la versiunea
+care rulează efectiv pe server, fără `v` (de exemplu `0.10.11`). După fiecare deploy manual, actualizează variabila la noua
+versiune; dacă lipsește sau nu e o versiune `x.y.z`, scanarea se oprește cu un mesaj explicit. Asta evită scanarea tagului
+`latest`, care poate fi deja mai nou decât versiunea instalată pe server.
+
+**Dependabot:** verifică săptămânal versiunile pentru GitHub Actions, Maven, npm, uv și imaginile de bază din cele trei
+Dockerfile-uri. PR-urile generate se verifică și se îmbină doar după CI.
+
+**Containere de aplicație:** backend, frontend și tutor folosesc filesystem root read-only, fără Linux capabilities și cu
+`no-new-privileges`; `/tmp` este temporar, iar volumul persistent `uploads` rămâne scriibil pentru pozele aplicației.
 
 **Rollback manual**: pe server `cp .env.prod.previous .env.prod && docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --no-build`.
 Rollback-ul nu anulează migrările Flyway deja aplicate — migrările se scriu compatibil cu versiunea anterioară (adaugă coloane nullable,

@@ -15,7 +15,7 @@ RUN python -m pip uninstall -y pip
 WORKDIR /app
 # MPLCONFIGDIR: matplotlib (the figures of /similar-exercises) writes its font cache there; the non-root user has no
 # home directory, and /tmp is writable.
-ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy PYTHONUNBUFFERED=1 MPLCONFIGDIR=/tmp/matplotlib
+ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 MPLCONFIGDIR=/tmp/matplotlib
 
 # Dependencies first, so a code change does not reinstall them.
 COPY pyproject.toml uv.lock ./

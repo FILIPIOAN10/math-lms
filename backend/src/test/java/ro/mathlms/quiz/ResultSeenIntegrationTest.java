@@ -9,6 +9,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
@@ -22,7 +23,10 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -43,12 +47,14 @@ class ResultSeenIntegrationTest {
     @Autowired private QuizAttemptRepository attemptRepository;
 
     private User student;
+    private User otherStudent;
     private QuizAttempt attempt;
 
     @BeforeEach
     void setUp() {
         String stamp = String.valueOf(System.nanoTime());
         student = userRepository.save(new User("elev-" + stamp + "@scoala.ro", "Ana Pop", Role.STUDENT));
+        otherStudent = userRepository.save(new User("alt-elev-" + stamp + "@scoala.ro", "Mihai Rus", Role.STUDENT));
         Quiz quiz = quizRepository.save(new Quiz("Teză " + stamp, null));
         QuizAttempt started = new QuizAttempt(quiz, student);
         started.submit();
@@ -58,6 +64,10 @@ class ResultSeenIntegrationTest {
 
     private RequestPostProcessor asStudent() {
         return user(student.getEmail()).authorities(STUDENT);
+    }
+
+    private RequestPostProcessor asOtherStudent() {
+        return user(otherStudent.getEmail()).authorities(STUDENT);
     }
 
     private boolean isNew() throws Exception {
@@ -94,15 +104,43 @@ class ResultSeenIntegrationTest {
     @Test
     void anotherStudentCannotMarkItSeenAndGetsTheSame404AsForNothing() throws Exception {
         mockMvc.perform(put("/api/quiz/attempts/" + attempt.getId() + "/result-seen")
-                        .with(user("altcineva@scoala.ro").authorities(STUDENT)).with(csrf()))
+                        .with(asOtherStudent()).with(csrf()))
                 .andExpect(status().isNotFound());
         mockMvc.perform(put("/api/quiz/attempts/999999999/result-seen").with(asStudent()).with(csrf()))
                 .andExpect(status().isNotFound());
         // ...and so is reading their result (it was a 403, which confirmed the attempt exists)
         mockMvc.perform(get("/api/quiz/attempts/" + attempt.getId() + "/result")
-                        .with(user("altcineva@scoala.ro").authorities(STUDENT)))
+                        .with(asOtherStudent()))
                 .andExpect(status().isNotFound());
 
         assertThat(isNew()).isTrue();
+    }
+
+    @Test
+    void anotherStudentCannotUseAnyAttemptEndpointWithAGuessedAttemptId() throws Exception {
+        String otherAttempt = "/api/quiz/attempts/" + attempt.getId();
+        long guessedItemId = 987654321L;
+        RequestPostProcessor anotherStudent = asOtherStudent();
+
+        mockMvc.perform(put(otherAttempt + "/responses/" + guessedItemId).with(anotherStudent).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"optionId\":987654321}"))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(multipart(otherAttempt + "/responses/" + guessedItemId + "/photo")
+                        .file(new MockMultipartFile("file", "answer.png", "image/png", new byte[]{1, 2, 3}))
+                        .with(anotherStudent).with(csrf()))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(delete(otherAttempt + "/responses/" + guessedItemId + "/photos/123")
+                        .with(anotherStudent).with(csrf()))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(get(otherAttempt + "/responses/" + guessedItemId + "/photos/123").with(anotherStudent))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(put(otherAttempt + "/items/" + guessedItemId + "/hints/1")
+                        .with(anotherStudent).with(csrf()))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(post(otherAttempt + "/submit").with(anotherStudent).with(csrf()))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(get(otherAttempt + "/result").with(anotherStudent)).andExpect(status().isNotFound());
+        mockMvc.perform(put(otherAttempt + "/result-seen").with(anotherStudent).with(csrf()))
+                .andExpect(status().isNotFound());
     }
 }

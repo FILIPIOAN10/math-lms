@@ -105,6 +105,7 @@ public class AdminUserController {
 
     /** Extra time on timed tests for one student (0, 25, 50 or 100 %); a TEACHER only for their own students. */
     @PutMapping("/{id}/extra-time")
+    @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
     public ResponseEntity<String> changeExtraTime(@PathVariable Long id, @Valid @RequestBody ExtraTimeRequest request) {
         scope.requireStudent(id);
         try {

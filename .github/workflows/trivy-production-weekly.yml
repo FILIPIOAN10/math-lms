@@ -1,0 +1,50 @@
+name: Weekly production image scan
+
+on:
+  schedule:
+    - cron: "0 6 * * 1" # Monday, 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  scan:
+    name: Trivy (${{ matrix.image }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [backend, frontend, tutor]
+    env:
+      PRODUCTION_IMAGE_VERSION: ${{ vars.PRODUCTION_IMAGE_VERSION }}
+    steps:
+      - name: Check out Trivy ignore rules
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Require the deployed version
+        shell: bash
+        run: |
+          if [[ ! "$PRODUCTION_IMAGE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Set the repository Actions variable PRODUCTION_IMAGE_VERSION to the deployed version, e.g. 0.10.11."
+            exit 1
+          fi
+          echo "IMAGE_PREFIX=${GITHUB_REPOSITORY_OWNER,,}/math-lms" >> "$GITHUB_ENV"
+          echo "Scanning deployed release $PRODUCTION_IMAGE_VERSION"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Scan the deployed image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ghcr.io/${{ env.IMAGE_PREFIX }}-${{ matrix.image }}:${{ vars.PRODUCTION_IMAGE_VERSION }}
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          trivyignores: .trivyignore
+          exit-code: "1"

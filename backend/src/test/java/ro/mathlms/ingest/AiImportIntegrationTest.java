@@ -333,6 +333,12 @@ class AiImportIntegrationTest {
         long id = uploadedId(upload(teacher, 1));
         mockMvc.perform(get("/api/admin/ai-imports/" + id).with(as(otherTeacher))).andExpect(status().isNotFound());
         mockMvc.perform(get("/api/admin/ai-imports/" + id + "/pages/1").with(as(otherTeacher))).andExpect(status().isNotFound());
+        mockMvc.perform(post("/api/admin/ai-imports/" + id + "/retry").with(as(otherTeacher)).with(csrf()))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(post("/api/admin/ai-imports/" + id + "/quiz").with(as(otherTeacher)).with(csrf())
+                        .contentType("application/json")
+                        .content("{\"title\":\"Intrus\",\"items\":[{\"type\":\"OPEN\",\"position\":0,\"statement\":\"x\",\"points\":1}]}"))
+                .andExpect(status().isNotFound());
         mockMvc.perform(delete("/api/admin/ai-imports/" + id).with(as(otherTeacher)).with(csrf())).andExpect(status().isNotFound());
         assertThat(json(mockMvc.perform(get("/api/admin/ai-imports").with(as(otherTeacher)))).findValues("id")
                 .stream().map(JsonNode::asLong)).doesNotContain(id);

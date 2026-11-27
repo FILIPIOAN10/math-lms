@@ -9,6 +9,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.security.test.context.support.WithAnonymousUser;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.transaction.annotation.Transactional;
 import ro.mathlms.TestcontainersConfiguration;
 import ro.mathlms.quiz.Quiz;
@@ -18,6 +19,8 @@ import ro.mathlms.quiz.QuizRepository;
 import ro.mathlms.user.Role;
 import ro.mathlms.user.User;
 import ro.mathlms.user.UserRepository;
+
+import java.util.List;
 
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
@@ -123,6 +126,24 @@ class ParentAccessIntegrationTest {
                 .andExpect(status().isForbidden());
         mockMvc.perform(get("/api/parent/children/" + dan.getId() + "/attempts/" + dansAttemptId + "/result"))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(username = MARIA, authorities = {"ROLE_PARENT", "STATUS_ACTIVE"})
+    void everyChildScopedReadHidesAnotherParentsChild() throws Exception {
+        List<MockHttpServletRequestBuilder> requests = List.of(
+                get("/api/parent/children/" + dan.getId() + "/attempts"),
+                get("/api/parent/children/" + dan.getId() + "/assignments"),
+                get("/api/parent/children/" + dan.getId() + "/review"),
+                get("/api/parent/children/" + dan.getId() + "/mastery"),
+                get("/api/parent/children/" + dan.getId() + "/progress"),
+                get("/api/parent/children/" + dan.getId() + "/en-mastery"),
+                get("/api/parent/children/" + dan.getId() + "/en-prediction"),
+                get("/api/parent/children/" + dan.getId() + "/attempts/" + dansAttemptId + "/result"));
+
+        for (MockHttpServletRequestBuilder request : requests) {
+            mockMvc.perform(request).andExpect(status().isForbidden());
+        }
     }
 
     @Test

@@ -47,6 +47,11 @@ services:
     image: ${BACKEND_IMAGE:-mathlms-backend:local}
     build: ./backend
     restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs:
+      - /tmp:rw,nosuid,size=128m
     depends_on:
       postgres:
         condition: service_healthy
@@ -138,6 +143,11 @@ services:
     image: ${TUTOR_IMAGE:-mathlms-tutor:local}
     build: ./tutor
     restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs:
+      - /tmp:rw,nosuid,size=64m
     depends_on:
       postgres:
         condition: service_healthy
@@ -160,11 +170,16 @@ services:
     image: ${FRONTEND_IMAGE:-mathlms-frontend:local}
     build: ./frontend
     restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs:
+      - /tmp:rw,nosuid,size=64m
     depends_on:
       backend:
         condition: service_healthy
     ports:
-      - "${HTTP_BIND:-0.0.0.0}:${HTTP_PORT:-80}:80"   # HTTP_BIND=127.0.0.1 when a TLS proxy runs on the same host
+      - "${HTTP_BIND:-0.0.0.0}:${HTTP_PORT:-80}:8080"   # HTTP_BIND=127.0.0.1 when a TLS proxy runs on the same host
 
   # ---- monitoring (opt-in: --profile monitoring) ----
   prometheus:
