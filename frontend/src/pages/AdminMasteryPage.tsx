@@ -8,11 +8,12 @@ import { ClassAverageCell } from '@/components/ClassAverageCell'
 import { PageHeader } from '@/components/PageHeader'
 import { HomeSection } from '@/components/home/HomeBits'
 import {
-  createCatchUpAssignment, downloadClassGrades, getClassEnMastery, getClassMastery, getClassReview, listAssignments, listClasses, listQuizzes,
+  createCatchUpAssignment, createRecapCatchUp, getRecapChapters, downloadClassGrades, getClassEnMastery, getClassMastery, getClassReview, listAssignments, listClasses, listQuizzes,
   type AssignmentSummary, type ClassMastery, type EnClassMastery, type QuizSummary, type StudentReviewStatus,
 } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { CatchUpDialog } from '@/components/CatchUpDialog'
+import { RecapCatchUpDialog } from '@/components/RecapCatchUpDialog'
 import { weakStudentIds } from '@/lib/catchUp'
 import { formatDate, roCount } from '@/lib/format'
 import { errorMessage } from '@/lib/errors'
@@ -38,6 +39,24 @@ export function AdminMasteryPage() {
   const [className, setClassName] = useState<string | null>(null)
   const [review, setReview] = useState<StudentReviewStatus[] | null>(null)
   const [enGrid, setEnGrid] = useState<EnClassMastery | null>(null)
+  // Catch-up homework from the collection („Teme recapitulative”), from the EN grid: the column, approved counts, result.
+  const [recapColumn, setRecapColumn] = useState<number | null>(null)
+  const [recapCounts, setRecapCounts] = useState<Record<number, number> | null>(null)
+  const [recapGiven, setRecapGiven] = useState<string | null>(null)
+  const [recapError, setRecapError] = useState<string | null>(null)
+
+  async function openRecap(column: number) {
+    setRecapError(null)
+    try {
+      if (recapCounts === null) {
+        const counts = await getRecapChapters()
+        setRecapCounts(Object.fromEntries(counts.map((c) => [c.enChapterId, c.approved])))
+      }
+      setRecapColumn(column)
+    } catch (e) {
+      setRecapError(errorMessage(e))
+    }
+  }
   const [error, setError] = useState<string | null>(null)
   // Catch-up homework: the chapter column whose dialog is open, the quizzes it offers (loaded on first open), the result.
   const [catchUpColumn, setCatchUpColumn] = useState<number | null>(null)
@@ -232,7 +251,24 @@ export function AdminMasteryPage() {
 
         {enGrid && enGrid.chapters.length > 0 && (
           <HomeSection title="Pe capitolele EN">
-            <EnMasteryGrid grid={enGrid} />
+            <EnMasteryGrid grid={enGrid} onCatchUp={openRecap} />
+            {recapError && <p className="text-sm text-destructive">{recapError}</p>}
+            {recapGiven && (
+              <p role="status" className="text-sm">
+                {recapGiven} <Link to="/admin/assignments" className="underline">Vezi temele</Link>
+              </p>
+            )}
+            {recapColumn !== null && recapCounts !== null && (
+              <RecapCatchUpDialog
+                grid={enGrid}
+                column={recapColumn}
+                classId={id}
+                approved={recapCounts[enGrid.chapters[recapColumn].id] ?? 0}
+                onClose={() => setRecapColumn(null)}
+                onCreated={setRecapGiven}
+                createRecapCatchUp={createRecapCatchUp}
+              />
+            )}
           </HomeSection>
         )}
 

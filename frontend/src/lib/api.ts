@@ -2268,7 +2268,7 @@ export type AuditAction =
   | 'EN_CHAPTER_LESSON_SHOWN' | 'EN_CHAPTER_LESSON_HIDDEN' | 'EN_CHAPTER_LESSON_PAGE_REVIEWED' | 'EN_LESSON_EDITED' | 'EN_LESSON_APPROVED'
   | 'EN_EXAMPLE_ADDED' | 'EN_EXAMPLE_UPDATED' | 'EN_EXAMPLE_DELETED' | 'EN_CHAPTER_SLOTS_UPDATED'
   | 'QUIZ_CREATED' | 'QUIZ_UPDATED' | 'QUIZ_COPIED' | 'QUIZ_PUBLISHED' | 'QUIZ_UNPUBLISHED' | 'QUIZ_DELETED'
-  | 'QUESTION_ADDED' | 'QUESTION_UPDATED' | 'QUESTION_DELETED' | 'QUESTION_IMAGE_SET' | 'QUESTION_IMAGE_REMOVED' | 'QUIZ_FROM_PHOTOS'
+  | 'QUESTION_ADDED' | 'QUESTION_UPDATED' | 'QUESTION_DELETED' | 'QUESTION_IMAGE_SET' | 'QUESTION_IMAGE_REMOVED' | 'QUIZ_FROM_PHOTOS' | 'QUIZ_FROM_RECAP'
   | 'ANSWER_GRADED' | 'PAPER_COMMENTED' | 'PAPER_GRADED' | 'PAPER_REOPENED' | 'ATTEMPT_GRANTED' | 'ANSWER_KEY_CORRECTED'
   | 'HOMEWORK_ASSIGNED' | 'HOMEWORK_RESCHEDULED' | 'HOMEWORK_DELETED' | 'HOMEWORK_OVERRIDE_SET' | 'HOMEWORK_OVERRIDE_REMOVED'
   | 'HOMEWORK_REMINDER_SENT'
@@ -2876,5 +2876,129 @@ export interface WeakSpot {
 
 export async function getWeakSpots(): Promise<WeakSpot[]> {
   const response = await apiFetch('/quiz/weak-spots')
+  return response.json()
+}
+
+// --- „Culegere”: the „Teme recapitulative” collection (V82) ---
+
+export type RecapReview = 'DRAFT' | 'APPROVED' | 'REJECTED'
+
+export interface RecapPart {
+  label: string
+  statement: string
+  solution: string | null
+  answer: string | null
+  /** The number a student types, only when both AI runs reached it; null = none asked. */
+  result: string | null
+  verified: boolean
+}
+
+export interface RecapExercise {
+  id: number
+  key: string
+  tema: number
+  number: number
+  statement: string
+  solution: string | null
+  answer: string | null
+  result: string | null
+  /** AGREE / PARTIAL / PROOF / NEEDS_FIGURE / UNPARSED: what comparing the two AI runs said. */
+  aiStatus: string
+  verified: boolean
+  hasImage: boolean
+  figureMissing: boolean
+  enChapterId: number | null
+  enChapterCode: string | null
+  enChapterTitle: string | null
+  review: RecapReview
+  usedIn: number
+  parts: RecapPart[]
+}
+
+export interface RecapFilters {
+  review?: RecapReview | null
+  enChapterId?: number | null
+  tema?: number | null
+  verified?: boolean | null
+  q?: string | null
+}
+
+export async function listRecapExercises(filters: RecapFilters = {}): Promise<RecapExercise[]> {
+  const params = new URLSearchParams()
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value !== null && value !== undefined && value !== '') params.set(key, String(value))
+  })
+  const query = params.toString()
+  const response = await apiFetch(`/admin/recap/exercises${query ? `?${query}` : ''}`)
+  return response.json()
+}
+
+export function recapImageUrl(id: number, version = 0): string {
+  return `/api/admin/recap/exercises/${id}/image${version ? `?v=${version}` : ''}`
+}
+
+export interface RecapEdit {
+  statement: string
+  solution: string | null
+  answer: string | null
+  result: string | null
+  parts: { statement: string; solution: string | null; answer: string | null; result: string | null }[]
+  /** null = recognised again from the text. */
+  enChapterId: number | null
+}
+
+export async function updateRecapExercise(id: number, edit: RecapEdit): Promise<RecapExercise> {
+  const response = await putJson(`/admin/recap/exercises/${id}`, edit)
+  return response.json()
+}
+
+export async function reviewRecapExercise(id: number, review: RecapReview): Promise<RecapExercise> {
+  const response = await postJson(`/admin/recap/exercises/${id}/review`, { review })
+  return response.json()
+}
+
+export async function waiveRecapFigure(id: number): Promise<RecapExercise> {
+  const response = await postJson(`/admin/recap/exercises/${id}/no-figure`, {})
+  return response.json()
+}
+
+export async function attachRecapImage(id: number, file: File): Promise<RecapExercise> {
+  const formData = new FormData()
+  formData.append('file', file)
+  const response = await apiFetch(`/admin/recap/exercises/${id}/image`, { method: 'POST', body: formData })
+  return response.json()
+}
+
+/** Admin only: the zip made by tutor/scripts/teme_bundle.py; only exercises not seen before are added. */
+export async function importRecap(file: File): Promise<{ added: number; skipped: number; total: number }> {
+  const formData = new FormData()
+  formData.append('file', file)
+  const response = await apiFetch('/admin/recap/import', { method: 'POST', body: formData })
+  return response.json()
+}
+
+/** A DRAFT test of the chosen approved exercises, in that order. */
+export async function createRecapQuiz(input: { title: string; exerciseIds: number[]; schoolClassId: number | null }): Promise<number> {
+  const response = await postJson('/admin/recap/quizzes', input)
+  return (await response.json()).quizId
+}
+
+/** Approved exercises per EN chapter. */
+export async function getRecapChapters(): Promise<{ enChapterId: number; code: string; approved: number }[]> {
+  const response = await apiFetch('/admin/recap/chapters')
+  return response.json()
+}
+
+/** Catch-up homework from the collection: a published test of `count` approved exercises, for the chosen students. */
+export async function createRecapCatchUp(input: {
+  schoolClassId: number
+  enChapterId: number
+  studentIds: number[]
+  count: number
+  /** ISO instant. */
+  dueAt: string
+  title?: string | null
+}): Promise<{ quizId: number; assignmentId: number; exerciseCount: number }> {
+  const response = await postJson('/admin/recap/catch-up', input)
   return response.json()
 }

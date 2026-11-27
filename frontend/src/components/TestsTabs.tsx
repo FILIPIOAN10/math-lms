@@ -4,9 +4,10 @@ import { cn } from '@/lib/utils'
 const TABS = [
   { key: 'quizzes', to: '/admin/quizzes', label: 'Teste' },
   { key: 'assignments', to: '/admin/assignments', label: 'Teme' },
+  { key: 'culegere', to: '/admin/culegere', label: 'Culegere' },
 ] as const
 
-/** The two halves of the teacher's "Teste" area (T6): the quizzes, and the homework made from them. */
+/** The teacher's "Teste" area (T6): the quizzes, the homework made from them, and the exercise collection they come from. */
 export function TestsTabs({ current }: { current: (typeof TABS)[number]['key'] }) {
   return (
     <nav aria-label="Teste" className="flex gap-1 border-b">

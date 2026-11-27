@@ -45,6 +45,7 @@ const ChapterPracticePage = lazy(() => import('@/pages/ChapterPracticePage').the
 const AdminEnChaptersPage = lazy(() => import('@/pages/AdminEnChaptersPage').then((m) => ({ default: m.AdminEnChaptersPage })))
 const AdminEnChapterSlotsPage = lazy(() => import('@/pages/AdminEnChapterSlotsPage').then((m) => ({ default: m.AdminEnChapterSlotsPage })))
 const AdminEnChapterPage = lazy(() => import('@/pages/AdminEnChapterPage').then((m) => ({ default: m.AdminEnChapterPage })))
+const AdminRecapPage = lazy(() => import('@/pages/AdminRecapPage').then((m) => ({ default: m.AdminRecapPage })))
 const AdminAiImportPage = lazy(() => import('@/pages/AdminAiImportPage').then((m) => ({ default: m.AdminAiImportPage })))
 
 function App() {
@@ -129,6 +130,14 @@ function App() {
               element={
                 <AdminRoute>
                   <AdminMasteryPage />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/culegere"
+              element={
+                <AdminRoute>
+                  <AdminRecapPage />
                 </AdminRoute>
               }
             />

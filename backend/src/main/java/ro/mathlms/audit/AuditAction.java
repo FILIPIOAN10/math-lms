@@ -53,6 +53,8 @@ public enum AuditAction {
     QUESTION_IMAGE_REMOVED(AuditCategory.QUIZ),
     /** A draft quiz made from photographed textbook pages (Faza 3); the quiz's own QUIZ_CREATED row comes with it. */
     QUIZ_FROM_PHOTOS(AuditCategory.QUIZ),
+    /** A test made of „Teme recapitulative” exercises (V82); the quiz's own QUIZ_CREATED row comes with it. */
+    QUIZ_FROM_RECAP(AuditCategory.QUIZ),
     /** A question's right answer changed after the fact, every paper marked again. */
     ANSWER_KEY_CORRECTED(AuditCategory.QUIZ),
 

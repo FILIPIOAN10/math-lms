@@ -9,9 +9,9 @@ const chapter = (id: number, title: string, parentId: number | null = null) =>
   ({ id, code: `A${id}`, title, parentId }) as EnChapterSummary
 
 describe('commandSearch', () => {
-  it("lists a teacher's pages once each, with the rare ones, homework and the account", () => {
+  it("lists a teacher's pages once each, with the rare ones, homework, the collection and the account", () => {
     const labels = pageEntries('TEACHER').map((e) => e.label)
-    expect(labels).toEqual(['Acasă', 'Clase', 'Teste', 'Corectură', 'Elevi', 'Capitole EN', 'Import din poze', 'Teme', 'Contul meu'])
+    expect(labels).toEqual(['Acasă', 'Clase', 'Teste', 'Corectură', 'Elevi', 'Capitole EN', 'Import din poze', 'Teme', 'Culegere', 'Contul meu'])
   })
 
   it('gives a parent only their home and account', () => {

@@ -5,6 +5,8 @@ import { type EnClassMastery } from '@/lib/api'
 import { EN_AREAS } from '@/lib/enChapters'
 import { classAverage, MASTERY_LABELS, MASTERY_TONES, masteryLevel } from '@/lib/mastery'
 import { ClassAverageCell } from '@/components/ClassAverageCell'
+import { Button } from '@/components/ui/button'
+import { weakEnStudentIds } from '@/lib/recap'
 
 /** The class average of one EN chapter: the mean percent of the students who have data there. */
 export function enAverage(grid: EnClassMastery, column: number) {
@@ -15,8 +17,9 @@ export function enAverage(grid: EnClassMastery, column: number) {
  * The teacher's grid of EN chapters for one class: students down, the EN chapters the class has met across (algebra,
  * then geometry; the code in the header, the title on hover), each cell coloured by level, the class average below.
  * Students with no EN data at all are named on one line under the table instead of a row of dashes each.
+ * With {@code onCatchUp}, a last row offers catch-up homework from the collection per chapter ("Din culegere (n)").
  */
-export function EnMasteryGrid({ grid }: { grid: EnClassMastery }) {
+export function EnMasteryGrid({ grid, onCatchUp }: { grid: EnClassMastery; onCatchUp?: (column: number) => void }) {
   const withData = grid.students.filter((s) => s.cells.some((c) => c.percent !== null))
   const withoutData = grid.students.filter((s) => !withData.includes(s))
   if (grid.chapters.length === 0 || withData.length === 0) {
@@ -81,6 +84,22 @@ export function EnMasteryGrid({ grid }: { grid: EnClassMastery }) {
                   <ClassAverageCell key={chapter.id} average={enAverage(grid, i)} testId={`en-average-${chapter.code}`} />
                 ))}
               </tr>
+              {onCatchUp && (
+                <tr className="border-t">
+                  <th scope="row" className="sticky left-0 z-10 bg-card px-3 py-2 text-left text-xs font-medium">Temă din culegere</th>
+                  {grid.chapters.map((chapter, i) => {
+                    const weak = weakEnStudentIds(grid, i).length
+                    return (
+                      <td key={chapter.id} className="border-l px-1 py-1 text-center">
+                        <Button size="sm" variant={weak > 0 ? 'outline' : 'ghost'} onClick={() => onCatchUp(i)}
+                                aria-label={`Temă din culegere la ${chapter.code} ${chapter.title}`}>
+                          {weak > 0 ? `Temă (${weak})` : 'Temă'}
+                        </Button>
+                      </td>
+                    )
+                  })}
+                </tr>
+              )}
             </tfoot>
           </table>
         </CardContent>

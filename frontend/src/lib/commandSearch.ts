@@ -35,7 +35,8 @@ const PAGE_KEYWORDS: Record<string, string> = {
   '/quizzes': 'note rezultate',
   '/account': 'parola tema intunecata email date export',
   '/admin/journal': 'audit istoric cine a schimbat',
-  '/admin/quizzes/ai-import': 'ai fotografii poze culegere scanare',
+  '/admin/quizzes/ai-import': 'ai fotografii poze scanare',
+  '/admin/culegere': 'culegere teme recapitulative exercitii aprobare',
 }
 
 /** The role's pages: the main links, the rarer ones, homework for the staff, and the account. */
@@ -43,7 +44,7 @@ export function pageEntries(role: Role): CommandEntry[] {
   const pages = [
     ...navItems(role),
     ...secondaryNavItems(role),
-    ...(isStaff(role) ? [{ to: '/admin/assignments', label: 'Teme' }] : []),
+    ...(isStaff(role) ? [{ to: '/admin/assignments', label: 'Teme' }, { to: '/admin/culegere', label: 'Culegere' }] : []),
     { to: '/account', label: 'Contul meu' },
   ]
   const seen = new Set<string>()
