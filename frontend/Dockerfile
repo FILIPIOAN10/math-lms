@@ -2,7 +2,7 @@
 # Multi-stage: Vite builds the static SPA, nginx serves it and proxies the API on the SAME origin
 # (so the HttpOnly cookie works without CORS — decision D6) (Phase 6.4).
 
-FROM node:24-alpine AS build
+FROM node:26-alpine AS build
 WORKDIR /build
 COPY package.json package-lock.json ./
 RUN npm ci
