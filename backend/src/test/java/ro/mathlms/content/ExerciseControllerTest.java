@@ -18,7 +18,7 @@ class ExerciseControllerTest {
 
     private final ExerciseService service = mock(ExerciseService.class);
     private final ContentAccess access = mock(ContentAccess.class);
-    private final ExerciseController controller = new ExerciseController(service, access, new TeacherScope(null));
+    private final ExerciseController controller = new ExerciseController(service, access, new TeacherScope(null, org.mockito.Mockito.mock(ro.mathlms.audit.SecurityAuditLog.class)));
     private final Authentication auth = new UsernamePasswordAuthenticationToken("ana@scoala.ro", null);
 
     private final Chapter chapter =

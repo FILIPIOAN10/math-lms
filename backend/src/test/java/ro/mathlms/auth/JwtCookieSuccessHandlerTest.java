@@ -31,7 +31,7 @@ class JwtCookieSuccessHandlerTest {
         when(refreshTokens.refreshCookie(any())).thenReturn(ResponseCookie.from("MATHLMS_REFRESH", "refresh").build());
         JwtCookieSuccessHandler handler =
                 new JwtCookieSuccessHandler(cookieFactory, refreshTokens, "https://mate.exemplu.ro",
-                        org.mockito.Mockito.mock(MfaChallenges.class));
+                        org.mockito.Mockito.mock(MfaChallenges.class), org.mockito.Mockito.mock(ro.mathlms.audit.SecurityAuditLog.class));
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         handler.onAuthenticationSuccess(new MockHttpServletRequest(), response,
@@ -49,7 +49,7 @@ class JwtCookieSuccessHandlerTest {
         MfaChallenges challenges = mock(MfaChallenges.class);
         when(challenges.start(user)).thenReturn(ResponseCookie.from(MfaChallenges.COOKIE, "id").build());
         JwtCookieSuccessHandler handler =
-                new JwtCookieSuccessHandler(cookieFactory, refreshTokens, "https://mate.exemplu.ro", challenges);
+                new JwtCookieSuccessHandler(cookieFactory, refreshTokens, "https://mate.exemplu.ro", challenges, org.mockito.Mockito.mock(ro.mathlms.audit.SecurityAuditLog.class));
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         handler.onAuthenticationSuccess(new MockHttpServletRequest(), response,

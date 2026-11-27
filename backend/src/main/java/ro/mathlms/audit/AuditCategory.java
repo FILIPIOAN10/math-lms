@@ -11,5 +11,7 @@ public enum AuditCategory {
     /** Homework: assigned, deadline moved, removed. */
     HOMEWORK,
     /** Accounts, class rosters, parent links and invite links. */
-    PEOPLE
+    PEOPLE,
+    /** Sign-in, account recovery, two-step authentication and denied cross-teacher access. */
+    SECURITY
 }

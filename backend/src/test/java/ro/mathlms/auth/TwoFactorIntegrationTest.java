@@ -43,6 +43,7 @@ class TwoFactorIntegrationTest {
     @Autowired private MockMvc mockMvc;
     @Autowired private UserRepository userRepository;
     @Autowired private PasswordEncoder passwordEncoder;
+    @Autowired private org.springframework.jdbc.core.JdbcTemplate jdbc;
 
     private User admin;
 
@@ -185,5 +186,41 @@ class TwoFactorIntegrationTest {
         String stored = userRepository.findById(admin.getId()).orElseThrow().getTotpSecret();
         assertThat(stored).isNotEqualTo(enrolled.secret()).doesNotContain(enrolled.secret());
         assertThat(List.of(stored)).isNotEmpty();
+    }
+
+    @Test
+    void aSecretNoKeyOpensIsAWrongCodeNotA500AndARecoveryCodeStillWorks() throws Exception {
+        Enrolled enrolled = enrol(admin, "ADMIN");
+        // What happened on the server: TOTP_ENC_KEY replaced without TOTP_ENC_KEY_PREVIOUS.
+        jdbc.update("update users set totp_secret = ? where id = ?",
+                "v1:" + java.util.Base64.getEncoder().encodeToString(new byte[40]), admin.getId());
+        Cookie challenge = login(admin).getResponse().getCookie(MfaChallenges.COOKIE);
+
+        mockMvc.perform(post("/api/auth/2fa/verify").cookie(challenge).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"code\":\"" + code(enrolled.secret(), 1) + "\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("Codul nu se potrivește."));
+        mockMvc.perform(post("/api/auth/2fa/verify").cookie(challenge).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"code\":\"" + enrolled.recoveryCode() + "\"}"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void signInsGoToTheSecurityJournalWithoutTheAddress() throws Exception {
+        enrol(admin, "ADMIN");
+        mockMvc.perform(post("/api/auth/login").with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"" + admin.getEmail() + "\",\"password\":\"gresita-123\"}"))
+                .andExpect(status().isUnauthorized());
+        Cookie challenge = login(admin).getResponse().getCookie(MfaChallenges.COOKIE);
+        mockMvc.perform(post("/api/auth/2fa/verify").cookie(challenge).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"code\":\"000000\"}"))
+                .andExpect(status().isBadRequest());
+
+        java.util.List<String> actions = jdbc.queryForList(
+                "select action from admin_audit_log where actor_id = ? order by id", String.class, admin.getId());
+        assertThat(actions).contains("LOGIN_FAILED", "LOGIN_CHALLENGE_STARTED", "TWO_FACTOR_FAILED");
+        Integer leaks = jdbc.queryForObject("select count(*) from admin_audit_log where actor_id = ? and "
+                + "(details like ? or label like ?)", Integer.class, admin.getId(), "%@%", "%@%");
+        assertThat(leaks).isZero();
     }
 }

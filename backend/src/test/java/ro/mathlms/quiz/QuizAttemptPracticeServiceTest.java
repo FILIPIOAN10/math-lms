@@ -231,7 +231,7 @@ class QuizAttemptPracticeServiceTest {
         QuizAttempt attempt = practiceAttempt(50L);
         stubAnswering(attempt);
         when(fileService.uploadImage(eq("uploads/quiz-photos"), any())).thenReturn("stored.jpg");
-        MockMultipartFile photo = new MockMultipartFile("file", "p.jpg", "image/jpeg", new byte[]{1});
+        MockMultipartFile photo = new MockMultipartFile("file", "p.jpg", "image/jpeg", ro.mathlms.storage.TestImages.jpeg(40, 30));
 
         AnswerFeedbackDto feedback = service.uploadOpenPhoto(50L, 101L, photo, EMAIL).feedback();
 
@@ -243,7 +243,7 @@ class QuizAttemptPracticeServiceTest {
         QuizAttempt attempt = testAttempt(50L);
         stubAnswering(attempt);
         when(fileService.uploadImage(eq("uploads/quiz-photos"), any())).thenReturn("stored.jpg");
-        MockMultipartFile photo = new MockMultipartFile("file", "p.jpg", "image/jpeg", new byte[]{1});
+        MockMultipartFile photo = new MockMultipartFile("file", "p.jpg", "image/jpeg", ro.mathlms.storage.TestImages.jpeg(40, 30));
 
         StudentQuizDtos.PhotosDto photos = service.uploadOpenPhoto(50L, 101L, photo, EMAIL);
 

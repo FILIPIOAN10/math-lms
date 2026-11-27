@@ -53,7 +53,7 @@ class AdminQuizAttemptControllerTest {
     static class MethodSecurityConfig {
         @org.springframework.context.annotation.Bean
         ro.mathlms.teaching.TeacherScope teacherScope() {
-            return new ro.mathlms.teaching.TeacherScope(null);
+            return new ro.mathlms.teaching.TeacherScope(null, org.mockito.Mockito.mock(ro.mathlms.audit.SecurityAuditLog.class));
         }
     }
 

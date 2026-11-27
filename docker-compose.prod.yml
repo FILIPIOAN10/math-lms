@@ -106,6 +106,7 @@ services:
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-6-luna}
       GEMINI_PROJECT: ${GEMINI_PROJECT:-}
       GEMINI_LOCATION: ${GEMINI_LOCATION:-global}
+      GEMINI_GRADING_LOCATION: ${GEMINI_GRADING_LOCATION:-eu}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.8-flash}
       GEMINI_CREDENTIALS_FILE: ${GEMINI_CREDENTIALS_FILE:-/app/secrets/gcp-vertex.json}
       # The barem read from photos + AI grade proposals (V44): Gemini only, its strongest model; OFF unless enabled.

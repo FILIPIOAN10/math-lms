@@ -48,32 +48,34 @@ import { selectClass } from '@/lib/formClasses'
 
 /** How often the page asks whether the pages have been read. */
 const POLL_MS = 2000
+/** AiImportService.MAX_PDF_BYTES: a PDF the browser cannot draw is sent as it is only below this. */
+const SERVER_PDF_LIMIT = 20 * 1024 * 1024
 
 /** A PDF (scanned pages): sent as it is, the server renders its pages. Some browsers leave its type empty. */
 const isPdf = (f: File) => f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf')
 
-/**
- * What goes up: photos with their long edge at 2000 px (small print stays readable at a few hundred KB a page), and a
- * PDF as its pages drawn here the same way - a scanned PDF can be tens of MB, more than the server takes in one
- * request, while its pages are not. A PDF the browser cannot draw goes as it is: the server draws it then.
- */
+/** What goes up: clean photos or PDF pages rendered within the browser's size, page-count and time limits. */
 async function pagesToSend(files: File[], limit: number): Promise<File[]> {
   const out: File[] = []
   for (const file of files) {
     if (!isPdf(file)) {
+      if (out.length >= limit) throw new Error(`Poți trimite cel mult ${limit} pagini odată.`)
       out.push(await shrinkImage(file, 2000, 0.85))
       continue
     }
+    const remaining = limit - out.length
+    const drawn: File[] = []
     try {
-      const drawn: File[] = []
-      for await (const page of pdfPageImages(file)) {
-        drawn.push(page.file)
-        if (out.length + drawn.length > limit) break // already too many: no point drawing the rest
-      }
-      out.push(...drawn)
-    } catch {
+      for await (const page of pdfPageImages(file, 2000, 0.85, remaining)) drawn.push(page.file)
+    } catch (e) {
+      // Too big, too many pages, not a PDF or too slow: say so. Anything else is this browser failing to draw a valid
+      // PDF - then it goes as it is and the server renders it, within its own size, page and time limits.
+      if ((e as Error)?.name === 'PdfProcessingError' || file.size > SERVER_PDF_LIMIT) throw e
+      if (out.length >= limit) throw new Error(`Poți trimite cel mult ${limit} pagini odată.`)
       out.push(file)
+      continue
     }
+    out.push(...drawn)
   }
   return out
 }

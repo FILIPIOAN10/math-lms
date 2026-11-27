@@ -18,7 +18,7 @@ class ChapterControllerTest {
 
     private final ChapterService service = mock(ChapterService.class);
     private final ContentAccess access = mock(ContentAccess.class);
-    private final ChapterController controller = new ChapterController(service, access, new TeacherScope(null));
+    private final ChapterController controller = new ChapterController(service, access, new TeacherScope(null, org.mockito.Mockito.mock(ro.mathlms.audit.SecurityAuditLog.class)));
     private final Authentication auth = new UsernamePasswordAuthenticationToken("ana@scoala.ro", null);
 
     private final Book book = new Book(new SchoolClass("Clasa a 9-a", null), "M1", null);

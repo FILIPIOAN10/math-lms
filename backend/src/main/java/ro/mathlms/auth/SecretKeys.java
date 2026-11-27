@@ -42,6 +42,8 @@ public class SecretKeys {
     private final SecretKeySpec totpPrevious;
     /** The pre-phase-2 TOTP key, derived from JWT_SECRET: reads the secrets stored before ciphertexts had a version. */
     private final SecretKeySpec totpLegacy;
+    /** Keys the login limiter's Redis counters, so Redis never holds an email address. */
+    private final byte[] loginPseudonyms;
 
     @Autowired
     public SecretKeys(AuthProperties auth, KeyProperties keys) {
@@ -68,6 +70,7 @@ public class SecretKeys {
         }
         this.totpPrevious = totpPreviousKey == null ? null : aes(sha256("mathlms-totp-key:" + totpPreviousKey));
         this.totpLegacy = aes(sha256("mathlms-totp-secret:" + jwtSecret));
+        this.loginPseudonyms = derive(jwtSecret, "mathlms-login-pseudonyms-v1");
     }
 
     /** Every key derived from JWT_SECRET, legacy links accepted: for tests that build services by hand. */
@@ -89,6 +92,11 @@ public class SecretKeys {
 
     Optional<SecretKeySpec> totpPrevious() {
         return Optional.ofNullable(totpPrevious);
+    }
+
+    /** A key of its own for pseudonymising emails in rate-limit counters (derived, never the signing key itself). */
+    byte[] loginPseudonyms() {
+        return loginPseudonyms.clone();
     }
 
     SecretKeySpec totpLegacy() {

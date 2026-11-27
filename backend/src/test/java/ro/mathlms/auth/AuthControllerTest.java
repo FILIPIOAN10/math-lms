@@ -38,10 +38,12 @@ class AuthControllerTest {
     private final JwtCookieFactory jwtCookieFactory = mock(JwtCookieFactory.class);
     private final PasswordResetService passwordResetService = mock(PasswordResetService.class);
     private final RefreshTokenService refreshTokenService = mock(RefreshTokenService.class);
+    private final ro.mathlms.audit.SecurityAuditLog securityAuditLog = mock(ro.mathlms.audit.SecurityAuditLog.class);
+    private final LoginAccountRateLimiter loginLimiter = mock(LoginAccountRateLimiter.class);
     private final AuthController controller = new AuthController(
             userRepository, registrationService, emailService, verificationTokenService,
             loginService, jwtCookieFactory, passwordResetService, refreshTokenService,
-            mock(TwoFactorService.class), mock(MfaChallenges.class));
+            mock(TwoFactorService.class), mock(MfaChallenges.class), securityAuditLog, loginLimiter);
 
     @BeforeEach
     void logoutCookieFromTheFactory() {
@@ -213,6 +215,30 @@ class AuthControllerTest {
                 .isInstanceOf(AccountNotActiveException.class);
 
         assertThat(servletResponse.getCookie(JwtCookieSuccessHandler.COOKIE_NAME)).isNull();
+    }
+
+    @Test
+    void aWrongPasswordIsCountedAgainstTheAccountAndJournalled() {
+        when(loginService.authenticate(anyString(), anyString()))
+                .thenThrow(new org.springframework.security.authentication.BadCredentialsException("Invalid credentials"));
+
+        assertThatThrownBy(() -> controller.login(new LoginRequest("ana@scoala.ro", "gresit"), new MockHttpServletResponse()))
+                .isInstanceOf(org.springframework.security.authentication.BadCredentialsException.class);
+
+        verify(loginLimiter).recordFailure("ana@scoala.ro");
+        verify(securityAuditLog).recordForEmail(ro.mathlms.audit.AuditAction.LOGIN_FAILED, "ana@scoala.ro",
+                "Date de conectare respinse");
+    }
+
+    @Test
+    void aBlockedAccountIsRefusedBeforeThePasswordIsEvenChecked() {
+        org.mockito.Mockito.doThrow(new LoginRateLimitExceededException(600))
+                .when(loginLimiter).requireNotBlocked("ana@scoala.ro");
+
+        assertThatThrownBy(() -> controller.login(new LoginRequest("ana@scoala.ro", "parola123"), new MockHttpServletResponse()))
+                .isInstanceOf(LoginRateLimitExceededException.class);
+
+        verify(loginService, never()).authenticate(anyString(), anyString());
     }
 
     // --- Step 1.6h: forgot / reset password ---

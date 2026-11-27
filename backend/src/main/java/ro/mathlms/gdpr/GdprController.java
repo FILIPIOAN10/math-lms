@@ -1,10 +1,13 @@
 package ro.mathlms.gdpr;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
+import ro.mathlms.audit.AuditAction;
+import ro.mathlms.audit.SecurityAuditLog;
 
 /**
  * Self-service GDPR endpoints for the authenticated account, under {@code /api/users/gdpr/...}.
@@ -17,11 +20,16 @@ public class GdprController {
 
     private final GdprExportRequests exportRequests;
     private final GdprErasureService erasureService;
+    private final SecurityAuditLog securityAuditLog;
 
-    public GdprController(GdprExportRequests exportRequests, GdprErasureService erasureService) {
+    @Autowired
+    public GdprController(GdprExportRequests exportRequests, GdprErasureService erasureService,
+                          SecurityAuditLog securityAuditLog) {
         this.exportRequests = exportRequests;
         this.erasureService = erasureService;
+        this.securityAuditLog = securityAuditLog;
     }
+
 
     /** What asking for the archive did (the page says it); the link itself only ever goes by email. */
     public record ExportRequestedDto(GdprExportRequests.Outcome outcome) {
@@ -30,7 +38,9 @@ public class GdprController {
     /** 202: queued (or already being built, or a fresh link emailed for the archive already built). */
     @PostMapping("/api/users/gdpr/export")
     public ResponseEntity<ExportRequestedDto> export(Authentication auth) {
-        return ResponseEntity.accepted().body(new ExportRequestedDto(exportRequests.request(auth.getName())));
+        GdprExportRequests.Outcome outcome = exportRequests.request(auth.getName());
+        securityAuditLog.recordForEmail(AuditAction.GDPR_EXPORT_REQUESTED, auth.getName(), "Rezultat cerere: " + outcome);
+        return ResponseEntity.accepted().body(new ExportRequestedDto(outcome));
     }
 
     /** Step 1 of erasure: verify the requester and email a confirmation link. Nothing is deleted yet. */

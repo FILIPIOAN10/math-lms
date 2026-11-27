@@ -161,12 +161,12 @@ export function AdminEnChapterPage() {
   function uploadPdf(files: File[]) {
     void run(async () => {
       const file = files[0]
-      const pages = await pdfPageCount(file)
+      const pages = await pdfPageCount(file, MAX_PHOTOS)
       const room = MAX_PHOTOS - (page?.photos.length ?? 0)
       if (pages > room) {
         throw new ApiError(400, `PDF-ul are ${pages} pagini, dar capitolul mai poate primi ${room} (cel mult ${MAX_PHOTOS}).`)
       }
-      for await (const image of pdfPageImages(file)) {
+      for await (const image of pdfPageImages(file, 2000, 0.85, room)) {
         setProgress(`Se încarcă pagina ${image.page} din ${image.total}…`)
         await uploadEnChapterPhoto(chapterId, image.file)
       }

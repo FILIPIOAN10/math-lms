@@ -4,6 +4,8 @@ import io.jsonwebtoken.JwtException;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -13,10 +15,13 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import ro.mathlms.gdpr.ErasureNotAllowedException;
+import ro.mathlms.storage.InvalidImageUploadException;
 
 /** Maps auth-flow exceptions to HTTP responses without leaking internals. */
 @RestControllerAdvice
 public class ApiExceptionHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(ApiExceptionHandler.class);
 
     /** Failed credential checks — the FailedLoginBruteForce alert watches the rate of this counter. */
     private final Counter failedLogins;
@@ -41,7 +46,27 @@ public class ApiExceptionHandler {
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<String> handleBadCredentials(BadCredentialsException ex) {
         failedLogins.increment();
+        log.warn("Login failed: credentials rejected");
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid email or password");
+    }
+
+    @ExceptionHandler(LoginRateLimitExceededException.class)
+    public ResponseEntity<String> handleLoginRateLimited(LoginRateLimitExceededException ex) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header("Retry-After", String.valueOf(ex.retryAfterSeconds()))
+                .body("Prea multe încercări pentru acest cont. Încearcă din nou puțin mai târziu.");
+    }
+
+    @ExceptionHandler(LoginRateLimitUnavailableException.class)
+    public ResponseEntity<String> handleLoginRateLimitUnavailable(LoginRateLimitUnavailableException ex) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .header("Retry-After", "30")
+                .body("Autentificarea este temporar indisponibilă. Încearcă din nou.");
+    }
+
+    @ExceptionHandler(InvalidImageUploadException.class)
+    public ResponseEntity<String> handleInvalidImageUpload(InvalidImageUploadException ex) {
+        return ResponseEntity.badRequest().body(ex.getMessage());
     }
 
     /** Credentials were correct but the account is not allowed a session yet. */

@@ -37,11 +37,13 @@ public class GeminiClient {
 
     static final Duration TIMEOUT = Duration.ofSeconds(180);
     private static final String GLOBAL = "global";
+    private static final String EUROPEAN_UNION = "eu";
 
     static final String NO_PROJECT = "Proiectul Google Cloud (GEMINI_PROJECT) lipsește din configurarea serverului.";
     static final String NO_ACCESS = "Contul Google nu are acces la Gemini: verifică rolul „Agent Platform user” și că "
             + "API-ul e pornit în proiect.";
-    static final String NO_MODEL = "Modelul Gemini setat nu există în regiunea aleasă (GEMINI_MODEL, GEMINI_LOCATION).";
+    static final String NO_MODEL = "Modelul Gemini setat nu există în regiunea aleasă (GEMINI_MODEL/GEMINI_STRONG_MODEL, "
+            + "GEMINI_LOCATION/GEMINI_GRADING_LOCATION).";
     static final String RATE_LIMITED = "Google e ocupat momentan și a refuzat cererea de mai multe ori. Încearcă din nou "
             + "peste câteva minute (pozele rămân salvate).";
     static final String UNAVAILABLE = "Google nu răspunde acum. Încearcă din nou peste câteva minute.";
@@ -119,9 +121,11 @@ public class GeminiClient {
 
     /** {@code global} has its own host; a region is served from {@code <region>-aiplatform.googleapis.com}. */
     public static String baseUrl(String location) {
-        return location == null || location.isBlank() || GLOBAL.equals(location.strip())
-                ? "https://aiplatform.googleapis.com"
-                : "https://" + location.strip() + "-aiplatform.googleapis.com";
+        String normalized = location == null || location.isBlank() ? GLOBAL : location.strip();
+        if (GLOBAL.equals(normalized)) return "https://aiplatform.googleapis.com";
+        if (EUROPEAN_UNION.equals(normalized)) return "https://aiplatform.eu.rep.googleapis.com";
+        if ("us".equals(normalized)) return "https://aiplatform.us.rep.googleapis.com";
+        return "https://" + normalized + "-aiplatform.googleapis.com";
     }
 
     String model() {
@@ -148,13 +152,19 @@ public class GeminiClient {
      * one ({@code app.ai.gemini.strong-model}), the page reader keeps the cheaper default.
      */
     public JsonNode generate(ObjectNode body, String model) throws ExtractionException {
+        return generate(body, model, location);
+    }
+
+    /** Sends sensitive grading images and text through the selected jurisdiction-specific endpoint. */
+    public JsonNode generate(ObjectNode body, String model, String requestLocation) throws ExtractionException {
         if (project.isEmpty()) {
             throw new ExtractionException(NO_PROJECT);
         }
+        String targetLocation = requestLocation == null || requestLocation.isBlank() ? location : requestLocation.strip();
         String bearer = accessToken.get();
         JsonNode response;
         try {
-            response = postWithRetries(body, bearer, model);
+            response = postWithRetries(body, bearer, model, targetLocation);
         } catch (RestClientResponseException e) {
             // The body explains a 400/404 (bad image, unknown model); it never contains the token.
             log.warn("Gemini answered {}: {}", e.getStatusCode().value(), e.getResponseBodyAsString());
@@ -171,12 +181,16 @@ public class GeminiClient {
     }
 
     /** One call, asked again after each pause in {@link #backoff} while Google answers "busy". */
-    private JsonNode postWithRetries(ObjectNode body, String bearer, String model) throws ExtractionException {
+    private JsonNode postWithRetries(ObjectNode body, String bearer, String model, String requestLocation)
+            throws ExtractionException {
         for (int attempt = 0; ; attempt++) {
             try {
+                String uri = requestLocation.equals(location)
+                        ? "/v1/projects/{project}/locations/{location}/publishers/google/models/{model}:generateContent"
+                        : baseUrl(requestLocation)
+                        + "/v1/projects/{project}/locations/{location}/publishers/google/models/{model}:generateContent";
                 return restClient.post()
-                        .uri("/v1/projects/{project}/locations/{location}/publishers/google/models/{model}:generateContent",
-                                project, location, model)
+                        .uri(uri, project, requestLocation, model)
                         .header("Authorization", "Bearer " + bearer)
                         .contentType(MediaType.APPLICATION_JSON)
                         .body(body)

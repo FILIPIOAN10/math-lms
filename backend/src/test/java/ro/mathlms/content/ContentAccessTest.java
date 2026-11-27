@@ -29,7 +29,7 @@ class ContentAccessTest {
     private final ExerciseRepository exerciseRepository = mock(ExerciseRepository.class);
     private final ContentAccess access = new ContentAccess(
             userRepository, enrollmentRepository, bookRepository, chapterRepository, exerciseRepository,
-            new TeacherScope(null));
+            new TeacherScope(null, org.mockito.Mockito.mock(ro.mathlms.audit.SecurityAuditLog.class)));
 
     private final User ana = withId(new User("ana@scoala.ro", "Ana", Role.STUDENT), 7L);
 

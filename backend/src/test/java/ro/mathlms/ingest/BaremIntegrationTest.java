@@ -226,7 +226,7 @@ class BaremIntegrationTest {
     @Test
     void refusesAnythingButPhotosAndAnEmptyTest() throws Exception {
         mockMvc.perform(multipart("/api/admin/quizzes/" + quiz.getId() + "/barem-reads")
-                        .file(new MockMultipartFile("files", "barem.pdf", "application/pdf", PNG)).with(as(teacher)).with(csrf()))
+                        .file(new MockMultipartFile("files", "barem.pdf", "application/pdf", "neither a PDF nor an image".getBytes())).with(as(teacher)).with(csrf()))
                 .andExpect(status().isBadRequest());
         Quiz empty = quizAdminService.createQuiz("Gol " + System.nanoTime(), null, null, null, false);
         mockMvc.perform(multipart("/api/admin/quizzes/" + empty.getId() + "/barem-reads")

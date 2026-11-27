@@ -581,4 +581,13 @@ class TeacherScopeIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON).content("{\"teacherId\":" + studentB.getId() + "}"))
                 .andExpect(status().isNotFound());
     }
+
+    @Test
+    void aDeniedLookIsJournalledAsSecurityWithTheTeacherAndTheResource() throws Exception {
+        mockMvc.perform(get("/api/admin/quizzes/" + quizB.getId()).with(asAna())).andExpect(status().isNotFound());
+
+        java.util.List<String> details = jdbcTemplate.queryForList("select details from admin_audit_log "
+                + "where action = 'TEACHER_SCOPE_DENIED' and actor_id = ?", String.class, ana.getId());
+        assertThat(details).anyMatch(d -> d.contains("Quiz") && d.contains(String.valueOf(quizB.getId())));
+    }
 }

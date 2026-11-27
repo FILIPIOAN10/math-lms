@@ -17,7 +17,7 @@ import static org.mockito.Mockito.when;
 class EnrollmentControllerTest {
 
     private final EnrollmentService service = mock(EnrollmentService.class);
-    private final EnrollmentController controller = new EnrollmentController(service, new TeacherScope(null));
+    private final EnrollmentController controller = new EnrollmentController(service, new TeacherScope(null, org.mockito.Mockito.mock(ro.mathlms.audit.SecurityAuditLog.class)));
 
     private final SchoolClass ninth = new SchoolClass("Clasa a 9-a", null);
 

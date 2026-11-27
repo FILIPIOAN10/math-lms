@@ -2257,7 +2257,7 @@ export async function getMyAssignments(): Promise<StudentAssignment[]> {
 
 // --- F1: the teachers' journal ---
 
-export type AuditCategory = 'CONTENT' | 'QUIZ' | 'GRADING' | 'HOMEWORK' | 'PEOPLE'
+export type AuditCategory = 'CONTENT' | 'QUIZ' | 'GRADING' | 'HOMEWORK' | 'PEOPLE' | 'SECURITY'
 
 export type AuditAction =
   | 'CLASS_CREATED' | 'CLASS_UPDATED' | 'CLASS_DELETED'
@@ -2274,6 +2274,9 @@ export type AuditAction =
   | 'HOMEWORK_REMINDER_SENT'
   | 'ACCOUNT_APPROVED' | 'ACCOUNT_REJECTED' | 'PARENT_LINKED' | 'EXTRA_TIME_CHANGED' | 'STUDENT_ENROLLED' | 'STUDENT_UNENROLLED'
   | 'INVITE_LINK_CREATED' | 'INVITE_LINK_REVOKED' | 'JOINED_BY_INVITE' | 'STUDENT_REMOVED'
+  | 'LOGIN_FAILED' | 'LOGIN_CHALLENGE_STARTED' | 'LOGIN_SUCCEEDED'
+  | 'TWO_FACTOR_FAILED' | 'TWO_FACTOR_SUCCEEDED' | 'TWO_FACTOR_ENABLED' | 'TWO_FACTOR_DISABLED'
+  | 'TWO_FACTOR_RECOVERY_CODES_REGENERATED' | 'PASSWORD_RESET' | 'GDPR_EXPORT_REQUESTED' | 'TEACHER_SCOPE_DENIED'
 
 /**
  * One row of the journal. Names are today's (an erased account shows its pseudonym); `actorName` is null when the

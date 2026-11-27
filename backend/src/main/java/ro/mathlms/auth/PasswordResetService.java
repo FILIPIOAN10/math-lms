@@ -6,6 +6,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import ro.mathlms.user.User;
 import ro.mathlms.user.UserRepository;
+import ro.mathlms.audit.AuditAction;
+import ro.mathlms.audit.SecurityAuditLog;
 
 /**
  * Handles the "forgot password" flow. Requesting a reset never reveals whether
@@ -23,25 +25,24 @@ public class PasswordResetService {
     private final VerificationTokenService verificationTokenService;
     private final EmailService emailService;
     private final RefreshTokenService refreshTokenService;
+    private final SecurityAuditLog securityAuditLog;
 
     @Autowired
     public PasswordResetService(UserRepository userRepository,
                                 PasswordEncoder passwordEncoder,
                                 VerificationTokenService verificationTokenService,
                                 EmailService emailService,
-                                RefreshTokenService refreshTokenService) {
+                                RefreshTokenService refreshTokenService,
+                                SecurityAuditLog securityAuditLog) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.verificationTokenService = verificationTokenService;
         this.emailService = emailService;
         this.refreshTokenService = refreshTokenService;
+        this.securityAuditLog = securityAuditLog;
     }
 
-    /** Test compatibility constructor. */
-    public PasswordResetService(UserRepository userRepository, PasswordEncoder passwordEncoder,
-                                VerificationTokenService verificationTokenService, EmailService emailService) {
-        this(userRepository, passwordEncoder, verificationTokenService, emailService, null);
-    }
+
 
     /** Emails a reset link if the account exists; silently no-ops otherwise. */
     public void requestReset(String email) {
@@ -62,9 +63,8 @@ public class PasswordResetService {
 
         user.setPassword(passwordEncoder.encode(newRawPassword));
         userRepository.save(user);
-        if (refreshTokenService != null) {
-            refreshTokenService.revokeAll(user.getEmail());
-        }
+        refreshTokenService.revokeAll(user.getEmail());
+        securityAuditLog.record(AuditAction.PASSWORD_RESET, user.getId(), "Parola a fost resetată");
         emailService.sendPasswordChangedNotice(user.getEmail());
     }
 }

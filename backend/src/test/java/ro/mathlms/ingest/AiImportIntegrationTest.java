@@ -352,7 +352,7 @@ class AiImportIntegrationTest {
         upload(teacher, 0).andExpect(status().isBadRequest());
         upload(teacher, properties.maxPages() + 1).andExpect(status().isBadRequest());
         mockMvc.perform(multipart("/api/admin/ai-imports")
-                        .file(new MockMultipartFile("files", "x.pdf", "application/pdf", PNG)).with(as(teacher)).with(csrf()))
+                        .file(new MockMultipartFile("files", "x.pdf", "application/pdf", "neither a PDF nor an image".getBytes())).with(as(teacher)).with(csrf()))
                 .andExpect(status().isBadRequest());
 
         // fill today's allowance through the repository, then one more page is refused with what is left

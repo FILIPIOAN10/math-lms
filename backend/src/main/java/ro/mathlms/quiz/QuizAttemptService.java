@@ -42,6 +42,7 @@ import ro.mathlms.quiz.StudentQuizDtos.StartedAttemptDto;
 import ro.mathlms.quiz.StudentQuizDtos.StudentItemDto;
 import ro.mathlms.quiz.StudentQuizDtos.StudentQuizDto;
 import ro.mathlms.storage.FileService;
+import ro.mathlms.storage.ImageUploadSanitizer;
 import ro.mathlms.user.ExtraTime;
 import ro.mathlms.user.User;
 import ro.mathlms.user.UserRepository;
@@ -521,9 +522,11 @@ public class QuizAttemptService {
             throw new InvalidQuizException("Ai deja " + ItemResponse.MAX_PHOTOS
                     + " poze la această întrebare. Șterge una ca să adaugi alta.");
         }
+        // Checked by content, re-encoded without EXIF/GPS (only after the cheap refusals: decoding is the costly part).
+        MultipartFile cleanImage = ImageUploadSanitizer.sanitize(file, ImageUploadSanitizer.STUDENT_PHOTO_MAX_BYTES);
         String stored;
         try {
-            stored = fileService.uploadImage(quizPhotosDir, file);
+            stored = fileService.uploadImage(quizPhotosDir, cleanImage);
         } catch (IOException e) {
             throw new UncheckedIOException("Could not store the photo", e);
         }
@@ -890,9 +893,8 @@ public class QuizAttemptService {
         if (file == null || file.isEmpty()) {
             throw new InvalidQuizException("A photo file is required");
         }
-        String contentType = file.getContentType();
-        if (contentType == null || !contentType.startsWith("image/")) {
-            throw new InvalidQuizException("Only image files are accepted");
+        if (file.getSize() > ImageUploadSanitizer.STUDENT_PHOTO_MAX_BYTES) {
+            throw new InvalidQuizException("Poza e prea mare (maxim 8 MB).");
         }
     }
 

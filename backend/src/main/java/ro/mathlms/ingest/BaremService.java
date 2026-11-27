@@ -42,6 +42,7 @@ import ro.mathlms.quiz.QuizOption;
 import ro.mathlms.quiz.QuizOptionRepository;
 import ro.mathlms.quiz.QuizRepository;
 import ro.mathlms.storage.FileService;
+import ro.mathlms.storage.ImageUploadSanitizer;
 import ro.mathlms.user.User;
 import ro.mathlms.user.UserRepository;
 import tools.jackson.core.JacksonException;
@@ -80,7 +81,6 @@ public class BaremService implements AiQueue {
     /** The number a single question of the review is given for the reader (the photo may print another). */
     static final String QUESTION_LABEL = "1";
     private static final int MAX_PARTS = 10;
-    private static final Set<String> TYPES = Set.of("image/png", "image/jpeg", "image/webp");
 
     private final BaremReadRepository repository;
     private final UserRepository userRepository;
@@ -184,16 +184,10 @@ public class BaremService implements AiQueue {
         if (pages.size() > properties.baremMaxPages()) {
             throw new InvalidQuizException("Poți trimite cel mult " + properties.baremMaxPages() + " poze cu baremul odată.");
         }
-        for (MultipartFile page : pages) {
-            if (page.getContentType() == null || !TYPES.contains(page.getContentType())) {
-                throw new InvalidQuizException("Pozele trebuie să fie JPG, PNG sau WEBP.");
-            }
-            if (page.getSize() > AiImportService.MAX_PAGE_BYTES) {
-                throw new InvalidQuizException("O poză e prea mare (maxim 4 MB).");
-            }
-        }
+        List<MultipartFile> cleanPages = pages.stream()
+                .map(page -> ImageUploadSanitizer.sanitize(page, AiImportService.MAX_PAGE_BYTES)).toList();
         long used = repository.pagesSince(teacher.getId(), startOfToday());
-        if (used + pages.size() > properties.baremDailyPageLimit()) {
+        if (used + cleanPages.size() > properties.baremDailyPageLimit()) {
             long left = Math.max(0, properties.baremDailyPageLimit() - used);
             String limit = RoCount.of(properties.baremDailyPageLimit(), "poză", "poze");
             throw new InvalidQuizException(left == 0
@@ -202,7 +196,7 @@ public class BaremService implements AiQueue {
                     + " pe zi).");
         }
         List<StoredPage> stored = new ArrayList<>();
-        for (MultipartFile page : pages) {
+        for (MultipartFile page : cleanPages) {
             try {
                 String key = fileService.uploadImage(importProperties.pagesDir(), page);
                 stored.add(new StoredPage(key, page.getContentType()));

@@ -5,11 +5,12 @@ import {
   createQuestionBaremRead, getQuestionBaremRead, type QuestionBarem, type QuestionBaremRequest,
 } from '@/lib/api'
 import { errorMessage } from '@/lib/errors'
-import { cropImage } from '@/lib/image'
+import { cropImage, shrinkImage } from '@/lib/image'
 import { pdfPageImages } from '@/lib/pdfPages'
 
 /** How often the reading is asked about while the AI reads (it takes a few seconds to a minute). */
 const POLL_MS = 2000
+const MAX_BAREM_PAGES = 5
 
 /** The whole page: where the frame starts before the teacher pulls it onto the problem. */
 const WHOLE = { x: 0, y: 0, w: 1, h: 1 }
@@ -83,13 +84,16 @@ export function QuestionBaremReader({ question, photos, onPhotos, onRead, pollMs
     try {
       for (const file of Array.from(files)) {
         if (!isPdf(file)) {
-          pages.push(file)
+          if (pages.length >= MAX_BAREM_PAGES) throw new Error(`Poți folosi cel mult ${MAX_BAREM_PAGES} pagini cu baremul.`)
+          pages.push(await shrinkImage(file))
           continue
         }
-        for await (const drawn of pdfPageImages(file)) pages.push(drawn.file)
+        for await (const drawn of pdfPageImages(file, 2000, 0.85, MAX_BAREM_PAGES - pages.length)) {
+          pages.push(drawn.file)
+        }
       }
-    } catch {
-      setError('Nu am putut deschide PDF-ul. Încearcă o poză a paginii cu baremul.')
+    } catch (e) {
+      setError(errorMessage(e) || 'Nu am putut deschide PDF-ul. Încearcă o poză a paginii cu baremul.')
       return
     }
     onPhotos(pages)

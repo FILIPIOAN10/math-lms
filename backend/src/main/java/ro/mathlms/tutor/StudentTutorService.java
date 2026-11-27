@@ -140,6 +140,8 @@ public class StudentTutorService {
 
         TutorClient.Explanation answer;
         try {
+            // Privacy invariant: the external tutor gets only the student's question and bounded chat history, never
+            // the account id, name, email, class, or other profile fields.
             answer = client.explain(question.strip(), history);
         } catch (TutorException e) {
             giveBack(studentId, today); // the student did not get an answer: the question is not used up

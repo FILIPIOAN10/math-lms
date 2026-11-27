@@ -18,7 +18,7 @@ import static org.mockito.Mockito.when;
 class QuizAdminControllerTest {
 
     private final QuizAdminService service = mock(QuizAdminService.class);
-    private final QuizAdminController controller = new QuizAdminController(service, new TeacherScope(null),
+    private final QuizAdminController controller = new QuizAdminController(service, new TeacherScope(null, org.mockito.Mockito.mock(ro.mathlms.audit.SecurityAuditLog.class)),
             new AnswerKeyChecks(mock(QuizStatsService.class)), mock(WhyWrongService.class));
 
     @Test

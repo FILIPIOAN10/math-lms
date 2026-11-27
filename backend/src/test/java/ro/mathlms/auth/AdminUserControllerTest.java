@@ -17,7 +17,7 @@ import static org.mockito.Mockito.when;
 class AdminUserControllerTest {
 
     private final AdminUserService adminUserService = mock(AdminUserService.class);
-    private final AdminUserController controller = new AdminUserController(adminUserService, new TeacherScope(null),
+    private final AdminUserController controller = new AdminUserController(adminUserService, new TeacherScope(null, org.mockito.Mockito.mock(ro.mathlms.audit.SecurityAuditLog.class)),
             org.mockito.Mockito.mock(ro.mathlms.gdpr.GdprErasureService.class));
 
     @Test

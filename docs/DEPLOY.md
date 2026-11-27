@@ -200,10 +200,14 @@ ssh -i ~/.ssh/math-lms-aws.pem ubuntu@SERVER "sudo mkdir -p /opt/math-lms/secret
 
 În `/opt/math-lms/.env.prod` (editat pe server, `sudo nano`): `AI_IMPORT_ENABLED=true`, `AI_PROVIDER=gemini`,
 `GEMINI_PROJECT=<id-ul proiectului>`; opțional `GEMINI_LOCATION` (implicit `global`) și `GEMINI_MODEL` (implicit `gemini-3.8-flash`).
-`GEMINI_CREDENTIALS_FILE` are deja valoarea corectă în compose (`/app/secrets/gcp-vertex.json`). Apoi `up -d backend`.
+`GEMINI_CREDENTIALS_FILE` are deja valoarea corectă în compose (`/app/secrets/gcp-vertex.json`).
+Citirea baremului și propunerile de notare folosesc separat `GEMINI_GRADING_LOCATION=eu` (implicit `eu`), indiferent de
+`GEMINI_LOCATION`; acest endpoint păstrează procesarea lucrărilor elevilor în UE și nu face fallback la `global`.
+Modelul configurat pentru notare trebuie să fie disponibil pe endpointul UE. Apoi `up -d backend`.
 
-- **Regiunea:** `global` are modelele noi (2026-10: `gemini-3.8-flash`, `gemini-4-argon`), dar Google poate procesa cererea oriunde;
-  `europe-west1` ține procesarea în UE, dar are doar `gemini-2.5-*`. Se trimit doar poze cu pagini de manual, niciodată date ale elevilor.
+- **Regiunea pentru importul paginilor de manual:** `GEMINI_LOCATION` rămâne setarea separată; `global` poate procesa cererea oriunde.
+- **Regiunea pentru barem și notare:** `eu` este endpointul multi-regiune UE. Codul nu trimite către Gemini numele, emailul sau ID-ul
+  elevului; modelul primește enunțul, baremul și fotografiile răspunsului.
 - **Erorile** apar profesorului în română, pe ecranul importului (cheie lipsă / respinsă, rol lipsă, model inexistent în regiune, credit
   epuizat); detaliile tehnice sunt în logul backend-ului (`Gemini answered …`).
 - **Cheia nu e în backup** (`deploy/backup.sh` salvează baza și pozele): dacă se pierde, creezi alta din Google Cloud și o ștergi pe cea veche.

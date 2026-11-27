@@ -200,6 +200,8 @@ app:
       credentials-file: ${GEMINI_CREDENTIALS_FILE:}
       project: ${GEMINI_PROJECT:}
       location: ${GEMINI_LOCATION:global}
+      # Student answer photos are sent only through Vertex AI's EU multi-region endpoint.
+      grading-location: ${GEMINI_GRADING_LOCATION:eu}
       model: ${GEMINI_MODEL:gemini-3.8-flash}
       # The strongest model, for what must be right rather than cheap: reading a test's barem and proposing grades
       # (2026-10: gemini-4-argon, $2 in / $10 out per 1M tokens until 2026-11-30, then $4 / $20).

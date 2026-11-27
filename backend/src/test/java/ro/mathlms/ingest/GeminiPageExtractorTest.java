@@ -195,4 +195,12 @@ class GeminiPageExtractorTest {
         assertThat(GeminiClient.messageFor(HttpStatus.SERVICE_UNAVAILABLE)).isEqualTo(GeminiClient.UNAVAILABLE);
         assertThat(GeminiClient.messageFor(HttpStatus.BAD_REQUEST)).isEqualTo(GeminiClient.REJECTED);
     }
+
+    @Test
+    void studentWorkGoesToTheEuEndpointAndTheRestKeepsTheirRegion() {
+        assertThat(GeminiClient.baseUrl("eu")).isEqualTo("https://aiplatform.eu.rep.googleapis.com");
+        assertThat(GeminiClient.baseUrl("global")).isEqualTo("https://aiplatform.googleapis.com");
+        assertThat(GeminiClient.baseUrl(" ")).isEqualTo("https://aiplatform.googleapis.com");
+        assertThat(GeminiClient.baseUrl("europe-west1")).isEqualTo("https://europe-west1-aiplatform.googleapis.com");
+    }
 }

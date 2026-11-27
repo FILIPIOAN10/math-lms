@@ -26,7 +26,7 @@ class AssignmentControllersTest {
 
     private final AssignmentService service = mock(AssignmentService.class);
     private final AssignmentAdminController admin = new AssignmentAdminController(service, mock(PublishAndAssignService.class),
-            new TeacherScope(null));
+            new TeacherScope(null, org.mockito.Mockito.mock(ro.mathlms.audit.SecurityAuditLog.class)));
     private final AssignmentStudentController student = new AssignmentStudentController(service);
     private final Instant due = Instant.parse("2026-10-12T15:00:00Z");
 

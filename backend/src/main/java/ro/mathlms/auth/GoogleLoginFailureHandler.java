@@ -7,6 +7,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationFailureHandler;
+import ro.mathlms.audit.AuditAction;
+import ro.mathlms.audit.SecurityAuditLog;
 
 import java.io.IOException;
 import java.util.Set;
@@ -32,15 +34,21 @@ public class GoogleLoginFailureHandler extends SimpleUrlAuthenticationFailureHan
 
     /** The login page lives in the app (FRONTEND_BASE_URL), not on this server. */
     private final String frontendBaseUrl;
+    private final SecurityAuditLog securityAuditLog;
 
-    public GoogleLoginFailureHandler(String frontendBaseUrl) {
+
+    public GoogleLoginFailureHandler(String frontendBaseUrl, SecurityAuditLog securityAuditLog) {
         this.frontendBaseUrl = frontendBaseUrl;
+        this.securityAuditLog = securityAuditLog;
     }
 
     @Override
     public void onAuthenticationFailure(HttpServletRequest request, HttpServletResponse response,
                                         AuthenticationException exception) throws IOException {
-        getRedirectStrategy().sendRedirect(request, response, frontendBaseUrl + "/login?error=" + reason(exception));
+        String safeReason = reason(exception);
+        log.warn("Google sign-in failed: {}", safeReason);
+        securityAuditLog.record(AuditAction.LOGIN_FAILED, null, "Conectare Google respinsă: " + safeReason);
+        getRedirectStrategy().sendRedirect(request, response, frontendBaseUrl + "/login?error=" + safeReason);
     }
 
     private static String reason(AuthenticationException exception) {
@@ -49,7 +57,7 @@ public class GoogleLoginFailureHandler extends SimpleUrlAuthenticationFailureHan
         if (EXPLAINED.contains(code)) {
             return code;
         }
-        log.warn("Google sign-in failed: {}", code); // a wrong client secret ends up here
+        // A wrong client secret ends up here; only the safe fixed code reaches the log and redirect.
         return FAILED;
     }
 }

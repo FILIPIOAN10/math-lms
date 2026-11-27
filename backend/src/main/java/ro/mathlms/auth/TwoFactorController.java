@@ -1,6 +1,7 @@
 package ro.mathlms.auth;
 
 import jakarta.validation.constraints.NotBlank;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -8,6 +9,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
+import ro.mathlms.audit.AuditAction;
+import ro.mathlms.audit.SecurityAuditLog;
 
 import java.util.List;
 
@@ -23,10 +26,14 @@ public class TwoFactorController {
     }
 
     private final TwoFactorService service;
+    private final SecurityAuditLog securityAuditLog;
 
-    public TwoFactorController(TwoFactorService service) {
+    @Autowired
+    public TwoFactorController(TwoFactorService service, SecurityAuditLog securityAuditLog) {
         this.service = service;
+        this.securityAuditLog = securityAuditLog;
     }
+
 
     @GetMapping("/api/me/2fa")
     public TwoFactorService.Status status(Authentication auth) {
@@ -42,17 +49,25 @@ public class TwoFactorController {
     /** Turns it on with the app's first code; the recovery codes, shown this once. */
     @PostMapping("/api/me/2fa/enable")
     public RecoveryCodesDto enable(@RequestBody @jakarta.validation.Valid CodeRequest request, Authentication auth) {
-        return new RecoveryCodesDto(service.enable(auth.getName(), request.code()));
+        RecoveryCodesDto result = new RecoveryCodesDto(service.enable(auth.getName(), request.code()));
+        securityAuditLog.recordForEmail(AuditAction.TWO_FACTOR_ENABLED, auth.getName(),
+                "Autentificarea 2FA a fost activată");
+        return result;
     }
 
     @PostMapping("/api/me/2fa/recovery-codes")
     public RecoveryCodesDto recoveryCodes(@RequestBody @jakarta.validation.Valid CodeRequest request, Authentication auth) {
-        return new RecoveryCodesDto(service.regenerateRecoveryCodes(auth.getName(), request.code()));
+        RecoveryCodesDto result = new RecoveryCodesDto(service.regenerateRecoveryCodes(auth.getName(), request.code()));
+        securityAuditLog.recordForEmail(AuditAction.TWO_FACTOR_RECOVERY_CODES_REGENERATED, auth.getName(),
+                "Codurile de recuperare au fost regenerate");
+        return result;
     }
 
     @PostMapping("/api/me/2fa/disable")
     public ResponseEntity<Void> disable(@RequestBody @jakarta.validation.Valid CodeRequest request, Authentication auth) {
         service.disable(auth.getName(), request.code());
+        securityAuditLog.recordForEmail(AuditAction.TWO_FACTOR_DISABLED, auth.getName(),
+                "Autentificarea 2FA a fost dezactivată");
         return ResponseEntity.noContent().build();
     }
 }

@@ -13,7 +13,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 /** A Google sign-in that ends without a session lands on the app's login page, with a code it knows how to explain. */
 class GoogleLoginFailureHandlerTest {
 
-    private final GoogleLoginFailureHandler handler = new GoogleLoginFailureHandler("https://mate.exemplu.ro");
+    private final GoogleLoginFailureHandler handler = new GoogleLoginFailureHandler("https://mate.exemplu.ro", org.mockito.Mockito.mock(ro.mathlms.audit.SecurityAuditLog.class));
 
     private String redirectAfter(AuthenticationException failure) throws Exception {
         MockHttpServletResponse response = new MockHttpServletResponse();

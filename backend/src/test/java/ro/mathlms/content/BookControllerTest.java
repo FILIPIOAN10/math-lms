@@ -21,7 +21,7 @@ class BookControllerTest {
 
     private final BookService service = mock(BookService.class);
     private final ContentAccess access = mock(ContentAccess.class);
-    private final BookController controller = new BookController(service, access, new TeacherScope(null));
+    private final BookController controller = new BookController(service, access, new TeacherScope(null, org.mockito.Mockito.mock(ro.mathlms.audit.SecurityAuditLog.class)));
     private final Authentication auth = new UsernamePasswordAuthenticationToken("ana@scoala.ro", null);
 
     private final SchoolClass ninth = new SchoolClass("Clasa a 9-a", null);

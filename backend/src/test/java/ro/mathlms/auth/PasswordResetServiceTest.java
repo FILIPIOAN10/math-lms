@@ -36,7 +36,8 @@ class PasswordResetServiceTest {
         verificationTokenService = mock(VerificationTokenService.class);
         emailService = mock(EmailService.class);
         service = new PasswordResetService(
-                userRepository, passwordEncoder, verificationTokenService, emailService);
+                userRepository, passwordEncoder, verificationTokenService, emailService,
+                mock(RefreshTokenService.class), org.mockito.Mockito.mock(ro.mathlms.audit.SecurityAuditLog.class));
     }
 
     @Test

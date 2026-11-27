@@ -26,6 +26,8 @@ const api = vi.hoisted(() => ({
   getMyAssignments: vi.fn(),
 }))
 vi.mock('@/lib/api', async (importOriginal) => ({ ...(await importOriginal<typeof import('@/lib/api')>()), ...api }))
+// jsdom cannot decode or draw images; the real re-encoding is covered in image.test.ts and on the server.
+vi.mock('@/lib/image', () => ({ shrinkImage: (f: File) => Promise.resolve(f), cropImage: (f: File) => Promise.resolve(f) }))
 
 function started(
   mode: AttemptMode,

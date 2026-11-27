@@ -21,7 +21,7 @@ class SchoolClassControllerTest {
     private final ContentAccess access = mock(ContentAccess.class);
     private final EnrollmentService enrollmentService = mock(EnrollmentService.class);
     private final SchoolClassController controller = new SchoolClassController(service, access, enrollmentService,
-            new TeacherScope(null));
+            new TeacherScope(null, org.mockito.Mockito.mock(ro.mathlms.audit.SecurityAuditLog.class)));
     private final Authentication auth = new UsernamePasswordAuthenticationToken("ana@scoala.ro", null);
 
     @Test

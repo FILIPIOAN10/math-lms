@@ -10,7 +10,7 @@ const api = vi.hoisted(() => ({
   getQuestionBaremRead: vi.fn(),
 }))
 vi.mock('@/lib/api', async (original) => ({ ...(await original<typeof import('@/lib/api')>()), ...api }))
-const image = vi.hoisted(() => ({ cropImage: vi.fn() }))
+const image = vi.hoisted(() => ({ cropImage: vi.fn(), shrinkImage: (f: File) => Promise.resolve(f) }))
 vi.mock('@/lib/image', () => image)
 const pdfPages = vi.hoisted(() => ({ images: [] as File[] }))
 vi.mock('@/lib/pdfPages', () => ({

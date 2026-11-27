@@ -15,7 +15,7 @@ class GdprControllerTest {
 
     private final GdprExportRequests exportRequests = mock(GdprExportRequests.class);
     private final GdprErasureService erasureService = mock(GdprErasureService.class);
-    private final GdprController controller = new GdprController(exportRequests, erasureService);
+    private final GdprController controller = new GdprController(exportRequests, erasureService, org.mockito.Mockito.mock(ro.mathlms.audit.SecurityAuditLog.class));
     private final Authentication auth =
             new UsernamePasswordAuthenticationToken("elev@scoala.ro", null);
 

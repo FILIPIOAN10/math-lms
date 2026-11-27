@@ -23,6 +23,7 @@ import org.springframework.security.web.authentication.session.NullAuthenticated
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
+import ro.mathlms.audit.SecurityAuditLog;
 
 @Configuration
 @EnableWebSecurity
@@ -49,6 +50,7 @@ public class SecurityConfig {
                                             JwtCookieAuthFilter jwtCookieAuthFilter,
                                             ClientRegistrationRepository clientRegistrationRepository,
                                             MetricsTokenAuthorizationManager metricsAccess,
+                                            SecurityAuditLog securityAuditLog,
                                             @Value("${app.frontend.base-url}") String frontendBaseUrl) throws Exception {
         OAuth2AuthorizationRequestResolver inviteAwareResolver =
                 new InviteAwareAuthorizationRequestResolver(
@@ -127,7 +129,7 @@ public class SecurityConfig {
                                 .authorizationRequestRepository(inviteCapturingRepository))
                         .userInfoEndpoint(userInfo -> userInfo.oidcUserService(customOidcUserService))
                         .successHandler(jwtCookieSuccessHandler)
-                        .failureHandler(new GoogleLoginFailureHandler(frontendBaseUrl)))
+                        .failureHandler(new GoogleLoginFailureHandler(frontendBaseUrl, securityAuditLog)))
                 .exceptionHandling(ex ->
                         ex.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
                 .addFilterBefore(jwtCookieAuthFilter, UsernamePasswordAuthenticationFilter.class)

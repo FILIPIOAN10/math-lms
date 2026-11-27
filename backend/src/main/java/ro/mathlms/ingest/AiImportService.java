@@ -37,6 +37,7 @@ import ro.mathlms.quiz.QuizItem;
 import ro.mathlms.quiz.QuizItemRepository;
 import ro.mathlms.quiz.QuizNotFoundException;
 import ro.mathlms.storage.FileService;
+import ro.mathlms.storage.ImageUploadSanitizer;
 import ro.mathlms.user.User;
 import ro.mathlms.user.UserRepository;
 
@@ -69,10 +70,12 @@ public class AiImportService implements AiQueue {
     static final ZoneId ZONE = ZoneId.of("Europe/Bucharest");
     /** The browser shrinks pages before upload (a readable page is well under 1 MB); this bounds a direct call. */
     static final long MAX_PAGE_BYTES = 4L * 1024 * 1024;
+    /** Direct PDF uploads are capped before PDFBox reads or renders them. */
+    static final long MAX_PDF_BYTES = 20L * 1024 * 1024;
     static final int MAX_ATTEMPTS = 3;
     /** A read that has run this long is not running any more (the app restarted mid-read). */
     static final Duration STUCK_AFTER = Duration.ofMinutes(10);
-    private static final Set<String> TYPES = Set.of("image/png", "image/jpeg", "image/webp");
+    private static final Set<String> TYPES = Set.of("image/png", "image/jpeg");
     private static final TypeReference<List<StoredPage>> PAGES = new TypeReference<>() { };
     private static final TypeReference<List<ExtractedItem>> ITEMS = new TypeReference<>() { };
 
@@ -150,7 +153,7 @@ public class AiImportService implements AiQueue {
         }
         for (MultipartFile page : pages) {
             if (page.getContentType() == null || !TYPES.contains(page.getContentType())) {
-                throw new InvalidQuizException("Pozele trebuie să fie JPG, PNG sau WEBP.");
+                throw new InvalidQuizException("Pozele trebuie să fie JPG sau PNG.");
             }
             if (page.getSize() > MAX_PAGE_BYTES) {
                 throw new InvalidQuizException("O poză e prea mare (maxim 4 MB).");
@@ -209,27 +212,31 @@ public class AiImportService implements AiQueue {
     }
 
     /**
-     * Photos as they are; a scanned PDF as its pages, each rendered to a JPEG here (so a PDF counts as its pages
-     * toward both limits). Its page count is checked before anything is rendered.
+     * Images are signature-checked, orientation-corrected and re-encoded so EXIF is removed. A scanned PDF becomes
+     * pages rendered to clean JPEGs; its signature, size, page count and processing time are bounded server-side.
      */
     private List<MultipartFile> pagesOf(List<MultipartFile> uploads) {
         List<MultipartFile> pages = new ArrayList<>();
         for (MultipartFile upload : uploads) {
-            boolean pdf = "application/pdf".equals(upload.getContentType())
-                    || (upload.getOriginalFilename() != null && upload.getOriginalFilename().toLowerCase(java.util.Locale.ROOT).endsWith(".pdf"));
-            if (!pdf) {
-                pages.add(upload);
-                continue;
+            if (pages.size() >= properties.maxPages()) {
+                throw new InvalidQuizException("Poți trimite cel mult " + properties.maxPages() + " pagini odată.");
             }
             byte[] bytes;
+            if (upload.getSize() > MAX_PDF_BYTES) {
+                throw new InvalidQuizException("Un fișier poate avea cel mult 20 MB.");
+            }
             try {
                 bytes = upload.getBytes();
             } catch (IOException e) {
                 throw new UncheckedIOException("Nu am putut citi PDF-ul", e);
             }
-            List<byte[]> rendered = PdfPages.render(bytes, properties.maxPages());
-            for (int i = 0; i < rendered.size(); i++) {
-                pages.add(new JpegUpload(rendered.get(i), "pagina-" + (i + 1) + ".jpg"));
+            if (ImageUploadSanitizer.hasPdfSignature(bytes)) {
+                List<byte[]> rendered = PdfPages.render(bytes, properties.maxPages() - pages.size());
+                for (int i = 0; i < rendered.size(); i++) {
+                    pages.add(new JpegUpload(rendered.get(i), "pagina-" + (i + 1) + ".jpg"));
+                }
+            } else {
+                pages.add(ImageUploadSanitizer.sanitize(upload, MAX_PAGE_BYTES));
             }
         }
         return pages;

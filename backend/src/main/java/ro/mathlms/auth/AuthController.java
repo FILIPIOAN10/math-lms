@@ -3,9 +3,11 @@ package ro.mathlms.auth;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,6 +19,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import ro.mathlms.user.User;
 import ro.mathlms.user.UserRepository;
+import ro.mathlms.audit.AuditAction;
+import ro.mathlms.audit.SecurityAuditLog;
 
 import java.util.List;
 
@@ -34,7 +38,10 @@ public class AuthController {
     private final RefreshTokenService refreshTokenService;
     private final TwoFactorService twoFactor;
     private final MfaChallenges mfaChallenges;
+    private final SecurityAuditLog securityAuditLog;
+    private final LoginAccountRateLimiter loginAccountRateLimiter;
 
+    @Autowired
     public AuthController(UserRepository userRepository,
                           RegistrationService registrationService,
                           EmailService emailService,
@@ -44,7 +51,9 @@ public class AuthController {
                           PasswordResetService passwordResetService,
                           RefreshTokenService refreshTokenService,
                           TwoFactorService twoFactor,
-                          MfaChallenges mfaChallenges) {
+                          MfaChallenges mfaChallenges,
+                          SecurityAuditLog securityAuditLog,
+                          LoginAccountRateLimiter loginAccountRateLimiter) {
         this.userRepository = userRepository;
         this.registrationService = registrationService;
         this.emailService = emailService;
@@ -55,6 +64,8 @@ public class AuthController {
         this.refreshTokenService = refreshTokenService;
         this.twoFactor = twoFactor;
         this.mfaChallenges = mfaChallenges;
+        this.securityAuditLog = securityAuditLog;
+        this.loginAccountRateLimiter = loginAccountRateLimiter;
     }
 
     /** The second step of a sign-in: an authenticator code (or a recovery code). */
@@ -89,13 +100,29 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<UserDto> login(@Valid @RequestBody LoginRequest request,
                                          HttpServletResponse response) {
-        User user = loginService.authenticate(request.email(), request.password());
+        // Before the password is looked at: fail-closed (503) when Redis is down, 429 after too many wrong passwords.
+        loginAccountRateLimiter.requireNotBlocked(request.email());
+
+        User user;
+        try {
+            user = loginService.authenticate(request.email(), request.password());
+        } catch (BadCredentialsException e) {
+            loginAccountRateLimiter.recordFailure(request.email());
+            securityAuditLog.recordForEmail(AuditAction.LOGIN_FAILED, request.email(), "Date de conectare respinse");
+            throw e;
+        } catch (AccountNotActiveException e) {
+            securityAuditLog.recordForEmail(AuditAction.LOGIN_FAILED, request.email(), "Conectare refuzată: cont neactiv");
+            throw e;
+        }
+        loginAccountRateLimiter.recordSuccess(request.email());
         if (user.isTwoFactorEnabled()) {
             // F8: the password was right, but no session yet - 202 = "now the code from the app".
             response.addHeader(HttpHeaders.SET_COOKIE, mfaChallenges.start(user).toString());
+            securityAuditLog.record(AuditAction.LOGIN_CHALLENGE_STARTED, user.getId(), "Parola acceptată; se cere 2FA");
             return ResponseEntity.accepted().build();
         }
         issueSession(user, response);
+        securityAuditLog.record(AuditAction.LOGIN_SUCCEEDED, user.getId(), "Conectare cu parolă");
         return ResponseEntity.ok(UserDto.from(user, twoFactor.mustEnrol(user)));
     }
 
@@ -116,10 +143,13 @@ public class AuthController {
                     .body("Conectarea a expirat sau ai greșit codul de prea multe ori. Conectează-te din nou.");
         }
         if (!twoFactor.verifySignIn(user, request.code())) {
+            securityAuditLog.record(AuditAction.TWO_FACTOR_FAILED, user.getId(), "Codul 2FA a fost respins");
             return ResponseEntity.badRequest().body("Codul nu se potrivește.");
         }
         response.addHeader(HttpHeaders.SET_COOKIE, mfaChallenges.finish(httpRequest).toString());
         issueSession(user, response);
+        securityAuditLog.record(AuditAction.TWO_FACTOR_SUCCEEDED, user.getId(), "Cod 2FA acceptat");
+        securityAuditLog.record(AuditAction.LOGIN_SUCCEEDED, user.getId(), "Conectare cu parolă și 2FA");
         return ResponseEntity.ok(UserDto.from(user, twoFactor.mustEnrol(user)));
     }
 

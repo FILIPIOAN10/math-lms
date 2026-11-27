@@ -3,6 +3,7 @@ package ro.mathlms.ingest;
 import ro.mathlms.aiusage.AiUsageRecorder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import ro.mathlms.ingest.PageExtractor.PageImage;
@@ -31,14 +32,23 @@ public class GeminiBaremReader implements BaremReader {
     private final ObjectMapper objectMapper;
     private final String model;
     private final String thinkingLevel;
+    private final String location;
 
+    @Autowired
     public GeminiBaremReader(GeminiClient client, ObjectMapper objectMapper,
                              @Value("${app.ai.gemini.strong-model:gemini-4-argon}") String model,
-                             @Value("${app.ai.gemini.barem-thinking-level:LOW}") String thinkingLevel) {
+                             @Value("${app.ai.gemini.barem-thinking-level:LOW}") String thinkingLevel,
+                             @Value("${app.ai.gemini.grading-location:eu}") String location) {
         this.client = client;
         this.objectMapper = objectMapper;
         this.model = model;
         this.thinkingLevel = thinkingLevel;
+        this.location = location;
+    }
+
+    /** Compatibility constructor for focused unit tests; production injects the EU location above. */
+    GeminiBaremReader(GeminiClient client, ObjectMapper objectMapper, String model, String thinkingLevel) {
+        this(client, objectMapper, model, thinkingLevel, "global");
     }
 
     @Override
@@ -48,7 +58,7 @@ public class GeminiBaremReader implements BaremReader {
 
     @Override
     public Result read(List<PageImage> pages, List<OutlineItem> questions) throws ExtractionException {
-        GeminiClient.Reply reply = client.reply(client.generate(request(pages, questions), model), AiUsageRecorder.BAREM);
+        GeminiClient.Reply reply = client.reply(client.generate(request(pages, questions), model, location), AiUsageRecorder.BAREM);
         List<Entry> entries;
         try {
             entries = BaremReading.entries(objectMapper, reply.text());

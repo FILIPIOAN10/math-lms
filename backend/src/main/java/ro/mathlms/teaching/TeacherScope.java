@@ -5,6 +5,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import ro.mathlms.audit.AuditAction;
+import ro.mathlms.audit.SecurityAuditLog;
 import ro.mathlms.content.ContentNotFoundException;
 
 import java.util.List;
@@ -31,10 +33,13 @@ public class TeacherScope {
     private static final String TEACHER = "ROLE_TEACHER";
 
     private final EntityManager em;
+    private final SecurityAuditLog securityAuditLog;
 
-    public TeacherScope(EntityManager em) {
+    public TeacherScope(EntityManager em, SecurityAuditLog securityAuditLog) {
         this.em = em;
+        this.securityAuditLog = securityAuditLog;
     }
+
 
     /** True for a TEACHER who is not also an ADMIN: their view is limited to what they own. */
     public boolean restricted() {
@@ -94,6 +99,7 @@ public class TeacherScope {
     /** A student enrolled in at least one of the teacher's classes. */
     public void requireStudent(Long studentId) {
         if (restricted() && !ownsStudent(studentId)) {
+            denied("User", studentId);
             throw new ContentNotFoundException("User", studentId);
         }
     }
@@ -106,10 +112,15 @@ public class TeacherScope {
         Object[] row = em.createQuery("select sc.id, st.id from InviteLink l"
                         + " left join l.schoolClass sc left join l.student st where l.id = :id", Object[].class)
                 .setParameter("id", linkId).getResultStream().findFirst()
-                .orElseThrow(() -> new ContentNotFoundException("InviteLink", linkId));
+                .orElse(null);
+        if (row == null) {
+            denied("InviteLink", linkId);
+            throw new ContentNotFoundException("InviteLink", linkId);
+        }
         boolean allowed = row[0] != null ? ownedClassIds().contains((Long) row[0])
                 : row[1] != null && ownsStudent((Long) row[1]);
         if (!allowed) {
+            denied("InviteLink", linkId);
             throw new ContentNotFoundException("InviteLink", linkId);
         }
     }
@@ -156,8 +167,14 @@ public class TeacherScope {
         List<Long> owner = em.createQuery(ownerQuery, Long.class).setParameter("id", id).getResultList();
         Long me = currentUserId();
         if (owner.isEmpty() || me == null || !Objects.equals(owner.getFirst(), me)) {
+            denied(what, id);
             throw new ContentNotFoundException(what, id);
         }
+    }
+
+    private void denied(String type, Long id) {
+        securityAuditLog.record(AuditAction.TEACHER_SCOPE_DENIED, currentUserId(),
+                "Resursă " + type + ", id " + id + " — cerere ascunsă ca 404");
     }
 
     private Set<Long> ownedClassIds() {

@@ -88,7 +88,19 @@ public enum AuditAction {
     /** A newcomer joined a class (or became a student's parent) through an invite link: no teacher step, so it is logged. */
     JOINED_BY_INVITE(AuditCategory.PEOPLE),
     /** An admin removed a student's account: anonymised like a GDPR erasure, the grades kept without a name. */
-    STUDENT_REMOVED(AuditCategory.PEOPLE);
+    STUDENT_REMOVED(AuditCategory.PEOPLE),
+
+    LOGIN_FAILED(AuditCategory.SECURITY),
+    LOGIN_CHALLENGE_STARTED(AuditCategory.SECURITY),
+    LOGIN_SUCCEEDED(AuditCategory.SECURITY),
+    TWO_FACTOR_FAILED(AuditCategory.SECURITY),
+    TWO_FACTOR_SUCCEEDED(AuditCategory.SECURITY),
+    TWO_FACTOR_ENABLED(AuditCategory.SECURITY),
+    TWO_FACTOR_DISABLED(AuditCategory.SECURITY),
+    TWO_FACTOR_RECOVERY_CODES_REGENERATED(AuditCategory.SECURITY),
+    PASSWORD_RESET(AuditCategory.SECURITY),
+    GDPR_EXPORT_REQUESTED(AuditCategory.SECURITY),
+    TEACHER_SCOPE_DENIED(AuditCategory.SECURITY);
 
     private final AuditCategory category;
 

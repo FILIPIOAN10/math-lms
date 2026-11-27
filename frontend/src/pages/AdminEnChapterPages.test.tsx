@@ -25,6 +25,8 @@ vi.mock('@/lib/api', async (original) => ({ ...(await original<typeof import('@/
 // pdf.js needs a real browser canvas: the PDF is faked here, its pages are plain image files.
 const pdf = vi.hoisted(() => ({ pdfPageCount: vi.fn(), pdfPageImages: vi.fn() }))
 vi.mock('@/lib/pdfPages', () => pdf)
+// jsdom cannot decode or draw images; the real re-encoding is covered in image.test.ts and on the server.
+vi.mock('@/lib/image', () => ({ shrinkImage: (f: File) => Promise.resolve(f), cropImage: (f: File) => Promise.resolve(f) }))
 
 const chapter = (id: number, over: Partial<EnChapterSummary> = {}): EnChapterSummary => ({
   id, code: `A${id}`, title: `Capitolul ${id}`, area: 'ALGEBRA', position: id, parentId: null, bookPage: null,

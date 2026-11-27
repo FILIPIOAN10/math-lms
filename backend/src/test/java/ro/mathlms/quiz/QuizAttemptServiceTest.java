@@ -485,7 +485,7 @@ class QuizAttemptServiceTest {
     // --- uploadOpenPhoto ---
 
     private static MultipartFile image() {
-        return new MockMultipartFile("file", "rezolvare.jpg", "image/jpeg", "bytes".getBytes());
+        return new MockMultipartFile("file", "rezolvare.jpg", "image/jpeg", ro.mathlms.storage.TestImages.jpeg(40, 30));
     }
 
     @Test
@@ -586,8 +586,9 @@ class QuizAttemptServiceTest {
         when(itemRepository.findById(101L)).thenReturn(Optional.of(openItem));
         MultipartFile pdf = new MockMultipartFile("file", "x.pdf", "application/pdf", "bytes".getBytes());
 
+        // Judged by its content, not its name or type: not a JPEG/PNG, refused before anything is stored.
         assertThatThrownBy(() -> service.uploadOpenPhoto(50L, 101L, pdf, EMAIL))
-                .isInstanceOf(InvalidQuizException.class);
+                .isInstanceOf(ro.mathlms.storage.InvalidImageUploadException.class);
         verify(fileService, never()).uploadImage(any(), any());
     }
 

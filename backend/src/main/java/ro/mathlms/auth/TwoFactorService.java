@@ -1,5 +1,7 @@
 package ro.mathlms.auth;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -29,6 +31,8 @@ import java.util.OptionalLong;
  */
 @Service
 public class TwoFactorService {
+
+    private static final Logger log = LoggerFactory.getLogger(TwoFactorService.class);
 
     public static final String ISSUER = "Math LMS";
     static final Duration SETUP_TTL = Duration.ofMinutes(10);
@@ -158,7 +162,17 @@ public class TwoFactorService {
         }
         String given = codeOrRecovery.strip();
         if (given.matches("\\d{6}")) {
-            OptionalLong step = Totp.verify(cipher.decrypt(user.getTotpSecret()), given, clock.instant(), user.getTotpLastStep());
+            String secret;
+            try {
+                secret = cipher.decrypt(user.getTotpSecret());
+            } catch (IllegalStateException unreadable) {
+                // TOTP_ENC_KEY changed without TOTP_ENC_KEY_PREVIOUS: no code can ever match. A plain "wrong code" (the
+                // recovery codes still work) instead of a 500; the log tells the admin what to fix.
+                log.error("TOTP secret of user {} cannot be decrypted with the configured keys: use a recovery code "
+                        + "or reset two-step sign-in for this account (docs/SECRETS.md)", user.getId());
+                return false;
+            }
+            OptionalLong step = Totp.verify(secret, given, clock.instant(), user.getTotpLastStep());
             step.ifPresent(s -> {
                 user.useTotpStep(s);
                 userRepository.save(user);

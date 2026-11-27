@@ -7,6 +7,7 @@ export const AUDIT_CATEGORIES: { value: AuditCategory; label: string }[] = [
   { value: 'HOMEWORK', label: 'Teme' },
   { value: 'CONTENT', label: 'Conținut' },
   { value: 'PEOPLE', label: 'Elevi și părinți' },
+  { value: 'SECURITY', label: 'Securitate' },
 ]
 
 /** What happened, as the teacher would say it. */
@@ -72,6 +73,17 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   INVITE_LINK_REVOKED: 'Link de invitație oprit',
   JOINED_BY_INVITE: 'Intrat prin link',
   STUDENT_REMOVED: 'Elev șters',
+  LOGIN_FAILED: 'Conectare respinsă',
+  LOGIN_CHALLENGE_STARTED: 'Verificare 2FA începută',
+  LOGIN_SUCCEEDED: 'Conectare reușită',
+  TWO_FACTOR_FAILED: 'Verificare 2FA respinsă',
+  TWO_FACTOR_SUCCEEDED: 'Verificare 2FA reușită',
+  TWO_FACTOR_ENABLED: 'Autentificare în doi pași activată',
+  TWO_FACTOR_DISABLED: 'Autentificare în doi pași dezactivată',
+  TWO_FACTOR_RECOVERY_CODES_REGENERATED: 'Coduri de recuperare regenerate',
+  PASSWORD_RESET: 'Parolă resetată',
+  GDPR_EXPORT_REQUESTED: 'Export de date cerut',
+  TEACHER_SCOPE_DENIED: 'Acces la resursa altui profesor respins',
 }
 
 export function auditActionLabel(action: AuditAction): string {
@@ -80,6 +92,7 @@ export function auditActionLabel(action: AuditAction): string {
 
 /** The row's subject, unless it only repeats the action ("Cont aprobat" / "Cont aprobat"). */
 export function auditSubject(entry: AuditEntry): string | null {
+  if (entry.category === 'SECURITY') return null
   return entry.label === auditActionLabel(entry.action) ? null : entry.label
 }
 
@@ -92,5 +105,5 @@ export function linksToStudent(entry: AuditEntry): boolean {
 
 /** Who did it: a name, or what is left when the account is gone. */
 export function auditActor(entry: AuditEntry): string {
-  return entry.actorName ?? 'cont șters'
+  return entry.actorName ?? (entry.category === 'SECURITY' ? 'cont necunoscut' : 'cont șters')
 }
