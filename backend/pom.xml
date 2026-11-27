@@ -81,7 +81,7 @@
 		<dependency>
 			<groupId>io.minio</groupId>
 			<artifactId>minio</artifactId>
-			<version>9.0.3</version>
+			<version>9.0.4</version>
 		</dependency>
 		<!-- "Test din poze" takes scanned PDFs: each page is rendered to an image before it is read. -->
 		<dependency>
