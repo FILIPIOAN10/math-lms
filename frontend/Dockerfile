@@ -19,6 +19,7 @@ COPY nginx/security-headers.conf /etc/nginx/snippets/security-headers.conf
 COPY nginx/default.conf /etc/nginx/conf.d/default.conf
 COPY nginx/proxy-params.inc /etc/nginx/conf.d/proxy-params.inc
 COPY --from=build /build/dist /usr/share/nginx/html
+RUN nginx -t
 USER nginx
 EXPOSE 8080
 HEALTHCHECK --interval=15s --timeout=3s --retries=3 CMD wget -qO- http://127.0.0.1:8080/healthz || exit 1
