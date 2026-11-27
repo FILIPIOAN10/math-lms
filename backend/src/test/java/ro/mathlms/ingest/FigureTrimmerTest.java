@@ -241,6 +241,47 @@ class FigureTrimmerTest {
         assertEvenMargins(tight, 249, 299, 651, 551);
     }
 
+    /**
+     * A scan's thin grey line on white paper: after JPEG its pixels swing between clearly dark and only fairly dark, so
+     * a strict ink test sees it as dashes. Drawn here as a fairly dark line with clearly dark dashes on it.
+     */
+    private static void faintLine(BufferedImage page, int x0, int y0, int x1, int y1) {
+        Graphics2D g = page.createGraphics();
+        g.setColor(new Color(178, 178, 178));
+        g.drawLine(x0, y0, x1, y1);
+        g.setColor(new Color(145, 145, 145));
+        g.setStroke(new BasicStroke(1, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER, 10, new float[] {4, 7}, 0));
+        g.drawLine(x0, y0, x1, y1);
+        g.dispose();
+    }
+
+    @Test
+    void keepsAWholeDrawingMadeOfThinGreyLines() {
+        BufferedImage page = new BufferedImage(1000, 1000, BufferedImage.TYPE_INT_RGB);
+        Graphics2D white = page.createGraphics();
+        white.setColor(Color.WHITE); // a scanned page: pure white paper
+        white.fillRect(0, 0, 1000, 1000);
+        white.dispose();
+        faintLine(page, 500, 300, 380, 520); // A-B
+        faintLine(page, 500, 300, 620, 520); // A-C
+        faintLine(page, 380, 520, 620, 520); // B-C
+        Graphics2D g = pen(page);
+        g.drawString("A", 493, 292);
+        g.drawString("B", 360, 530);
+        g.drawString("C", 625, 530);
+        g.dispose();
+        List<Integer> box = List.of(250, 300, 600, 700);
+
+        List<Integer> tight = FigureTrimmer.tighten(page, box);
+
+        // The whole triangle, its letters included - not just the corner where its line looked darkest.
+        assertThat(tight.get(0)).isLessThanOrEqualTo(275);
+        assertThat(tight.get(1)).isLessThanOrEqualTo(360);
+        assertThat(tight.get(2)).isGreaterThanOrEqualTo(530);
+        assertThat(tight.get(3)).isGreaterThanOrEqualTo(640);
+        assertThat(tight).isNotEqualTo(box); // the empty paper around it still goes
+    }
+
     @Test
     void takesNoNoticeOfSquaredPaperOrThePageShowingThrough() {
         BufferedImage page = page();

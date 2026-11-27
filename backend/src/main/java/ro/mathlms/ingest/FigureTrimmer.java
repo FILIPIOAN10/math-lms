@@ -39,6 +39,8 @@ final class FigureTrimmer {
     private static final double EDGE_BAND = 0.12;
     /** The widest margin around the drawing, as a share of its longer side. */
     private static final double MARGIN = 0.04;
+    /** A cell this much darker than the paper is a faint part of a line when it touches clear ink. */
+    private static final int FAINT = 45;
     /** A column (row) at the box's edge this much darker than the paper, on average, is shadow. */
     private static final int SHADOW = 30;
 
@@ -118,10 +120,12 @@ final class FigureTrimmer {
             }
         }
         int limit = inkLimit(dark);
+        int faint = faintLimit(dark, limit);
         boolean[] ink = new boolean[dark.length];
         for (int i = 0; i < dark.length; i++) {
             ink[i] = dark[i] < limit;
         }
+        ink = withFaintParts(ink, dark, faint, gw, gh);
         ink = withoutSolidAreas(ink, gw, gh);
 
         List<Mark> marks = marks(ink, gw, gh);
@@ -201,7 +205,7 @@ final class FigureTrimmer {
         int gy0 = y0 + group[1] * cell;
         int gx1 = Math.min(x1, x0 + (group[2] + 1) * cell);
         int gy1 = Math.min(y1, y0 + (group[3] + 1) * cell);
-        int[] exact = exactInk(lum, width, gx0, gy0, gx1, gy1, limit);
+        int[] exact = exactInk(lum, width, gx0, gy0, gx1, gy1, faint);
         if (exact != null) {
             if (!lockLeft) gx0 = exact[0];
             if (!lockTop) gy0 = exact[1];
@@ -312,6 +316,47 @@ final class FigureTrimmer {
     private static int inkLimit(int[] dark) {
         int paper = percentile(dark, 0.7);
         return Math.min(paper - 60, (int) (paper * 0.62));
+    }
+
+    /** Fairly dark: ink only where it touches clear ink (see {@link #withFaintParts}). */
+    private static int faintLimit(int[] dark, int limit) {
+        return Math.max(limit, percentile(dark, 0.7) - FAINT);
+    }
+
+    /**
+     * Clear ink plus the fainter cells joined to it. A scan's thin grey line swings, after JPEG, between clearly dark
+     * and only fairly dark: on clear ink alone it falls apart into dashes and the drawing shrinks to its darkest piece
+     * (the corner of a triangle, a chord of a circle). Only what touches clear ink joins it, so squared paper and the
+     * other side of the page showing through - fairly dark at most, and nowhere clearly dark - stay paper.
+     */
+    private static boolean[] withFaintParts(boolean[] ink, int[] dark, int faint, int gw, int gh) {
+        boolean[] out = ink.clone();
+        ArrayDeque<Integer> queue = new ArrayDeque<>();
+        for (int i = 0; i < ink.length; i++) {
+            if (ink[i]) {
+                queue.add(i);
+            }
+        }
+        while (!queue.isEmpty()) {
+            int i = queue.poll();
+            int x = i % gw;
+            int y = i / gw;
+            for (int dy = -1; dy <= 1; dy++) {
+                for (int dx = -1; dx <= 1; dx++) {
+                    int nx = x + dx;
+                    int ny = y + dy;
+                    if (nx < 0 || ny < 0 || nx >= gw || ny >= gh) {
+                        continue;
+                    }
+                    int n = ny * gw + nx;
+                    if (!out[n] && dark[n] < faint) {
+                        out[n] = true;
+                        queue.add(n);
+                    }
+                }
+            }
+        }
+        return out;
     }
 
     /** The exact pixel rectangle of the ink inside the given rectangle, or null when there is none. */

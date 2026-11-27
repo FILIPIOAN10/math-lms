@@ -28,6 +28,63 @@ class ExtractedItemsTest {
     }
 
     @Test
+    void wrapsAnOptionWrittenAsBareLatex() {
+        assertThat(ExtractedItems.mathOption("20^\\circ")).isEqualTo("$20^\\circ$");
+        assertThat(ExtractedItems.mathOption("9\\text{cm}")).isEqualTo("$9\\,\\text{cm}$");
+        assertThat(ExtractedItems.mathOption("100\\text{cm}^2")).isEqualTo("$100\\,\\text{cm}^2$");
+        assertThat(ExtractedItems.mathOption("4\\text{ cm}")).isEqualTo("$4\\text{ cm}$");
+        assertThat(ExtractedItems.mathOption("\\frac{1}{2}")).isEqualTo("$\\frac{1}{2}$");
+        assertThat(ExtractedItems.mathOption("25\\%")).isEqualTo("$25\\%$");
+        assertThat(ExtractedItems.mathOption("m(\\angle ABC)")).isEqualTo("$m(\\angle ABC)$");
+    }
+
+    @Test
+    void leavesAnOptionThatNeedsNoWrapping() {
+        assertThat(ExtractedItems.mathOption("$20^\\circ$")).isEqualTo("$20^\\circ$");
+        assertThat(ExtractedItems.mathOption("12")).isEqualTo("12");
+        assertThat(ExtractedItems.mathOption("12 cm")).isEqualTo("12 cm");
+        assertThat(ExtractedItems.mathOption("dreptunghi")).isEqualTo("dreptunghi");
+        // words beside the formula: wrapping it all would glue them together in math italics
+        assertThat(ExtractedItems.mathOption("x = 2 sau x = \\frac{1}{2}")).isEqualTo("x = 2 sau x = \\frac{1}{2}");
+        assertThat(ExtractedItems.mathOption(null)).isNull();
+    }
+
+    @Test
+    void normalizeWrapsBareLatexOptions() {
+        List<ExtractedItem> out = ExtractedItems.normalize(List.of(
+                item(QuizItemType.SINGLE_CHOICE, "Unghiul este egal cu:", List.of("20^\\circ", "$30^\\circ$"))), 1);
+
+        assertThat(out.getFirst().options()).containsExactly("$20^\\circ$", "$30^\\circ$");
+        assertThat(out.getFirst().warnings()).isEmpty();
+    }
+
+    @Test
+    void aReadingStoredBeforeTheFixShowsItsOptionsWrapped() {
+        ExtractedItem stored = new ExtractedItem(3, "SUBIECTUL al II-lea", QuizItemType.SINGLE_CHOICE, "Aria este:",
+                List.of("100\\text{cm}^2", "125\\text{cm}^2"), 5, true, List.of(), List.of(), null, null, 3,
+                List.of(285, 691, 493, 933));
+
+        List<ExtractedItem> out = ExtractedItems.withMathOptionsIn(List.of(stored));
+
+        assertThat(out.getFirst().options()).containsExactly("$100\\,\\text{cm}^2$", "$125\\,\\text{cm}^2$");
+        assertThat(out.getFirst().figureBox()).isEqualTo(stored.figureBox()); // nothing else changes
+        assertThat(out.getFirst().statement()).isEqualTo(stored.statement());
+        assertThat(ExtractedItems.withMathOptionsIn(null)).isNull();
+    }
+
+    @Test
+    void optionsReadBeforeTheFixAreWrappedWhenTheTestIsCreated() {
+        List<ro.mathlms.quiz.OptionRequest> out = ExtractedItems.withMathOptions(List.of(
+                new ro.mathlms.quiz.OptionRequest(0, "150\\text{cm}^2", true, "Ai adunat"),
+                new ro.mathlms.quiz.OptionRequest(1, "dreptunghi", false)));
+
+        assertThat(out).containsExactly(
+                new ro.mathlms.quiz.OptionRequest(0, "$150\\,\\text{cm}^2$", true, "Ai adunat"),
+                new ro.mathlms.quiz.OptionRequest(1, "dreptunghi", false));
+        assertThat(ExtractedItems.withMathOptions(null)).isNull();
+    }
+
+    @Test
     void warnsInsteadOfGuessing() {
         ExtractedItem figure = new ExtractedItem(1, "SUBIECTUL al II-lea", QuizItemType.OPEN, "În figură, $AB = 3",
                 List.of(), 10, true, List.of());

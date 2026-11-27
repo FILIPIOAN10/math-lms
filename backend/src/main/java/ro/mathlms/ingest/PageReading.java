@@ -29,7 +29,9 @@ final class PageReading {
             - Copy the statement exactly, in Romanian with diacritics (ă, â, î, ș, ț), WITHOUT the exercise number ("1.", \
             "3)") and without the printed points ("5p"). Do NOT solve anything, do NOT add hints, and NEVER say which \
             option is correct.
-            - Write all mathematics in LaTeX between single dollar signs, e.g. $\\frac{2}{3}$, $x^2 - 4 = 0$, $\\sqrt{5}$.
+            - Write all mathematics in LaTeX between single dollar signs, e.g. $\\frac{2}{3}$, $x^2 - 4 = 0$, $\\sqrt{5}$. \
+            The answer choices too: "$20^\\circ$", "$9\\text{ cm}$", "$150\\text{ cm}^2$" - never LaTeX without the \
+            dollar signs.
             - A table printed in the exercise (rows and columns of words or numbers) is part of the statement: write it as \
             a Markdown table on its own lines, the first row as the header, e.g. "| Sport | volei | baschet |\\n|---|---|---|\
             \\n| Număr de elevi | 10 | 7 |" (math inside a cell between $). NEVER use \\begin{tabular} or \\begin{array} \

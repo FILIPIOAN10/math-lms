@@ -324,7 +324,8 @@ public class AiImportService implements AiQueue {
         int position = 0;
         for (ItemRequest item : request.items()) {
             items.add(new ItemRequest(item.type(), position++, item.statement(),
-                    item.points(), item.solution(), item.options(), item.hints(), item.chapterId(), item.section(),
+                    item.points(), item.solution(), ExtractedItems.withMathOptions(item.options()), item.hints(),
+                    item.chapterId(), item.section(),
                     item.imageRequired(), item.parts(), item.enChapterId()));
         }
         quizAdminService.addItems(quiz.getId(), items);
@@ -543,7 +544,8 @@ public class AiImportService implements AiQueue {
     }
 
     private AiImportDto dto(AiImport ai, boolean withItems) {
-        List<ExtractedItem> items = ai.getItemsJson() == null ? null : parse(ai.getItemsJson(), ITEMS);
+        List<ExtractedItem> items = ai.getItemsJson() == null
+                ? null : ExtractedItems.withMathOptionsIn(parse(ai.getItemsJson(), ITEMS));
         return new AiImportDto(ai.getId(), ai.getStatus(), ai.getPageCount(), ai.hasPages(),
                 items == null ? null : items.size(), ai.getError(), ai.getSchoolClassId(), ai.getChapterId(),
                 ai.getQuizId(), ai.getCreatedAt(), ai.getFinishedAt(), withItems ? items : null, ai.getReusedFrom());

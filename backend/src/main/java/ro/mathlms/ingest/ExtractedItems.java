@@ -10,8 +10,9 @@ import java.util.Objects;
 import java.util.regex.Pattern;
 
 /**
- * Tidies what a provider returned before the teacher sees it: trims, drops empty questions, caps sizes, and warns
- * (never fixes silently) where the reading looks wrong - the teacher decides in the review.
+ * Tidies what a provider returned before the teacher sees it: trims, drops empty questions, caps sizes, puts the $
+ * around an answer choice written as bare LaTeX, and warns (never fixes content silently) where the reading looks
+ * wrong - the teacher decides in the review.
  */
 final class ExtractedItems {
 
@@ -52,7 +53,7 @@ final class ExtractedItems {
             List<String> options = new ArrayList<>();
             if (type == QuizItemType.SINGLE_CHOICE && item.options() != null) {
                 for (String option : item.options()) {
-                    String text = cap(trim(option), MAX_OPTION);
+                    String text = mathOption(cap(trim(option), MAX_OPTION));
                     if (text != null && options.size() < MAX_OPTIONS) {
                         options.add(text);
                     }
@@ -201,6 +202,47 @@ final class ExtractedItems {
     }
 
     private static final Pattern PART_LABEL = Pattern.compile("^\\s*(?:\\(\\s*\\d{1,3}\\s*p\\s*\\)\\s*)?[a-f]\\)\\s+");
+
+    /**
+     * An answer choice the reader wrote as bare LaTeX ("20^\circ", "9\text{cm}") although it is asked for $...$: the
+     * screens show it as raw code. Put between $ when it is one formula; left as it is when it already has delimiters,
+     * has no LaTeX, or mixes words with the formula (one $...$ would glue the words together in math italics). A number
+     * followed straight by a \text unit gets a thin space, so "9\text{cm}" reads "9 cm" as on the printed page.
+     */
+    static String mathOption(String option) {
+        if (option == null || option.contains("$") || option.contains("\\(") || option.contains("\\[")
+                || !BARE_LATEX.matcher(option).find()) {
+            return option;
+        }
+        String outsideCommands = TEXT_COMMAND.matcher(option).replaceAll(" ").replaceAll("\\\\[A-Za-z]+", " ");
+        for (String word : outsideCommands.split("[^\\p{L}]+")) {
+            if (word.length() >= 3 && !word.equals(word.toUpperCase(java.util.Locale.ROOT))) {
+                return option; // a lowercase word ("sau", "dreptunghi"); capitals are points: ABC
+            }
+        }
+        return "$" + NUMBER_THEN_UNIT.matcher(option).replaceAll("$1\\\\,\\\\text{") + "$";
+    }
+
+    /** A stored reading as the review shows it: options read before {@link #mathOption} existed go through it too. */
+    static List<ExtractedItem> withMathOptionsIn(List<ExtractedItem> items) {
+        return items == null ? null : items.stream()
+                .map(i -> i.options() == null ? i : new ExtractedItem(i.page(), i.section(), i.type(), i.statement(),
+                        i.options().stream().map(ExtractedItems::mathOption).toList(), i.points(), i.hasFigure(),
+                        i.warnings(), i.parts(), i.enChapter(), i.enChapterReason(), i.figurePage(), i.figureBox()))
+                .toList();
+    }
+
+    /** The options of a test being created from photos, put through {@link #mathOption} (drafts read before it). */
+    static List<ro.mathlms.quiz.OptionRequest> withMathOptions(List<ro.mathlms.quiz.OptionRequest> options) {
+        return options == null ? null : options.stream()
+                .map(o -> new ro.mathlms.quiz.OptionRequest(o.position(), mathOption(o.text()), o.correct(), o.mistake()))
+                .toList();
+    }
+
+    /** A LaTeX command ("\circ", "\%") or a power/index: text only LaTeX would give a meaning to. */
+    private static final Pattern BARE_LATEX = Pattern.compile("\\\\[A-Za-z%,;{}]|[\\^_]");
+    private static final Pattern TEXT_COMMAND = Pattern.compile("\\\\(?:text|mathrm|operatorname)\\{[^}]*}");
+    private static final Pattern NUMBER_THEN_UNIT = Pattern.compile("(\\d)\\\\text\\{(?=\\S)");
 
     /** An even number of unescaped {@code $}: every inline formula is closed ({@code $$} counts as two). */
     static boolean balancedMath(String text) {
