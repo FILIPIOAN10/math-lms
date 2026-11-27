@@ -1,5 +1,5 @@
 # The tutor's HTTP service (tutor.api). Only the backend calls it, on the internal network.
-FROM python:3.13-slim
+FROM python:3.15-slim
 
 COPY --from=ghcr.io/astral-sh/uv:0.12.18 /uv /bin/uv
 
