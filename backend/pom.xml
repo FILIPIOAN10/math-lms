@@ -93,7 +93,7 @@
 		<dependency>
 			<groupId>com.squareup.okhttp3</groupId>
 			<artifactId>okhttp-jvm</artifactId>
-			<version>5.3.2</version>
+			<version>5.5.1</version>
 		</dependency>
 		<!-- Security override (Trivy, 2026-10-25): minio 9.0.3 brings bcprov 1.84 - CVE-2026-8763 (CRITICAL, name
 		     constraints bypass) and CVE-2026-13506 (HIGH, ASN.1 DoS), fixed in 1.85. Drop once minio ships 1.85+. -->
