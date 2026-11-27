@@ -113,6 +113,15 @@ app:
     two-factor:
       required-for-admin: ${TWO_FACTOR_REQUIRED_FOR_ADMIN:true}
       required-for-teacher: ${TWO_FACTOR_REQUIRED_FOR_TEACHER:${TWO_FACTOR_REQUIRED_FOR_ADMIN:true}}
+  # Phase 2: one key per job, none of them JWT_SECRET (see KeyProperties / SecretKeys, docs/SECRETS.md). Empty = derived
+  # from JWT_SECRET, for local dev and tests only; docker-compose.prod.yml requires the first two. Each >= 32 characters.
+  keys:
+    email-token-secret: ${EMAIL_TOKEN_SECRET:}
+    totp-key: ${TOTP_ENC_KEY:}
+    # Only while rotating TOTP_ENC_KEY: the old value, so secrets sealed with it are read and re-encrypted at start.
+    totp-previous-key: ${TOTP_ENC_KEY_PREVIOUS:}
+    # Links signed with JWT_SECRET before phase 2 (all expire within 7 days): set false a week after deploying it.
+    accept-legacy-link-tokens: ${ACCEPT_LEGACY_LINK_TOKENS:true}
   # Who the emails come from: the app, not the owner of the SMTP account. With a relay (Brevo, Amazon SES, Mailgun)
   # MAIL_FROM is its verified no-reply address; empty = the SMTP login (Gmail rewrites any other From to it anyway).
   mail:

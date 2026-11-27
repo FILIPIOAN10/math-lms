@@ -64,6 +64,11 @@ services:
       ALLOWED_EMAILS: ${ALLOWED_EMAILS:-}
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env.prod}
       JWT_EXPIRATION_MINUTES: ${JWT_EXPIRATION_MINUTES:-15}
+      # Phase 2: one key per job (docs/SECRETS.md). Required: the app must never fall back to keys derived from JWT_SECRET.
+      EMAIL_TOKEN_SECRET: ${EMAIL_TOKEN_SECRET:?set EMAIL_TOKEN_SECRET in .env.prod (openssl rand -hex 32)}
+      TOTP_ENC_KEY: ${TOTP_ENC_KEY:?set TOTP_ENC_KEY in .env.prod (openssl rand -hex 32)}
+      TOTP_ENC_KEY_PREVIOUS: ${TOTP_ENC_KEY_PREVIOUS:-}
+      ACCEPT_LEGACY_LINK_TOKENS: ${ACCEPT_LEGACY_LINK_TOKENS:-true}
       COOKIE_SECURE: ${COOKIE_SECURE:-true}
       FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:?set FRONTEND_BASE_URL (the public https URL) in .env.prod}
       SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}

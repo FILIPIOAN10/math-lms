@@ -235,6 +235,14 @@ public class User {
         this.totpEnabledAt = Objects.requireNonNull(now, "now");
     }
 
+    /** Phase 2: the same authenticator secret, sealed again with the current TOTP_ENC_KEY (no re-enrolment). */
+    public void rewrapTwoFactorSecret(String encryptedSecret) {
+        if (this.totpSecret == null) {
+            throw new IllegalStateException("Two-step sign-in is off: nothing to re-encrypt");
+        }
+        this.totpSecret = requireNonBlank(encryptedSecret, "encryptedSecret");
+    }
+
     public void disableTwoFactor() {
         this.totpSecret = null;
         this.totpLastStep = null;

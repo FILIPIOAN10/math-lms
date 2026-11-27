@@ -29,6 +29,8 @@ jobs:
           POSTGRES_PASSWORD=$(openssl rand -hex 16)
           REDIS_PASSWORD=$(openssl rand -hex 16)
           JWT_SECRET=$(openssl rand -hex 32)
+          EMAIL_TOKEN_SECRET=$(openssl rand -hex 32)
+          TOTP_ENC_KEY=$(openssl rand -hex 32)
           GOOGLE_CLIENT_ID=dummy
           GOOGLE_CLIENT_SECRET=dummy
           ADMIN_EMAILS=admin@mathlms.local

@@ -3,13 +3,10 @@ package ro.mathlms.auth;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
-import javax.crypto.SecretKey;
-import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -34,18 +31,18 @@ public class VerificationTokenService {
     private static final String PURPOSE_CLAIM = "purpose";
     private static final String JTI_PREFIX = "onetime:";
 
-    private final SecretKey key;
+    private final SecretKeys keys;
     private final Clock clock;
     private final StringRedisTemplate redisTemplate;
 
     @Autowired
-    public VerificationTokenService(AuthProperties authProperties, StringRedisTemplate redisTemplate) {
-        this(authProperties, Clock.systemUTC(), redisTemplate);
+    public VerificationTokenService(SecretKeys keys, StringRedisTemplate redisTemplate) {
+        this(keys, Clock.systemUTC(), redisTemplate);
     }
 
     // Test seam: a fixed clock lets us produce already-expired tokens.
-    VerificationTokenService(AuthProperties authProperties, Clock clock, StringRedisTemplate redisTemplate) {
-        this.key = Keys.hmacShaKeyFor(authProperties.jwtSecret().getBytes(StandardCharsets.UTF_8));
+    VerificationTokenService(SecretKeys keys, Clock clock, StringRedisTemplate redisTemplate) {
+        this.keys = keys;
         this.clock = clock;
         this.redisTemplate = redisTemplate;
     }
@@ -64,7 +61,7 @@ public class VerificationTokenService {
                 .claim(PURPOSE_CLAIM, purpose.name())
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plus(ttl)))
-                .signWith(key)
+                .signWith(keys.linkTokens())
                 .compact();
     }
 
@@ -75,11 +72,8 @@ public class VerificationTokenService {
      * @throws JwtException if the token is tampered, expired, issued for another purpose, or already used
      */
     public String verify(String token, TokenPurpose expectedPurpose) {
-        Claims claims = Jwts.parser()
-                .verifyWith(key)
-                .build()
-                .parseSignedClaims(token)
-                .getPayload();
+        // EMAIL_TOKEN_SECRET (phase 2); links mailed before it are still read with JWT_SECRET for their last days.
+        Claims claims = keys.parseLinkToken(token);
 
         String purpose = claims.get(PURPOSE_CLAIM, String.class);
         if (!expectedPurpose.name().equals(purpose)) {

@@ -11,6 +11,9 @@ import java.util.Optional;
 public interface UserRepository extends JpaRepository<User,Long> {
     Optional<User> findByEmail(String email);
 
+    /** Accounts with two-step sign-in on (their secrets are re-encrypted after a TOTP key change). */
+    java.util.List<User> findByTotpSecretIsNotNull();
+
     boolean existsByEmail(String email);
 
     List<User> findByStatus(AccountStatus status);

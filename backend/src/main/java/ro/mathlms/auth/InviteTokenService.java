@@ -3,13 +3,10 @@ package ro.mathlms.auth;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import ro.mathlms.user.Role;
 
-import javax.crypto.SecretKey;
-import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -28,17 +25,17 @@ public class InviteTokenService {
     private static final String PURPOSE_CLAIM = "purpose";
     private static final String ROLE_CLAIM = "role";
 
-    private final SecretKey key;
+    private final SecretKeys keys;
     private final Clock clock;
 
     @Autowired
-    public InviteTokenService(AuthProperties authProperties) {
-        this(authProperties, Clock.systemUTC());
+    public InviteTokenService(SecretKeys keys) {
+        this(keys, Clock.systemUTC());
     }
 
     // Test seam: a fixed clock lets us produce already-expired tokens.
-    InviteTokenService(AuthProperties authProperties, Clock clock) {
-        this.key = Keys.hmacShaKeyFor(authProperties.jwtSecret().getBytes(StandardCharsets.UTF_8));
+    InviteTokenService(SecretKeys keys, Clock clock) {
+        this.keys = keys;
         this.clock = clock;
     }
 
@@ -51,7 +48,7 @@ public class InviteTokenService {
                 .claim(ROLE_CLAIM, role.name())
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(expiry))
-                .signWith(key)
+                .signWith(keys.linkTokens())
                 .compact();
     }
 
@@ -62,11 +59,8 @@ public class InviteTokenService {
      *                      purpose, or carries an unknown role
      */
     public Role verify(String token) {
-        Claims claims = Jwts.parser()
-                .verifyWith(key)
-                .build()
-                .parseSignedClaims(token)
-                .getPayload();
+        // EMAIL_TOKEN_SECRET (phase 2); invites shared before it are still read with JWT_SECRET until they expire.
+        Claims claims = keys.parseLinkToken(token);
 
         String purpose = claims.get(PURPOSE_CLAIM, String.class);
         if (!TokenPurpose.INVITE.name().equals(purpose)) {

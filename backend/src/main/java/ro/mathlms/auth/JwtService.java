@@ -1,6 +1,7 @@
 package ro.mathlms.auth;
 
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.stereotype.Service;
@@ -60,10 +61,16 @@ public class JwtService {
     }
 
     private Claims parse(String token) {
-        return Jwts.parser()
+        Claims claims = Jwts.parser()
                 .verifyWith(key)
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
+        // A link token (verification, reset, invite...) is never a session, even one signed with JWT_SECRET before
+        // phase 2 moved those to their own key.
+        if (claims.get("purpose") != null) {
+            throw new JwtException("Not an access token");
+        }
+        return claims;
     }
 }

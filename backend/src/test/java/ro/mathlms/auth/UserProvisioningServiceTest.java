@@ -35,7 +35,7 @@ class UserProvisioningServiceTest {
                 List.of("elev@gmail.com"),
                 "test-secret-at-least-32-characters-long!!",
                 60);
-        inviteTokenService = new InviteTokenService(properties);
+        inviteTokenService = new InviteTokenService(SecretKeys.derivedFrom(properties));
         inviteLinkService = mock(InviteLinkService.class);
         service = new UserProvisioningService(userRepository, properties,
                 new InviteRedeemer(inviteTokenService, inviteLinkService), inviteLinkService);

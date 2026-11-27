@@ -100,6 +100,11 @@ for k in POSTGRES_PASSWORD REDIS_PASSWORD JWT_SECRET GOOGLE_CLIENT_ID GOOGLE_CLI
 done
 jwt="$(get JWT_SECRET)"
 [ "${#jwt}" -ge 32 ] || problems+=("JWT_SECRET must be at least 32 characters")
+# Phase 2 (docs/SECRETS.md): one key per job, each >= 32 characters and different from the others.
+email_key="$(get EMAIL_TOKEN_SECRET)"; totp_key="$(get TOTP_ENC_KEY)"
+[ "${#email_key}" -ge 32 ] || problems+=("EMAIL_TOKEN_SECRET must be set, at least 32 characters (openssl rand -hex 32)")
+[ "${#totp_key}" -ge 32 ] || problems+=("TOTP_ENC_KEY must be set, at least 32 characters (openssl rand -hex 32)")
+{ [ "$email_key" != "$jwt" ] && [ "$totp_key" != "$jwt" ] && [ "$email_key" != "$totp_key" ]; }   || problems+=("JWT_SECRET, EMAIL_TOKEN_SECRET and TOTP_ENC_KEY must all be different")
 case "$(get FRONTEND_BASE_URL)" in https://*.example.*|"") problems+=("FRONTEND_BASE_URL is still the placeholder") ;; https://*) ;; *) problems+=("FRONTEND_BASE_URL must start with https://") ;; esac
 [ "$(get COOKIE_SECURE)" = "true" ] || problems+=("COOKIE_SECURE must be true in production")
 if [ "${#problems[@]}" -gt 0 ]; then
