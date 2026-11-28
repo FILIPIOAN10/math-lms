@@ -1440,7 +1440,7 @@ ziua examenului, niciodată în primele 14 zile.
 | 12 | **Scoate** | Capitolul iese din plan; în jurnal „Capitol scos din planul elevului” |
 | 13 | Ca părinte: Acasă → cardul copilului → **Vezi planul** | Planul copilului, fără butoane și fără linkuri |
 | 14 | Ca părinte, schimbă id-ul din `/parent/children/<id>/plan` cu al altui copil | „Acesta nu e copilul tău.” |
-| 15 | Cu `EN_SNAPSHOTS_ENABLED=true` (și pentru probă `EN_SNAPSHOTS_CRON=0 * * * * *`): așteaptă un minut | În log „Kept today's EN estimate for N students”; pe `/plan` graficul are punctul de azi |
+| 15 | Cu `EN_SNAPSHOTS_ENABLED=true` (și pentru probă `EN_SNAPSHOTS_CRON=0 * * * * *`): așteaptă un minut | În log „Kept today's EN estimate for N of M active students” (N = cei cu estimare); pe `/plan` graficul are punctul de azi |
 | 16 | Data EN la 21 de zile sau mai puțin | Doar „Rezolvă un test complet de EN” + recapitularea, în fiecare săptămână |
 | 17 | Ca elev: Contul meu → **Cere datele mele** → linkul din email (local: Mailpit) | În arhivă, `manifest.json` are `enGoal` și `enEstimateHistory` |
 

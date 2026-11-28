@@ -132,13 +132,13 @@ public class EnGoalService {
     // --- the estimate, day by day ---
 
     /**
-     * Keeps the estimate for {@code day} (a second one the same day replaces it). Nothing without an estimate. A
-     * target set before there was an estimate gets this one as the start of its line.
+     * Keeps the estimate for {@code day} (a second one the same day replaces it); false = no estimate, nothing kept.
+     * A target set before there was an estimate gets this one as the start of its line.
      */
     @Transactional
-    public void saveSnapshot(long studentId, LocalDate day, EnPrediction p) {
+    public boolean saveSnapshot(long studentId, LocalDate day, EnPrediction p) {
         if (p == null || !p.available() || p.grade() == null) {
-            return;
+            return false;
         }
         jdbc.update("""
                 insert into en_prediction_snapshots (student_id, day, grade, low, high) values (?, ?, ?, ?, ?)
@@ -146,6 +146,7 @@ public class EnGoalService {
                 studentId, Date.valueOf(day), p.grade(), p.low(), p.high());
         jdbc.update("update student_en_goals set baseline_grade = ?, set_on = ? where student_id = ? and baseline_grade is null",
                 p.grade(), Date.valueOf(day), studentId);
+        return true;
     }
 
     /** Oldest first. */
