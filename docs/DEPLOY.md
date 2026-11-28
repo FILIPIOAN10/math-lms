@@ -97,6 +97,28 @@ De aceea backup-ul **nu se scrie niciodată necriptat** și **nu stă doar pe se
    `BACKUP_S3_BUCKET=math-lms-backups-…`. Rolul EC2 (§9) primește în plus `s3:PutObject`/`s3:GetObject` pe `…/backups/*`.
 3. `sudo ./deploy/server-setup.sh` instalează `age` și `awscli` și cron-ul zilnic.
 
+**Fără AWS (Contabo, Hetzner, alt VPS): Cloudflare R2** — compatibil S3, gratuit până la 10 GB, fără taxă de descărcare, și la altă firmă
+decât serverul (dacă pică furnizorul serverului, backup-urile rămân). Aceleași scripturi, cu patru valori în plus:
+1. Cloudflare → R2 → Create bucket `math-lms-backups`, **Location: jurisdicția EU** (date ale unor minori: rămân în UE; adresa primește `.eu.`).
+2. Bucket → Settings → Object lifecycle rules: șterge obiectele cu prefixul `backups/` după **30 de zile** (o pereche zilnică are ~125 MB,
+   deci ~4 GB; rămâi sub 10 GB cât timp o pereche are sub ~300 MB).
+3. R2 → Manage API tokens → două tokenuri, ambele **doar pe bucket-ul ăsta**: „Object Read & Write” pentru server și „Object Read only”
+   pentru PC + GitHub. Fiecare îți arată o singură dată Access Key ID + Secret Access Key.
+4. În `.env.prod` pe server (cheia de scriere):
+   ```
+   BACKUP_S3_BUCKET=math-lms-backups
+   BACKUP_S3_ENDPOINT=https://<account-id>.eu.r2.cloudflarestorage.com
+   BACKUP_S3_REGION=auto
+   BACKUP_S3_ACCESS_KEY_ID=…
+   BACKUP_S3_SECRET_ACCESS_KEY=…
+   ```
+   Cu endpoint, `--sse AES256` nu se mai trimite (`BACKUP_S3_SSE=none` implicit): fișierele sunt deja criptate cu age.
+5. Verifică: `./deploy/backup.sh /var/backups/math-lms` → ultima linie `copied to s3://math-lms-backups/backups/ at https://…`.
+6. Pe PC, cu cheia de citire: `aws configure --profile r2` (regiunea `auto`), apoi
+   `powershell -ExecutionPolicy Bypass -File deploy\pull-backups.ps1 -Bucket math-lms-backups -Endpoint https://<account-id>.eu.r2.cloudflarestorage.com -Region auto -AwsProfile r2`.
+7. Testul lunar din GitHub: secretele `BACKUP_S3_ENDPOINT`, `BACKUP_S3_ACCESS_KEY_ID`, `BACKUP_S3_SECRET_ACCESS_KEY` (cheia de citire) și
+   `BACKUP_S3_BUCKET`; cu `BACKUP_S3_ENDPOINT` setat, rolul AWS nu mai e folosit.
+
 ```bash
 ./deploy/backup.sh /var/backups/math-lms   # dump + poze: verificate pe drum, criptate înainte de disc, urcate în S3, 7 zile local
 ```
@@ -147,7 +169,9 @@ completează `monitoring/alertmanager.yml` (exemplu comentat în fișier).
 
 ## 7. Setup rapid pe un server nou (`deploy/server-setup.sh`)
 
-Automatizează §1, §2 și §4: instalează Docker + Compose (Debian/Ubuntu), creează utilizatorul de deploy și îi autorizează cheia
+Automatizează §1, §2 și §4: instalează Docker + Compose (Debian/Ubuntu), **securizează serverul** (`deploy/server-harden.sh`: firewall
+`ufw` care lasă să intre doar SSH, 80 și 443; SSH doar cu cheie, root doar cu cheie; actualizări de securitate zilnice — pe AWS făcea
+asta Security Group-ul, la Contabo/Hetzner nimeni; `HARDEN=false` sare peste), creează utilizatorul de deploy și îi autorizează cheia
 publică, copiază fișierele în `/opt/math-lms`, **validează `.env.prod`** (refuză dacă lipsesc Google/ADMIN_EMAILS/URL-ul public sau
 `JWT_SECRET` e prea scurt), scrie tokenul Prometheus, face `docker login ghcr.io`, instalează cron-ul zilnic de backup și, opțional,
 pornește totul + Caddy (HTTPS automat). E idempotent: îl poți rula din nou după ce corectezi `.env.prod`.
@@ -166,14 +190,18 @@ scp .env.prod USER@SERVER:~/mathlms-setup/.env.prod
 # 3. Rulează setup-ul (tokenul GHCR = Personal access token cu doar read:packages; citește-l fără să rămână în istoric)
 read -s -p "GHCR token: " GHCR_TOKEN; echo
 ssh -t USER@SERVER "sudo DOMAIN=mathlms.exemplu.ro DEPLOY_USER=deploy DEPLOY_PUBKEY='$(cat deploy_key.pub)' \
-  GHCR_USER=filipioan10 GHCR_TOKEN='$GHCR_TOKEN' BACKUP_REMOTE=user@alt-server:/backups/math-lms \
+  GHCR_USER=filipioan10 GHCR_TOKEN='$GHCR_TOKEN' \
   bash ~/mathlms-setup/deploy/server-setup.sh --start"
 ```
 
+**Înainte de setup, pe un server care nu e AWS:** pune-ți cheia SSH pe server (la comandă, în panoul furnizorului, sau
+`ssh-copy-id root@SERVER`) și verifică că intri **fără parolă**. Doar atunci `server-harden.sh` oprește login-ul cu parolă; fără cheie îl
+lasă pornit și te avertizează, ca să nu rămâi pe dinafară. Portul SSH rămâne deschis înainte să pornească firewall-ul.
+
 Înainte de pasul 3: înregistrarea DNS `A` a domeniului trebuie să arate spre server și porturile 80/443 să fie deschise (Caddy cere certificatul
 singur). Cu `DOMAIN`, scriptul pune `HTTP_PORT=8080` + `HTTP_BIND=127.0.0.1` în `.env.prod`, deci portul HTTP simplu nu e accesibil din exterior.
-Ce rămâne manual: Google redirect URI, secretele GitHub (`DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY` = conținutul lui `deploy_key`), cheia SSH
-pentru `BACKUP_REMOTE`, SMTP real și testarea unei restaurări.
+Ce rămâne manual: Google redirect URI, secretele GitHub (`DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY` = conținutul lui `deploy_key`), bucket-ul
+și cheile de backup (§4), SMTP real și testarea unei restaurări.
 
 > Verificat într-un container Ubuntu cu `docker` simulat (validare, copiere, utilizator + cheie, cron, Caddyfile, re-rulare); instalarea reală a Docker
 > și emiterea certificatului nu au putut fi încercate fără un server real — la prima rulare urmărește output-ul.

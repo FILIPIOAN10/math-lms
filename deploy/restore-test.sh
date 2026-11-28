@@ -7,6 +7,9 @@
 #   AGE_IDENTITY=~/keys/math-lms-backup.txt BACKUP_S3_BUCKET=math-lms-backups ./deploy/restore-test.sh
 #   AGE_IDENTITY=... ./deploy/restore-test.sh db-….dump.age uploads-….tar.gz.age
 #
+# Off AWS (Cloudflare R2 & co.) add BACKUP_S3_ENDPOINT, BACKUP_S3_REGION (auto for R2) and a read-only key in
+# BACKUP_S3_ACCESS_KEY_ID / BACKUP_S3_SECRET_ACCESS_KEY - the same names as deploy/backup.sh.
+#
 # Needs docker, age and (for the S3 mode) aws. Nothing here reaches the live server.
 set -euo pipefail
 
@@ -22,11 +25,23 @@ if [ $# -ge 2 ]; then
   DB_FILE="$1"; UPLOADS_FILE="$2"
 else
   : "${BACKUP_S3_BUCKET:?set BACKUP_S3_BUCKET, or pass the two backup files}"
-  latest() { aws s3 ls "s3://$BACKUP_S3_BUCKET/backups/" | awk '{print $4}' | grep "^$1-" | sort | tail -1; }
+  S3_ARGS=()
+  [ -n "${BACKUP_S3_REGION:-}" ] && S3_ARGS+=(--region "$BACKUP_S3_REGION")
+  if [ -n "${BACKUP_S3_ENDPOINT:-}" ]; then
+    S3_ARGS+=(--endpoint-url "$BACKUP_S3_ENDPOINT")
+    export AWS_REQUEST_CHECKSUM_CALCULATION="${AWS_REQUEST_CHECKSUM_CALCULATION:-when_required}"
+    export AWS_RESPONSE_CHECKSUM_VALIDATION="${AWS_RESPONSE_CHECKSUM_VALIDATION:-when_required}"
+  fi
+  if [ -n "${BACKUP_S3_ACCESS_KEY_ID:-}" ]; then
+    : "${BACKUP_S3_SECRET_ACCESS_KEY:?set BACKUP_S3_SECRET_ACCESS_KEY too}"
+    export AWS_ACCESS_KEY_ID="$BACKUP_S3_ACCESS_KEY_ID" AWS_SECRET_ACCESS_KEY="$BACKUP_S3_SECRET_ACCESS_KEY"
+    unset AWS_SESSION_TOKEN AWS_PROFILE
+  fi
+  latest() { aws s3 ls "s3://$BACKUP_S3_BUCKET/backups/" ${S3_ARGS[@]+"${S3_ARGS[@]}"} | awk '{print $4}' | grep "^$1-" | sort | tail -1; }
   DB_NAME="$(latest db)"; UPLOADS_NAME="$(latest uploads)"
   [ -n "$DB_NAME" ] && [ -n "$UPLOADS_NAME" ] || fail "no backups found in s3://$BACKUP_S3_BUCKET/backups/"
-  aws s3 cp "s3://$BACKUP_S3_BUCKET/backups/$DB_NAME" "$WORK/$DB_NAME" --only-show-errors
-  aws s3 cp "s3://$BACKUP_S3_BUCKET/backups/$UPLOADS_NAME" "$WORK/$UPLOADS_NAME" --only-show-errors
+  aws s3 cp "s3://$BACKUP_S3_BUCKET/backups/$DB_NAME" "$WORK/$DB_NAME" ${S3_ARGS[@]+"${S3_ARGS[@]}"} --only-show-errors
+  aws s3 cp "s3://$BACKUP_S3_BUCKET/backups/$UPLOADS_NAME" "$WORK/$UPLOADS_NAME" ${S3_ARGS[@]+"${S3_ARGS[@]}"} --only-show-errors
   DB_FILE="$WORK/$DB_NAME"; UPLOADS_FILE="$WORK/$UPLOADS_NAME"
 fi
 echo "testing $(basename "$DB_FILE") + $(basename "$UPLOADS_FILE")"

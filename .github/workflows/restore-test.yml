@@ -1,6 +1,8 @@
 # Monthly proof that the newest production backup can actually be restored (docs/DEPLOY.md section 4): downloads the
 # latest encrypted pair from S3, decrypts it with the age private key, restores it into a throwaway Postgres and checks
 # the result. Never touches the live server. A red run = the backups are broken or stopped - fix before you need them.
+# Off AWS (Cloudflare R2 & co.): set the BACKUP_S3_ENDPOINT secret plus a read-only key in BACKUP_S3_ACCESS_KEY_ID /
+# BACKUP_S3_SECRET_ACCESS_KEY (and the BACKUP_S3_REGION variable if it is not "auto"); the AWS role is then not used.
 name: Restore test
 
 on:
@@ -16,6 +18,8 @@ jobs:
   restore-test:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      OFF_AWS: ${{ secrets.BACKUP_S3_ENDPOINT != '' }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
@@ -24,14 +28,22 @@ jobs:
           ROLE: ${{ secrets.AWS_RESTORE_TEST_ROLE_ARN }}
           BUCKET: ${{ secrets.BACKUP_S3_BUCKET }}
           IDENTITY: ${{ secrets.BACKUP_AGE_IDENTITY }}
+          KEY_ID: ${{ secrets.BACKUP_S3_ACCESS_KEY_ID }}
+          KEY_SECRET: ${{ secrets.BACKUP_S3_SECRET_ACCESS_KEY }}
         run: |
           missing=""
-          [ -n "$ROLE" ] || missing="$missing AWS_RESTORE_TEST_ROLE_ARN"
+          if [ "$OFF_AWS" = "true" ]; then
+            [ -n "$KEY_ID" ] || missing="$missing BACKUP_S3_ACCESS_KEY_ID"
+            [ -n "$KEY_SECRET" ] || missing="$missing BACKUP_S3_SECRET_ACCESS_KEY"
+          else
+            [ -n "$ROLE" ] || missing="$missing AWS_RESTORE_TEST_ROLE_ARN"
+          fi
           [ -n "$BUCKET" ] || missing="$missing BACKUP_S3_BUCKET"
           [ -n "$IDENTITY" ] || missing="$missing BACKUP_AGE_IDENTITY"
           [ -z "$missing" ] || { echo "::error::missing secrets:$missing (docs/DEPLOY.md section 4)"; exit 1; }
 
       - uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4
+        if: env.OFF_AWS != 'true'
         with:
           role-to-assume: ${{ secrets.AWS_RESTORE_TEST_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION || 'eu-central-1' }}
@@ -43,6 +55,10 @@ jobs:
         env:
           BACKUP_S3_BUCKET: ${{ secrets.BACKUP_S3_BUCKET }}
           BACKUP_AGE_IDENTITY: ${{ secrets.BACKUP_AGE_IDENTITY }}
+          BACKUP_S3_ENDPOINT: ${{ secrets.BACKUP_S3_ENDPOINT }}
+          BACKUP_S3_ACCESS_KEY_ID: ${{ secrets.BACKUP_S3_ACCESS_KEY_ID }}
+          BACKUP_S3_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_S3_SECRET_ACCESS_KEY }}
+          BACKUP_S3_REGION: ${{ secrets.BACKUP_S3_ENDPOINT != '' && (vars.BACKUP_S3_REGION || 'auto') || '' }}
         run: |
           umask 077
           printf '%s\n' "$BACKUP_AGE_IDENTITY" > "$RUNNER_TEMP/backup-key.txt"

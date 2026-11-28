@@ -12,7 +12,9 @@
 #   DEPLOY_USER    the account GitHub Actions deploys as (created if missing, added to the docker group, owns DEPLOY_PATH)
 #   DEPLOY_PUBKEY  the PUBLIC half of the SSH key you store as the DEPLOY_SSH_KEY secret (the private half never touches this server)
 #   GHCR_USER / GHCR_TOKEN   a read:packages token so the server can pull the private images from ghcr.io
-#   (backups: put BACKUP_AGE_RECIPIENT + BACKUP_S3_BUCKET in .env.prod - deploy/backup.sh refuses to run without them)
+#   HARDEN         default true: firewall (SSH/80/443), SSH by key only, daily security updates (deploy/server-harden.sh)
+#   (backups: put BACKUP_AGE_RECIPIENT + BACKUP_S3_BUCKET in .env.prod - deploy/backup.sh refuses to run without them;
+#    off AWS also BACKUP_S3_ENDPOINT, BACKUP_S3_REGION and the bucket's key, see docs/DEPLOY.md §4)
 #   DEPLOY_PATH (default /opt/math-lms) · BACKUP_DIR (default /var/backups/math-lms)
 # Flag --start pulls the images and starts the stack (+ monitoring), then waits for it to answer.
 #
@@ -30,6 +32,27 @@ START=false
 
 log() { echo "==> $*"; }
 die() { echo "ERROR: $*" >&2; exit 1; }
+
+# The `aws` command for the backups. Debian has the awscli package; Ubuntu 24.04 dropped it, so there it is AWS's own
+# installer (CLI v2, over HTTPS from awscli.amazonaws.com) into /usr/local.
+install_aws_cli() {
+  local candidate tmp
+  apt-get update -qq
+  candidate="$(apt-cache policy awscli 2>/dev/null | awk '/Candidate:/ { print $2 }')"
+  if [ -n "$candidate" ] && [ "$candidate" != "(none)" ]; then
+    log "Installing awscli $candidate from apt"
+    apt-get install -y -qq awscli
+    return
+  fi
+  log "Installing AWS CLI v2 with AWS's installer (no awscli package on this release)"
+  apt-get install -y -qq curl unzip
+  tmp="$(mktemp -d)"
+  curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-$(uname -m).zip" -o "$tmp/awscliv2.zip"
+  unzip -q "$tmp/awscliv2.zip" -d "$tmp"
+  "$tmp/aws/install" --bin-dir /usr/local/bin --install-dir /usr/local/aws-cli --update
+  rm -rf "$tmp"
+  /usr/local/bin/aws --version
+}
 
 [ "$(id -u)" -eq 0 ] || die "run as root (sudo)"
 [ -f "$SRC/docker-compose.prod.yml" ] || die "docker-compose.prod.yml not found next to deploy/ (looked in $SRC)"
@@ -51,6 +74,15 @@ else
   apt-get update -qq
   apt-get install -y -qq docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
   systemctl enable --now docker
+fi
+
+# ---------------------------------------------------------------------------------------------- 1b. hardening
+# Firewall (SSH, 80, 443 only), SSH by key only, daily security updates: deploy/server-harden.sh. Outside AWS nothing
+# else filters the ports. HARDEN=false skips it (a host whose firewall you manage somewhere else).
+if [ "${HARDEN:-true}" = "true" ]; then
+  bash "$SRC/deploy/server-harden.sh"
+else
+  echo "note: HARDEN=false - no firewall/SSH changes (run deploy/server-harden.sh later)"
 fi
 
 # ---------------------------------------------------------------------------------------------- 2. deploy user
@@ -145,14 +177,22 @@ touch /var/log/math-lms-backup.log
 chown "$RUN_USER:$RUN_USER" "$BACKUP_DIR" /var/log/math-lms-backup.log
 {
   echo "# Managed by deploy/server-setup.sh"
+  # cron's own PATH is /usr/bin:/bin - AWS's installer puts `aws` in /usr/local/bin
+  echo "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
   echo "15 3 * * * $RUN_USER cd $DEPLOY_PATH && ./deploy/backup.sh $BACKUP_DIR >> /var/log/math-lms-backup.log 2>&1"
 } > /etc/cron.d/math-lms-backup
 chmod 644 /etc/cron.d/math-lms-backup
 # Backups are encrypted (age) and copied to S3 (aws): both commands must exist, and both settings must be in .env.prod.
-command -v age >/dev/null && command -v aws >/dev/null || { apt-get update -qq && apt-get install -y -qq age awscli; }
+command -v age >/dev/null || { apt-get update -qq && apt-get install -y -qq age; }
+command -v aws >/dev/null || install_aws_cli
 for key in BACKUP_AGE_RECIPIENT BACKUP_S3_BUCKET; do
   grep -q "^$key=." "$DEPLOY_PATH/.env.prod" 2>/dev/null     || echo "WARNING: $key is not set in $DEPLOY_PATH/.env.prod - the nightly backup will REFUSE to run (docs/DEPLOY.md section 4)"
 done
+if [ -n "$(get BACKUP_S3_ENDPOINT)" ]; then # off AWS there is no instance role: the bucket's key must be in .env.prod
+  for key in BACKUP_S3_REGION BACKUP_S3_ACCESS_KEY_ID BACKUP_S3_SECRET_ACCESS_KEY; do
+    [ -n "$(get "$key")" ] || echo "WARNING: BACKUP_S3_ENDPOINT is set but $key is empty - the nightly backup will fail (docs/DEPLOY.md section 4)"
+  done
+fi
 
 # ---------------------------------------------------------------------------------------------- 8. start
 if $START; then

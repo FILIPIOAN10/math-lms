@@ -13,16 +13,29 @@
   Restore: deploy/restore-test.sh <db-...dump.age> <uploads-...tar.gz.age> with AGE_IDENTITY set (see that script).
 
   Run by hand:   powershell -ExecutionPolicy Bypass -File deploy\pull-backups.ps1
+  Off AWS (Cloudflare R2 & co.), with a read-only key saved once by `aws configure --profile r2`:
+                 powershell -ExecutionPolicy Bypass -File deploy\pull-backups.ps1 -Bucket math-lms-backups `
+                   -Endpoint https://<account-id>.eu.r2.cloudflarestorage.com -Region auto -AwsProfile r2
   Exit code 0 = up to date; 1 = the download failed (the previous copy is kept); 2 = the newest backup in S3 is older
   than 2 days (the server's night job stopped). Each run appends one line to pull-backups.log in the destination.
 #>
 param(
     [string]$Bucket = 'math-lms-backups-074770434586',
     [string]$Region = 'eu-central-1',
+    [string]$Endpoint = '',      # an S3-compatible store instead of AWS, e.g. https://<account-id>.eu.r2.cloudflarestorage.com
+    [string]$AwsProfile = '',    # the aws profile holding that store's key (empty = the default credentials)
     [string]$Destination = (Join-Path $env:USERPROFILE 'Backups\math-lms')
 )
 
 $ErrorActionPreference = 'Stop'
+$s3 = @('--region', $Region)
+if ($Endpoint) {
+    $s3 += @('--endpoint-url', $Endpoint)
+    # aws-cli 2.23+ sends checksum headers some S3-compatible stores reject: only when required (older versions ignore it).
+    if (-not $env:AWS_REQUEST_CHECKSUM_CALCULATION) { $env:AWS_REQUEST_CHECKSUM_CALCULATION = 'when_required' }
+    if (-not $env:AWS_RESPONSE_CHECKSUM_VALIDATION) { $env:AWS_RESPONSE_CHECKSUM_VALIDATION = 'when_required' }
+}
+if ($AwsProfile) { $s3 += @('--profile', $AwsProfile) }
 New-Item -ItemType Directory -Force -Path $Destination | Out-Null
 $log = Join-Path $Destination 'pull-backups.log'
 $pattern = '^(db-(\d{8}-\d{6})\.dump\.age|uploads-(\d{8}-\d{6})\.tar\.gz\.age)$'
@@ -37,7 +50,7 @@ function Write-Log([string]$text) {
 function Get-Stamp([string]$name) { [regex]::Match($name, '(\d{8}-\d{6})').Groups[1].Value }
 
 try {
-    $json = & aws s3api list-objects-v2 --bucket $Bucket --prefix 'backups/' --region $Region --output json
+    $json = & aws s3api list-objects-v2 --bucket $Bucket --prefix 'backups/' @s3 --output json
     if ($LASTEXITCODE -ne 0) { throw "could not list s3://$Bucket/backups/ (aws exit $LASTEXITCODE)" }
     $remote = @((($json | Out-String) | ConvertFrom-Json).Contents |
         Where-Object { ($_.Key -replace '^backups/', '') -match $pattern } |
@@ -57,7 +70,7 @@ try {
         $target = Join-Path $Destination $object.Name
         if ((Test-Path $target) -and (Get-Item $target).Length -eq $object.Size) { continue }
         $partial = "$target.partial"
-        & aws s3 cp "s3://$Bucket/backups/$($object.Name)" $partial --region $Region --only-show-errors
+        & aws s3 cp "s3://$Bucket/backups/$($object.Name)" $partial @s3 --only-show-errors
         if ($LASTEXITCODE -ne 0) { throw "download of $($object.Name) failed (aws exit $LASTEXITCODE)" }
         $size = (Get-Item $partial).Length
         if ($size -ne $object.Size) {
