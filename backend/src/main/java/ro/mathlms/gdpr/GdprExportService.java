@@ -15,6 +15,7 @@ import ro.mathlms.quiz.ItemResponseRepository;
 import ro.mathlms.quiz.QuizAttempt;
 import ro.mathlms.quiz.QuizAttemptRepository;
 import ro.mathlms.quiz.QuizItemPartRepository;
+import ro.mathlms.studyplan.EnGoalService;
 import ro.mathlms.quiz.ResponsePhoto;
 import ro.mathlms.review.ReviewAnswerRepository;
 import ro.mathlms.storage.FileService;
@@ -51,12 +52,14 @@ public class GdprExportService {
     private final StudentTutorService studentTutor;
     private final ExplanationRequests explanationRequests;
     private final QuizItemPartRepository partRepository;
+    private final EnGoalService goalService;
 
     public GdprExportService(UserRepository userRepository, EnrollmentRepository enrollmentRepository,
                              QuizAttemptRepository attemptRepository, ItemResponseRepository responseRepository,
                              ReviewAnswerRepository reviewAnswerRepository, FileService fileService, ObjectMapper objectMapper,
                              @Value("${app.storage.quiz-photos-dir}") String quizPhotosDir, StudentTutorService studentTutor,
-                             ExplanationRequests explanationRequests, QuizItemPartRepository partRepository) {
+                             ExplanationRequests explanationRequests, QuizItemPartRepository partRepository,
+                             EnGoalService goalService) {
         this.userRepository = userRepository;
         this.enrollmentRepository = enrollmentRepository;
         this.attemptRepository = attemptRepository;
@@ -68,6 +71,7 @@ public class GdprExportService {
         this.studentTutor = studentTutor;
         this.explanationRequests = explanationRequests;
         this.partRepository = partRepository;
+        this.goalService = goalService;
     }
 
     /** Builds the ZIP archive for the account identified by {@code email}. */
@@ -114,8 +118,15 @@ public class GdprExportService {
                 .map(r -> new GdprExportData.ExplanationRequest(r.statement(), r.chosenOption(), r.requestedAt().toString()))
                 .toList();
 
+        GdprExportData.EnGoal enGoal = goalService.goal(user.getId())
+                .map(g -> new GdprExportData.EnGoal(g.target(), g.baseline(), g.setOn().toString()))
+                .orElse(null);
+        List<GdprExportData.EnEstimate> estimates = goalService.history(user.getId()).stream()
+                .map(e -> new GdprExportData.EnEstimate(e.day().toString(), e.grade(), e.low(), e.high()))
+                .toList();
+
         return new GdprExportData.Archive(Instant.now().toString(), profile, enrollments, attempts, reviews, tutorQuestions,
-                explanationRequests);
+                explanationRequests, enGoal, estimates);
     }
 
     private GdprExportData.Attempt toAttempt(QuizAttempt attempt) {

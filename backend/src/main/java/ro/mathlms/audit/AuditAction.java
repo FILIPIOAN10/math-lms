@@ -39,6 +39,8 @@ public enum AuditAction {
     EN_EXAMPLE_DELETED(AuditCategory.CONTENT),
     /** The automatic links: which EN chapter each place on the paper points at by default. */
     EN_CHAPTER_SLOTS_UPDATED(AuditCategory.CONTENT),
+    /** The school's EN exam date (V84), which every student's study plan counts down to. */
+    EN_EXAM_DATE_SET(AuditCategory.CONTENT),
 
     QUIZ_CREATED(AuditCategory.QUIZ),
     QUIZ_UPDATED(AuditCategory.QUIZ),
@@ -77,6 +79,9 @@ public enum AuditAction {
     HOMEWORK_OVERRIDE_REMOVED(AuditCategory.HOMEWORK),
     /** "Trimite reminder": the students who had not handed in were emailed now (how many, never who). */
     HOMEWORK_REMINDER_SENT(AuditCategory.HOMEWORK),
+    /** A chapter put first into one student's study plan (V84), or taken out again. */
+    STUDY_PLAN_PINNED(AuditCategory.HOMEWORK),
+    STUDY_PLAN_UNPINNED(AuditCategory.HOMEWORK),
 
     ACCOUNT_APPROVED(AuditCategory.PEOPLE),
     ACCOUNT_REJECTED(AuditCategory.PEOPLE),

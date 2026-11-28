@@ -61,6 +61,12 @@ public final class GdprExportData {
     /** „De ce am greșit?" asked about a wrong option and still waiting for the teacher (V70). */
     public record ExplanationRequest(String itemStatement, String chosenOption, String requestedAt) {}
 
+    /** „Ținta la EN" (V84): the grade the student aims for, and their estimate on the day they set it. */
+    public record EnGoal(double targetGrade, Double estimateWhenSet, String setOn) {}
+
+    /** The estimated EN grade on one day (V84), as drawn on the plan's chart. */
+    public record EnEstimate(String day, double grade, double low, double high) {}
+
     public record Archive(
             String exportedAt,
             Profile profile,
@@ -68,6 +74,8 @@ public final class GdprExportData {
             List<Attempt> attempts,
             List<ReviewEntry> reviews,
             List<TutorQuestion> tutorQuestions,
-            List<ExplanationRequest> explanationRequests
+            List<ExplanationRequest> explanationRequests,
+            EnGoal enGoal, // null = no target set
+            List<EnEstimate> enEstimateHistory
     ) {}
 }

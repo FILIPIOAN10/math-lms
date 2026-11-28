@@ -23,11 +23,16 @@ public class EnPredictionService {
 
     @Transactional(readOnly = true)
     public EnPrediction predict(User student) {
+        return EnPredictionCalculator.predict(masteryService.forStudent(student), examPoints());
+    }
+
+    /** Paper points per EN chapter code, from the places on the paper as the admin linked them. */
+    @Transactional(readOnly = true)
+    public Map<String, Double> examPoints() {
         Map<String, String> slotToCode = new HashMap<>();
         for (EnChapterSlot slot : slotRepository.findAllFetched()) {
             slotToCode.put(slot.getSlot(), slot.getChapter().getCode());
         }
-        return EnPredictionCalculator.predict(masteryService.forStudent(student),
-                EnPredictionCalculator.examPoints(slotToCode));
+        return EnPredictionCalculator.examPoints(slotToCode);
     }
 }
