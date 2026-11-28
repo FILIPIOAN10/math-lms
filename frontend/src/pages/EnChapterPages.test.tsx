@@ -3,7 +3,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { EnChaptersPage } from '@/pages/EnChaptersPage'
 import { EnChapterPage } from '@/pages/EnChapterPage'
-import { type EnChapterPage as EnChapterPageDto, type EnChapterSummary } from '@/lib/api'
+import { ApiError, type EnChapterPage as EnChapterPageDto, type EnChapterSummary } from '@/lib/api'
 
 const api = vi.hoisted(() => ({
   listEnChapters: vi.fn(),
@@ -215,6 +215,24 @@ describe('EnChapterPage', () => {
       await waitFor(() => expect(api.showEnChapterLesson).toHaveBeenCalledWith(1, true))
       expect(await screen.findByRole('button', { name: 'Ascunde-o elevilor' })).toBeInTheDocument()
       expect(screen.queryByText(/Elevii n-o văd încă/)).not.toBeInTheDocument()
+    })
+
+    it('forgets a refused "Arată-o elevilor" once the teacher moves to the next chapter (audit L4)', async () => {
+      auth.value.user.role = 'ADMIN'
+      api.getEnChapter.mockImplementation((id: number) => Promise.resolve(id === 1
+        ? page({ notes: 'Rezumat.', photos: [{ id: 7 }, { id: 8 }] })
+        : page({ id: 3, rootId: 3, code: 'A3', title: 'Procente', notes: 'Alt rezumat.' })))
+      api.getEnChapterLesson.mockResolvedValue(lesson(false))
+      api.showEnChapterLesson.mockRejectedValue(new ApiError(409, 'Mai ai de revizuit 1 pagină.'))
+      api.listEnChapters.mockResolvedValue([chapter(1, { exampleCount: 1 }), chapter(3, { title: 'Procente', exampleCount: 1 })])
+      renderAt('/capitole/1')
+
+      fireEvent.click(await screen.findByRole('button', { name: 'Arată-o elevilor' }))
+      expect(await screen.findByText('Mai ai de revizuit 1 pagină.')).toBeInTheDocument()
+
+      fireEvent.click(await screen.findByRole('link', { name: /Capitolul următor: A3/ }))
+      expect(await screen.findByText('Alt rezumat.')).toBeInTheDocument()
+      expect(screen.queryByText('Mai ai de revizuit 1 pagină.')).not.toBeInTheDocument()
     })
   })
 

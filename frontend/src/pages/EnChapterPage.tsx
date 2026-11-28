@@ -135,6 +135,7 @@ export function EnChapterPage() {
   useEffect(() => {
     let cancelled = false
     setPage(null)
+    setError(null) // an error of the chapter left behind (a refused "Arată-o elevilor") is not this chapter's
     setLesson(null)
     setLessonSettled(false)
     setLessonOpen(false)

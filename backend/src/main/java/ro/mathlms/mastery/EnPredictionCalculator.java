@@ -18,9 +18,10 @@ import java.util.Set;
  * 5 points; a Subiectul III problem with requirements of its own ("III.5.a", "III.5.b") splits its 5 points between
  * them, and its own slot ("III.5") then counts nothing. With the V34 links that adds up to 90 points.
  *
- * <p>Estimate = 1 + 9 × expected points ÷ 90, where a chapter's expected points are its paper points × the student's
- * level there (a chapter never met counts at {@link #UNSEEN}). Range ±{@link #WIDE} under {@link #MANY_ANSWERS}
- * answers, ±{@link #NARROW} from then on, within 1 - 10. Under {@link #MIN_ANSWERS} answers there is no estimate.
+ * <p>Estimate = 1 + 9 × expected points ÷ the paper's points (90 with the V34 links), where a chapter's expected
+ * points are its paper points × the student's level there (a chapter never met counts at {@link #UNSEEN}). Range
+ * ±{@link #WIDE} under {@link #MANY_ANSWERS} answers, ±{@link #NARROW} from then on, within 1 - 10. Under
+ * {@link #MIN_ANSWERS} answers there is no estimate.
  */
 public final class EnPredictionCalculator {
 
@@ -69,6 +70,11 @@ public final class EnPredictionCalculator {
         if (answers < MIN_ANSWERS) {
             return new EnPrediction(false, answers, MIN_ANSWERS, null, null, null, List.of());
         }
+        // The paper as the admin linked it (90 points with the V34 links), not a fixed 90 (audit 2026-11-27 L3).
+        double paper = examPoints.values().stream().mapToDouble(Double::doubleValue).sum();
+        if (paper <= 0) {
+            paper = PAPER_POINTS;
+        }
         double expected = 0;
         List<EnPrediction.Gain> gains = new ArrayList<>();
         for (EnChapterMasteryDto c : chapters) {
@@ -78,12 +84,12 @@ public final class EnPredictionCalculator {
             }
             double level = c.percent() == null ? UNSEEN : c.percent() / 100.0;
             expected += worth * level;
-            double gain = round1((1 - level) * worth * 9 / PAPER_POINTS);
+            double gain = round1((1 - level) * worth * 9 / paper);
             if (gain > 0) {
                 gains.add(new EnPrediction.Gain(c.chapterId(), c.code(), c.title(), gain));
             }
         }
-        double grade = clamp(1 + 9 * expected / PAPER_POINTS);
+        double grade = clamp(1 + 9 * expected / paper);
         double spread = answers < MANY_ANSWERS ? WIDE : NARROW;
         gains.sort(Comparator.comparingDouble(EnPrediction.Gain::gradeGain).reversed()
                 .thenComparing(EnPrediction.Gain::code));

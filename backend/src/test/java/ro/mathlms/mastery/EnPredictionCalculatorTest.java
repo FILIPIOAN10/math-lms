@@ -90,4 +90,17 @@ class EnPredictionCalculatorTest {
         assertThat(p.topGains().get(0).code()).isEqualTo("G5"); // 12.5 points × 40% missing × 0.1 = 0.5
         assertThat(p.topGains().get(0).gradeGain()).isEqualTo(0.5);
     }
+
+    /** Audit 2026-11-27 L3: the admin may link fewer places; a fixed 90 would then make a perfect student a 9. */
+    @Test
+    void theEstimateFollowsThePaperTheAdminLinkedNotAFixedNinety() {
+        Map<String, String> fewer = new LinkedHashMap<>(V34);
+        fewer.remove("I.6");  // A8 no longer on the paper
+        fewer.remove("II.6"); // G8 keeps III.6.a
+        Map<String, Double> points = EnPredictionCalculator.examPoints(fewer);
+        assertThat(points.values().stream().mapToDouble(Double::doubleValue).sum()).isEqualTo(80.0);
+
+        assertThat(EnPredictionCalculator.predict(everyChapterAt(100, 4), points).grade()).isEqualTo(10.0);
+        assertThat(EnPredictionCalculator.predict(everyChapterAt(60, 3), points).grade()).isEqualTo(6.4);
+    }
 }
