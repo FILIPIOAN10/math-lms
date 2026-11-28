@@ -4,6 +4,7 @@ import { AuthProvider } from '@/context/AuthContext'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { AdminRoute } from '@/components/AdminRoute'
 import { AppShell } from '@/components/AppShell'
+import { IdleSessionGuard } from '@/components/IdleSessionGuard'
 import { LoginRoute } from '@/components/LoginRoute'
 import { ReturnAfterSignIn } from '@/components/ReturnAfterSignIn'
 import { RoleRoute } from '@/components/RoleRoute'
@@ -54,6 +55,7 @@ function App() {
       <ScrollToTop />
       <AuthProvider>
         <ReturnAfterSignIn />
+        <IdleSessionGuard />
         <Suspense fallback={<p className="p-4 text-muted-foreground">Se încarcă...</p>}>
           <Routes>
           <Route path="/login" element={<LoginRoute />} />

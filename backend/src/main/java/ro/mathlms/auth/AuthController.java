@@ -169,6 +169,18 @@ public class AuthController {
         return ResponseEntity.ok(UserDto.from(user));
     }
 
+    /**
+     * The SPA's sign of life while the person works: a session with no refresh and no ping for the idle timeout (60
+     * minutes) closes itself. Like {@code /refresh} it runs on the refresh cookie alone (the access cookie may have
+     * run out while someone read a long lesson) and it rotates nothing; 401 once the session is gone. The answer
+     * names the idle timeout, so the SPA warns and signs out by the server's setting.
+     */
+    @PostMapping("/activity")
+    public SessionActivityResponse activity(HttpServletRequest request) {
+        refreshTokenService.touch(refreshTokenService.readRefreshCookie(request));
+        return new SessionActivityResponse(refreshTokenService.idleTimeout().toMinutes());
+    }
+
     /** Active login sessions of the current user, for device management. */
     @GetMapping("/sessions")
     public List<DeviceSessionResponse> sessions(Authentication authentication, HttpServletRequest request) {

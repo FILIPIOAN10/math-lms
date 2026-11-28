@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AuthProvider, useAuth } from '@/context/AuthContext'
 import { ApiError, type User } from '@/lib/api'
 
-const api = vi.hoisted(() => ({ getCurrentUser: vi.fn() }))
+const api = vi.hoisted(() => ({ getCurrentUser: vi.fn(), logout: vi.fn() }))
 vi.mock('@/lib/api', async (original) => ({ ...(await original<typeof import('@/lib/api')>()), ...api }))
 
 const student: User = { email: 'ana@x.ro', fullName: 'Ana', role: 'STUDENT', status: 'ACTIVE' }
@@ -113,4 +113,50 @@ describe('AuthProvider', () => {
     expect(await screen.findByRole('button', { name: 'Reîncearcă' })).toBeEnabled()
     expect(screen.getByTestId('server-unreachable')).toBeInTheDocument()
   })
+
+  it('ends a session that expired by itself even when the server cannot be told', async () => {
+    api.getCurrentUser.mockResolvedValue(student)
+    api.logout.mockRejectedValue(new TypeError('Failed to fetch'))
+    localStorage.setItem('mathlms-last-activity', String(Date.now()))
+    render(
+      <AuthProvider>
+        <Expire />
+      </AuthProvider>,
+    )
+    await screen.findByText('conectat: Ana')
+
+    await userEvent.click(screen.getByRole('button', { name: 'expiră' }))
+
+    expect(await screen.findByText('neconectat')).toBeInTheDocument()
+    expect(api.logout).toHaveBeenCalled()
+    expect(localStorage.getItem('mathlms-last-activity')).toBeNull()
+  })
+
+  it('forgets the activity of the person who signs out', async () => {
+    api.getCurrentUser.mockResolvedValue(student)
+    api.logout.mockResolvedValue(undefined)
+    localStorage.setItem('mathlms-last-activity', String(Date.now()))
+    render(
+      <AuthProvider>
+        <Expire />
+      </AuthProvider>,
+    )
+    await screen.findByText('conectat: Ana')
+
+    await userEvent.click(screen.getByRole('button', { name: 'ieși' }))
+
+    expect(await screen.findByText('neconectat')).toBeInTheDocument()
+    expect(localStorage.getItem('mathlms-last-activity')).toBeNull()
+  })
 })
+
+function Expire() {
+  const { user, logout, expireSession } = useAuth()
+  return (
+    <>
+      <p>{user ? `conectat: ${user.fullName}` : 'neconectat'}</p>
+      <button onClick={() => void expireSession()}>expiră</button>
+      <button onClick={() => void logout()}>ieși</button>
+    </>
+  )
+}

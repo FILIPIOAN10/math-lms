@@ -101,9 +101,10 @@ public class SecurityConfig {
                         .requestMatchers("/oauth2/**", "/login/**").permitAll()
                         .requestMatchers("/api/auth/register", "/api/auth/verify-email", "/api/auth/login",
                                 "/api/auth/forgot-password", "/api/auth/reset-password",
-                                // refresh runs on the refresh cookie (access token may be expired);
+                                // refresh runs on the refresh cookie (access token may be expired), and so does
+                                // the activity ping that keeps a session from closing after an idle hour;
                                 // logout only clears cookies + revokes the presented refresh token.
-                                "/api/auth/refresh", "/api/auth/logout",
+                                "/api/auth/refresh", "/api/auth/activity", "/api/auth/logout",
                                 // the second step of a sign-in: no session yet, the MFA cookie is the credential
                                 "/api/auth/2fa/verify").permitAll()
                         // GDPR erasure is confirmed via an emailed single-purpose token, no session.

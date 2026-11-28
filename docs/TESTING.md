@@ -275,6 +275,17 @@ testarea de mână cu Gmail, pornește-l din nou fără ele. Fiecare test își 
 - cont pending/respins → mesaj specific (403, ales după `body`)
 - admin corect → dashboard
 
+### 1a. Sesiunea se închide după o oră fără activitate
+- Ca să nu aștepți o oră: pornește backendul cu `IDLE_TIMEOUT_MINUTES=6` și `JWT_EXPIRATION_MINUTES=6` (variabile de mediu;
+  backendul refuză să pornească dacă JWT_EXPIRATION_MINUTES e mai mare decât IDLE_TIMEOUT_MINUTES).
+- conectează-te și nu atinge nimic → după 1 minut (5 minute înainte de final) apare „Mai ești aici?” cu numărătoare inversă
+- „Rămân conectat” (sau orice clic/tastă/scroll) → fereastra se închide, timpul pornește din nou
+- lași numărătoarea să ajungă la 0 → ești dus la `/login`, cu mesajul „Te-am deconectat pentru că nu ai folosit aplicația o oră”
+  (o singură dată: la reîncărcare mesajul dispare); „Ieși acum” deconectează fără mesaj
+- două taburi deschise: lucrul într-unul ține conectat și pe celălalt
+- browserul închis: după limita fără activitate sesiunea nu mai merge (`/api/auth/refresh` → 401), chiar dacă tabul n-a apucat
+  să se deconecteze singur
+
 ### 2. Guard-uri / rutare (merge și fără backend)
 - `/` neautentificat → `/login`
 - `/admin/students` (și vechile `/admin/pending`, `/admin/links`, care duc acolo) ca non-admin → redirect acasă; neautentificat → `/login`

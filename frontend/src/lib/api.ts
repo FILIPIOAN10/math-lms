@@ -60,7 +60,7 @@ function send(path: string, options: RequestInit): Promise<Response> {
 }
 
 /** Endpoints where a 401 is the real answer, not a stale access token. */
-const NO_REFRESH_ON_401 = ['/auth/refresh', '/auth/login', '/auth/logout']
+const NO_REFRESH_ON_401 = ['/auth/refresh', '/auth/login', '/auth/logout', '/auth/activity']
 
 let refreshInFlight: Promise<boolean> | null = null
 
@@ -214,6 +214,15 @@ export async function previewInvite(token: string): Promise<InvitePreview> {
 
 export async function logout(): Promise<void> {
   await apiFetch('/auth/logout', { method: 'POST' })
+}
+
+/**
+ * Tells the server the person is still working, so the session does not close after an idle hour. Runs on the
+ * refresh cookie alone; 401 = the session is gone. The answer names the idle limit to warn and sign out by.
+ */
+export async function keepSessionAlive(): Promise<{ idleTimeoutMinutes: number }> {
+  const response = await apiFetch('/auth/activity', { method: 'POST' })
+  return response.json()
 }
 
 // ---------- "Contul meu": own account, sessions, GDPR ----------

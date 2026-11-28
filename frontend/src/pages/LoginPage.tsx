@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { AuthLayout } from '@/components/AuthLayout'
 import { Button } from '@/components/ui/button'
@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useAuth } from '@/context/AuthContext'
 import { ApiError } from '@/lib/api'
+import { clearSignOutNotice, readSignOutNotice, type SignOutNotice } from '@/lib/idleSession'
 import { readLoginMethod, saveLoginMethod } from '@/lib/loginMethod'
 import { usePageTitle } from '@/lib/usePageTitle'
 
@@ -36,6 +37,12 @@ function loginErrorMessage(error: unknown): string {
     }
   }
   return 'A apărut o eroare. Încearcă din nou.'
+}
+
+/** Why the session ended without the person asking, said once on the sign-in page that follows. */
+const SIGN_OUT_NOTICES: Record<SignOutNotice, string> = {
+  idle: 'Te-am deconectat pentru că nu ai folosit aplicația o oră. Conectează-te din nou ca să continui.',
+  ended: 'Sesiunea s-a încheiat. Conectează-te din nou ca să continui.',
 }
 
 /** Why Google sent the visitor back here (?error=…): a fixed code from the server, never repeated as it stands. */
@@ -218,6 +225,8 @@ export function LoginPage() {
   // Google sends a sign-in that still needs its code here with ?step=2fa; the password tab switches to it itself.
   const [needCode, setNeedCode] = useState(searchParams.get('step') === '2fa')
   const refusal = googleRefusal(searchParams.get('error'))
+  const [signOutNotice] = useState(readSignOutNotice)
+  useEffect(() => clearSignOutNotice(), [])
 
   function restart() {
     setNeedCode(false)
@@ -236,6 +245,11 @@ export function LoginPage() {
         <CardContent>
           {needCode ? <TwoFactorStep onRestart={restart} /> : (
             <>
+              {signOutNotice && (
+                <p role="status" className="mb-4 rounded-md bg-muted px-3 py-2 text-sm">
+                  {SIGN_OUT_NOTICES[signOutNotice]}
+                </p>
+              )}
               <Tabs defaultValue={refusal ? 'google' : readLoginMethod()}>
                 <TabsList>
                   <TabsTrigger value="google">Google</TabsTrigger>

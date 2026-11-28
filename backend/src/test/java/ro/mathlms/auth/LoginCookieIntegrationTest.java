@@ -64,4 +64,31 @@ class LoginCookieIntegrationTest {
                 .stream().filter(c -> c.startsWith(JwtCookieSuccessHandler.COOKIE_NAME + "=")).findFirst().orElseThrow();
         assertThat(cleared).startsWith(JwtCookieSuccessHandler.COOKIE_NAME + "=;").contains("Max-Age=0", "Secure");
     }
+
+    @Test
+    void theActivityPingKeepsTheSessionOpenUntilLogoutAndNamesTheIdleLimit() throws Exception {
+        String email = "activity" + System.nanoTime() + "@scoala.ro";
+        User user = User.registerLocal(email, "Elev Activ", passwordEncoder.encode("parola123"), Role.STUDENT);
+        user.verifyEmail();
+        user.approve(Role.STUDENT);
+        userRepository.save(user);
+        MvcResult login = mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"" + email + "\",\"password\":\"parola123\"}"))
+                .andExpect(status().isOk())
+                .andReturn();
+        Cookie refresh = login.getResponse().getCookie(RefreshTokenService.REFRESH_COOKIE_NAME);
+        assertThat(refresh).isNotNull();
+        Cookie session = new Cookie(RefreshTokenService.REFRESH_COOKIE_NAME, refresh.getValue());
+
+        // The SPA pings while the person works, even when the access cookie has already run out: only the refresh
+        // cookie (sent to /api/auth) is needed. The answer tells the SPA when to warn and sign out.
+        mockMvc.perform(post("/api/auth/activity").cookie(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.idleTimeoutMinutes").value(60));
+
+        mockMvc.perform(post("/api/auth/activity")).andExpect(status().isUnauthorized());
+
+        mockMvc.perform(post("/api/auth/logout").cookie(session)).andExpect(status().isNoContent());
+        mockMvc.perform(post("/api/auth/activity").cookie(session)).andExpect(status().isUnauthorized());
+    }
 }

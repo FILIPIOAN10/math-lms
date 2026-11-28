@@ -14,6 +14,7 @@ import org.springframework.web.util.WebUtils;
 import ro.mathlms.user.User;
 import ro.mathlms.user.UserRepository;
 
+import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -29,6 +30,12 @@ import java.util.UUID;
  * {@code sessionId}; the refresh token rotates on every {@code /refresh} (old token deleted, new one
  * issued for the same session) so a replayed token fails. The session is the public handle for
  * listing and revoking — the refresh token never leaves Redis except in its own HttpOnly cookie.
+ *
+ * <p>A session nobody uses for {@code app.auth.idle-timeout-minutes} (60) closes itself: every refresh and every
+ * activity ping from the SPA ({@link #touch}) starts the hour again, the Redis keys expire an hour after the last one,
+ * and a token presented later is refused (and its session revoked) even if a key outlived its TTL. However busy, a
+ * session ends {@code app.auth.refresh-expiration-days} (7) after the sign-in. The access cookie may not live longer
+ * than the idle timeout, so it can never outlast the session it came from.
  *
  * <p>Redis layout (all TTL-bounded):
  * <ul>
@@ -50,24 +57,52 @@ public class RefreshTokenService {
 
     private final StringRedisTemplate redis;
     private final UserRepository userRepository;
+    private final Clock clock;
     private final boolean cookieSecure;
-    private final Duration ttl;
+    /** However busy, a session ends this long after the sign-in (and so does the refresh cookie). */
+    private final Duration absoluteLifetime;
+    /** A session with no refresh and no activity ping for this long is closed. */
+    private final Duration idleTimeout;
 
     @Autowired
-    public RefreshTokenService(StringRedisTemplate redis, UserRepository userRepository,
+    public RefreshTokenService(StringRedisTemplate redis, UserRepository userRepository, Clock clock,
                                @Value("${app.auth.cookie-secure:true}") boolean cookieSecure,
-                               @Value("${app.auth.refresh-expiration-days:7}") long refreshExpirationDays) {
-        this.redis = redis;
-        this.userRepository = userRepository;
-        this.cookieSecure = cookieSecure;
-        this.ttl = Duration.ofDays(refreshExpirationDays);
+                               @Value("${app.auth.refresh-expiration-days:7}") long refreshExpirationDays,
+                               @Value("${app.auth.idle-timeout-minutes:60}") long idleTimeoutMinutes,
+                               @Value("${app.auth.jwt-expiration-minutes:15}") long accessMinutes) {
+        this(redis, userRepository, clock, cookieSecure,
+                Duration.ofDays(refreshExpirationDays), Duration.ofMinutes(idleTimeoutMinutes));
+        requireAccessWithinIdle(Duration.ofMinutes(accessMinutes), idleTimeout);
     }
 
-    /** Test compatibility constructor; production injects the repository for version checks. */
-    public RefreshTokenService(StringRedisTemplate redis,
-                               @Value("${app.auth.cookie-secure:true}") boolean cookieSecure,
-                               @Value("${app.auth.refresh-expiration-days:7}") long refreshExpirationDays) {
-        this(redis, null, cookieSecure, refreshExpirationDays);
+    /** For tests that move the clock by hand. */
+    RefreshTokenService(StringRedisTemplate redis, UserRepository userRepository, Clock clock, boolean cookieSecure,
+                        Duration absoluteLifetime, Duration idleTimeout) {
+        if (idleTimeout.isNegative() || idleTimeout.isZero()) {
+            throw new IllegalStateException("app.auth.idle-timeout-minutes (IDLE_TIMEOUT_MINUTES) must be positive");
+        }
+        this.redis = redis;
+        this.userRepository = userRepository;
+        this.clock = clock;
+        this.cookieSecure = cookieSecure;
+        this.absoluteLifetime = absoluteLifetime;
+        this.idleTimeout = idleTimeout;
+    }
+
+    /**
+     * The access cookie is not checked against Redis, so it must run out no later than an idle session does: otherwise
+     * a browser left alone for the idle timeout would still be signed in until the cookie expired.
+     */
+    static void requireAccessWithinIdle(Duration access, Duration idle) {
+        if (access.compareTo(idle) > 0) {
+            throw new IllegalStateException("JWT_EXPIRATION_MINUTES (" + access.toMinutes() + ") must not be longer than "
+                    + "IDLE_TIMEOUT_MINUTES (" + idle.toMinutes() + "): the access cookie would outlive an idle session");
+        }
+    }
+
+    /** How long a session may go unused; the SPA warns and signs out by it. */
+    public Duration idleTimeout() {
+        return idleTimeout;
     }
 
     /** The email + freshly issued token produced by a rotation. */
@@ -80,10 +115,10 @@ public class RefreshTokenService {
         int tokenVersion = user == null ? 0 : user.getTokenVersion();
         String sessionId = UUID.randomUUID().toString();
         String token = UUID.randomUUID().toString();
-        long now = System.currentTimeMillis();
+        long now = clock.millis();
         RequestInfo info = extractRequestInfo();
 
-        redis.opsForValue().set(TOKEN_PREFIX + token, sessionId, ttl);
+        redis.opsForValue().set(TOKEN_PREFIX + token, sessionId, idleTimeout);
 
         Map<String, String> session = new HashMap<>();
         session.put("email", email);
@@ -94,47 +129,92 @@ public class RefreshTokenService {
         session.put("createdAt", String.valueOf(now));
         session.put("lastUsedAt", String.valueOf(now));
         redis.opsForHash().putAll(SESSION_PREFIX + sessionId, session);
-        redis.expire(SESSION_PREFIX + sessionId, ttl);
+        redis.expire(SESSION_PREFIX + sessionId, idleTimeout);
 
+        // Only an index of the user's sessions (stale ids are dropped when listed): it lives as long as one may.
         redis.opsForSet().add(USER_SESSIONS_PREFIX + email, sessionId);
-        redis.expire(USER_SESSIONS_PREFIX + email, ttl);
+        redis.expire(USER_SESSIONS_PREFIX + email, absoluteLifetime);
         return token;
     }
 
     /** Rotates the presented token within its session and returns the owner + the new token. */
     public Rotation rotate(String oldToken) {
-        if (oldToken == null || oldToken.isBlank()) {
+        LiveSession live = requireLive(oldToken);
+        String newToken = UUID.randomUUID().toString();
+        redis.delete(TOKEN_PREFIX + oldToken);
+        redis.opsForValue().set(TOKEN_PREFIX + newToken, live.sessionId(), idleTimeout);
+        redis.opsForHash().put(SESSION_PREFIX + live.sessionId(), "token", newToken);
+        keepAlive(live);
+        return new Rotation(live.email(), newToken);
+    }
+
+    /**
+     * The SPA's sign of life while the person works (pages that make no request for a long time, like reading a
+     * lesson): the idle hour starts again, without rotating the token. An idle or revoked session is refused, never
+     * revived.
+     */
+    public void touch(String token) {
+        LiveSession live = requireLive(token);
+        redis.expire(TOKEN_PREFIX + token, idleTimeout);
+        keepAlive(live);
+    }
+
+    private record LiveSession(String sessionId, String email) {}
+
+    /** The session a presented token belongs to, if it is still open; otherwise it is closed for good and refused. */
+    private LiveSession requireLive(String token) {
+        if (token == null || token.isBlank()) {
             throw new InvalidRefreshTokenException("Missing refresh token");
         }
-        String sessionId = redis.opsForValue().get(TOKEN_PREFIX + oldToken);
+        String sessionId = redis.opsForValue().get(TOKEN_PREFIX + token);
         if (sessionId == null) {
             throw new InvalidRefreshTokenException("Invalid or expired refresh token");
         }
         String sessionKey = SESSION_PREFIX + sessionId;
-        String email = (String) redis.opsForHash().get(sessionKey, "email");
+        Map<Object, Object> session = redis.opsForHash().entries(sessionKey);
+        Object email = session.get("email");
         if (email == null) {
             throw new InvalidRefreshTokenException("Invalid or expired refresh token");
         }
+        long now = clock.millis();
+        if (now - millis(session.get("lastUsedAt")) > idleTimeout.toMillis()
+                || now - millis(session.get("createdAt")) > absoluteLifetime.toMillis()) {
+            revokeSession(String.valueOf(email), sessionId);
+            throw new InvalidRefreshTokenException("Session closed after inactivity");
+        }
         if (userRepository != null) {
-            Object storedVersion = redis.opsForHash().get(sessionKey, "tokenVersion");
+            Object storedVersion = session.get("tokenVersion");
             long sessionVersion = storedVersion == null ? 0 : Long.parseLong(String.valueOf(storedVersion));
-            User user = userRepository.findByEmail(email)
+            User user = userRepository.findByEmail(String.valueOf(email))
                     .filter(candidate -> !candidate.isErased())
                     .filter(candidate -> candidate.getTokenVersion() == sessionVersion)
                     .orElse(null);
             if (user == null) {
-                revokeSession(email, sessionId);
+                revokeSession(String.valueOf(email), sessionId);
                 throw new InvalidRefreshTokenException("Invalid or expired refresh token");
             }
         }
-        String newToken = UUID.randomUUID().toString();
-        redis.delete(TOKEN_PREFIX + oldToken);
-        redis.opsForValue().set(TOKEN_PREFIX + newToken, sessionId, ttl);
-        redis.opsForHash().put(sessionKey, "token", newToken);
-        redis.opsForHash().put(sessionKey, "lastUsedAt", String.valueOf(System.currentTimeMillis()));
-        redis.expire(sessionKey, ttl);
-        redis.expire(USER_SESSIONS_PREFIX + email, ttl);
-        return new Rotation(email, newToken);
+        return new LiveSession(sessionId, String.valueOf(email));
+    }
+
+    /** Starts the idle hour again for a session that was just used. */
+    private void keepAlive(LiveSession live) {
+        String sessionKey = SESSION_PREFIX + live.sessionId();
+        redis.opsForHash().put(sessionKey, "lastUsedAt", String.valueOf(clock.millis()));
+        redis.expire(sessionKey, idleTimeout);
+        redis.expire(USER_SESSIONS_PREFIX + live.email(), absoluteLifetime);
+    }
+
+    /** A stored epoch-millis value; a missing or garbled one counts as now, so only the Redis TTL bounds that session. */
+    private long millis(Object stored) {
+        if (stored == null) {
+            return clock.millis();
+        }
+        try {
+            return Long.parseLong(String.valueOf(stored));
+        } catch (NumberFormatException e) {
+            return clock.millis();
+        }
     }
 
     /** Sessions of a user, newest activity first. The session matching {@code currentToken} is flagged. */
@@ -231,7 +311,7 @@ public class RefreshTokenService {
     }
 
     public ResponseCookie refreshCookie(String token) {
-        return baseCookie(token).maxAge(ttl).build();
+        return baseCookie(token).maxAge(absoluteLifetime).build();
     }
 
     public ResponseCookie cleanRefreshCookie() {

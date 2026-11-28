@@ -106,8 +106,13 @@ app:
     # Secure flag on the auth cookie. Defaults true (HTTPS/prod); set COOKIE_SECURE=false
     # only for local plain-HTTP development, otherwise the browser won't send the cookie.
     cookie-secure: ${COOKIE_SECURE:true}
-    # Lifetime of a Redis-backed refresh-token session (rotated on every /api/auth/refresh).
+    # However busy, a Redis-backed refresh-token session (rotated on every /api/auth/refresh) ends this long after the
+    # sign-in.
     refresh-expiration-days: ${REFRESH_EXPIRATION_DAYS:7}
+    # A session nobody uses for this long closes itself: the SPA warns 5 minutes before and signs out, and the server
+    # refuses the session after it (every refresh and every POST /api/auth/activity starts the time again). Must be at
+    # least JWT_EXPIRATION_MINUTES, or the app refuses to start (the access cookie would outlive an idle session).
+    idle-timeout-minutes: ${IDLE_TIMEOUT_MINUTES:60}
     # F8: an ADMIN must set up two-step sign-in (authenticator app) before the staff pages open. false only for local
     # dev and automated tests (TWO_FACTOR_REQUIRED_FOR_ADMIN=false); never in production. Teachers are also required.
     two-factor:

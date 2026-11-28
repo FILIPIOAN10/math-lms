@@ -96,6 +96,8 @@ flowchart LR
   `ddl-auto: validate`.
 - **Auth:** a JWT access token in an HttpOnly cookie, refresh tokens rotated and stored in Redis (one session per
   device), cookie double-submit CSRF, BCrypt, Google OAuth2, and Redis-backed rate limiting on sensitive endpoints.
+  A session nobody uses for an hour closes itself (`IDLE_TIMEOUT_MINUTES`): the app warns five minutes before, and
+  the server refuses the session afterwards even if the browser was simply closed.
 - **Reliability:** emails go through a transactional outbox (an SMTP outage never loses a message or fails a
   request); Redis caches the statistics and progress aggregates and evicts them after commit.
 - **Frontend** (`frontend/`): React 19 + TypeScript, react-router 7, Tailwind CSS 4 with Base UI components,

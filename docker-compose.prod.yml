@@ -76,6 +76,8 @@ services:
       ALLOWED_EMAILS: ${ALLOWED_EMAILS:-}
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env.prod}
       JWT_EXPIRATION_MINUTES: ${JWT_EXPIRATION_MINUTES:-15}
+      # A session nobody uses this long closes itself; must be >= JWT_EXPIRATION_MINUTES or the backend refuses to start.
+      IDLE_TIMEOUT_MINUTES: ${IDLE_TIMEOUT_MINUTES:-60}
       # Phase 2: one key per job (docs/SECRETS.md). Required: the app must never fall back to keys derived from JWT_SECRET.
       EMAIL_TOKEN_SECRET: ${EMAIL_TOKEN_SECRET:?set EMAIL_TOKEN_SECRET in .env.prod (openssl rand -hex 32)}
       TOTP_ENC_KEY: ${TOTP_ENC_KEY:?set TOTP_ENC_KEY in .env.prod (openssl rand -hex 32)}

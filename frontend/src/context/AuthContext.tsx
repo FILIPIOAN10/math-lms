@@ -9,6 +9,7 @@ import {
   type User,
 } from '@/lib/api'
 import { clearAllAnswerQueues } from '@/lib/answerQueue'
+import { forgetActivity } from '@/lib/idleSession'
 import { forgetReturnOnSignOut } from '@/lib/returnTo'
 
 interface AuthContextValue {
@@ -20,6 +21,11 @@ interface AuthContextValue {
   /** Re-reads the signed-in user (e.g. after turning two-step sign-in on). */
   refreshUser: () => Promise<void>
   logout: () => Promise<void>
+  /**
+   * A sign-out the person did not ask for (an idle hour, or the server already closed the session): signed out here
+   * even when the server cannot be told, since it ends that session by itself anyway.
+   */
+  expireSession: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
@@ -82,17 +88,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(await getCurrentUser())
   }
 
-  async function logout() {
+  function forgetThisPerson() {
     // Answers waiting for a connection belong to this person: the next one on this computer must not send them.
     clearAllAnswerQueues()
     // The page they leave is theirs: the next person signing in here must not be sent to it.
     forgetReturnOnSignOut()
+    // Nor their idle hour: the next session's starts at its own sign-in.
+    forgetActivity()
+  }
+
+  async function logout() {
+    forgetThisPerson()
     await apiLogout()
     setUser(null)
   }
 
+  async function expireSession() {
+    forgetThisPerson()
+    try {
+      await apiLogout()
+    } catch {
+      // Offline after a sleep, say: the server closes an idle session by itself.
+    }
+    setUser(null)
+  }
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, verifyTwoFactor, refreshUser, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, verifyTwoFactor, refreshUser, logout, expireSession }}>
       {unreachable ? <ServerUnreachable onRetry={checkSession} /> : children}
     </AuthContext.Provider>
   )

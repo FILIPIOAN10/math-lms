@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { LoginPage } from '@/pages/LoginPage'
 import { ApiError } from '@/lib/api'
+import { noteSignOut } from '@/lib/idleSession'
 
 const login = vi.hoisted(() => vi.fn())
 const verifyTwoFactor = vi.hoisted(() => vi.fn())
@@ -210,5 +211,38 @@ describe('LoginPage two-step sign-in', () => {
 
     expect(screen.getByLabelText('Codul din aplicație')).toBeInTheDocument()
     expect(screen.queryByRole('tab', { name: 'Google' })).not.toBeInTheDocument()
+  })
+})
+
+describe('LoginPage after a session ended by itself', () => {
+  beforeEach(() => {
+    sessionStorage.clear()
+    localStorage.clear()
+  })
+
+  const renderLogin = () => render(<MemoryRouter><LoginPage /></MemoryRouter>)
+
+  it('says the person was signed out after an hour without activity, once', () => {
+    noteSignOut('idle')
+    const { unmount } = renderLogin()
+
+    expect(screen.getByRole('status')).toHaveTextContent('nu ai folosit aplicația o oră')
+    unmount()
+
+    renderLogin()
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+
+  it('says the session ended when the server had already closed it', () => {
+    noteSignOut('ended')
+    renderLogin()
+
+    expect(screen.getByRole('status')).toHaveTextContent('Sesiunea s-a încheiat')
+  })
+
+  it('says nothing on an ordinary visit', () => {
+    renderLogin()
+
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 })
