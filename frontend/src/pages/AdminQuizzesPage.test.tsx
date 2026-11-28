@@ -240,7 +240,8 @@ describe('AdminQuizzesPage', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Mai multe acțiuni pentru Simulare EN' }))
 
-    expect(await screen.findAllByRole('menuitem')).toHaveLength(1) // a draft has nothing to unpublish
+    // a draft has nothing to unpublish; it can still take more questions from text
+    expect((await screen.findAllByRole('menuitem')).map((m) => m.textContent)).toEqual(['Vezi ca elev', 'Importă din text'])
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Vezi ca elev' }))
     await waitFor(() => expect(screen.queryByText('Cât face 2+2?')).not.toBeInTheDocument())
   })
@@ -252,9 +253,12 @@ describe('AdminQuizzesPage', () => {
 
       expect(await screen.findByTestId('quiz-taken')).toHaveTextContent('Elevii au dat deja acest test')
       expect(screen.getByRole('button', { name: 'Adaugă întrebare' })).toBeDisabled()
-      expect(screen.getByRole('button', { name: 'Importă din text' })).toBeDisabled()
+      expect(screen.queryByRole('button', { name: 'Importă din text' })).not.toBeInTheDocument()
       expect(screen.queryByRole('button', { name: 'Mai multe acțiuni pentru întrebarea 1' })).not.toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'Editează întrebarea 1' })).toBeEnabled() // the texts can still be corrected
+      await userEvent.click(screen.getByRole('button', { name: 'Mai multe acțiuni pentru Simulare EN' }))
+      expect(await screen.findByRole('menuitem', { name: 'Vezi ca elev' })).toBeInTheDocument()
+      expect(screen.queryByRole('menuitem', { name: 'Importă din text' })).not.toBeInTheDocument() // no new questions
     })
 
     it('leaves a test nobody took open for editing', async () => {
@@ -349,8 +353,28 @@ describe('AdminQuizzesPage', () => {
 
     expect(await screen.findByRole('button', { name: 'Instrumente AI' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Barem din poze (AI)' })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Importă din text' })).toHaveClass('border-border')
+    expect(screen.queryByRole('button', { name: 'Importă din text' })).not.toBeInTheDocument() // its questions are in: „…”
     expect(screen.getByRole('button', { name: 'Adaugă întrebare' })).not.toHaveClass('border-border') // the filled one
+  })
+
+  it('offers the text import on the toolbar of an empty test, where the questions still have to come from somewhere', async () => {
+    api.getQuiz.mockResolvedValue(detail({ items: [] }))
+    renderAt('/admin/quizzes/7')
+
+    const importButton = await screen.findByRole('button', { name: 'Importă din text' })
+    expect(importButton).toHaveClass('border-border')
+    await userEvent.click(importButton)
+    expect(await screen.findByRole('dialog', { name: 'Importă întrebări din text' })).toBeInTheDocument()
+  })
+
+  it('moves the text import into „…” once the test has its questions', async () => {
+    renderAt('/admin/quizzes/7')
+    await screen.findByText('Cât face 2+2?')
+    expect(screen.queryByRole('button', { name: 'Importă din text' })).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Mai multe acțiuni pentru Simulare EN' }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Importă din text' }))
+    expect(await screen.findByRole('dialog', { name: 'Importă întrebări din text' })).toBeInTheDocument()
   })
 
   it('offers the barem from photos on a test with questions, only where the server reads it', async () => {

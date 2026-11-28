@@ -1236,7 +1236,10 @@ export function AdminQuizzesPage() {
                         Publică
                       </Button>
                     )}
-                    <Button size="sm" variant="outline" onClick={() => setImporting(true)} disabled={quiz.taken}>Importă din text</Button>
+                    {/* On the toolbar only while the test is empty; once its questions are in, it waits in „…”. */}
+                    {quiz.items.length === 0 && (
+                      <Button size="sm" variant="outline" onClick={() => setImporting(true)} disabled={quiz.taken}>Importă din text</Button>
+                    )}
                     {aiTools.length > 0 && <RowMenu label="Instrumente AI" text="Instrumente AI" items={aiTools} />}
                     <Button size="sm" onClick={() => setItemDialog({ item: null })} disabled={quiz.taken}>Adaugă întrebare</Button>
                     {/* Depublică interrupts students: never the first button, and it asks before doing anything. */}
@@ -1244,6 +1247,10 @@ export function AdminQuizzesPage() {
                       label={`Mai multe acțiuni pentru ${quiz.title}`}
                       items={[
                         { label: 'Vezi ca elev', to: `/admin/quizzes/${quiz.id}/preview` },
+                        // A test students took takes no new questions (the server refuses them).
+                        ...(quiz.items.length > 0 && !quiz.taken
+                          ? [{ label: 'Importă din text', onClick: () => setImporting(true) }]
+                          : []),
                         ...(quiz.status === 'PUBLISHED'
                           ? [{ label: 'Depublică', destructive: true, onClick: () => void unpublish(quiz) }]
                           : []),
