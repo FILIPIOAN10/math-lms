@@ -126,6 +126,7 @@ class ExtractedItemsTest {
     void theQuizNumbersQuestionsSoPrintedNumbersGo() {
         assertThat(ExtractedItems.withoutNumber("1. Calculează $2+3$")).isEqualTo("Calculează $2+3$");
         assertThat(ExtractedItems.withoutNumber("12) Arată că")).isEqualTo("Arată că");
+        assertThat(ExtractedItems.withoutNumber("3.")).isEmpty();
         assertThat(ExtractedItems.withoutNumber("Ex. 3. Rezolvă")).isEqualTo("Rezolvă");
         assertThat(ExtractedItems.withoutNumber("2.5 este un număr zecimal")).isEqualTo("2.5 este un număr zecimal");
         assertThat(ExtractedItems.withoutNumber("3 + 4 = ?")).isEqualTo("3 + 4 = ?");
@@ -147,6 +148,23 @@ class ExtractedItemsTest {
         assertThat(out.parts()).containsExactly(new ExtractedItem.Part("Arată că $x=25$.", 2),
                 new ExtractedItem.Part("Calculează $(8y-x)^{27}$.", 3));
         assertThat(out.points()).isEqualTo(5);
+    }
+
+    @Test
+    void keepsAProblemWithPartsWhenItHasNoSharedStatement() {
+        ExtractedItem problem = new ExtractedItem(4, "SUBIECTUL al III-lea", QuizItemType.OPEN, "  ", List.of(), null,
+                false, List.of(), List.of(new ExtractedItem.Part("(2p) a) Arătați că $x=25$.", 2),
+                        new ExtractedItem.Part("(3p) b) Calculați $x+3$.", 3)));
+
+        List<ExtractedItem> out = ExtractedItems.normalize(List.of(problem), 4);
+
+        assertThat(out).hasSize(1);
+        assertThat(out.getFirst().statement()).isEqualTo("Rezolvați cerințele de mai jos.");
+        assertThat(out.getFirst().parts()).containsExactly(new ExtractedItem.Part("Arătați că $x=25$.", 2),
+                new ExtractedItem.Part("Calculați $x+3$.", 3));
+        assertThat(out.getFirst().points()).isEqualTo(5);
+        assertThat(out.getFirst().warnings()).containsExactly(
+                "Am adăugat un enunț generic pentru că problema nu avea text comun; îl poți edita.");
     }
 
     private static ExtractedItem on(int page, String section, String statement) {

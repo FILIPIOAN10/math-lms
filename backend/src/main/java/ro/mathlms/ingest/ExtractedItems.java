@@ -25,6 +25,9 @@ final class ExtractedItems {
 
     static final String UNBALANCED_MATH = "Formulă incompletă (un $ fără pereche) - verifică enunțul.";
     static final String TOO_FEW_OPTIONS = "Grilă cu mai puțin de 2 variante - completează variantele sau fă-o întrebare cu rezolvare.";
+    static final String MISSING_SHARED_STATEMENT = "Rezolvați cerințele de mai jos.";
+    static final String MISSING_SHARED_STATEMENT_WARNING =
+            "Am adăugat un enunț generic pentru că problema nu avea text comun; îl poți edita.";
     static final String FIGURE = "Are un desen: adaugă-l ca imagine după ce creezi testul.";
     static final String FIGURE_CROPPED = "Am decupat desenul din poză: verifică decupajul (îl poți ajusta sau scoate).";
 
@@ -46,9 +49,6 @@ final class ExtractedItems {
                 continue;
             }
             String statement = cap(trim(withoutNumber(item.statement())), MAX_STATEMENT);
-            if (statement == null) {
-                continue;
-            }
             QuizItemType type = item.type() == null ? QuizItemType.OPEN : item.type();
             List<String> options = new ArrayList<>();
             if (type == QuizItemType.SINGLE_CHOICE && item.options() != null) {
@@ -64,7 +64,7 @@ final class ExtractedItems {
                 item.warnings().stream().map(ExtractedItems::trim).filter(Objects::nonNull)
                         .map(w -> cap(w, 300)).limit(5).forEach(warnings::add);
             }
-            if (!balancedMath(statement) || options.stream().anyMatch(o -> !balancedMath(o))) {
+            if ((statement != null && !balancedMath(statement)) || options.stream().anyMatch(o -> !balancedMath(o))) {
                 warnings.add(UNBALANCED_MATH);
             }
             if (type == QuizItemType.SINGLE_CHOICE && options.size() < 2) {
@@ -92,6 +92,13 @@ final class ExtractedItems {
                 if (parts.stream().anyMatch(p -> !balancedMath(p.statement()))) {
                     warnings.add(UNBALANCED_MATH);
                 }
+            }
+            if (statement == null) {
+                if (type != QuizItemType.OPEN || parts.isEmpty()) {
+                    continue;
+                }
+                statement = MISSING_SHARED_STATEMENT;
+                warnings.add(MISSING_SHARED_STATEMENT_WARNING);
             }
             Integer points = item.points() == null || item.points() < 0 || item.points() > MAX_POINTS ? null : item.points();
             if (!parts.isEmpty() && parts.stream().allMatch(p -> p.points() != null)) {
@@ -266,7 +273,7 @@ final class ExtractedItems {
     }
 
     private static final Pattern LEADING_NUMBER =
-            Pattern.compile("^\\s*(?:(?i:ex(?:ercițiul|\\.)?)\\s*)?\\d{1,3}\\s*[.)]\\s+");
+            Pattern.compile("^\\s*(?:(?i:ex(?:ercițiul|\\.)?)\\s*)?\\d{1,3}\\s*[.)](?:\\s+|$)");
 
     private static String trim(String text) {
         if (text == null) {
