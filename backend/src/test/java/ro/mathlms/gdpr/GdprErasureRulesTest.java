@@ -56,7 +56,7 @@ class GdprErasureRulesTest {
             mock(QuizAttemptRepository.class), files, mock(RefreshTokenService.class), "quiz-photos",
             links, Clock.systemUTC(), classes, quizzes, mock(GdprExportRepository.class),
             mock(ro.mathlms.auth.TotpRecoveryCodeRepository.class), mock(ro.mathlms.tutor.StudentTutorService.class),
-            mock(ro.mathlms.audit.AuditLog.class));
+            mock(ro.mathlms.audit.AuditLog.class), mock(ro.mathlms.studyplan.EnGoalService.class));
 
     @AfterEach
     void clearSynchronization() {

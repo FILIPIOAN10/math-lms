@@ -58,6 +58,8 @@ class GdprErasureServiceTest {
     @Autowired private InviteLinkService inviteLinkService;
     @Autowired private InviteLinkRepository inviteLinkRepository;
     @Autowired private AuditEntryRepository auditRepository;
+    @Autowired private ro.mathlms.studyplan.EnGoalService goalService;
+    @Autowired private ro.mathlms.enchapter.EnChapterRepository enChapterRepository;
     @MockitoBean private EmailService emailService;
 
     private record Seed(Long userId, Long attemptId, Long responseId) {}
@@ -113,6 +115,23 @@ class GdprErasureServiceTest {
         ItemResponse kept = responseRepository.findById(seed.responseId()).orElseThrow();
         assertThat(kept.getTeacherComment()).isNull();
         assertThat(kept.getAwardedPoints()).isEqualTo(25);
+    }
+
+    /** V84: the account row stays as a tombstone, so nothing cascades - the target, history and pins go explicitly. */
+    @Test
+    void erasingAStudentTakesTheirEnTargetTheirEstimateHistoryAndTheirPinsWithThem() {
+        Seed seed = seedStudentWithData("elev-tinta@scoala.ro");
+        User student = userRepository.findById(seed.userId()).orElseThrow();
+        goalService.setGoal(student.getId(), new java.math.BigDecimal("9.00"),
+                new ro.mathlms.mastery.EnPrediction(true, 30, 20, 7.4, 6.9, 7.9, java.util.List.of()));
+        goalService.pin(student, enChapterRepository.findAllByOrderByPositionAscIdAsc().getFirst(), null);
+        assertThat(goalService.history(student.getId())).hasSize(1);
+
+        service.confirmErasure(tokenService.generate("elev-tinta@scoala.ro", TokenPurpose.ERASE_ACCOUNT));
+
+        assertThat(goalService.goal(student.getId())).isEmpty();
+        assertThat(goalService.history(student.getId())).isEmpty();
+        assertThat(goalService.pins(student.getId())).isEmpty();
     }
 
     private User active(String email, Role role) {

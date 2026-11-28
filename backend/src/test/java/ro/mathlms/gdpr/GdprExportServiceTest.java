@@ -41,11 +41,12 @@ class GdprExportServiceTest {
     private final ItemResponseRepository responseRepository = mock(ItemResponseRepository.class);
     private final FileService fileService = mock(FileService.class);
     private final ro.mathlms.quiz.QuizItemPartRepository partRepository = mock(ro.mathlms.quiz.QuizItemPartRepository.class);
+    private final ro.mathlms.studyplan.EnGoalService goalService = mock(ro.mathlms.studyplan.EnGoalService.class);
     private final GdprExportService service = new GdprExportService(
             userRepository, enrollmentRepository, attemptRepository, responseRepository,
             mock(ro.mathlms.review.ReviewAnswerRepository.class),
             fileService, new ObjectMapper(), "uploads/quiz-photos", mock(ro.mathlms.tutor.StudentTutorService.class),
-            mock(ro.mathlms.quiz.ExplanationRequests.class), partRepository);
+            mock(ro.mathlms.quiz.ExplanationRequests.class), partRepository, goalService);
 
     private static <T> T withId(T entity, long id) {
         ReflectionTestUtils.setField(entity, "id", id);
@@ -103,6 +104,23 @@ class GdprExportServiceTest {
                 .doesNotContain("1/2"); // the barem's result is the teacher's, not the student's data
         assertThat(entries).containsKey("photos/photo.jpg");
         assertThat(new String(entries.get("photos/photo.jpg"))).isEqualTo("IMG");
+    }
+
+    /** „Ținta la EN" (V84): the target the student picked and their estimate day by day are theirs too. */
+    @Test
+    void exportsTheEnTargetAndTheEstimateDayByDay() throws Exception {
+        User student = withId(new User("elev@scoala.ro", "Elev Pop", Role.STUDENT), 1L);
+        when(userRepository.findByEmail("elev@scoala.ro")).thenReturn(Optional.of(student));
+        when(goalService.goal(1L)).thenReturn(Optional.of(
+                new ro.mathlms.studyplan.EnGoalService.Goal(9.25, 7.4, java.time.LocalDate.of(2026, 11, 28))));
+        when(goalService.history(1L)).thenReturn(List.of(
+                new ro.mathlms.studyplan.EnGoalService.Snapshot(java.time.LocalDate.of(2026, 11, 28), 7.4, 6.9, 7.9)));
+
+        String manifest = new String(unzip(service.exportZip("elev@scoala.ro")).get("manifest.json"));
+
+        assertThat(manifest)
+                .contains("\"enGoal\"").contains("9.25").contains("2026-11-28")
+                .contains("\"enEstimateHistory\"").contains("6.9");
     }
 
     private static Map<String, byte[]> unzip(byte[] zipBytes) throws Exception {

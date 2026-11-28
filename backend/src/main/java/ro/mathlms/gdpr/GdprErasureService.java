@@ -25,6 +25,7 @@ import ro.mathlms.quiz.QuizAttemptRepository;
 import ro.mathlms.quiz.QuizRepository;
 import ro.mathlms.quiz.ResponsePhotoRepository;
 import ro.mathlms.storage.FileService;
+import ro.mathlms.studyplan.EnGoalService;
 import ro.mathlms.tutor.StudentTutorService;
 import ro.mathlms.user.AccountStatus;
 import ro.mathlms.user.Role;
@@ -73,6 +74,7 @@ public class GdprErasureService {
     private final TotpRecoveryCodeRepository recoveryCodeRepository;
     private final StudentTutorService studentTutor;
     private final AuditLog auditLog;
+    private final EnGoalService goalService;
 
     public GdprErasureService(UserRepository userRepository, PasswordEncoder passwordEncoder,
                               VerificationTokenService tokenService, EmailService emailService,
@@ -83,7 +85,7 @@ public class GdprErasureService {
                               InviteLinkRepository inviteLinkRepository, Clock clock,
                               SchoolClassRepository schoolClassRepository, QuizRepository quizRepository,
                               GdprExportRepository exportRepository, TotpRecoveryCodeRepository recoveryCodeRepository,
-                              StudentTutorService studentTutor, AuditLog auditLog) {
+                              StudentTutorService studentTutor, AuditLog auditLog, EnGoalService goalService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.tokenService = tokenService;
@@ -103,6 +105,7 @@ public class GdprErasureService {
         this.recoveryCodeRepository = recoveryCodeRepository;
         this.studentTutor = studentTutor;
         this.auditLog = auditLog;
+        this.goalService = goalService;
     }
 
     /**
@@ -173,6 +176,7 @@ public class GdprErasureService {
         exportRepository.deleteByUserId(userId); // the archives are a copy of everything about them
         recoveryCodeRepository.deleteByUserId(userId); // a credential like the password (User.erase drops the secret)
         studentTutor.eraseStudent(userId); // the AI box's unanswered questions (their own words) and its day counters
+        goalService.eraseStudent(userId); // the EN target, the estimate day by day and the teacher's pins (V84)
         // A parent's children are unlinked (not left on a tombstone, which would also block a new parent link), and a
         // student's unused parent links stop working (nobody may become the parent of an erased account).
         userRepository.unlinkChildrenOf(userId);

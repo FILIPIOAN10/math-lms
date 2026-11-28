@@ -116,16 +116,37 @@ public class EnMasteryService {
     /** Every EN chapter, in list order, with this student's level (null where they have not met it yet). */
     @Transactional(readOnly = true)
     public List<EnChapterMasteryDto> forStudent(User student) {
-        Map<Long, Tally> tallies = MasteryCalculator.latestPerQuestion(answersOf(List.of(student.getId())))
-                .getOrDefault(student.getId(), Map.of());
+        return forStudents(List.of(student)).get(student.getId());
+    }
+
+    /**
+     * {@link #forStudent} for several students at once, with one read of their answers (the teacher's class view of
+     * targets and estimates): student id → every EN chapter, in list order.
+     */
+    @Transactional(readOnly = true)
+    public Map<Long, List<EnChapterMasteryDto>> forStudents(List<User> students) {
+        Map<Long, Map<Long, Tally>> tallies = MasteryCalculator.latestPerQuestion(
+                answersOf(students.stream().map(User::getId).toList()));
         Set<Long> ready = chapterService.readyIds();
-        return chapterRepository.findAllByOrderByPositionAscIdAsc().stream()
-                .map(c -> {
-                    Tally t = tallies.getOrDefault(c.getId(), new Tally(0, 0, 0));
-                    return new EnChapterMasteryDto(c.getId(), c.getCode(), c.getTitle(), c.getArea(), t.earned(),
-                            t.possible(), t.percent(), t.questions(), ready.contains(c.getId()));
-                })
-                .toList();
+        List<EnChapter> chapters = chapterRepository.findAllByOrderByPositionAscIdAsc();
+        Map<Long, List<EnChapterMasteryDto>> result = new HashMap<>();
+        for (User student : students) {
+            Map<Long, Tally> mine = tallies.getOrDefault(student.getId(), Map.of());
+            result.put(student.getId(), chapters.stream()
+                    .map(c -> {
+                        Tally t = mine.getOrDefault(c.getId(), new Tally(0, 0, 0));
+                        return new EnChapterMasteryDto(c.getId(), c.getCode(), c.getTitle(), c.getArea(), t.earned(),
+                                t.possible(), t.percent(), t.questions(), ready.contains(c.getId()));
+                    })
+                    .toList());
+        }
+        return result;
+    }
+
+    /** Per EN chapter id, how many daily-review answers the student gave with "Știu sigur" that were wrong (V68). */
+    @Transactional(readOnly = true)
+    public Map<Long, Integer> sureMistakesPerChapter(User student) {
+        return sureWrong(student);
     }
 
     /** „La ce stau prost?": the student's weakest EN chapters ({@link WeakSpots}), weakest first, with their lessons. */
