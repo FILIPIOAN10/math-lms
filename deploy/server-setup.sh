@@ -159,7 +159,9 @@ if [ -n "$DOMAIN" ]; then
 fi
 PORT="$(get HTTP_PORT)"; PORT="${PORT:-80}"
 
-chown -R "$RUN_USER:$RUN_USER" "$DEPLOY_PATH"
+# secrets/ keeps the owners the containers need (100:101 for the backend, an ACL for the tutor; docs/DEPLOY.md §8):
+# a re-run of this script must not take the Google key away from them.
+find "$DEPLOY_PATH" -path "$DEPLOY_PATH/secrets" -prune -o -exec chown "$RUN_USER:$RUN_USER" {} +
 
 # ---------------------------------------------------------------------------------------------- 6. GHCR login
 if [ -n "${GHCR_USER:-}" ] && [ -n "${GHCR_TOKEN:-}" ]; then
