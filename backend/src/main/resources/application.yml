@@ -161,6 +161,11 @@ app:
   # While that reminder is on, a student's linked parent gets their own copy too; false = students only.
   assignments:
     remind-parents: ${NOTIFY_ASSIGNMENT_REMINDER_PARENTS:true}
+  # „Ținta la EN" (V84): each active student's estimated EN grade kept once a day, for the plan's chart. OFF by default
+  # (it reads every student's answers); ON in production through EN_SNAPSHOTS_ENABLED=true.
+  en-snapshots:
+    enabled: ${EN_SNAPSHOTS_ENABLED:false}
+    cron: ${EN_SNAPSHOTS_CRON:0 30 2 * * *}
   # File storage: local filesystem now, S3/MinIO drop-in later (see FileService seam).
   storage:
     quiz-photos-dir: ${QUIZ_PHOTOS_DIR:uploads/quiz-photos}

@@ -70,6 +70,11 @@ Docker · GitHub Actions
 - Statistics per test, mastery per chapter (student, class and parent views), and progress over time.
 - Practice mode and "practise only what you got wrong".
 - Spaced-repetition daily review (Leitner boxes 1–5) with a streak counter.
+- EN grade target and weekly study plan: the student picks a target grade, the teacher sets the exam date once, and
+  the plan is worked out week by week from the student's own answers (the chapters that would raise the estimate most,
+  lesson → practice → mini test, mock papers in the last three weeks). The estimate is kept day by day and drawn
+  against the target; the teacher sees who is falling behind and can pin a chapter into a student's plan; the parent
+  reads it. No AI involved.
 
 **Accounts and privacy**
 - Email + password and Google sign-in; new accounts wait for the teacher's approval, or join directly through a class

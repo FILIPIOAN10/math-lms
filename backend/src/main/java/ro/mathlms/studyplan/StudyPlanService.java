@@ -154,6 +154,12 @@ public class StudyPlanService {
                 .orElseThrow(() -> new ContentNotFoundException("EnChapter", chapterId));
     }
 
+    /** Today's estimate kept for the chart (the daily job); false = no estimate yet, nothing kept. */
+    @Transactional
+    public boolean snapshot(User student) {
+        return goalService.saveSnapshot(student.getId(), goalService.today(), predictionService.predict(student));
+    }
+
     /** The class's students (alphabetical), each with their estimate, target and „în urmă" - one read of the answers. */
     @Transactional(readOnly = true)
     public List<ClassGoalRowDto> forClass(Long classId) {
