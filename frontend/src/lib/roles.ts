@@ -1,4 +1,4 @@
-import { BookOpen, ClipboardList, History, House, Library, PenLine, RotateCcw, ScanText, School, TrendingUp, Users, type LucideIcon } from 'lucide-react'
+import { BookOpen, CalendarCheck, ClipboardList, History, House, Library, PenLine, RotateCcw, ScanText, School, TrendingUp, Users, type LucideIcon } from 'lucide-react'
 import { type Role } from '@/lib/api'
 
 const LABELS: Record<Role, string> = { ADMIN: 'Administrator', TEACHER: 'Profesor', STUDENT: 'Elev', PARENT: 'Părinte' }
@@ -37,6 +37,7 @@ const NAV: Record<Role, NavItem[]> = {
     { to: '/quizzes', label: 'Testele mele', short: 'Teste', icon: ClipboardList, count: 'newResults' },
     { to: '/review', label: 'Recapitulare', icon: RotateCcw },
     { to: '/progress', label: 'Progresul meu', short: 'Progres', icon: TrendingUp, testId: 'my-progress' },
+    { to: '/plan', label: 'Planul EN', short: 'Plan', icon: CalendarCheck, testId: 'my-plan' },
     { to: '/capitole', label: 'Capitole EN', icon: BookOpen, testId: 'en-chapters' },
     { to: '/content', label: 'Conținut', icon: Library },
   ],

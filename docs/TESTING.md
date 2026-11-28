@@ -1416,6 +1416,40 @@ din afara cuprinsului păstrată), `test_store.py` (`whole_source`: renumerotare
 `test_build_chapter.py` (poze pe A1 → pasaje pe A1 cu pagina și poza lor; textul profesorului păstrat; capitolele
 manualului neschimbate; pasajele fără pagină sunt raportate; poziția din examen le găsește).
 
+### 63. Ținta la EN și planul pe săptămâni (V84) — ca administrator, ca elev, ca profesor, apoi ca părinte
+Elevul își alege nota pe care o vrea la EN; administratorul pune o singură dată data examenului. Planul **nu se
+salvează**: e calculat la fiecare deschidere din răspunsurile elevului (capitolele care i-ar urca cel mai mult nota
+estimată, × 1,5 unde a greșit cu „Știu sigur”; capitolele puse de profesor primele), până când câștigurile acoperă
+diferența până la țintă. 2–4 capitole pe săptămână; ultimele 3 săptămâni sunt simulări + recapitulare. Fără AI.
+„În urmă” = estimarea e cu peste 0,3 sub linia dreaptă de la nota din ziua în care și-a pus ținta până la țintă în
+ziua examenului, niciodată în primele 14 zile.
+
+| # | Ce faci | Ce trebuie să vezi |
+|---|---|---|
+| 1 | Ca administrator: **Capitole EN** → câmpul **Data EN** gol | „Fără dată, elevii nu au plan…” |
+| 2 | Alege o zi din trecut → **Salvează data** | „Data EN nu poate fi în trecut.” |
+| 3 | Alege ziua examenului (peste ~3 luni) → **Salvează data**; apoi **Jurnal** | „Salvat.”; în jurnal „Data EN stabilită” cu „— → zz.ll.aaaa” |
+| 4 | Ca elev cu sub 20 de răspunsuri: Acasă → cardul „Nota estimată la EN” → **Alege-ți ținta** | Pagina **Planul EN** (`/plan`); „Alege nota pe care o vrei la EN…” |
+| 5 | Apasă **9,00** | Doar săptămâna aceasta: recapitularea + 2 capitole; „Mai rezolvă N răspunsuri…” |
+| 6 | Rezolvă teste până la 20+ răspunsuri, apoi redeschide `/plan` | „Acum ~X → ținta 9,00 · mai ai N de zile”, blocul **Azi** (recapitulare + exersarea primului capitol), săptămânile |
+| 7 | Un capitol neatins sau sub 40% | Începe cu **Citește lecția**; peste 40% începe cu **Exersează 10 întrebări** |
+| 8 | Scrie „10,5” la **Altă notă** → **Salvează ținta**; apoi „8,75” | Mesaj „…de la 1 la 10…”; apoi ținta 8,75 |
+| 9 | Acasă | Cardul: linia cu ținta, un semn la 8,75 pe bară, **Vezi planul** |
+| 10 | Ca profesor: clasa → **Pe capitole** | Tabelul „Nota estimată la EN și ținta”: Prognoză, Țintă, „în urmă” cu roșu unde e cazul |
+| 11 | Pagina elevului → **Planul până la EN** → alege un capitol → **Pune în plan** | Capitolul apare primul în plan, cu „pus de profesor”; în jurnal „Capitol pus în planul elevului” |
+| 12 | **Scoate** | Capitolul iese din plan; în jurnal „Capitol scos din planul elevului” |
+| 13 | Ca părinte: Acasă → cardul copilului → **Vezi planul** | Planul copilului, fără butoane și fără linkuri |
+| 14 | Ca părinte, schimbă id-ul din `/parent/children/<id>/plan` cu al altui copil | „Acesta nu e copilul tău.” |
+| 15 | Cu `EN_SNAPSHOTS_ENABLED=true` (și pentru probă `EN_SNAPSHOTS_CRON=0 * * * * *`): așteaptă un minut | În log „Kept today's EN estimate for N of M active students” (N = cei cu estimare); pe `/plan` graficul are punctul de azi |
+| 16 | Data EN la 21 de zile sau mai puțin | Doar „Rezolvă un test complet de EN” + recapitularea, în fiecare săptămână |
+| 17 | Ca elev: Contul meu → **Cere datele mele** → linkul din email (local: Mailpit) | În arhivă, `manifest.json` are `enGoal` și `enEstimateHistory` |
+
+**Teste automate:** `StudyPlanGeneratorTest` (o regulă pe test), `GoalPaceTest`, `EnPredictionCalculatorTest`
+(`gainPerChapter`), `StudyPlanSchemaTest`, `StudyPlanIntegrationTest` și `StudyPlanSecurityTest` (Testcontainers),
+`EnPredictionSnapshotJobTest`, GDPR (`GdprExportServiceTest`, `GdprErasureServiceTest`); Vitest: `studyPlan.test.ts`,
+`EnPredictionCard.test.tsx`, `StudyPlanPage.test.tsx`, `ParentStudyPlanPage.test.tsx`,
+`StudentStudyPlanSection.test.tsx`, `EnExamDateCard.test.tsx`, `AdminMasteryPage.test.tsx`.
+
 ## E. Debugging — unde te uiți când pică ceva
 
 ```bash

@@ -3,12 +3,13 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AdminMasteryPage } from '@/pages/AdminMasteryPage'
-import { ApiError, type AssignmentSummary, type ClassMastery, type QuizSummary } from '@/lib/api'
+import { ApiError, type AssignmentSummary, type ClassGoalRow, type ClassMastery, type QuizSummary } from '@/lib/api'
 
 const api = vi.hoisted(() => ({
   getClassMastery: vi.fn(), listClasses: vi.fn(), getClassReview: vi.fn(), listQuizzes: vi.fn(), listAssignments: vi.fn(),
   createCatchUpAssignment: vi.fn(), downloadClassGrades: vi.fn(),
   getClassTutorQuestions: vi.fn(() => Promise.resolve([])),
+  getClassEnGoals: vi.fn((): Promise<ClassGoalRow[]> => Promise.resolve([])),
 }))
 vi.mock('@/lib/api', async (original) => ({ ...(await original<typeof import('@/lib/api')>()), ...api }))
 const download = vi.hoisted(() => ({ saveBlob: vi.fn() }))
@@ -48,6 +49,38 @@ describe('AdminMasteryPage', () => {
       { studentId: 4, fullName: 'Ana Student', doneToday: 5, remainingToday: 0, streak: 4, totalCards: 9, mastered: 2, lastReviewOn: '2026-10-11' },
       { studentId: 5, fullName: 'Radu Nou', doneToday: 0, remainingToday: 6, streak: 0, totalCards: 6, mastered: 0, lastReviewOn: null },
     ])
+  })
+
+  it("shows each student's EN estimate against their target, the ones behind in red", async () => {
+    api.getClassEnGoals.mockResolvedValueOnce([
+      { studentId: 4, fullName: 'Ana Student', grade: 7.4, low: 7.1, high: 7.7, target: 9, expectedToday: 8.1, behind: true },
+      { studentId: 5, fullName: 'Radu Nou', grade: null, low: null, high: null, target: null, expectedToday: null, behind: false },
+    ])
+
+    renderPage()
+
+    const section = await screen.findByRole('region', { name: 'Nota estimată la EN și ținta' })
+    expect(api.getClassEnGoals).toHaveBeenCalledWith(8)
+    const ana = within(section).getByRole('row', { name: /Ana Student/ })
+    expect(ana).toHaveTextContent('~7,40')
+    expect(ana).toHaveTextContent('9,00')
+    expect(within(ana).getByText('în urmă')).toBeInTheDocument()
+    expect(within(ana).getByRole('link', { name: 'Ana Student' })).toHaveAttribute('href', '/admin/students/4')
+    const radu = within(section).getByRole('row', { name: /Radu Nou/ })
+    expect(radu).toHaveTextContent('prea puține răspunsuri')
+    expect(radu).toHaveTextContent('fără țintă')
+    expect(within(radu).queryByText('în urmă')).not.toBeInTheDocument()
+  })
+
+  it('leaves the estimates out when nobody in the class has a target or an estimate yet', async () => {
+    api.getClassEnGoals.mockResolvedValueOnce([
+      { studentId: 5, fullName: 'Radu Nou', grade: null, low: null, high: null, target: null, expectedToday: null, behind: false },
+    ])
+
+    renderPage()
+
+    await screen.findByRole('region', { name: 'Recapitulare zilnică' })
+    expect(screen.queryByRole('region', { name: 'Nota estimată la EN și ținta' })).not.toBeInTheDocument()
   })
 
   it('shows who keeps up with the daily review', async () => {

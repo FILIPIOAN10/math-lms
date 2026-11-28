@@ -140,7 +140,7 @@ export function ParentHome() {
             </p>
             <ReviewStatusLine review={review} testId="child-review" />
             <WeekLine week={week} weakest={weakest} />
-            <EnPredictionCard childId={child.id} />
+            <EnPredictionCard childId={child.id} planTo={`/parent/children/${child.id}/plan`} />
             <div className="grid gap-3 sm:grid-cols-[2fr_1fr]">
               <div>
                 <p className="text-xs font-medium text-muted-foreground">Ultima notă</p>

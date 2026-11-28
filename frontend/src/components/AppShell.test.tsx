@@ -87,7 +87,7 @@ describe('AppShell', () => {
     auth.value.user = user({})
     renderShell('/quizzes')
 
-    expect(navLabels()).toEqual(['Acasă', 'Testele mele', 'Recapitulare', 'Progresul meu', 'Capitole EN', 'Conținut'])
+    expect(navLabels()).toEqual(['Acasă', 'Testele mele', 'Recapitulare', 'Progresul meu', 'Planul EN', 'Capitole EN', 'Conținut'])
     expect(within(nav()).getByRole('link', { name: 'Testele mele' })).toHaveAttribute('aria-current', 'page')
     expect(within(nav()).getByRole('link', { name: 'Acasă' })).not.toHaveAttribute('aria-current')
     expect(screen.getByText('pagina teste')).toBeInTheDocument()
@@ -221,7 +221,7 @@ describe('AppShell', () => {
       await userEvent.click(more)
       expect(more).toHaveAttribute('aria-expanded', 'true')
       const menu = screen.getByRole('list', { name: 'Mai mult' })
-      expect(within(menu).getAllByRole('link').map((l) => l.textContent)).toEqual(['Capitole EN', 'Conținut'])
+      expect(within(menu).getAllByRole('link').map((l) => l.textContent)).toEqual(['Planul EN', 'Capitole EN', 'Conținut'])
     })
 
     it('closes "Mai mult" on Escape and after a page is picked from it', async () => {
