@@ -70,31 +70,51 @@ public final class EnPredictionCalculator {
         if (answers < MIN_ANSWERS) {
             return new EnPrediction(false, answers, MIN_ANSWERS, null, null, null, List.of());
         }
-        // The paper as the admin linked it (90 points with the V34 links), not a fixed 90 (audit 2026-11-27 L3).
-        double paper = examPoints.values().stream().mapToDouble(Double::doubleValue).sum();
-        if (paper <= 0) {
-            paper = PAPER_POINTS;
-        }
+        double paper = paperPoints(examPoints);
         double expected = 0;
+        for (EnChapterMasteryDto c : chapters) {
+            expected += examPoints.getOrDefault(c.code(), 0.0) * level(c);
+        }
+        double grade = clamp(1 + 9 * expected / paper);
+        double spread = answers < MANY_ANSWERS ? WIDE : NARROW;
+        List<EnPrediction.Gain> gains = gainPerChapter(chapters, examPoints);
+        return new EnPrediction(true, answers, MIN_ANSWERS, round2(grade), round2(clamp(grade - spread)),
+                round2(clamp(grade + spread)), List.copyOf(gains.subList(0, Math.min(TOP_GAINS, gains.size()))));
+    }
+
+    /**
+     * Every chapter on the paper the student has not mastered yet, with how much the estimate would rise if they did
+     * (rounded to 0.1; a chapter that would add nothing is left out), biggest first, then by code. Unlike
+     * {@link #predict} it does not wait for {@link #MIN_ANSWERS}: the study plan needs it from the first day.
+     */
+    public static List<EnPrediction.Gain> gainPerChapter(Collection<EnChapterMasteryDto> chapters,
+                                                         Map<String, Double> examPoints) {
+        double paper = paperPoints(examPoints);
         List<EnPrediction.Gain> gains = new ArrayList<>();
         for (EnChapterMasteryDto c : chapters) {
             double worth = examPoints.getOrDefault(c.code(), 0.0);
             if (worth == 0) {
                 continue;
             }
-            double level = c.percent() == null ? UNSEEN : c.percent() / 100.0;
-            expected += worth * level;
-            double gain = round1((1 - level) * worth * 9 / paper);
+            double gain = round1((1 - level(c)) * worth * 9 / paper);
             if (gain > 0) {
                 gains.add(new EnPrediction.Gain(c.chapterId(), c.code(), c.title(), gain));
             }
         }
-        double grade = clamp(1 + 9 * expected / paper);
-        double spread = answers < MANY_ANSWERS ? WIDE : NARROW;
         gains.sort(Comparator.comparingDouble(EnPrediction.Gain::gradeGain).reversed()
                 .thenComparing(EnPrediction.Gain::code));
-        return new EnPrediction(true, answers, MIN_ANSWERS, round2(grade), round2(clamp(grade - spread)),
-                round2(clamp(grade + spread)), List.copyOf(gains.subList(0, Math.min(TOP_GAINS, gains.size()))));
+        return gains;
+    }
+
+    /** The paper as the admin linked it (90 points with the V34 links), not a fixed 90 (audit 2026-11-27 L3). */
+    private static double paperPoints(Map<String, Double> examPoints) {
+        double paper = examPoints.values().stream().mapToDouble(Double::doubleValue).sum();
+        return paper > 0 ? paper : PAPER_POINTS;
+    }
+
+    /** The student's level in a chapter, 0 - 1; one never met counts at {@link #UNSEEN}. */
+    private static double level(EnChapterMasteryDto c) {
+        return c.percent() == null ? UNSEEN : c.percent() / 100.0;
     }
 
     private static double clamp(double grade) {

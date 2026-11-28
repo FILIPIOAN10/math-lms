@@ -91,6 +91,33 @@ class EnPredictionCalculatorTest {
         assertThat(p.topGains().get(0).gradeGain()).isEqualTo(0.5);
     }
 
+    /** The study plan reads every chapter's gain, not only the three on the card. */
+    @Test
+    void gainPerChapterCoversEveryChapterLeftToMasterBiggestFirst() {
+        List<EnChapterMasteryDto> rows = everyChapterAt(60, 3);
+        rows.set(0, new EnChapterMasteryDto(1L, rows.get(0).code(), "Stăpânit", EnArea.values()[0], 0, 0, 100, 3, true));
+
+        List<EnPrediction.Gain> gains = EnPredictionCalculator.gainPerChapter(rows, POINTS);
+
+        assertThat(gains).hasSize(POINTS.size() - 1); // the chapter at 100% has nothing left to give
+        assertThat(gains).extracting(EnPrediction.Gain::code).doesNotContain(rows.get(0).code());
+        assertThat(gains.get(0).code()).isEqualTo("G5");
+        assertThat(gains).isSortedAccordingTo(
+                java.util.Comparator.comparingDouble(EnPrediction.Gain::gradeGain).reversed());
+        // The card's three are the first three of the full list.
+        assertThat(EnPredictionCalculator.predict(rows, POINTS).topGains()).isEqualTo(gains.subList(0, 3));
+    }
+
+    /** Under twenty answers there is no estimate, but the plan still needs to know where the points are. */
+    @Test
+    void gainPerChapterDoesNotWaitForTwentyAnswers() {
+        List<EnPrediction.Gain> gains = EnPredictionCalculator.gainPerChapter(everyChapterAt(null, 0), POINTS);
+
+        assertThat(gains).hasSize(POINTS.size());
+        assertThat(gains.get(0).code()).isEqualTo("G5"); // 12.5 points × 70% missing × 0.1 = 0.875 → 0.9
+        assertThat(gains.get(0).gradeGain()).isEqualTo(0.9);
+    }
+
     /** Audit 2026-11-27 L3: the admin may link fewer places; a fixed 90 would then make a perfect student a 9. */
     @Test
     void theEstimateFollowsThePaperTheAdminLinkedNotAFixedNinety() {
