@@ -35,6 +35,7 @@ const STATUS: Record<string, { label: string; tone: 'success' | 'warning' }> = {
   PROOF: { label: 'Demonstrație: verifică tu', tone: 'warning' },
   NEEDS_FIGURE: { label: 'AI-ul a cerut figura', tone: 'warning' },
   UNPARSED: { label: 'Răspuns necomparat', tone: 'warning' },
+  EDITED: { label: 'Rezultat schimbat de profesor', tone: 'warning' },
 }
 
 /** What the two AI runs said, in words: only AGREE is "checked"; everything else needs a careful read. */

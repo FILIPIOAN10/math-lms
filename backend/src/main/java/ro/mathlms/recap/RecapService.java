@@ -42,6 +42,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -141,18 +142,39 @@ public class RecapService {
 
     // --- the teacher's review ---
 
+    /**
+     * The teacher's corrections. A requirement keeps "checked by the second AI run" only while its result is the one
+     * that was checked; a checked result changed (or dropped) also takes the exercise out of "Verificat de AI"
+     * (audit 2026-11-27 L1). An edit of an approved exercise - what goes into tests - is journalled.
+     */
     @Transactional
     public RecapExerciseDto update(Long id, UpdateRequest request) {
         RecapExercise exercise = find(id);
-        List<RecapPart> old = exercise.getParts();
+        List<RecapPart> old = List.copyOf(exercise.getParts());
         List<PartEdit> edits = request.parts() == null ? List.of() : request.parts();
         List<RecapPart> parts = new ArrayList<>();
+        boolean checkedResultChanged = false;
         for (int i = 0; i < edits.size(); i++) {
             PartEdit p = edits.get(i);
-            parts.add(new RecapPart(p.statement(), p.solution(), p.answer(), checkedNumber(p.result()),
-                    i < old.size() && old.get(i).isVerified()));
+            String result = checkedNumber(p.result());
+            boolean wasChecked = i < old.size() && old.get(i).isVerified();
+            boolean sameResult = i < old.size() && Objects.equals(old.get(i).getResult(), result);
+            checkedResultChanged |= wasChecked && !sameResult;
+            parts.add(new RecapPart(p.statement(), p.solution(), p.answer(), result, wasChecked && sameResult));
         }
-        exercise.write(request.statement(), request.solution(), request.answer(), checkedNumber(request.result()), parts);
+        for (int i = edits.size(); i < old.size(); i++) {
+            checkedResultChanged |= old.get(i).isVerified(); // a checked requirement removed
+        }
+        String result = checkedNumber(request.result());
+        checkedResultChanged |= !Objects.equals(exercise.getResult(), result);
+        exercise.write(request.statement(), request.solution(), request.answer(), result, parts);
+        if (checkedResultChanged) {
+            exercise.resultEditedByTeacher();
+        }
+        if (exercise.getReview() == RecapReview.APPROVED) {
+            auditLog.record(AuditEvent.of(AuditAction.RECAP_EDITED, exercise.getId(), exercise.getSourceKey())
+                    .details(checkedResultChanged ? "Rezultat schimbat" : "Text corectat"));
+        }
         if (request.enChapterId() != null) {
             exercise.pointToEnChapter(enChapterRepository.findById(request.enChapterId())
                     .orElseThrow(() -> new InvalidRecapException("Capitolul ales nu există.")));
@@ -171,6 +193,12 @@ public class RecapService {
                     + "sau confirmă că se poate fără ea.");
         }
         exercise.review(review, scope.currentUserId(), clock.instant());
+        auditLog.record(AuditEvent.of(AuditAction.RECAP_REVIEWED, exercise.getId(), exercise.getSourceKey())
+                .details(switch (review) {
+                    case APPROVED -> "Aprobat";
+                    case REJECTED -> "Respins";
+                    case DRAFT -> "Înapoi la verificat";
+                }));
         return RecapExerciseDto.of(repository.save(exercise));
     }
 

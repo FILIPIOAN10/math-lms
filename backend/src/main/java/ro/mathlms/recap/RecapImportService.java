@@ -43,6 +43,8 @@ public class RecapImportService {
     static final long MAX_JSON_BYTES = 20L * 1024 * 1024;
     static final long MAX_IMAGE_BYTES = 4L * 1024 * 1024;
     static final int MAX_ENTRIES = 3000;
+    /** All of it together (audit 2026-11-27 L2): 3000 entries of 4 MB would otherwise all sit in memory at once. */
+    static final long MAX_TOTAL_BYTES = 300L * 1024 * 1024;
 
     private final RecapExerciseRepository repository;
     private final EnChapterRepository enChapterRepository;
@@ -65,7 +67,7 @@ public class RecapImportService {
         if (file == null || file.isEmpty()) {
             throw new InvalidRecapException("Alege fișierul .zip al culegerii.");
         }
-        Map<String, byte[]> entries = unzip(file);
+        Map<String, byte[]> entries = unzip(file, MAX_TOTAL_BYTES);
         byte[] json = entries.get("culegere.json");
         if (json == null) {
             throw new InvalidRecapException("Arhiva nu conține culegere.json (fă-o cu scripts/teme_bundle.py).");
@@ -189,11 +191,13 @@ public class RecapImportService {
         return text == null || text.isBlank() ? null : text;
     }
 
-    private static Map<String, byte[]> unzip(MultipartFile file) {
+    /** The JSON and the drawings, each within its own cap and all of them within {@code maxTotal} bytes. */
+    static Map<String, byte[]> unzip(MultipartFile file, long maxTotal) {
         Map<String, byte[]> out = new HashMap<>();
         try (ZipInputStream zip = new ZipInputStream(file.getInputStream())) {
             ZipEntry entry;
             int count = 0;
+            long total = 0;
             while ((entry = zip.getNextEntry()) != null) {
                 if (++count > MAX_ENTRIES) {
                     throw new InvalidRecapException("Arhiva are prea multe fișiere.");
@@ -206,7 +210,13 @@ public class RecapImportService {
                 boolean image = name.startsWith("figures/") && !name.contains("..")
                         && name.toLowerCase().matches(".*\\.(png|jpe?g)$");
                 if (json || image) {
-                    out.put(name, read(zip, json ? MAX_JSON_BYTES : MAX_IMAGE_BYTES, name));
+                    long own = json ? MAX_JSON_BYTES : MAX_IMAGE_BYTES;
+                    long left = maxTotal - total;
+                    byte[] bytes = read(zip, Math.min(own, left), left < own
+                            ? "Arhiva e prea mare: despachetată trece de " + Math.max(1, maxTotal / (1024 * 1024)) + " MB."
+                            : "Fișierul " + name + " din arhivă e prea mare.");
+                    total += bytes.length;
+                    out.put(name, bytes);
                 }
             }
         } catch (IOException e) {
@@ -215,7 +225,7 @@ public class RecapImportService {
         return out;
     }
 
-    private static byte[] read(InputStream in, long max, String name) throws IOException {
+    private static byte[] read(InputStream in, long max, String tooLarge) throws IOException {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         byte[] buffer = new byte[64 * 1024];
         long total = 0;
@@ -223,7 +233,7 @@ public class RecapImportService {
         while ((n = in.read(buffer)) > 0) {
             total += n;
             if (total > max) {
-                throw new InvalidRecapException("Fișierul " + name + " din arhivă e prea mare.");
+                throw new InvalidRecapException(tooLarge);
             }
             out.write(buffer, 0, n);
         }

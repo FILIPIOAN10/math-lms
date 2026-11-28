@@ -50,6 +50,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
@@ -74,6 +75,7 @@ class RecapIntegrationTest {
     @Autowired private AssignmentRepository assignmentRepository;
     @Autowired private EnChapterRepository enChapterRepository;
     @Autowired private TransactionTemplate tx;
+    @Autowired private ro.mathlms.audit.AuditEntryRepository auditRepository;
     @Autowired private org.springframework.jdbc.core.JdbcTemplate jdbc;
 
     private String stamp;
@@ -193,6 +195,36 @@ class RecapIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content()
                         .contentType(org.springframework.http.MediaType.IMAGE_PNG));
+    }
+
+    /**
+     * Audit 2026-11-27 L1: a result the teacher changes is no longer "checked by the second AI run" - not on the
+     * requirement, not on the exercise - while an unchanged one keeps its mark. Approvals are journalled, and so is an
+     * edit of an approved exercise (what goes into tests).
+     */
+    @Test
+    void changingACheckedResultDropsTheAiMarkAndTheJournalKeepsApprovalsAndEdits() throws Exception {
+        upload(asAdmin()).andExpect(status().isOk());
+        long id = byKey(1).getId();
+        approve(id).andExpect(status().isOk());
+
+        mockMvc.perform(put("/api/admin/recap/exercises/" + id).with(asAdmin()).with(csrf())
+                        .contentType("application/json").content(objectMapper.writeValueAsString(Map.of(
+                                "statement", "Un preț de 200 lei crește cu 10%.", "solution", "Calculăm procentul.",
+                                "parts", List.of(
+                                        Map.of("statement", "Aflați creșterea.", "solution", "10% din 200 = 20",
+                                                "answer", "20 lei", "result", "20"),
+                                        Map.of("statement", "Aflați prețul nou.", "solution", "200 + 20 = 221",
+                                                "answer", "221 lei", "result", "221"))))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.parts[0].verified").value(true))
+                .andExpect(jsonPath("$.parts[1].verified").value(false))
+                .andExpect(jsonPath("$.verified").value(false))
+                .andExpect(jsonPath("$.review").value("APPROVED"));
+
+        assertThat(auditRepository.findAll()).filteredOn(e -> Long.valueOf(id).equals(e.getEntityId()))
+                .extracting(e -> e.getAction())
+                .contains(ro.mathlms.audit.AuditAction.RECAP_REVIEWED, ro.mathlms.audit.AuditAction.RECAP_EDITED);
     }
 
     private ResultActions approve(long id) throws Exception {

@@ -36,6 +36,8 @@ describe('recapStatusLabel', () => {
     expect(recapStatusLabel({ ...base, aiStatus: 'PROOF' }).label).toBe('Demonstrație: verifică tu')
     expect(recapStatusLabel({ ...base, aiStatus: 'PARTIAL' }).tone).toBe('warning')
     expect(recapStatusLabel({ ...base, aiStatus: 'SOMETHING' }).label).toBe('De verificat')
+    // a result the AI runs had agreed on, changed by the teacher: no longer AI-checked (audit L1)
+    expect(recapStatusLabel({ ...base, aiStatus: 'EDITED' })).toEqual({ label: 'Rezultat schimbat de profesor', tone: 'warning' })
   })
 })
 

@@ -51,6 +51,8 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   QUESTION_IMAGE_REMOVED: 'Imagine scoasă de la întrebare',
   QUIZ_FROM_PHOTOS: 'Test generat din poze',
   QUIZ_FROM_RECAP: 'Test din culegere',
+  RECAP_REVIEWED: 'Exercițiu din culegere verificat',
+  RECAP_EDITED: 'Exercițiu aprobat din culegere corectat',
   ANSWER_GRADED: 'Punctaj dat',
   PAPER_COMMENTED: 'Comentariu pe lucrare',
   PAPER_GRADED: 'Lucrare notată',

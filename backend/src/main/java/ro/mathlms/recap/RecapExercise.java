@@ -41,6 +41,11 @@ public class RecapExercise {
     /** The most requirements one exercise may have (as for a test's problem). */
     public static final int MAX_PARTS = 6;
 
+    /** Both AI runs agreed on every result. */
+    public static final String AI_AGREED = "AGREE";
+    /** A result the AI runs agreed on was changed by a teacher (not checked by AI any more). */
+    public static final String TEACHER_EDITED = "EDITED";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -124,6 +129,16 @@ public class RecapExercise {
         }
         this.parts.clear();
         this.parts.addAll(given);
+    }
+
+    /**
+     * The teacher changed a result the two AI runs had agreed on: the exercise is no longer "Verificat de AI" (the
+     * list's AI filter and the "checked" marks follow {@code aiStatus}). Other statuses already say "read it".
+     */
+    public void resultEditedByTeacher() {
+        if (AI_AGREED.equals(aiStatus)) {
+            aiStatus = TEACHER_EDITED;
+        }
     }
 
     public void pointToEnChapter(EnChapter chapter) {
