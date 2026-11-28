@@ -23,8 +23,9 @@ import re
 from collections.abc import Callable
 
 from tutor.config import Settings, get_settings
+from tutor.safe_math import parse_tame
 from tutor.solver import Ask, AskRequest, strong_cost_usd
-from tutor.synthesize import LESSONS, ask_strong, claims, decisions_block, lesson_ask, lesson_markdown
+from tutor.synthesize import LESSONS, ask_strong, claims, decisions_block, draft_fingerprint, lesson_ask, lesson_markdown
 
 GREEN, YELLOW, RED = "green", "yellow", "red"
 _RANK = {GREEN: 0, YELLOW: 1, RED: 2}
@@ -36,23 +37,6 @@ STARTUP_SECONDS = 120.0
 _SAFE = re.compile(r"^[0-9A-Za-z+\-*/^().,\s]+$")
 _FUNCTIONS = ("sqrt", "Abs", "Rational", "pi")
 _SYMBOL = re.compile(r"^[A-Za-z]\d?$")  # x, a, m, x1: one letter, maybe one digit
-MAX_EXPONENT = 100
-
-
-def _tame(expression) -> bool:
-    """No power that could take forever: an exponent is a plain number up to MAX_EXPONENT (or a fraction of one), never
-    itself a power ("9**9**9", health audit 2026-11-19 M1)."""
-    import sympy
-
-    for power in expression.atoms(sympy.Pow):
-        exponent = power.exp
-        if exponent.atoms(sympy.Pow) or not exponent.is_number:
-            return False
-        if abs(sympy.Rational(exponent) if exponent.is_Rational else 0) > MAX_EXPONENT or not exponent.is_Rational:
-            return False
-    return True
-
-
 def parse(text: str):
     """The SymPy expression, or None: only numbers, operators, the listed functions and one-letter variables (with
     an optional digit), and no power that could take forever. Read unevaluated first, so a huge power is refused
@@ -70,10 +54,7 @@ def parse(text: str):
     scope: dict = {}
     exec("from sympy import Integer, Float, Rational, Symbol, Add, Mul, Pow", scope)  # what parse_expr needs
     try:
-        raw = sympy.parse_expr(text, local_dict=local, global_dict=scope, evaluate=False)
-        if not _tame(raw):
-            return None
-        return sympy.parse_expr(text, local_dict=local, global_dict=scope, evaluate=True)
+        return parse_tame(text, local, scope)  # the shared rule: no power that could take forever
     except Exception:  # noqa: BLE001 - any parse problem means "cannot be checked"
         return None
 
@@ -315,6 +296,9 @@ def reviews_of(previous: dict) -> list[dict] | None:
 
 def verify(draft: dict, check: Callable[[str, str], str], ask: Ask | None, settings: Settings | None,
            reuse: dict | None = None) -> dict:
+    fingerprint = draft_fingerprint(draft)
+    if reuse is not None and reuse.get("draft_md5") not in (None, fingerprint):
+        raise ValueError("review.json descrie alt draft: rulează verificarea fără --reuse-review.")
     found = mechanical(draft, check)
     reviews, missing, model, tokens_in, tokens_out = None, None, None, 0, 0
     if reuse is not None:
@@ -330,6 +314,7 @@ def verify(draft: dict, check: Callable[[str, str], str], ask: Ask | None, setti
     counts = {c: sum(1 for e in result.values() if e["colour"] == c) for c in (GREEN, YELLOW, RED)}
     return {
         "status": "flagged" if counts[RED] else "draft",
+        "draft_md5": fingerprint,
         "counts": counts,
         "review_model": model,
         "input_tokens": tokens_in,

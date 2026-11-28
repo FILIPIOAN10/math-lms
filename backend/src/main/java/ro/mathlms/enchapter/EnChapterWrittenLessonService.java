@@ -113,14 +113,19 @@ public class EnChapterWrittenLessonService {
 
     /**
      * Refused while a red claim describes the text (unless the teacher has rewritten it: the colours were for the
-     * AI's text) and until the teacher says they read the yellow ones.
+     * AI's text) and until the teacher says they read the yellow ones. {@code shown} is the version the teacher read
+     * (its {@code updatedAt}): a lesson generated again or corrected since is a 409, so a stale tab never approves a
+     * text it did not show (audit 2026-11-25 M1). Compared to the millisecond, what a browser keeps of a time.
      */
     @Transactional
-    public void approve(Long chapterId, boolean readYellow, Long teacherId) {
+    public void approve(Long chapterId, boolean readYellow, OffsetDateTime shown, Long teacherId) {
         EnChapter chapter = chapter(chapterId);
         Map<String, Object> row = row(chapterId);
         if (row == null) {
             throw new EnChapterNotFoundException("lesson", chapterId);
+        }
+        if (shown == null) {
+            throw new IllegalArgumentException("Reîncarcă pagina: nu se știe ce versiune a lecției ai citit.");
         }
         boolean edited = Boolean.TRUE.equals(row.get("edited_by_teacher"));
         int red = (Integer) row.get("red_count");
@@ -132,8 +137,13 @@ public class EnChapterWrittenLessonService {
         if (yellow > 0 && !edited && !readYellow) {
             throw new IllegalArgumentException("Bifează că ai citit afirmațiile galbene.");
         }
-        jdbc.update("UPDATE en_chapter_lessons SET status = 'approved', approved_by = ?, approved_at = now() "
-                + "WHERE chapter_id = ?", teacherId, chapterId);
+        int approved = jdbc.update("UPDATE en_chapter_lessons SET status = 'approved', approved_by = ?, approved_at = now() "
+                + "WHERE chapter_id = ? AND date_trunc('milliseconds', updated_at) = date_trunc('milliseconds', ?::timestamptz)",
+                teacherId, chapterId, shown);
+        if (approved == 0) {
+            throw new EnChapterConflictException("Lecția s-a schimbat de când ai deschis-o (a fost generată din nou sau "
+                    + "corectată). Reîncarcă pagina și citește versiunea nouă înainte s-o aprobi.");
+        }
         auditLog.record(AuditEvent.of(AuditAction.EN_LESSON_APPROVED, chapterId, label(chapter)));
         lessonIndex.lessonsChanged();
     }

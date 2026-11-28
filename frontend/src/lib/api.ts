@@ -2502,8 +2502,9 @@ export async function editWrittenLesson(chapterId: number, markdown: string): Pr
   await putJson(`/admin/en-chapters/${chapterId}/written-lesson`, { markdown })
 }
 
-export async function approveWrittenLesson(chapterId: number, readYellow: boolean): Promise<void> {
-  await postJson(`/admin/en-chapters/${chapterId}/written-lesson/approve`, { readYellow })
+/** `updatedAt`: the version the teacher read; a lesson generated again or corrected since is refused (409). */
+export async function approveWrittenLesson(chapterId: number, readYellow: boolean, updatedAt: string | null | undefined): Promise<void> {
+  await postJson(`/admin/en-chapters/${chapterId}/written-lesson/approve`, { readYellow, updatedAt })
 }
 
 /** The teacher has read a flagged page against the book (V77). */

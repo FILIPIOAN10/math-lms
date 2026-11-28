@@ -216,3 +216,21 @@ def test_the_reviewer_knows_the_other_chapters_so_it_does_not_ask_for_their_matt
 
     assert "<chapter>A11 · Funcția liniară</chapter>" in asked.text and "A10: Calcul algebric" in asked.text
     assert "belongs to another chapter" in asked.system and "variant of a problem type" in asked.system
+
+
+def test_the_review_names_the_draft_it_checked_and_another_drafts_verdicts_are_not_reused():
+    """Health audit 2026-11-25 H1: claim ids are positions ("idea.1"), so a review read against another draft would
+    colour the wrong sentences. The review carries the draft's fingerprint; reusing it on another draft is refused."""
+    import pytest
+
+    from tutor.synthesize import draft_fingerprint
+
+    lesson = draft(idea=[claim("Graficul e o dreaptă.", "EN-1")])
+    review = verify(lesson, always("ok"), None, Settings())
+    assert review["draft_md5"] == draft_fingerprint(lesson)
+
+    revised = draft(idea=[claim("Graficul este o dreaptă care trece prin origine.", "EN-1")])
+    assert draft_fingerprint(revised) != draft_fingerprint(lesson)
+    with pytest.raises(ValueError):
+        verify(revised, always("ok"), None, Settings(), reuse=review)
+

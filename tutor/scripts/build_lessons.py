@@ -44,15 +44,24 @@ def main() -> None:
         for code in [c.strip().upper() for c in args.chapters.split(",") if c.strip()]:
             log.write(f"\n===== {code} {time.strftime('%H:%M:%S')}\n")
             entry = {"ok": False, "revisions": 0}
-            if step(log, "tutor.synthesize", "--chapter", code) and step(log, "tutor.verify_lesson", "--chapter", code):
-                for _ in range(args.rounds):
-                    now = counts(code)
-                    if not now["red"] and not now["yellow"]:
-                        break
-                    if not (step(log, "tutor.synthesize", "--chapter", code, "--revise")
-                            and step(log, "tutor.verify_lesson", "--chapter", code)):
-                        break
-                    entry["revisions"] += 1
+            if not step(log, "tutor.synthesize", "--chapter", code):
+                entry["failed"] = "synthesize"
+            elif not step(log, "tutor.verify_lesson", "--chapter", code):
+                entry["failed"] = "verify"
+            for _ in range(args.rounds if "failed" not in entry else 0):
+                now = counts(code)
+                if not now["red"] and not now["yellow"]:
+                    break
+                # A revision or its check that fails stops the chapter: draft.json and review.json may now describe
+                # different texts, so nothing is stored (health audit 2026-11-25 H1; store_lesson refuses it too).
+                if not step(log, "tutor.synthesize", "--chapter", code, "--revise"):
+                    entry["failed"] = "revise"
+                    break
+                if not step(log, "tutor.verify_lesson", "--chapter", code):
+                    entry["failed"] = "verify"
+                    break
+                entry["revisions"] += 1
+            if "failed" not in entry:
                 entry["counts"] = counts(code)
                 entry["ok"] = True
                 if not args.no_store:

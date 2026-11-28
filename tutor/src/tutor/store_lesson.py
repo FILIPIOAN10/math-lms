@@ -19,7 +19,7 @@ import psycopg
 
 from tutor.config import get_settings
 from tutor.publish import hide_lessons
-from tutor.synthesize import LESSONS, claims, lesson_markdown
+from tutor.synthesize import LESSONS, claims, draft_fingerprint, lesson_markdown
 
 _GAPS = "Ce lipsește din lecție"
 _PREREQUISITES = "Ce trebuie să știi înainte"
@@ -45,7 +45,11 @@ def student_markdown(draft: dict) -> str:
 
 
 def store_lesson(conn: psycopg.Connection, draft: dict, review: dict, *, overwrite: bool = False) -> str:
-    """"written" or "kept" (the teacher's edited text). Does not commit: the caller decides."""
+    """"written" or "kept" (the teacher's edited text). Does not commit: the caller decides. Refused when the review
+    was made for another draft (or before reviews named their draft): its colours would sit on the wrong sentences."""
+    if review.get("draft_md5") != draft_fingerprint(draft):
+        raise SystemExit(f"{draft['chapter']['code']}: review.json nu e verificarea acestui draft - rulează din nou "
+                         f"tutor.verify_lesson --chapter {draft['chapter']['code']}, apoi salvează.")
     found = conn.execute("SELECT id FROM en_chapters WHERE code = %s", (draft["chapter"]["code"],)).fetchone()
     if found is None:
         raise SystemExit(f"Nu există capitolul {draft['chapter']['code']} în această bază de date.")

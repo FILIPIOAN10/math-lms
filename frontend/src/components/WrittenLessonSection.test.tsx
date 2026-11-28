@@ -67,7 +67,8 @@ describe('WrittenLessonSection', () => {
     api.getWrittenLesson.mockResolvedValue(review({ status: 'approved', approvedAt: '2026-11-24T11:00:00Z' }))
     fireEvent.click(approve)
 
-    await waitFor(() => expect(api.approveWrittenLesson).toHaveBeenCalledWith(1, true))
+    // the version read goes with the approval, so a text regenerated meanwhile is refused (409)
+    await waitFor(() => expect(api.approveWrittenLesson).toHaveBeenCalledWith(1, true, '2026-11-24T10:00:00Z'))
     expect(await screen.findByText(/Aprobată\. Elevii o văd după ce arăți capitolul/)).toBeInTheDocument()
   })
 

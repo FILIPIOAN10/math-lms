@@ -249,6 +249,15 @@ def claims(lesson: dict):
         yield f"recap.{i}", "Fișă de recapitulare", claim
 
 
+def draft_fingerprint(draft: dict) -> str:
+    """Which draft a review describes: claim ids are positions ("idea.1"), so review.json must name the exact lesson it
+    checked, and storing or reusing it with another one is refused (health audit 2026-11-25 H1)."""
+    import hashlib
+
+    canonical = json.dumps(draft["lesson"], ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.md5(canonical.encode("utf-8")).hexdigest()
+
+
 def lesson_markdown(lesson: dict, chapter: dict, *, anchors: bool = False) -> str:
     """The lesson as the app's reader shows it (Markdown + LaTeX). `anchors` puts each claim's id before it (the
     review report highlights by it)."""

@@ -3,7 +3,10 @@ reaches a student until the teacher approves it, and a text the teacher edited i
 
 import json
 
+import pytest
+
 from tutor.store_lesson import review_claims, store_lesson
+from tutor.synthesize import draft_fingerprint
 
 CHAPTER = {"id": 999, "code": "AIS2", "title": "Adunarea și scăderea"}
 
@@ -23,7 +26,7 @@ DRAFT = {"chapter": CHAPTER, "model": "gemini-x", "lesson": LESSON,
 def review(red: bool = False) -> dict:
     claims = {"idea.1": {"colour": "green", "reasons": []},
               "formula.1": {"colour": "red" if red else "yellow", "reasons": ["lipsește o condiție"]}}
-    return {"status": "flagged" if red else "draft", "claims": claims,
+    return {"status": "flagged" if red else "draft", "claims": claims, "draft_md5": draft_fingerprint(DRAFT),
             "counts": {"green": 1, "yellow": 0 if red else 1, "red": 1 if red else 0}}
 
 
@@ -76,3 +79,15 @@ def test_a_text_the_teacher_edited_is_kept_unless_overwrite_is_asked_for(conn):
 
     assert store_lesson(conn, DRAFT, review(), overwrite=True) == "written"
     assert row(conn)[0] != "scris de profesor" and row(conn)[6] is False
+
+
+def test_a_review_made_for_another_draft_is_never_stored(conn):
+    """Health audit 2026-11-25 H1: a revised draft with the previous review would show unchecked claims green."""
+    other = {**review(), "draft_md5": "0" * 32}
+    with pytest.raises(SystemExit):
+        store_lesson(conn, DRAFT, other)
+    without = {k: v for k, v in review().items() if k != "draft_md5"}  # a review.json from before the fingerprint
+    with pytest.raises(SystemExit):
+        store_lesson(conn, DRAFT, without)
+    assert row(conn) is None
+

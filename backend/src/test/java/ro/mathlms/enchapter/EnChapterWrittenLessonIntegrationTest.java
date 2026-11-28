@@ -88,9 +88,22 @@ class EnChapterWrittenLessonIntegrationTest {
         return "/api/en-chapters/" + id + "/written-lesson";
     }
 
+    /** Approves the version the teacher has just read (the updatedAt their page showed). */
     private void approve(long id, boolean readYellow, RequestPostProcessor who, int expected) throws Exception {
+        approveVersion(id, readYellow, shownVersion(id), who, expected);
+    }
+
+    private String shownVersion(long id) throws Exception {
+        return JsonPath.read(mockMvc.perform(get(url(id)).with(teacher)).andReturn().getResponse().getContentAsString(),
+                "$.updatedAt");
+    }
+
+    private void approveVersion(long id, boolean readYellow, String version, RequestPostProcessor who, int expected)
+            throws Exception {
+        String body = version == null ? "{\"readYellow\":" + readYellow + "}"
+                : "{\"readYellow\":" + readYellow + ",\"updatedAt\":\"" + version + "\"}";
         mockMvc.perform(post("/api/admin/en-chapters/" + id + "/written-lesson/approve").with(csrf()).with(who)
-                        .contentType(MediaType.APPLICATION_JSON).content("{\"readYellow\":" + readYellow + "}"))
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().is(expected));
     }
 
@@ -187,5 +200,23 @@ class EnChapterWrittenLessonIntegrationTest {
         mockMvc.perform(get(url(id)).with(teacher)).andExpect(jsonPath("$.exists").value(false));
         approve(id, true, teacher, 404);
         mockMvc.perform(get(url(999_999_999L)).with(teacher)).andExpect(status().isNotFound());
+    }
+    /**
+     * Audit 2026-11-25 M1: a tab opened before the lesson was generated again (or corrected elsewhere) must not approve
+     * the text it never showed - the approval names the version read, and a newer one is a 409.
+     */
+    @Test
+    void aStaleTabCannotApproveATextItNeverShowed() throws Exception {
+        long id = chapterWithLesson("S", "draft", 0, 0);
+        String read = shownVersion(id);
+
+        jdbc.update("UPDATE en_chapter_lessons SET markdown = 'Alt text, generat din nou.', "
+                + "updated_at = updated_at + interval '5 seconds' WHERE chapter_id = ?", id);
+        approveVersion(id, false, read, teacher, 409);
+        approveVersion(id, false, null, teacher, 400);
+        mockMvc.perform(get(url(id)).with(teacher)).andExpect(jsonPath("$.status").value("draft"));
+
+        approve(id, false, teacher, 204);
+        mockMvc.perform(get(url(id)).with(teacher)).andExpect(jsonPath("$.status").value("approved"));
     }
 }

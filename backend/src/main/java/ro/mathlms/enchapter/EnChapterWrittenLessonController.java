@@ -22,7 +22,8 @@ public class EnChapterWrittenLessonController {
     public record EditRequest(@NotNull String markdown) {
     }
 
-    public record ApproveRequest(boolean readYellow) {
+    /** {@code updatedAt}: the version of the lesson the teacher read (the {@code updatedAt} their page showed). */
+    public record ApproveRequest(boolean readYellow, java.time.OffsetDateTime updatedAt) {
     }
 
     private final EnChapterWrittenLessonService service;
@@ -53,7 +54,7 @@ public class EnChapterWrittenLessonController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> approve(@PathVariable Long id, @RequestBody ApproveRequest request, Authentication auth) {
         Long teacherId = userRepository.findByEmail(auth.getName()).map(u -> u.getId()).orElse(null);
-        service.approve(id, request.readYellow(), teacherId);
+        service.approve(id, request.readYellow(), request.updatedAt(), teacherId);
         return ResponseEntity.noContent().build();
     }
 }

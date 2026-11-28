@@ -4,6 +4,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { MarkdownText } from '@/components/MarkdownText'
 import { HomeSection } from '@/components/home/HomeBits'
 import {
+  ApiError,
   approveWrittenLesson,
   editWrittenLesson,
   getWrittenLesson,
@@ -112,7 +113,11 @@ export function WrittenLessonSection({ chapterId, teacher, photoUrl }: {
         setLesson(l)
         setEditing(null)
       })
-      .catch((e) => setError(errorMessage(e)))
+      .catch((e) => {
+        setError(errorMessage(e))
+        // 409: the lesson changed since it was opened - show the version that is there now, to be read first
+        if (e instanceof ApiError && e.status === 409) getWrittenLesson(chapterId).then(setLesson).catch(() => undefined)
+      })
       .finally(() => setBusy(false))
   }
 
@@ -148,7 +153,7 @@ export function WrittenLessonSection({ chapterId, teacher, photoUrl }: {
         {!approved && (
           <Button size="sm" disabled={busy || !canApprove}
             title={red > 0 && !edited ? 'O afirmație roșie trebuie corectată întâi.' : undefined}
-            onClick={() => run(() => approveWrittenLesson(chapterId, readYellow))}>
+            onClick={() => run(() => approveWrittenLesson(chapterId, readYellow, lesson.updatedAt))}>
             Aprobă lecția
           </Button>
         )}
