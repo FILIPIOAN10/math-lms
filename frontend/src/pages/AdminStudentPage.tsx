@@ -11,6 +11,7 @@ import { HomeSection } from '@/components/home/HomeBits'
 import { MasteryList } from '@/components/MasteryList'
 import { EnMasteryList } from '@/components/EnMasteryList'
 import { EnPredictionCard } from '@/components/EnPredictionCard'
+import { StudentStudyPlanSection } from '@/components/StudentStudyPlanSection'
 import { PageHeader } from '@/components/PageHeader'
 import { ProgressChart } from '@/components/ProgressChart'
 import { ReviewStatusLine } from '@/components/ReviewStatusLine'
@@ -158,6 +159,8 @@ export function AdminStudentPage() {
             )}
 
             <EnPredictionCard studentId={Number(studentId)} />
+
+            <StudentStudyPlanSection studentId={Number(studentId)} />
 
             {enMastery && enMastery.some((r) => r.questions > 0) && (
               <HomeSection title="Pe capitolele EN">

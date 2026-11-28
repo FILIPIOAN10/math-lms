@@ -3113,3 +3113,53 @@ export async function getStudentEnGoal(studentId: number): Promise<EnGoalSummary
   const response = await apiFetch('/admin/students/' + studentId + '/en-goal')
   return response.json()
 }
+
+export async function getChildStudyPlan(childId: number): Promise<StudyPlan> {
+  const response = await apiFetch('/parent/children/' + childId + '/study-plan')
+  return response.json()
+}
+
+export async function getStudentStudyPlan(studentId: number): Promise<StudyPlan> {
+  const response = await apiFetch('/admin/students/' + studentId + '/study-plan')
+  return response.json()
+}
+
+/** The teacher puts a chapter first into the student's plan; the answer is the plan with it. */
+export async function pinStudyPlanChapter(studentId: number, chapterId: number): Promise<StudyPlan> {
+  const response = await apiFetch(`/admin/students/${studentId}/study-plan/pins/${chapterId}`, { method: 'PUT' })
+  return response.json()
+}
+
+export async function unpinStudyPlanChapter(studentId: number, chapterId: number): Promise<StudyPlan> {
+  const response = await apiFetch(`/admin/students/${studentId}/study-plan/pins/${chapterId}`, { method: 'DELETE' })
+  return response.json()
+}
+
+/** One student in the teacher's class view: estimate (null = too few answers), target (null = none), „în urmă". */
+export interface ClassGoalRow {
+  studentId: number
+  fullName: string
+  grade: number | null
+  low: number | null
+  high: number | null
+  target: number | null
+  expectedToday: number | null
+  behind: boolean
+}
+
+export async function getClassEnGoals(classId: number): Promise<ClassGoalRow[]> {
+  const response = await apiFetch(`/admin/classes/${classId}/en-goals`)
+  return response.json()
+}
+
+/** The school's EN exam date ("2027-06-17"), null until an admin sets it. */
+export async function getEnExamDate(): Promise<string | null> {
+  const response = await apiFetch('/admin/en-exam-date')
+  return ((await response.json()) as { examDate: string | null }).examDate
+}
+
+/** Sets (or, with null, takes away) the EN exam date; a day already gone is refused. */
+export async function setEnExamDate(examDate: string | null): Promise<string | null> {
+  const response = await putJson('/admin/en-exam-date', { examDate })
+  return ((await response.json()) as { examDate: string | null }).examDate
+}

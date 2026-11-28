@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
@@ -16,13 +16,8 @@ const WEEKS_SHOWN = 4
  * „Planul până la EN" as everyone sees it: where the student stands (and whether they are behind), what kind of plan
  * it is, the estimate day by day against the target, and the weeks up to the exam. The student's own view
  * ({@code own}) adds today's block and makes every step a link; the parent's and the teacher's only read it.
- * {@code chapterAction} lets the teacher's page put a button next to each chapter (taking a pin out).
  */
-export function StudyPlanView({ plan, own, chapterAction }: {
-  plan: StudyPlan
-  own: boolean
-  chapterAction?: (chapterId: number) => ReactNode
-}) {
+export function StudyPlanView({ plan, own }: { plan: StudyPlan; own: boolean }) {
   const [allWeeks, setAllWeeks] = useState(false)
   const line = goalLine(plan.grade, plan.target, plan.daysLeft)
   const pinned = new Set(plan.pins.map((p) => p.chapterId))
@@ -73,7 +68,7 @@ export function StudyPlanView({ plan, own, chapterAction }: {
           <div className="space-y-3">
             {weeks.map((week) => (
               <WeekCard key={week.number} week={week} own={own} practiceQuestions={plan.practiceQuestions}
-                        pinned={pinned} chapterAction={chapterAction} />
+                        pinned={pinned} />
             ))}
             {plan.weeks.length > WEEKS_SHOWN && (
               <Button variant="ghost" size="sm" onClick={() => setAllWeeks((v) => !v)}>
@@ -87,12 +82,11 @@ export function StudyPlanView({ plan, own, chapterAction }: {
   )
 }
 
-function WeekCard({ week, own, practiceQuestions, pinned, chapterAction }: {
+function WeekCard({ week, own, practiceQuestions, pinned }: {
   week: StudyPlanWeek
   own: boolean
   practiceQuestions: number
   pinned: Set<number>
-  chapterAction?: (chapterId: number) => ReactNode
 }) {
   const onlyReview = !week.finalWeek && week.items.every((i) => i.type === 'REVIEW')
   return (
@@ -115,7 +109,6 @@ function WeekCard({ week, own, practiceQuestions, pinned, chapterAction }: {
                   <span className="font-semibold">{group.code}</span> {group.title}
                 </p>
                 {pinned.has(group.chapterId) && <Badge variant="outline">pus de profesor</Badge>}
-                {chapterAction?.(group.chapterId)}
               </div>
             )}
             <ul className="flex flex-wrap gap-2">

@@ -33,6 +33,7 @@ const AdminGradingPage = lazy(() => import('@/pages/AdminGradingPage').then((m) 
 const AdminQuizStatsPage = lazy(() => import('@/pages/AdminQuizStatsPage').then((m) => ({ default: m.AdminQuizStatsPage })))
 const StudentProgressPage = lazy(() => import('@/pages/StudentProgressPage').then((m) => ({ default: m.StudentProgressPage })))
 const StudyPlanPage = lazy(() => import('@/pages/StudyPlanPage').then((m) => ({ default: m.StudyPlanPage })))
+const ParentStudyPlanPage = lazy(() => import('@/pages/ParentStudyPlanPage').then((m) => ({ default: m.ParentStudyPlanPage })))
 const ParentChildPage = lazy(() => import('@/pages/ParentChildPage').then((m) => ({ default: m.ParentChildPage })))
 const ReviewPage = lazy(() => import('@/pages/ReviewPage').then((m) => ({ default: m.ReviewPage })))
 const AdminStudentPage = lazy(() => import('@/pages/AdminStudentPage').then((m) => ({ default: m.AdminStudentPage })))
@@ -247,6 +248,14 @@ function App() {
               element={
                 <RoleRoute role="PARENT">
                   <ParentChildPage />
+                </RoleRoute>
+              }
+            />
+            <Route
+              path="/parent/children/:childId/plan"
+              element={
+                <RoleRoute role="PARENT">
+                  <ParentStudyPlanPage />
                 </RoleRoute>
               }
             />

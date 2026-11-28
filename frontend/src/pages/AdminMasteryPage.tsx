@@ -4,12 +4,13 @@ import { Card, CardContent } from '@/components/ui/card'
 import { ErrorState } from '@/components/ErrorState'
 import { MasteryLegend } from '@/components/MasteryLegend'
 import { EnMasteryGrid } from '@/components/EnMasteryGrid'
+import { ClassGoalsTable } from '@/components/ClassGoalsTable'
 import { ClassAverageCell } from '@/components/ClassAverageCell'
 import { PageHeader } from '@/components/PageHeader'
 import { HomeSection } from '@/components/home/HomeBits'
 import {
-  createCatchUpAssignment, createRecapCatchUp, getRecapChapters, downloadClassGrades, getClassEnMastery, getClassMastery, getClassReview, listAssignments, listClasses, listQuizzes,
-  type AssignmentSummary, type ClassMastery, type EnClassMastery, type QuizSummary, type StudentReviewStatus,
+  createCatchUpAssignment, createRecapCatchUp, getRecapChapters, downloadClassGrades, getClassEnGoals, getClassEnMastery, getClassMastery, getClassReview, listAssignments, listClasses, listQuizzes,
+  type AssignmentSummary, type ClassGoalRow, type ClassMastery, type EnClassMastery, type QuizSummary, type StudentReviewStatus,
 } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { CatchUpDialog } from '@/components/CatchUpDialog'
@@ -39,6 +40,7 @@ export function AdminMasteryPage() {
   const [className, setClassName] = useState<string | null>(null)
   const [review, setReview] = useState<StudentReviewStatus[] | null>(null)
   const [enGrid, setEnGrid] = useState<EnClassMastery | null>(null)
+  const [enGoals, setEnGoals] = useState<ClassGoalRow[] | null>(null)
   // Catch-up homework from the collection („Teme recapitulative”), from the EN grid: the column, approved counts, result.
   const [recapColumn, setRecapColumn] = useState<number | null>(null)
   const [recapCounts, setRecapCounts] = useState<Record<number, number> | null>(null)
@@ -107,6 +109,9 @@ export function AdminMasteryPage() {
     getClassEnMastery(id)
       .then((g) => !cancelled && setEnGrid(g))
       .catch(() => undefined) // the class chapters above still work without it
+    getClassEnGoals(id)
+      .then((g) => !cancelled && setEnGoals(g))
+      .catch(() => undefined) // „Ținta la EN" is extra: the grids work without it
     return () => {
       cancelled = true
     }
@@ -247,6 +252,12 @@ export function AdminMasteryPage() {
               />
             )}
           </>
+        )}
+
+        {enGoals && enGoals.some((r) => r.grade !== null || r.target !== null) && (
+          <HomeSection title="Nota estimată la EN și ținta">
+            <ClassGoalsTable rows={enGoals} />
+          </HomeSection>
         )}
 
         {enGrid && enGrid.chapters.length > 0 && (

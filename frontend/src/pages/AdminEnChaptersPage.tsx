@@ -5,6 +5,7 @@ import { ErrorState } from '@/components/ErrorState'
 import { Card, CardContent } from '@/components/ui/card'
 import { EnChapterDialog } from '@/components/EnChapterDialogs'
 import { PageHeader } from '@/components/PageHeader'
+import { EnExamDateCard } from '@/components/EnExamDateCard'
 import { HomeSection } from '@/components/home/HomeBits'
 import { useConfirm } from '@/components/useConfirm'
 import {
@@ -109,6 +110,7 @@ export function AdminEnChaptersPage() {
             </>
           }
         />
+        <EnExamDateCard />
         {loadError && <ErrorState message={loadError} />}
         {error && <p className="text-sm text-destructive">{error}</p>}
         {!chapters && !loadError && <LoadingCards />}

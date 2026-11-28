@@ -59,6 +59,7 @@ class StudyPlanIntegrationTest {
     @Autowired private SchoolClassRepository schoolClassRepository;
     @Autowired private EnrollmentRepository enrollmentRepository;
     @Autowired private JdbcTemplate jdbc;
+    @Autowired private StudyPlanService studyPlanService;
 
     private User student;
     private User parent;
@@ -91,6 +92,8 @@ class StudyPlanIntegrationTest {
         String stamp = String.valueOf(System.nanoTime());
         parent = userRepository.save(new User("parinte-" + stamp + "@scoala.ro", "Maria", Role.PARENT));
         User s = new User("elev-" + stamp + "@scoala.ro", "Ana", Role.STUDENT);
+        s.verifyEmail();
+        s.approve(Role.STUDENT); // an active account, as the daily job reads
         s.linkParent(parent);
         student = userRepository.save(s);
         SchoolClass clasa = schoolClassRepository.save(new SchoolClass("Clasa a 8-a " + stamp, null));
@@ -256,6 +259,34 @@ class StudyPlanIntegrationTest {
 
         JsonNode goal = json(mockMvc.perform(get("/api/quiz/en-goal").with(as(student))));
         assertThat(goal.get("target").asDouble()).isEqualTo(10.0);
+    }
+
+    // --- the daily job ---
+
+    @Test
+    void theDailyJobKeepsTodaysEstimateForTheChart() throws Exception {
+        answerTwentyGrile(List.of("A1", "G5"), List.of("A1"));
+
+        new EnPredictionSnapshotJob(userRepository, studyPlanService, true).run();
+        new EnPredictionSnapshotJob(userRepository, studyPlanService, true).run(); // twice the same day: one row
+
+        JsonNode plan = json(mockMvc.perform(get("/api/quiz/study-plan").with(as(student))));
+        JsonNode prediction = json(mockMvc.perform(get("/api/quiz/en-prediction").with(as(student))));
+        assertThat(plan.get("history")).hasSize(1);
+        assertThat(plan.get("history").get(0).get("day").asString()).isEqualTo(LocalDate.now(ZONE).toString());
+        assertThat(plan.get("history").get(0).get("grade").asDouble()).isEqualTo(prediction.get("grade").asDouble());
+    }
+
+    @Test
+    void aTargetSetBeforeThereWasAnEstimateStartsItsLineAtTheFirstOne() throws Exception {
+        send(put("/api/quiz/en-goal"), as(student), Map.of("targetGrade", 9)).andExpect(status().isOk());
+        answerTwentyGrile(List.of("A1", "G5"), List.of("A1"));
+
+        new EnPredictionSnapshotJob(userRepository, studyPlanService, true).run();
+
+        JsonNode prediction = json(mockMvc.perform(get("/api/quiz/en-prediction").with(as(student))));
+        assertThat(jdbc.queryForObject("select baseline_grade from student_en_goals where student_id = ?",
+                Double.class, student.getId())).isEqualTo(prediction.get("grade").asDouble());
     }
 
     // --- the teacher ---
