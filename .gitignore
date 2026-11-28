@@ -25,6 +25,7 @@ dist-ssr/
 npm-debug.log*
 # Documentatie locala (nu se comite)
 ROADMAP.md
+/docs/MIGRARE-CONTABO.md
 
 # Provider keys as files (Gemini service-account JSON, mounted read-only into the backend) and any stray copy of one
 /secrets/
