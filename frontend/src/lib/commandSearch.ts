@@ -32,6 +32,7 @@ const PAGE_KEYWORDS: Record<string, string> = {
   '/admin/assignments': 'teme termene predare',
   '/review': 'repetare grile zilnic',
   '/progress': 'note grafic evolutie',
+  '/plan': 'tinta nota evaluare nationala saptamani program',
   '/quizzes': 'note rezultate',
   '/account': 'parola tema intunecata email date export',
   '/admin/journal': 'audit istoric cine a schimbat',

@@ -1,7 +1,7 @@
-import { useCallback, useState } from 'react'
 import { type ProgressPointDto } from '@/lib/api'
 import { formatDate, formatDay, roCount } from '@/lib/format'
 import { formatGrade, romanianGrade } from '@/lib/grades'
+import { useMeasuredWidth } from '@/lib/useMeasuredWidth'
 
 /** "8,80", or "—" for a quiz worth no points. */
 const gradeOf = (p: ProgressPointDto) => {
@@ -9,34 +9,12 @@ const gradeOf = (p: ProgressPointDto) => {
   return grade === null ? '—' : formatGrade(grade)
 }
 
-/** Before the first measure, and where nothing can be measured (tests). */
-const DEFAULT_WIDTH = 640
-/** Narrower than this the two dates under the line would collide: below it the drawing shrinks instead. */
-const MIN_WIDTH = 280
 const HEIGHT = 260
 const PAD = { top: 18, right: 16, bottom: 32, left: 30 }
 /** The lines of the grade bands the app uses everywhere (sub 5, 5 – 6,99, 7 – 8,99, 9 – 10). */
 const GRADE_GRID = [1, 5, 7, 9, 10]
 /** A grade is 1 + 9 × percent, so a grade line sits at this percent. */
 const percentOfGrade = (grade: number) => ((grade - 1) / 9) * 100
-
-/**
- * The chart's own width in CSS pixels, kept up to date: drawn at that width, 12 px text stays 12 px. A fixed
- * 640-unit drawing scaled into a 310 px phone card shrank every label to about 5 px.
- */
-function useMeasuredWidth(): [(el: HTMLDivElement | null) => (() => void) | undefined, number] {
-  const [width, setWidth] = useState(DEFAULT_WIDTH)
-  const measure = useCallback((el: HTMLDivElement | null) => {
-    if (!el || typeof ResizeObserver === 'undefined') return undefined
-    const observer = new ResizeObserver(([entry]) => {
-      const measured = Math.round(entry.contentRect.width)
-      if (measured > 0) setWidth(Math.max(MIN_WIDTH, measured))
-    })
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [])
-  return [measure, width]
-}
 
 /**
  * Grade-over-time line chart of graded attempts (oldest → newest, evenly spaced), on the 1–10 scale with the lines

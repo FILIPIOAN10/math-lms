@@ -3015,3 +3015,101 @@ export async function createRecapCatchUp(input: {
   const response = await postJson('/admin/recap/catch-up', input)
   return response.json()
 }
+
+// --- „Ținta la EN" + „Planul până la EN" ---
+
+/**
+ * What kind of plan the student has: no exam date yet, the exam already over, no target picked, too few answers for an
+ * estimate (only this week is planned), the last 21 days (mock papers + review), at the target (one chapter a week),
+ * below it (the chapters whose gains cover the gap).
+ */
+export type StudyPlanMode = 'NO_EXAM_DATE' | 'EXAM_OVER' | 'NO_TARGET' | 'NEEDS_ANSWERS' | 'FINAL' | 'MAINTENANCE' | 'CATCH_UP'
+
+export type StudyPlanItemType = 'LESSON' | 'PRACTICE' | 'MINI_TEST' | 'MOCK' | 'REVIEW'
+
+/** One step; the chapter fields are null for a mock paper and the review. */
+export interface StudyPlanItem {
+  type: StudyPlanItemType
+  chapterId: number | null
+  code: string | null
+  title: string | null
+}
+
+/** Seven days of the plan (the last ends on the exam day); `finalWeek` = mock papers and review. */
+export interface StudyPlanWeek {
+  number: number
+  start: string
+  end: string
+  finalWeek: boolean
+  items: StudyPlanItem[]
+}
+
+/** The estimated grade on one day ("2026-11-28"). */
+export interface EnSnapshot {
+  day: string
+  grade: number
+  low: number
+  high: number
+}
+
+/** A chapter the teacher put into the plan. */
+export interface StudyPlanPin {
+  chapterId: number
+  code: string
+  title: string
+}
+
+/**
+ * The plan page: `grade`/`low`/`high` null = no estimate yet (`answers` of `answersNeeded`); `behind` = more than 0,3
+ * under the straight line to the target (`expectedToday` = where that line is today); `history` oldest first.
+ */
+export interface StudyPlan {
+  examDate: string | null
+  daysLeft: number | null
+  target: number | null
+  grade: number | null
+  low: number | null
+  high: number | null
+  answers: number
+  answersNeeded: number
+  mode: StudyPlanMode
+  behind: boolean
+  expectedToday: number | null
+  weeks: StudyPlanWeek[]
+  history: EnSnapshot[]
+  pins: StudyPlanPin[]
+  practiceQuestions: number
+}
+
+/** Next to the estimate card's grade: the target (null = none picked) and the days left (null = no exam date). */
+export interface EnGoalSummary {
+  target: number | null
+  examDate: string | null
+  daysLeft: number | null
+}
+
+export async function getMyStudyPlan(): Promise<StudyPlan> {
+  const response = await apiFetch('/quiz/study-plan')
+  return response.json()
+}
+
+/** Picks (or changes) the student's target; the answer is the new plan. */
+export async function setMyEnGoal(targetGrade: number): Promise<StudyPlan> {
+  const response = await putJson('/quiz/en-goal', { targetGrade })
+  return response.json()
+}
+
+export async function getMyEnGoal(): Promise<EnGoalSummary> {
+  const response = await apiFetch('/quiz/en-goal')
+  return response.json()
+}
+
+export async function getChildEnGoal(childId: number): Promise<EnGoalSummary> {
+  const response = await apiFetch('/parent/children/' + childId + '/en-goal')
+  return response.json()
+}
+
+export async function getStudentEnGoal(studentId: number): Promise<EnGoalSummary> {
+  const response = await apiFetch('/admin/students/' + studentId + '/en-goal')
+  return response.json()
+}
