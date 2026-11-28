@@ -8,6 +8,10 @@
 # Prometheus/Grafana/Alertmanager (profile "monitoring") are bound to 127.0.0.1 — reach them over an SSH tunnel.
 # HTTPS: terminate TLS in front (Caddy / Traefik / a cloud load balancer), forward to this nginx and set
 # X-Forwarded-Proto. COOKIE_SECURE=true REQUIRES https, otherwise the browser drops the login cookie.
+# Memory: every service has a cap (overridable in .env.prod, e.g. BACKEND_MEM_LIMIT=1g on a 2 GB host). Without
+# one the JVM sized its heap from the HOST (75% of 3.7 GB = 2.8 GB) and, with Postgres and the tutor beside it,
+# the kernel would kill whichever process it chose; now the JVM sizes itself to its own cap and only an
+# over-limit container restarts (audit 2026-11-27). The caps add up to ~3.5 GB on the 3.7 GB EC2.
 name: mathlms-prod
 
 services:
@@ -15,6 +19,7 @@ services:
     # Postgres 16 + the pgvector extension (V36). Same image as docker-compose.yml and the integration tests.
     image: pgvector/pgvector:pg16
     restart: unless-stopped
+    mem_limit: ${POSTGRES_MEM_LIMIT:-512m}
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-mathlms}
       POSTGRES_USER: ${POSTGRES_USER:-mathlms}
@@ -30,6 +35,7 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    mem_limit: ${REDIS_MEM_LIMIT:-128m}
     # Refresh-token sessions + caches + rate-limit counters live here: password-protected, never published.
     command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:?set REDIS_PASSWORD in .env.prod}"]
     volumes:
@@ -47,6 +53,7 @@ services:
     image: ${BACKEND_IMAGE:-mathlms-backend:local}
     build: ./backend
     restart: unless-stopped
+    mem_limit: ${BACKEND_MEM_LIMIT:-1536m}
     read_only: true
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
@@ -144,6 +151,7 @@ services:
     image: ${TUTOR_IMAGE:-mathlms-tutor:local}
     build: ./tutor
     restart: unless-stopped
+    mem_limit: ${TUTOR_MEM_LIMIT:-768m}
     read_only: true
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
@@ -171,6 +179,7 @@ services:
     image: ${FRONTEND_IMAGE:-mathlms-frontend:local}
     build: ./frontend
     restart: unless-stopped
+    mem_limit: ${FRONTEND_MEM_LIMIT:-64m}
     read_only: true
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
@@ -187,6 +196,7 @@ services:
     profiles: ["monitoring"]
     image: prom/prometheus:v3.1.0
     restart: unless-stopped
+    mem_limit: ${PROMETHEUS_MEM_LIMIT:-256m}
     volumes:
       - ./monitoring/prometheus.prod.yml:/etc/prometheus/prometheus.yml:ro
       - ./monitoring/alert-rules.yml:/etc/prometheus/alert-rules.yml:ro
@@ -204,6 +214,7 @@ services:
     profiles: ["monitoring"]
     image: prom/alertmanager:v0.28.0
     restart: unless-stopped
+    mem_limit: ${ALERTMANAGER_MEM_LIMIT:-64m}
     volumes:
       - ./monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
     ports:
@@ -213,6 +224,7 @@ services:
     profiles: ["monitoring"]
     image: grafana/grafana:11.4.0
     restart: unless-stopped
+    mem_limit: ${GRAFANA_MEM_LIMIT:-256m}
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:?set GRAFANA_PASSWORD in .env.prod}   # bound to 127.0.0.1 only
