@@ -3,7 +3,7 @@
 import pytest
 
 from tutor.answer_check import (clean_statement, compare, figure_numbers, mentions_figure, repair_latex,
-                                 repair_page_latex, same)
+                                 repair_page_latex, same, to_expr)
 
 
 def run(*answers, kind="NUMERIC", needs_figure=False) -> dict:
@@ -70,6 +70,20 @@ def test_texts_that_differ_and_have_no_value_are_not_comparable():
 def test_only_safe_sympy_is_evaluated():
     assert same("__import__('os').system('x')", "0") is None
     assert same("exp(1)", "exp(1)") is None  # a name that is not on the list is not evaluated at all
+
+
+def test_a_power_tower_is_refused_before_anything_computes_it():
+    """Health audit 2026-11-19 M1: SymPy computed 9^9^9 and never finished. Refused at once now; ordinary powers stay."""
+    import time
+
+    started = time.monotonic()
+    assert to_expr("9^9^9") is None
+    assert same("9^9^9", "1") is None
+    assert to_expr("2^1000") is None  # an exponent past the limit
+    assert time.monotonic() - started < 3
+    assert same("2^10", "1024") is True
+    assert same("(1/2)^2", "0.25") is True
+    assert same("3*sqrt(2)", "sqrt(18)") is True
 
 
 def test_latex_eaten_by_json_escapes_is_put_back():

@@ -21,6 +21,8 @@ import numpy as np  # noqa: E402
 import sympy  # noqa: E402
 from matplotlib.mathtext import MathTextParser  # noqa: E402
 
+from tutor.safe_math import parse_tame  # noqa: E402
+
 _STR = {"type": "string"}
 _BOOL = {"type": "boolean"}
 # The optional parts (a point's style, a circle's dashed back half, arcs, shaded regions) may be left out: an exercise
@@ -95,7 +97,8 @@ def parse(text, allow_x: bool = False):
     exec("from sympy import Integer, Float, Rational, Symbol", scope)  # what parse_expr's number handling needs
     scope.update(local)
     try:
-        return sympy.parse_expr(text.replace("^", "**"), local_dict=local, global_dict=scope)
+        # read unevaluated first: a power tower ("9^9^9") is refused before SymPy computes it (audit 2026-11-19 M1)
+        return parse_tame(text.replace("^", "**"), local, scope)
     except Exception:  # noqa: BLE001 - anything unparsable is "not a value"
         return None
 

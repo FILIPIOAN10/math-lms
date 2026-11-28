@@ -13,6 +13,8 @@ import re
 
 import sympy
 
+from tutor.safe_math import parse_tame
+
 STATUSES = ("AGREE", "PARTIAL", "PROOF", "NEEDS_FIGURE", "UNPARSED", "DISAGREE", "ERROR")
 
 _SAFE = re.compile(r"^[0-9A-Za-z_+\-*/^().,\s]+$")
@@ -99,7 +101,8 @@ def to_expr(text: str | None):
     exec("from sympy import Integer, Float, Rational, Symbol", scope)  # what the number transformations need
     scope.update(names)
     try:
-        return sympy.parse_expr(text.replace("^", "**"), local_dict=names, global_dict=scope)
+        # read unevaluated first: a power tower ("9^9^9") is refused before SymPy computes it (audit 2026-11-19 M1)
+        return parse_tame(text.replace("^", "**"), names, scope)
     except Exception:  # noqa: BLE001 - any parse problem means "not comparable"
         return None
 

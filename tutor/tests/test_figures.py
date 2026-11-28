@@ -204,3 +204,16 @@ def test_a_solid_is_drawn_from_a_view_where_no_edge_lies_on_another():
 
     assert figures.view_issues(box, space, textbook) > 0
     assert figures.view_issues(box, space, chosen) == 0
+
+
+def test_a_power_tower_on_a_figure_is_refused_before_anything_computes_it():
+    """Health audit 2026-11-19 M1: the same 9^9^9 as an answer must not hang the figure check either."""
+    import time
+
+    started = time.monotonic()
+    assert figures.parse("9^9^9") is None
+    assert figures.parse("x^9^9^9", allow_x=True) is None
+    assert time.monotonic() - started < 3
+    assert figures.parse("4*sqrt(3)") == 4 * figures.sympy.sqrt(3)
+    assert figures.parse("x^2", allow_x=True) == figures.sympy.Symbol("x") ** 2
+
