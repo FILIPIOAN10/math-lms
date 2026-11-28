@@ -42,7 +42,9 @@ final class PageReading {
             "statement" is only the shared text above the sub-points, and each sub-point goes in "parts" in order, with \
             its own text (without the letter) and the points printed next to it (e.g. "(2p) a) Arată că $x=25$." -> \
             {"statement": "Arată că $x=25$.", "points": 2}). The item's "points" is then their sum. Without \
-            sub-points, "parts" is [].
+            sub-points, "parts" is []. If a numbered exercise has sub-points but no shared text above them, keep it as \
+            its own item with an empty "statement" and put every sub-point in "parts". Never omit it or attach its \
+            sub-points to the previous exercise.
             - "section": the heading the exercise sits under (e.g. "SUBIECTUL I", "Exerciții de consolidare"), followed by \
             its instruction line, if one is printed, on a new line (e.g. "SUBIECTUL I\\nÎncercuiește litera \
             corespunzătoare răspunsului corect."); null when there is no heading.

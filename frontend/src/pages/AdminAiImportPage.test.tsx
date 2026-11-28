@@ -205,6 +205,23 @@ describe('AdminAiImportPage', () => {
     expect(within(open).getByText('Calculează perimetrul.')).toBeInTheDocument()
   })
 
+  it('shows the generic shared-statement warning and keeps the problem requirements in the review', async () => {
+    const warning = 'Am adăugat un enunț generic pentru că problema nu avea text comun; îl poți edita.'
+    api.getAiImport.mockResolvedValue(done({ itemCount: 1, items: [
+      { page: 4, section: 'SUBIECTUL al III-lea', type: 'OPEN', statement: 'Rezolvați cerințele de mai jos.',
+        options: [], points: 5, hasFigure: false, warnings: [warning],
+        parts: [{ statement: 'Arătați că $x=25$.', points: 2 }, { statement: 'Calculați $x+3$.', points: 3 }] },
+    ] }))
+    renderAt('/admin/quizzes/ai-import/5')
+
+    const [problem] = await screen.findAllByTestId('ai-draft')
+    expect(within(problem).getByText(/Am adăugat un enunț generic/)).toBeInTheDocument()
+    const parts = within(problem).getByTestId('ai-parts')
+    expect(within(parts).getAllByRole('listitem')).toHaveLength(2)
+    expect(parts).toHaveTextContent('Arătați că')
+    expect(parts).toHaveTextContent('Calculați')
+  })
+
   it('opens the form by itself for a grilă that cannot go in as read', async () => {
     const items = done().items!
     items[0] = { ...items[0], options: ['7'] }
